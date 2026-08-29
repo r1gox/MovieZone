@@ -749,8 +749,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     } else {
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
         if (autoPlay) {
-            const first = (item.embeds && item.embeds[0]) || (item.reproductor ? { url: item.reproductor } : null);
-            if (first) reproducir(first, item);
+            const lista = normalizarEmbeds(item.embeds).filter(e => e && e.url && !esEmbedInvalido(e.url));
+            const first = lista[0] || (item.reproductor ? { url: item.reproductor } : null);
+            if (first) reproducir(first, item, lista.length ? lista : null);
         }
     }
 }
@@ -771,7 +772,16 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
     document.body.classList.remove("player-open");
+    playerEmbedsLista = [];
+    playerEmbedIndex = 0;
     cargarContinuarViendo();
+});
+
+document.getElementById("btn-player-retry")?.addEventListener("click", () => {
+    reintentarPlayer();
+});
+document.getElementById("btn-player-next")?.addEventListener("click", () => {
+    siguienteServidorPlayer();
 });
 
 // ---------- Favoritos ----------
@@ -945,16 +955,64 @@ function renderEpisodios(item, season = 1) {
 }
 
 // ---------- Servidores y descargas ----------
-function reproducir(embed, item) {
+// Estado del player (para reintentar / cambiar servidor sin redirects de anuncios)
+let playerEmbedsLista = [];
+let playerEmbedIndex = 0;
+let playerItemActual = null;
+
+function asegurarSandboxIframe() {
+    if (!playerIframe) return;
+    // Evita que el embed redirija la pestaña principal (causa pantalla negra en Brave)
+    playerIframe.setAttribute(
+        "sandbox",
+        "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
+    );
+    playerIframe.setAttribute("referrerpolicy", "no-referrer");
+    playerIframe.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
+    playerIframe.setAttribute("allowfullscreen", "");
+}
+
+function cargarUrlEnPlayer(url) {
+    if (!playerIframe || !url) return;
+    asegurarSandboxIframe();
+    // Reset duro: evita estado negro tras redirect fallido
+    playerIframe.src = "about:blank";
+    requestAnimationFrame(() => {
+        playerIframe.src = url;
+    });
+}
+
+function reproducir(embed, item, listaEmbeds = null) {
     if (!embed?.url) return;
+
+    if (Array.isArray(listaEmbeds) && listaEmbeds.length) {
+        playerEmbedsLista = listaEmbeds.filter(e => e && e.url);
+        playerEmbedIndex = Math.max(0, playerEmbedsLista.findIndex(e => e.url === embed.url));
+        if (playerEmbedIndex < 0) playerEmbedIndex = 0;
+    } else if (item && Array.isArray(item.embeds) && item.embeds.length) {
+        playerEmbedsLista = normalizarEmbeds(item.embeds).filter(e => e && e.url && !esEmbedInvalido(e.url));
+        playerEmbedIndex = Math.max(0, playerEmbedsLista.findIndex(e => e.url === embed.url));
+        if (playerEmbedIndex < 0) {
+            playerEmbedsLista = [embed];
+            playerEmbedIndex = 0;
+        }
+    } else {
+        playerEmbedsLista = [embed];
+        playerEmbedIndex = 0;
+    }
+    playerItemActual = item || seleccionActual;
+
     videoContainer.classList.remove("hidden");
-    playerIframe.src = embed.url;
-    playerTitle.textContent = (item?.nombre || "Reproduciendo...")
-        .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
+    const actual = playerEmbedsLista[playerEmbedIndex] || embed;
+    cargarUrlEnPlayer(actual.url);
+
+    const nombreSrv = detectarServidor(actual.url, actual.servidor || actual.server || "");
+    playerTitle.textContent = ((item?.nombre || playerItemActual?.nombre || "Reproduciendo...")
+        .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" "))
+        + (nombreSrv ? ` · ${nombreSrv}` : "");
+
     iniciarSeguimientoProgreso(item || seleccionActual);
-    // evita pull-to-refresh sobre el player
     document.body.classList.add("player-open");
-    // Scroll automático al reproductor
     requestAnimationFrame(() => {
         try {
             videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -962,6 +1020,25 @@ function reproducir(embed, item) {
             videoContainer.scrollIntoView(true);
         }
     });
+}
+
+function reintentarPlayer() {
+    const actual = playerEmbedsLista[playerEmbedIndex];
+    if (actual?.url) cargarUrlEnPlayer(actual.url);
+}
+
+function siguienteServidorPlayer() {
+    if (!playerEmbedsLista.length) return;
+    playerEmbedIndex = (playerEmbedIndex + 1) % playerEmbedsLista.length;
+    const actual = playerEmbedsLista[playerEmbedIndex];
+    if (!actual?.url) return;
+    const nombreSrv = detectarServidor(actual.url, actual.servidor || actual.server || "");
+    if (playerTitle) {
+        const base = (playerItemActual?.nombre || "Reproduciendo...")
+            .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
+        playerTitle.textContent = base + (nombreSrv ? ` · ${nombreSrv}` : "");
+    }
+    cargarUrlEnPlayer(actual.url);
 }
 
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) {
@@ -1017,24 +1094,27 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
     }
 
 
-    /* MovieZone / Vimeo primero */
-
-    embeds.sort((a, b) => {
-
-        const aV =
-            /vimeos/i.test(a.url || "") ||
-            a.server === "MovieZone";
-
-        const bV =
-            /vimeos/i.test(b.url || "") ||
-            b.server === "MovieZone";
-
-        return (
-            (bV ? 1 : 0) -
-            (aV ? 1 : 0)
-        );
-
-    });
+    /* Prioridad: MovieZone (Vimeos) primero, luego Voe; Streamwish/Vidhide al final */
+    const PRIORIDAD_SERVIDOR = [
+        "vimeos", "voe", "filemoon", "streamtape", "goodstream",
+        "mixdrop", "dood", "upstream", "vidmoly", "mp4upload",
+        "lulustream", "filelions", "ok.ru", "vidhide", "streamwish"
+    ];
+    function scoreServidor(embed) {
+        const u = String((embed && embed.url) || "").toLowerCase();
+        const srv = String((embed && (embed.server || embed.servidor || embed.name)) || "").toLowerCase();
+        // 1) MovieZone / Vimeos
+        if (srv === "moviezone" || /vimeos/i.test(u) || /vimeos/i.test(srv)) return 200;
+        // 2) Voe
+        if (/voe\.(sx|com)/i.test(u) || srv.includes("voe") || u.includes("voe.")) return 180;
+        for (let i = 0; i < PRIORIDAD_SERVIDOR.length; i++) {
+            if (u.includes(PRIORIDAD_SERVIDOR[i]) || srv.includes(PRIORIDAD_SERVIDOR[i])) {
+                return 150 - i;
+            }
+        }
+        return 10;
+    }
+    embeds.sort((a, b) => scoreServidor(b) - scoreServidor(a));
 
 
     /*
@@ -1252,7 +1332,8 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
                         "click",
                         () => reproducir(
                             embed,
-                            item
+                            item,
+                            embeds
                         )
                     );
 

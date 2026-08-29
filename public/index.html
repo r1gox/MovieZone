@@ -204,7 +204,25 @@
           </button>
         </div>
         <div class="player-iframe-wrapper">
-          <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+          <iframe
+            id="player-iframe"
+            src="about:blank"
+            allowfullscreen
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            referrerpolicy="no-referrer"
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
+          ></iframe>
+          <div class="player-toolbar" id="player-toolbar">
+            <button type="button" class="btn-player-tool" id="btn-player-retry" title="Reintentar">
+              <ion-icon name="refresh-outline"></ion-icon>
+              <span>Reintentar</span>
+            </button>
+            <button type="button" class="btn-player-tool" id="btn-player-next" title="Siguiente servidor">
+              <ion-icon name="play-skip-forward-outline"></ion-icon>
+              <span>Otro servidor</span>
+            </button>
+          </div>
         </div>
       </div>
 
