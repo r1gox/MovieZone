@@ -378,33 +378,50 @@ function scoreItem(item) {
   return s;
 }
 
-/** Deduplica lista de resultados de búsqueda/listado eligiendo el más completo por título */
+/** Deduplica por título: 1 resultado aunque venga de 3 fuentes (ej. Acaramelados) */
 function dedupeListItems(lista) {
   const map = new Map();
   for (const item of lista || []) {
-    const key = normalizeTitleKey(item.nombre || item.titulo) || item.link || item.slug || String(Math.random());
-    const prev = map.get(key);
-    if (!prev || scoreItem(item) > scoreItem(prev)) {
-      // Si el previo tenía players y el nuevo no, fusionar flags útiles
-      if (prev && prev.tiene_player && !item.tiene_player) {
-        item.tiene_player = true;
-        if (!item.embeds?.length && prev.embeds?.length) item.embeds = prev.embeds;
-        if (!item.reproductor && prev.reproductor) item.reproductor = prev.reproductor;
-      }
-      // Preferir portada/rating del mejor
-      if (prev) {
-        if (!item.portada && prev.portada) item.portada = prev.portada;
-        if (!item.calificacion && prev.calificacion) item.calificacion = prev.calificacion;
-        if (!item.descripcion && prev.descripcion) item.descripcion = prev.descripcion;
-      }
-      map.set(key, item);
-    } else if (prev) {
-      // Enriquecer el ganador con datos del perdedor
-      if (!prev.portada && item.portada) prev.portada = item.portada;
-      if (!prev.calificacion && item.calificacion) prev.calificacion = item.calificacion;
-      if (!prev.descripcion && item.descripcion) prev.descripcion = item.descripcion;
-      if (!prev.tiene_player && item.tiene_player) prev.tiene_player = true;
+    // Clave fuerte: título sin año + tipo (no por fuente)
+    const key =
+      normalizeTitleKey(item.nombre || item.titulo) +
+      "|" +
+      (item.tipo || "Película");
+    if (!normalizeTitleKey(item.nombre || item.titulo)) {
+      // fallback único
+      map.set(item.link || item.slug || String(Math.random()), item);
+      continue;
     }
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, item);
+      continue;
+    }
+    // Elegir el más completo y fusionar datos del otro
+    const winner = scoreItem(item) >= scoreItem(prev) ? item : prev;
+    const loser = winner === item ? prev : item;
+    if (loser.tiene_player && !winner.tiene_player) {
+      winner.tiene_player = true;
+      if (!winner.embeds?.length && loser.embeds?.length) winner.embeds = loser.embeds;
+      if (!winner.reproductor && loser.reproductor) winner.reproductor = loser.reproductor;
+    }
+    if (!winner.portada && loser.portada) winner.portada = loser.portada;
+    if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
+    if ((!winner.descripcion || winner.descripcion.length < 40) && loser.descripcion) {
+      winner.descripcion = loser.descripcion;
+    }
+    if (!winner.genero && loser.genero) winner.genero = loser.genero;
+    if (!winner.backdrop && loser.backdrop) winner.backdrop = loser.backdrop;
+    if (!winner.tmdb_id && loser.tmdb_id) winner.tmdb_id = loser.tmdb_id;
+    // Preferir source con más datos (lamovie suele tener postId)
+    if (!winner.postId && loser.postId) {
+      winner.postId = loser.postId;
+      if (loser.source_id) winner.source_id = loser.source_id;
+      if (loser.slug) winner.slug = loser.slug;
+      if (loser.link) winner.link = loser.link;
+      if (loser.url_extract) winner.url_extract = loser.url_extract;
+    }
+    map.set(key, winner);
   }
   return Array.from(map.values());
 }
@@ -504,14 +521,14 @@ async function buscarEnSupabase({ link, slug, postId }) {
   return null;
 }
 
-/** Resultado de listado / search → item ligero */
+/** Resultado de listado / search → item ligero (API v2 con TMDB) */
 function mapListItem(r) {
-  const titulo = limpiarTitulo(r.titulo || r.title || r.nombre || "Sin título");
+  const titulo = limpiarTitulo(r.titulo || r.title || r.nombre || r.titulo_tmdb || "Sin título");
   const tipo = normalizarTipo(r.tipo || r.type);
   const slug = r.slug || null;
   const sourceId = String(r.source_id || r.fuente || DEFAULT_SOURCE);
-  const year = extraerAnio(titulo, r.year);
-  const portada = r.portada || r.poster || null;
+  const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
+  const portada = r.portada || r.portada_tmdb || r.poster || r.tmdb_poster || null;
   const link =
     r.link ||
     r.url ||
@@ -521,25 +538,31 @@ function mapListItem(r) {
         ? `${API_BASE}/${sourceId}/${tipo === "Serie" || tipo === "Anime" ? "serie" : "pelicula"}/${slug}`
         : null);
 
+  const genero = extraerGenero(r) || (Array.isArray(r.generos) ? r.generos.join(", ") : null);
+  const descripcion = limpiarDescripcion(r.descripcion || r.overview_tmdb || r.tmdb_overview || "", titulo);
+
   return {
-    id: r.postId || r.id || `${sourceId}-${slug || titulo}`,
+    id: r.postId || r.id || r.tmdb_id || `${sourceId}-${slug || titulo}`,
     postId: r.postId || null,
+    tmdb_id: r.tmdb_id || null,
     nombre: titulo,
-    titulo_original: r.titulo_original || null,
+    titulo_original: r.titulo_original || r.original_title || null,
     slug,
     tipo,
-    descripcion: limpiarDescripcion(r.descripcion || "", titulo),
+    descripcion,
     portada,
+    portada_tmdb: r.portada_tmdb || null,
     backdrop: r.backdrop || null,
     year,
-    genero: extraerGenero(r),
+    genero,
+    generos: Array.isArray(r.generos) ? r.generos : (genero ? genero.split(",").map((g) => g.trim()) : []),
     idiomas: r.idiomas || [],
     calidad: r.calidad || [],
-    calificacion: r.calificacion || r.rating || null,
+    calificacion: r.calificacion || r.rating || r.tmdb_rating || null,
     calificacion_comunidad: null,
-    votos: null,
-    fecha_estreno: r.fecha_estreno || null,
-    duracion: null,
+    votos: r.votos || null,
+    fecha_estreno: r.fecha_estreno || r.release_date || r.tmdb_release_date || null,
+    duracion: r.duracion || r.runtime || null,
     certificacion: null,
     paises: [],
     ultimo_episodio: null,
@@ -617,13 +640,17 @@ function mapDetail(data, fallback = {}) {
     slug,
     tipo: tipo === "Capitulo" ? "Serie" : tipo,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
-    portada: data.portada || fallback.portada || null,
-    backdrop: data.backdrop || null,
-    year: extraerAnio(titulo, data.year || fallback.year),
-    genero: extraerGenero(data) || extraerGenero(fallback) || null,
+    portada: data.portada || data.portada_tmdb || fallback.portada || null,
+    portada_tmdb: data.portada_tmdb || null,
+    backdrop: data.backdrop || fallback.backdrop || null,
+    year: extraerAnio(titulo, data.year || data.fecha_estreno || fallback.year),
+    genero: extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null),
+    generos: Array.isArray(data.generos) ? data.generos : [],
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
-    calificacion: data.calificacion || null,
+    calificacion: data.calificacion || data.rating || null,
+    tmdb_id: data.tmdb_id || fallback.tmdb_id || null,
+    titulo_original: data.titulo_original || data.original_title || fallback.titulo_original || null,
     calificacion_comunidad: null,
     votos: null,
     fecha_estreno: data.fecha_estreno || null,
@@ -867,7 +894,7 @@ async function obtenerDetalle(params) {
     return cached;
   }
 
-  // 3) API externa — probar fuente principal y, si hace falta, las otras 2
+  // 3) API externa
   const id = parseIdentidad({ link, slug, source_id: source_id || cached?.source_id, tipo: tipo || cached?.tipo });
   if (!id) {
     if (cached) return cached;
@@ -878,41 +905,75 @@ async function obtenerDetalle(params) {
     throw new Error("No se pudo identificar la película/serie");
   }
 
+  // Si ya funciona bien (players + descripción + portada) y no es force → no re-scrapear
+  // (force = usuario pulsó Actualizar: solo re-busca fuentes si faltan players/episodios/portada)
+  const yaFunciona =
+    cached &&
+    itemTieneContenidoValido(cached) &&
+    cached.descripcion &&
+    String(cached.descripcion).length > 40 &&
+    cached.portada &&
+    !String(cached.portada).includes("placeholder");
+
+  if (!force && yaFunciona) {
+    return cached;
+  }
+
+  // force con players OK: solo refrescar meta (descripcion/genero) de la fuente actual, no rehacer todo
+  const soloMeta =
+    force &&
+    cached &&
+    itemTieneContenidoValido(cached) &&
+    (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
+
   const sourcesToTry = [String(id.sourceId)];
   for (const s of ["3", "1", "2"]) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
+  // Si solo necesitamos meta y ya hay players, probar 1 fuente y listo
+  const fuentes = soloMeta ? sourcesToTry.slice(0, 1) : sourcesToTry;
 
   let best = null;
-  // Probar las 3 fuentes siempre que falten players o la descripción esté incompleta
-  for (const sid of sourcesToTry) {
-    const candidate = await fetchDetailFromSource(sid, id.kind, id.slug, {
-      link,
-      slug: id.slug,
-      source_id: sid,
-      tipo: tipo || cached?.tipo,
-      nombre: cached?.nombre,
-      portada: cached?.portada,
-      descripcion: cached?.descripcion,
-      year: cached?.year,
-      genero: cached?.genero,
-      postId: postId || cached?.postId,
-    });
-    if (!candidate) continue;
-    best = best
-      ? scoreItem(candidate) > scoreItem(best)
-        ? mergeItems(candidate, best)
-        : mergeItems(best, candidate)
-      : candidate;
-    // Preferir la descripción más larga / completa
-    if (
-      best &&
-      candidate.descripcion &&
-      String(candidate.descripcion).length > String(best.descripcion || "").length
-    ) {
-      best.descripcion = candidate.descripcion;
+  for (const sid of fuentes) {
+    // Probar slug actual y variantes sin año
+    const slugsTry = [id.slug];
+    const slugSinAnio = String(id.slug || "").replace(/-\d{4}$/, "");
+    if (slugSinAnio && slugSinAnio !== id.slug) slugsTry.push(slugSinAnio);
+
+    for (const slugTry of slugsTry) {
+      const candidate = await fetchDetailFromSource(sid, id.kind, slugTry, {
+        link,
+        slug: slugTry,
+        source_id: sid,
+        tipo: tipo || cached?.tipo,
+        nombre: cached?.nombre,
+        portada: cached?.portada,
+        descripcion: cached?.descripcion,
+        year: cached?.year,
+        genero: cached?.genero,
+        postId: postId || cached?.postId,
+      });
+      if (!candidate) continue;
+      best = best
+        ? scoreItem(candidate) > scoreItem(best)
+          ? mergeItems(candidate, best)
+          : mergeItems(best, candidate)
+        : candidate;
+      if (
+        best &&
+        candidate.descripcion &&
+        String(candidate.descripcion).length > String(best.descripcion || "").length
+      ) {
+        best.descripcion = candidate.descripcion;
+      }
+      if (candidate.genero && !best.genero) best.genero = candidate.genero;
+      if (candidate.portada && (!best.portada || /pelisplushd\.la\/poster/i.test(best.portada))) {
+        best.portada = candidate.portada;
+      }
     }
-    if (candidate.genero && !best.genero) best.genero = candidate.genero;
+    // Si ya tenemos players buenos, no hace falta seguir en force solo-meta
+    if (soloMeta && best) break;
+    if (!force && best && itemTieneContenidoValido(best) && best.descripcion && best.portada) break;
   }
 
   if (!best) {

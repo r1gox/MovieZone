@@ -715,23 +715,28 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 15px 48px;
+  height: 48px;
+  display: block;
+  padding: 0;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
   z-index: 10;
 }
 #player-title {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 96px);
   text-align: center;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
-  padding: 0 12px;
+  margin: 0;
+  padding: 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 .btn-close-player {
   position: absolute;
@@ -750,7 +755,8 @@ body {
   align-items: center;
   backdrop-filter: blur(5px);
   transition: var(--transition-fast);
-  margin-left: 0;
+  margin: 0;
+  z-index: 2;
 }
 .btn-close-player:hover {
   background: var(--danger-color);
@@ -2390,9 +2396,8 @@ body {
 
 /* Cuando hay video, el header del player no compite con el rojo */
 .video-player-container .player-header {
-  padding: 12px 48px;
   z-index: 15;
-  justify-content: center;
+  height: 48px;
 }
 
 .btn-close-player {
@@ -2402,25 +2407,24 @@ body {
   border: 1px solid rgba(255,255,255,0.2);
 }
 
-/* Móvil: título centrado, cerrar a la derecha */
+/* Móvil: título centrado un poco más abajo, cerrar a la derecha */
 @media (max-width: 768px) {
   .video-player-container .player-header {
-    justify-content: center;
-    padding: 10px 44px;
+    height: 52px;
   }
   .btn-close-player {
     right: 8px;
-    left: auto;
+    top: 50%;
+    transform: translateY(-50%);
     margin: 0;
-    order: 0;
   }
   #player-title {
     font-size: 13px;
     text-align: center;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    left: 50%;
+    top: 58%; /* un poquito más abajo en móvil */
+    transform: translate(-50%, -50%);
+    max-width: calc(100% - 88px);
   }
 }
 /* Evita que al deslizar sobre el video se recargue la página */
