@@ -289,11 +289,13 @@ async function fetchSeccion(seccion, page, limit = LIMIT) {
 // Estado extra
 let busquedaEsLocal = true; // true = resultados locales, false = ya buscamos online
 
-async function fetchBusqueda(termino, source = "local") {
-    const data = await searchCatalog(termino, source);
+async function fetchBusqueda(termino, source = "local", page = 1, limit = LIMIT) {
+    const data = await searchCatalog(termino, source, page, limit);
     return {
         resultados: data.resultados || [],
         total: data.total ?? 0,
+        page: data.page ?? page,
+        limit: data.limit ?? limit,
         source: data.source || source
     };
 }
@@ -358,11 +360,10 @@ async function cargarPaginaGrid() {
             gridPage = 1;
             actualizarBotonOnline(false);
         } else if (gridModo === "search") {
-            const data = await fetchBusqueda(gridTermino, busquedaEsLocal ? "local" : "online");
+            const data = await fetchBusqueda(gridTermino, busquedaEsLocal ? "local" : "online", gridPage, LIMIT);
             lista = data.resultados;
-            gridTotalItems = data.total;
-            gridTotalPages = 1;
-            gridPage = 1;
+            gridTotalItems = data.total || lista.length;
+            gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / LIMIT));
             actualizarBotonOnline(false);
             // Mostrar / ocultar botón "Buscar online"
             actualizarBotonOnline(busquedaEsLocal);
@@ -659,18 +660,18 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.getElementById("seasons-section").classList.add("hidden");
     document.getElementById("downloads-section").classList.add("hidden");
 
-    // Enriquecer si hace falta (con timeout de 15s)
-    const necesitaEnriquecer =
+    // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
+    const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
+    const faltaPlayers =
         !item.embeds || item.embeds.length === 0 ||
-        (Array.isArray(item.embeds) && item.embeds.every(e => esEmbedInvalido(e.url))) ||
-        ((item.tipo === "Serie" || item.tipo === "Anime") && (!item.episodios || item.episodios.length === 0));
+        (Array.isArray(item.embeds) && item.embeds.every(e => esEmbedInvalido(e.url)));
+    const faltaEpisodios =
+        (item.tipo === "Serie" || item.tipo === "Anime") &&
+        (!item.episodios || item.episodios.length === 0);
 
-    const yaConfirmadoSinReproductor =
-        item.fuente === "hackstore" &&
-        item.tipo !== "Serie" && item.tipo !== "Anime" &&
-        (!item.embeds || item.embeds.length === 0);
+    const necesitaEnriquecer = force || faltaDescripcion || faltaPlayers || faltaEpisodios;
 
-    if (necesitaEnriquecer && !yaConfirmadoSinReproductor && (item.postId || item.link)) {
+    if (necesitaEnriquecer && (item.postId || item.link || item.slug || item.url_extract)) {
         try {
             const params = new URLSearchParams();
             if (item.postId) params.set("postId", item.postId);
@@ -678,11 +679,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.slug) params.set("slug", item.slug);
             if (item.source_id) params.set("source_id", item.source_id);
             if (item.tipo) params.set("tipo", item.tipo);
-            if (item.url_extract) params.set("link", item.url_extract);
+            if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
 
             const res = await fetch(`/api/detalle?${params.toString()}`, { cache: "no-store", signal: controller.signal });
             clearTimeout(timeoutId);
@@ -691,7 +692,29 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 const completo = await res.json();
                 if (completo.embeds) completo.embeds = normalizarEmbeds(completo.embeds);
                 Object.assign(item, completo);
+                if (item.tiene_player || itemTieneVideo(item)) item.tiene_player = true;
                 seleccionActual = item;
+
+                // Repintar metadatos que ahora sí vienen (descripción, rating, portada…)
+                document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
+                document.getElementById("details-title").textContent = item.nombre || "Sin título";
+                document.getElementById("details-year").textContent = item.year || "-";
+                document.getElementById("details-rating").textContent = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
+                document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
+
+                const generosEl2 = document.getElementById("details-genres");
+                generosEl2.innerHTML = "";
+                if (item.genero) {
+                    String(item.genero).split(",").map(g => g.trim()).filter(Boolean).forEach(g => {
+                        generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(g)}</span>`;
+                    });
+                }
+                if (item.idiomas && item.idiomas.length) {
+                    generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(item.idiomas.join(", "))}</span>`;
+                }
+                if (item.calidad && item.calidad.length) {
+                    generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(item.calidad.join(", "))}</span>`;
+                }
             }
         } catch (err) {
             console.error("Error o timeout enriqueciendo detalle:", err);
@@ -706,8 +729,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         renderTemporadas(item);
     } else {
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
-        embeds = embedsRaw.filter(e => e && e.url && !esEmbedInvalido(e.url));
-        if (autoPlay) reproducir(item.embeds && item.embeds[0] ? item.embeds[0] : { url: item.reproductor }, item);
+        if (autoPlay) {
+            const first = (item.embeds && item.embeds[0]) || (item.reproductor ? { url: item.reproductor } : null);
+            if (first) reproducir(first, item);
+        }
     }
 }
 
@@ -1617,8 +1642,8 @@ function actualizarPaginacion() {
         resultsGrid.parentNode.insertBefore(paginacion, resultsGrid.nextSibling);
     }
 
-    // Solo mostrar en modo categoría (no en búsqueda ni favoritos)
-    if (gridModo !== "categoria" || gridTotalPages <= 1) {
+    // Mostrar en categoría y búsqueda (no en favoritos)
+    if (gridModo === "favoritos" || gridTotalPages <= 1) {
         paginacion.classList.add("hidden");
         paginacion.innerHTML = "";
         return;
