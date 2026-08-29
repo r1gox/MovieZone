@@ -37,10 +37,19 @@ const limiterBusqueda = rateLimit({
 });
 app.use(limiterGeneral);
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || "",
-  process.env.SUPABASE_KEY || ""
-);
+// No crashear si faltan env en el arranque (Vercel cold start / misconfig)
+let supabase = null;
+function getSupabase() {
+  if (supabase) return supabase;
+  const url = process.env.SUPABASE_URL || "";
+  const key = process.env.SUPABASE_KEY || "";
+  if (!url || !key) {
+    console.warn("Supabase no configurado: faltan SUPABASE_URL o SUPABASE_KEY");
+    return null;
+  }
+  supabase = createClient(url, key);
+  return supabase;
+}
 
 const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
@@ -62,11 +71,9 @@ let knownLinks = new Set();
 
 async function cargarDatosSupabase() {
   try {
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
-      console.warn("Supabase no configurado (faltan SUPABASE_URL / SUPABASE_KEY)");
-      return;
-    }
-    const { data, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) return;
+    const { data, error } = await sb
       .from("movies")
       .select("*")
       .order("created_at", { ascending: false });
@@ -92,7 +99,8 @@ function itemTieneContenidoValido(item) {
 
 async function guardarEnSupabase(items) {
   if (!items || !items.length) return;
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return;
+  const sb = getSupabase();
+  if (!sb) return;
 
   const paraInsertarRaw = items
     .filter((item) => item.link)
@@ -146,7 +154,7 @@ async function guardarEnSupabase(items) {
   if (!paraInsertar.length) return;
 
   try {
-    const { error } = await supabase.from("movies").upsert(paraInsertar, { onConflict: "link" });
+    const { error } = await sb.from("movies").upsert(paraInsertar, { onConflict: "link" });
     if (error) throw error;
     paraInsertar.forEach((item) => {
       knownLinks.add(item.link);
@@ -581,10 +589,11 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
 app.get("/api/recien", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 12, 40);
-    if (!process.env.SUPABASE_URL) {
+    const sb = getSupabase();
+    if (!sb) {
       return res.json({ resultados: moviesDB.slice(0, limit) });
     }
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("movies")
       .select("*")
       .order("created_at", { ascending: false })
@@ -682,18 +691,36 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     service: "MovieZone",
     api: API_BASE,
-    supabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_KEY),
+    supabase: !!getSupabase(),
     items: moviesDB.length,
   });
 });
 
 // ---------- Frontend estático ----------
+// En Vercel el working dir es /var/task; includeFiles copia public ahí
 const publicDir = path.join(__dirname, "public");
-app.use(express.static(publicDir));
+const publicDirAlt = path.join(process.cwd(), "public");
+const fs = require("fs");
+const resolvedPublic = fs.existsSync(publicDir)
+  ? publicDir
+  : fs.existsSync(publicDirAlt)
+    ? publicDirAlt
+    : publicDir;
 
-app.get(["/peliculas", "/series", "/animes", "/"], (_req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
-});
+app.use(express.static(resolvedPublic));
+
+function sendIndex(res) {
+  const indexPath = path.join(resolvedPublic, "index.html");
+  if (!fs.existsSync(indexPath)) {
+    return res.status(500).send(
+      "index.html no encontrado. Revisa vercel.json includeFiles: public/**"
+    );
+  }
+  res.sendFile(indexPath);
+}
+
+app.get(["/peliculas", "/series", "/animes"], (_req, res) => sendIndex(res));
+app.get("/", (_req, res) => sendIndex(res));
 
 // ---------- Arranque ----------
 cargarDatosSupabase().catch(() => {});
