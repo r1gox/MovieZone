@@ -111,36 +111,49 @@ async function guardarEnSupabase(items) {
           .replace(/\s*[-–—]\s*(Temporada|Season|Episodio|Episode|Capítulo|Capitulo).*$/i, "")
           .trim();
       }
+      // Proteger datos ya guardados: un listado no debe borrar players/descripción
+      const existente = moviesDB.find((m) => m.link === item.link) || null;
+      const tieneNuevo = itemTieneContenidoValido(item);
+      const embedsFinal =
+        tieneNuevo && item.embeds?.length
+          ? item.embeds
+          : (existente?.embeds?.length ? existente.embeds : item.embeds || []);
+      const episodiosFinal =
+        item.episodios?.length ? item.episodios : (existente?.episodios || []);
+      const descripcionFinal =
+        item.descripcion && String(item.descripcion).length > 20
+          ? item.descripcion
+          : (existente?.descripcion || item.descripcion || null);
       return {
         link: item.link,
-        nombre,
-        titulo_original: item.titulo_original || null,
-        portada: item.portada || null,
-        backdrop: item.backdrop || null,
-        descripcion: item.descripcion || null,
-        year: item.year || null,
-        genero: item.genero || null,
-        tipo: item.tipo || "Película",
-        idiomas: item.idiomas || [],
-        calidad: item.calidad || [],
-        paises: item.paises || [],
-        calificacion: item.calificacion || null,
-        calificacion_comunidad: item.calificacion_comunidad || null,
-        votos: item.votos ? Math.trunc(Number(item.votos)) || null : null,
-        fecha_estreno: item.fecha_estreno || null,
-        duracion: item.duracion ? Math.trunc(Number(item.duracion)) || null : null,
-        certificacion: item.certificacion || null,
-        ultimo_episodio: item.ultimo_episodio || null,
-        reproductor: item.reproductor || null,
-        embeds: item.embeds || [],
-        downloads: item.downloads || [],
-        solo_trailer: !!item.soloTrailer,
-        episodios: item.episodios || [],
-        temporadas: item.temporadas || [],
-        postId: item.postId || null,
-        slug: item.slug || null,
-        source_id: item.source_id || null,
-        tiene_player: itemTieneContenidoValido(item),
+        nombre: nombre || existente?.nombre || null,
+        titulo_original: item.titulo_original || existente?.titulo_original || null,
+        portada: item.portada || existente?.portada || null,
+        backdrop: item.backdrop || existente?.backdrop || null,
+        descripcion: descripcionFinal,
+        year: item.year || existente?.year || null,
+        genero: item.genero || existente?.genero || null,
+        tipo: item.tipo || existente?.tipo || "Película",
+        idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
+        calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
+        paises: item.paises || existente?.paises || [],
+        calificacion: item.calificacion || existente?.calificacion || null,
+        calificacion_comunidad: item.calificacion_comunidad || existente?.calificacion_comunidad || null,
+        votos: item.votos ? Math.trunc(Number(item.votos)) || null : (existente?.votos || null),
+        fecha_estreno: item.fecha_estreno || existente?.fecha_estreno || null,
+        duracion: item.duracion ? Math.trunc(Number(item.duracion)) || null : (existente?.duracion || null),
+        certificacion: item.certificacion || existente?.certificacion || null,
+        ultimo_episodio: item.ultimo_episodio || existente?.ultimo_episodio || null,
+        reproductor: item.reproductor || existente?.reproductor || null,
+        embeds: embedsFinal,
+        downloads: (item.downloads && item.downloads.length) ? item.downloads : (existente?.downloads || []),
+        solo_trailer: !!(item.soloTrailer || existente?.soloTrailer),
+        episodios: episodiosFinal,
+        temporadas: (item.temporadas && item.temporadas.length) ? item.temporadas : (existente?.temporadas || []),
+        postId: item.postId || existente?.postId || null,
+        slug: item.slug || existente?.slug || null,
+        source_id: item.source_id || existente?.source_id || null,
+        tiene_player: tieneNuevo || !!(existente && (existente.tiene_player || itemTieneContenidoValido(existente))),
       };
     });
 
@@ -201,10 +214,10 @@ function mapEmbeds(raw) {
     try { raw = JSON.parse(raw); } catch { return []; }
   }
   if (!Array.isArray(raw)) return [];
-  return raw
+  const mapped = raw
     .map((e) => {
       if (typeof e === "string" && e.startsWith("http")) {
-        return { url: e, idioma: null, servidor: null };
+        return { url: e, idioma: null, servidor: null, calidad: null };
       }
       if (e && typeof e === "object") {
         const url = e.url || e.src || e.link || null;
@@ -212,12 +225,119 @@ function mapEmbeds(raw) {
         return {
           url,
           idioma: e.idioma || e.lang || null,
-          servidor: e.servidor || e.server || null,
+          servidor: e.servidor || e.server || e.name || null,
+          calidad: e.calidad || e.quality || null,
         };
       }
       return null;
     })
     .filter(Boolean);
+
+  // Vimeos / MovieZone siempre primero
+  mapped.sort((a, b) => {
+    const aV = /vimeos/i.test(a.url || "") || /vimeos|moviezone/i.test(a.servidor || "");
+    const bV = /vimeos/i.test(b.url || "") || /vimeos|moviezone/i.test(b.servidor || "");
+    return (bV ? 1 : 0) - (aV ? 1 : 0);
+  });
+  return mapped;
+}
+
+/** Título normalizado para deduplicar entre fuentes */
+function normalizeTitleKey(titulo) {
+  return String(titulo || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\(\d{4}\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Puntúa un item por cantidad de datos útiles (portada, rating, descripción, players…) */
+function scoreItem(item) {
+  if (!item) return 0;
+  let s = 0;
+  if (item.portada) s += 3;
+  if (item.backdrop) s += 1;
+  if (item.calificacion && Number(item.calificacion) > 0) s += 2;
+  if (item.descripcion && String(item.descripcion).length > 40) s += 4;
+  if (item.year) s += 1;
+  if (item.genero) s += 1;
+  if (Array.isArray(item.idiomas) && item.idiomas.length) s += 1;
+  if (Array.isArray(item.calidad) && item.calidad.length) s += 1;
+  if (item.reproductor) s += 5;
+  if (Array.isArray(item.embeds) && item.embeds.length) s += 5 + Math.min(item.embeds.length, 10);
+  if (Array.isArray(item.downloads) && item.downloads.length) s += 2;
+  if (Array.isArray(item.episodios) && item.episodios.length) s += 4;
+  if (item.tiene_player) s += 6;
+  if (item.slug) s += 1;
+  return s;
+}
+
+/** Deduplica lista de resultados de búsqueda/listado eligiendo el más completo por título */
+function dedupeListItems(lista) {
+  const map = new Map();
+  for (const item of lista || []) {
+    const key = normalizeTitleKey(item.nombre || item.titulo) || item.link || item.slug || String(Math.random());
+    const prev = map.get(key);
+    if (!prev || scoreItem(item) > scoreItem(prev)) {
+      // Si el previo tenía players y el nuevo no, fusionar flags útiles
+      if (prev && prev.tiene_player && !item.tiene_player) {
+        item.tiene_player = true;
+        if (!item.embeds?.length && prev.embeds?.length) item.embeds = prev.embeds;
+        if (!item.reproductor && prev.reproductor) item.reproductor = prev.reproductor;
+      }
+      // Preferir portada/rating del mejor
+      if (prev) {
+        if (!item.portada && prev.portada) item.portada = prev.portada;
+        if (!item.calificacion && prev.calificacion) item.calificacion = prev.calificacion;
+        if (!item.descripcion && prev.descripcion) item.descripcion = prev.descripcion;
+      }
+      map.set(key, item);
+    } else if (prev) {
+      // Enriquecer el ganador con datos del perdedor
+      if (!prev.portada && item.portada) prev.portada = item.portada;
+      if (!prev.calificacion && item.calificacion) prev.calificacion = item.calificacion;
+      if (!prev.descripcion && item.descripcion) prev.descripcion = item.descripcion;
+      if (!prev.tiene_player && item.tiene_player) prev.tiene_player = true;
+    }
+  }
+  return Array.from(map.values());
+}
+
+/** Fusiona dos items privilegiando datos del más completo */
+function mergeItems(base, extra) {
+  if (!base) return extra;
+  if (!extra) return base;
+  const out = { ...base };
+  for (const [k, v] of Object.entries(extra)) {
+    if (v == null || v === "" || (Array.isArray(v) && !v.length)) continue;
+    const cur = out[k];
+    if (cur == null || cur === "" || (Array.isArray(cur) && !cur.length)) {
+      out[k] = v;
+    } else if (k === "embeds" || k === "downloads") {
+      // unir únicos por url
+      const urls = new Set((Array.isArray(cur) ? cur : []).map((e) => (e && e.url) || e));
+      const merged = Array.isArray(cur) ? [...cur] : [];
+      for (const e of Array.isArray(v) ? v : []) {
+        const u = (e && e.url) || e;
+        if (u && !urls.has(u)) {
+          urls.add(u);
+          merged.push(e);
+        }
+      }
+      out[k] = mapEmbeds(merged);
+    } else if (k === "descripcion" && String(v).length > String(cur || "").length) {
+      out[k] = v;
+    } else if (k === "calificacion" && Number(v) > 0 && !Number(cur)) {
+      out[k] = v;
+    } else if (k === "portada" && !cur) {
+      out[k] = v;
+    }
+  }
+  out.tiene_player = itemTieneContenidoValido(out) || !!(out.episodios && out.episodios.length);
+  return out;
 }
 
 /** Normaliza fila de Supabase al formato del frontend */
@@ -260,20 +380,14 @@ async function buscarEnSupabase({ link, slug, postId }) {
   try {
     if (link) {
       const { data } = await sb.from("movies").select("*").eq("link", link).maybeSingle();
-      if (data && itemTieneContenidoValido(normalizeItemFromDB(data))) {
-        return normalizeItemFromDB(data);
-      }
+      if (data) return normalizeItemFromDB(data);
     }
     if (slug) {
       const { data } = await sb.from("movies").select("*").eq("slug", slug).limit(1);
-      if (data && data[0] && itemTieneContenidoValido(normalizeItemFromDB(data[0]))) {
-        return normalizeItemFromDB(data[0]);
-      }
+      if (data && data[0]) return normalizeItemFromDB(data[0]);
       // fallback: link contains slug
       const { data: data2 } = await sb.from("movies").select("*").ilike("link", `%${slug}%`).limit(1);
-      if (data2 && data2[0] && itemTieneContenidoValido(normalizeItemFromDB(data2[0]))) {
-        return normalizeItemFromDB(data2[0]);
-      }
+      if (data2 && data2[0]) return normalizeItemFromDB(data2[0]);
     }
     if (postId) {
       const { data } = await sb.from("movies").select("*").eq("postId", String(postId)).limit(1);
@@ -344,7 +458,28 @@ function mapDetail(data, fallback = {}) {
   const sourceId = String(data.source_id || fallback.source_id || DEFAULT_SOURCE);
   const slug = data.slug || fallback.slug || null;
   const embedsArr = mapEmbeds(data.reproductores && data.reproductores.length ? data.reproductores : data.embeds);
+  // Primer reproductor = el de vimeos si existe (mapEmbeds ya los ordena primero)
   const reproductor = embedsArr[0]?.url || data.reproductor || null;
+
+  // Descargas con idioma / calidad
+  let downloadsRaw = data.descargas || data.downloads || [];
+  if (typeof downloadsRaw === "string") {
+    try { downloadsRaw = JSON.parse(downloadsRaw); } catch { downloadsRaw = []; }
+  }
+  const downloadsMapped = Array.isArray(downloadsRaw)
+    ? downloadsRaw.map((d) => {
+        if (typeof d === "string" && d.startsWith("http")) return { url: d, idioma: null, calidad: null, servidor: null };
+        if (d && typeof d === "object") {
+          return {
+            url: d.url || d.link || d.href || null,
+            idioma: d.idioma || d.lang || null,
+            calidad: d.calidad || d.quality || null,
+            servidor: d.servidor || d.server || d.name || null,
+          };
+        }
+        return null;
+      }).filter((d) => d && d.url)
+    : [];
 
   let episodios = [];
   let temporadas = [];
@@ -395,7 +530,7 @@ function mapDetail(data, fallback = {}) {
     source_id: sourceId,
     reproductor,
     embeds: embedsArr,
-    downloads: data.descargas || data.downloads || [],
+    downloads: downloadsMapped.length ? downloadsMapped : (data.descargas || data.downloads || []),
     soloTrailer: false,
     episodios,
     temporadas: temporadas.length ? [...new Set(temporadas)].sort((a, b) => a - b) : [],
@@ -416,7 +551,32 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   const path = `/${DEFAULT_SOURCE}/${tipo}/estrenos`;
   try {
     const data = await apiGet(path);
-    const lista = (data.resultados || []).map(mapListItem).slice(0, limit);
+    let lista = (data.resultados || []).map(mapListItem).slice(0, limit);
+    // Enriquecer con datos ya guardados (tiene_player, descripción, rating…)
+    lista = lista.map((item) => {
+      const local = moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug) ||
+          (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
+            ((tipo === "series" && m.tipo === "Serie") ||
+              (tipo === "animes" && m.tipo === "Anime") ||
+              (tipo === "peliculas" && (m.tipo === "Película" || !m.tipo))))
+      );
+      if (local) {
+        return mergeItems(item, {
+          tiene_player: local.tiene_player,
+          embeds: local.embeds,
+          reproductor: local.reproductor,
+          descripcion: local.descripcion,
+          calificacion: local.calificacion || item.calificacion,
+          portada: item.portada || local.portada,
+          downloads: local.downloads,
+          episodios: local.episodios,
+        });
+      }
+      return item;
+    });
     // Guardar en Supabase en background (solo metadatos)
     guardarEnSupabase(lista).catch(() => {});
     return { resultados: lista, total: data.total || lista.length, page: 1, limit };
@@ -429,7 +589,8 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
         if (tipo === "animes") return m.tipo === "Anime";
         return m.tipo === "Película" || !m.tipo;
       })
-      .slice(0, limit);
+      .slice(0, limit)
+      .map((m) => normalizeItemFromDB(m));
     return { resultados: locales, total: locales.length, page: 1, limit, source: "local" };
   }
 }
@@ -450,13 +611,45 @@ async function buscarOnline(termino, page = 1, limit = 28) {
   const data = await apiGet(`/search?q=${q}`);
   let lista = (data.resultados || []).map(mapListItem);
 
+  // Deduplicar: la API busca en 3 fuentes y puede devolver el mismo título 2-3 veces.
+  // Nos quedamos con el que tenga más datos (portada, calificación, etc.).
+  lista = dedupeListItems(lista);
+
+  // Enriquecer con lo que ya tengamos en Supabase/memoria (tiene_player, descripción…)
+  lista = lista.map((item) => {
+    const local =
+      moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug) ||
+          (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) && m.tipo === item.tipo)
+      ) || null;
+    if (local) {
+      return mergeItems(item, {
+        tiene_player: local.tiene_player,
+        embeds: local.embeds,
+        reproductor: local.reproductor,
+        descripcion: local.descripcion,
+        calificacion: local.calificacion,
+        portada: local.portada || item.portada,
+        downloads: local.downloads,
+        episodios: local.episodios,
+      });
+    }
+    return item;
+  });
+
+  // Ordenar: primero los que ya tienen player / más datos
+  lista.sort((a, b) => scoreItem(b) - scoreItem(a));
+
   // Paginación simple en memoria
   const total = lista.length;
   const start = (page - 1) * limit;
-  lista = lista.slice(start, start + limit);
+  const pageLista = lista.slice(start, start + limit);
 
-  guardarEnSupabase(lista).catch(() => {});
-  return { resultados: lista, total, page, limit, source: "online" };
+  // Guardar metadatos para que la próxima carga ya los tenga
+  guardarEnSupabase(pageLista).catch(() => {});
+  return { resultados: pageLista, total, page, limit, source: "online" };
 }
 
 function buscarLocal(termino, type = null, page = 1, limit = 28) {
@@ -518,39 +711,59 @@ function parseIdentidad(itemOrLink) {
   return null;
 }
 
+async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
+  const path = `/${sourceId}/${kind}/${slug}`;
+  try {
+    const data = await apiGet(path);
+    if (!data || data.success === false) return null;
+    const item = mapDetail(data, { ...fallback, slug, source_id: String(sourceId) });
+    if (!item.link) item.link = data.link || `${API_BASE}${path}`;
+    if (!item.slug) item.slug = slug;
+    return item;
+  } catch (err) {
+    console.warn(`Detalle ${sourceId}/${kind}/${slug}:`, err.message);
+    return null;
+  }
+}
+
 async function obtenerDetalle(params) {
   const { link, postId, source_id, slug, tipo } = params;
   const force = params.force === "1" || params.force === true;
 
+  let cached = null;
+
   // 1) Memoria local
-  if (!force && link) {
+  if (link) {
     const local = moviesDB.find((m) => m.link === link);
-    if (local && itemTieneContenidoValido(local)) {
-      return normalizeItemFromDB(local);
-    }
+    if (local) cached = normalizeItemFromDB(local);
   }
-  if (!force && slug) {
+  if (!cached && slug) {
     const local = moviesDB.find((m) => m.slug === slug || (m.link && m.link.includes(slug)));
-    if (local && itemTieneContenidoValido(local)) {
-      return normalizeItemFromDB(local);
-    }
+    if (local) cached = normalizeItemFromDB(local);
   }
 
   // 2) Supabase (persistente entre cold starts de Vercel)
-  if (!force) {
+  if (!cached || force) {
     const fromDb = await buscarEnSupabase({ link, slug, postId });
     if (fromDb) {
-      // refrescar memoria
+      cached = mergeItems(cached, fromDb);
       const idx = moviesDB.findIndex((m) => m.link === fromDb.link);
-      if (idx >= 0) moviesDB[idx] = fromDb;
-      else moviesDB.unshift(fromDb);
-      return fromDb;
+      if (idx >= 0) moviesDB[idx] = cached;
+      else moviesDB.unshift(cached);
     }
   }
 
-  // 3) API externa
-  const id = parseIdentidad({ link, slug, source_id, tipo });
+  // Si ya tenemos contenido válido (players o episodios) y descripción, y no force → devolver
+  const tieneDesc = cached && cached.descripcion && String(cached.descripcion).length > 20;
+  const tieneContenido = cached && (itemTieneContenidoValido(cached) || (cached.episodios && cached.episodios.length));
+  if (!force && cached && tieneContenido && tieneDesc) {
+    return cached;
+  }
+
+  // 3) API externa — probar fuente principal y, si hace falta, las otras 2
+  const id = parseIdentidad({ link, slug, source_id: source_id || cached?.source_id, tipo: tipo || cached?.tipo });
   if (!id) {
+    if (cached) return cached;
     if (postId) {
       const local = moviesDB.find((m) => String(m.postId) === String(postId));
       if (local) return normalizeItemFromDB(local);
@@ -558,46 +771,81 @@ async function obtenerDetalle(params) {
     throw new Error("No se pudo identificar la película/serie");
   }
 
-  const path = `/${id.sourceId}/${id.kind}/${id.slug}`;
-  const data = await apiGet(path);
-  if (!data || data.success === false) {
-    throw new Error(data?.error || "Sin datos del detalle");
+  const sourcesToTry = [String(id.sourceId)];
+  for (const s of ["3", "1", "2"]) {
+    if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
 
-  const item = mapDetail(data, { link, slug: id.slug, source_id: id.sourceId, tipo });
-  if (!item.link) item.link = data.link || `${API_BASE}${path}`;
-  if (!item.slug) item.slug = id.slug;
-  // Extraer slug del link si falta
-  if (!item.slug && item.link) {
-    const m = String(item.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);
-    if (m) item.slug = m[1];
+  let best = null;
+  for (const sid of sourcesToTry) {
+    const candidate = await fetchDetailFromSource(sid, id.kind, id.slug, {
+      link,
+      slug: id.slug,
+      source_id: sid,
+      tipo: tipo || cached?.tipo,
+      nombre: cached?.nombre,
+      portada: cached?.portada,
+      descripcion: cached?.descripcion,
+      year: cached?.year,
+      postId: postId || cached?.postId,
+    });
+    if (!candidate) continue;
+    best = best ? (scoreItem(candidate) > scoreItem(best) ? mergeItems(candidate, best) : mergeItems(best, candidate)) : candidate;
+    // Si ya tiene players + descripción, no hace falta seguir buscando en más fuentes
+    if (itemTieneContenidoValido(best) && best.descripcion && String(best.descripcion).length > 20) {
+      break;
+    }
   }
 
-  // Guardar si tiene players O lista de episodios (series/anime)
-  if (itemTieneContenidoValido(item) || (item.episodios && item.episodios.length)) {
-    item.tiene_player = itemTieneContenidoValido(item) || !!(item.episodios && item.episodios.length);
-    await guardarEnSupabase([item]);
+  if (!best) {
+    if (cached) return cached;
+    throw new Error("Sin datos del detalle");
   }
-  return item;
+
+  // Fusionar con cache para no perder datos previos
+  best = mergeItems(cached, best);
+  if (!best.slug) best.slug = id.slug;
+  if (!best.slug && best.link) {
+    const m = String(best.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);
+    if (m) best.slug = m[1];
+  }
+
+  best.tiene_player = itemTieneContenidoValido(best) || !!(best.episodios && best.episodios.length);
+
+  // Guardar SIEMPRE metadatos + players para la próxima carga
+  await guardarEnSupabase([best]);
+  return best;
 }
 
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie") {
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
+  const sources = [String(sourceId || DEFAULT_SOURCE)];
+  for (const s of ["3", "1", "2"]) {
+    if (!sources.includes(s)) sources.push(s);
+  }
   let lastErr = null;
-  for (const k of kinds) {
-    try {
-      const path = `/${sourceId}/${k}/${slug}/${temporada}/${episodio}`;
-      const data = await apiGet(path);
-      if (data && data.success !== false && (data.embeds?.length || data.reproductores?.length || data.reproductor)) {
-        return mapDetail(data, { slug, source_id: sourceId, tipo: k === "anime" ? "Anime" : "Serie" });
+  let best = null;
+  for (const sid of sources) {
+    for (const k of kinds) {
+      try {
+        const path = `/${sid}/${k}/${slug}/${temporada}/${episodio}`;
+        const data = await apiGet(path);
+        if (!data || data.success === false) continue;
+        const mapped = mapDetail(data, {
+          slug,
+          source_id: sid,
+          tipo: k === "anime" ? "Anime" : "Serie",
+        });
+        if (!best || scoreItem(mapped) > scoreItem(best)) {
+          best = best ? mergeItems(best, mapped) : mapped;
+        }
+        if (itemTieneContenidoValido(best)) return best;
+      } catch (err) {
+        lastErr = err;
       }
-      if (data && data.success !== false) {
-        return mapDetail(data, { slug, source_id: sourceId, tipo: k === "anime" ? "Anime" : "Serie" });
-      }
-    } catch (err) {
-      lastErr = err;
     }
   }
+  if (best) return best;
   throw lastErr || new Error("No se pudo cargar el episodio");
 }
 
@@ -653,20 +901,47 @@ app.get("/api/estrenos", async (req, res) => {
   }
 });
 
+/** Catálogo paginado: estrenos API + items guardados en Supabase de ese tipo */
+function catalogoPaginado(tipoApi, tipoItem, page, limit) {
+  return (async () => {
+    const data = await obtenerEstrenos(tipoApi, 48);
+    let apiItems = data.resultados || [];
+
+    // Items de Supabase del mismo tipo (ya cargados con players / datos)
+    const locales = moviesDB.filter((m) => {
+      if (tipoItem === "Serie") return m.tipo === "Serie";
+      if (tipoItem === "Anime") return m.tipo === "Anime";
+      return m.tipo === "Película" || !m.tipo;
+    });
+
+    // Fusionar y deduplicar; preferir los que tienen más datos / player
+    let all = dedupeListItems([...apiItems, ...locales]);
+    all.sort((a, b) => {
+      // Disponible primero, luego score
+      const av = a.tiene_player ? 1 : 0;
+      const bv = b.tiene_player ? 1 : 0;
+      if (bv !== av) return bv - av;
+      return scoreItem(b) - scoreItem(a);
+    });
+
+    const total = all.length;
+    const start = (page - 1) * limit;
+    return {
+      resultados: all.slice(start, start + limit),
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  })();
+}
+
 app.get("/api/catalogo", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    // Películas: preferimos estrenos (y si hace falta populares)
-    const data = await obtenerEstrenos("peliculas", limit * page);
-    const all = data.resultados || [];
-    const start = (page - 1) * limit;
-    res.json({
-      resultados: all.slice(start, start + limit),
-      page,
-      limit,
-      total: data.total || all.length,
-    });
+    const data = await catalogoPaginado("peliculas", "Película", page, limit);
+    res.json(data);
   } catch (err) {
     console.error("/api/catalogo", err.message);
     res.status(500).json({ error: "No se pudo cargar el catálogo", resultados: [] });
@@ -677,15 +952,8 @@ app.get("/api/series", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    const data = await obtenerEstrenos("series", limit * page);
-    const all = data.resultados || [];
-    const start = (page - 1) * limit;
-    res.json({
-      resultados: all.slice(start, start + limit),
-      page,
-      limit,
-      total: data.total || all.length,
-    });
+    const data = await catalogoPaginado("series", "Serie", page, limit);
+    res.json(data);
   } catch (err) {
     console.error("/api/series", err.message);
     res.status(500).json({ error: "No se pudieron cargar las series", resultados: [] });
@@ -696,15 +964,8 @@ app.get("/api/animes", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    const data = await obtenerEstrenos("animes", limit * page);
-    const all = data.resultados || [];
-    const start = (page - 1) * limit;
-    res.json({
-      resultados: all.slice(start, start + limit),
-      page,
-      limit,
-      total: data.total || all.length,
-    });
+    const data = await catalogoPaginado("animes", "Anime", page, limit);
+    res.json(data);
   } catch (err) {
     console.error("/api/animes", err.message);
     res.status(500).json({ error: "No se pudieron cargar los animes", resultados: [] });
@@ -745,7 +1006,9 @@ app.get("/api/recien", async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 12, 40);
     const sb = getSupabase();
     if (!sb) {
-      return res.json({ resultados: moviesDB.slice(0, limit) });
+      return res.json({
+        resultados: moviesDB.slice(0, limit).map((m) => normalizeItemFromDB(m)),
+      });
     }
     const { data, error } = await sb
       .from("movies")
@@ -753,7 +1016,8 @@ app.get("/api/recien", async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
-    res.json({ resultados: data || [] });
+    const resultados = (data || []).map((row) => normalizeItemFromDB(row)).filter(Boolean);
+    res.json({ resultados });
   } catch (err) {
     console.error("/api/recien", err.message);
     res.status(500).json({ error: "No se pudieron cargar los recién añadidos", resultados: [] });
