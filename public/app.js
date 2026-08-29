@@ -120,10 +120,23 @@ function esEmbedInvalido(url) {
     return false;
 }
 
+
+function normalizarEmbeds(raw) {
+    if (!raw) return [];
+    if (typeof raw === "string") {
+        try { raw = JSON.parse(raw); } catch { return []; }
+    }
+    if (!Array.isArray(raw)) return [];
+    return raw.map(e => {
+        if (typeof e === "string" && e.startsWith("http")) return { url: e };
+        if (e && e.url) return e;
+        return null;
+    }).filter(Boolean);
+}
+
 function itemTieneVideo(item) {
-    const embedsValidos = Array.isArray(item.embeds)
-        ? item.embeds.filter(e => e && e.url && !esEmbedInvalido(e.url))
-        : [];
+    const embedsValidos = normalizarEmbeds(item.embeds)
+        .filter(e => e && e.url && !esEmbedInvalido(e.url));
     return (
         (item.reproductor && !esEmbedInvalido(item.reproductor)) ||
         embedsValidos.length > 0 ||
@@ -676,6 +689,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
             if (res.ok) {
                 const completo = await res.json();
+                if (completo.embeds) completo.embeds = normalizarEmbeds(completo.embeds);
                 Object.assign(item, completo);
                 seleccionActual = item;
             }
@@ -834,6 +848,7 @@ function reproducir(embed, item) {
 }
 
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) {
+    embedsRaw = normalizarEmbeds(embedsRaw);
 
     const serversContainer =
         document.getElementById("servers-container");

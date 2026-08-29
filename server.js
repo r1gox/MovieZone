@@ -78,7 +78,7 @@ async function cargarDatosSupabase() {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    moviesDB = data || [];
+    moviesDB = (data || []).map(normalizeItemFromDB).filter(Boolean);
     knownLinks = new Set(moviesDB.map((i) => i.link).filter(Boolean));
     console.log(`Supabase DB cargada: ${moviesDB.length} items`);
   } catch (err) {
@@ -195,20 +195,94 @@ function limpiarTitulo(titulo) {
 }
 
 function mapEmbeds(raw) {
+  if (!raw) return [];
+  // Si viene string JSON desde Supabase
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { return []; }
+  }
   if (!Array.isArray(raw)) return [];
   return raw
     .map((e) => {
-      if (typeof e === "string") return { url: e, idioma: null, servidor: null };
-      if (e && e.url) {
+      if (typeof e === "string" && e.startsWith("http")) {
+        return { url: e, idioma: null, servidor: null };
+      }
+      if (e && typeof e === "object") {
+        const url = e.url || e.src || e.link || null;
+        if (!url) return null;
         return {
-          url: e.url,
-          idioma: e.idioma || null,
-          servidor: e.servidor || null,
+          url,
+          idioma: e.idioma || e.lang || null,
+          servidor: e.servidor || e.server || null,
         };
       }
       return null;
     })
     .filter(Boolean);
+}
+
+/** Normaliza fila de Supabase al formato del frontend */
+function normalizeItemFromDB(row) {
+  if (!row) return null;
+  const embeds = mapEmbeds(row.embeds);
+  const downloads = mapEmbeds(row.downloads); // same shape if objects
+  let episodios = row.episodios || [];
+  if (typeof episodios === "string") {
+    try { episodios = JSON.parse(episodios); } catch { episodios = []; }
+  }
+  if (Array.isArray(episodios)) {
+    episodios = episodios.map((ep) => ({
+      ...ep,
+      embeds: mapEmbeds(ep.embeds || ep.reproductores),
+      video: ep.video || ep.reproductor || (mapEmbeds(ep.embeds)[0] && mapEmbeds(ep.embeds)[0].url) || null,
+    }));
+  }
+  let temporadas = row.temporadas || [];
+  if (typeof temporadas === "string") {
+    try { temporadas = JSON.parse(temporadas); } catch { temporadas = []; }
+  }
+  const reproductor = row.reproductor || (embeds[0] && embeds[0].url) || null;
+  return {
+    ...row,
+    nombre: row.nombre || row.titulo || "Sin título",
+    embeds,
+    downloads: Array.isArray(row.downloads) ? row.downloads : [],
+    episodios,
+    temporadas,
+    reproductor,
+    soloTrailer: !!(row.solo_trailer || row.soloTrailer),
+    tiene_player: !!(row.tiene_player || reproductor || embeds.length || (Array.isArray(episodios) && episodios.length)),
+  };
+}
+
+async function buscarEnSupabase({ link, slug, postId }) {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    if (link) {
+      const { data } = await sb.from("movies").select("*").eq("link", link).maybeSingle();
+      if (data && itemTieneContenidoValido(normalizeItemFromDB(data))) {
+        return normalizeItemFromDB(data);
+      }
+    }
+    if (slug) {
+      const { data } = await sb.from("movies").select("*").eq("slug", slug).limit(1);
+      if (data && data[0] && itemTieneContenidoValido(normalizeItemFromDB(data[0]))) {
+        return normalizeItemFromDB(data[0]);
+      }
+      // fallback: link contains slug
+      const { data: data2 } = await sb.from("movies").select("*").ilike("link", `%${slug}%`).limit(1);
+      if (data2 && data2[0] && itemTieneContenidoValido(normalizeItemFromDB(data2[0]))) {
+        return normalizeItemFromDB(data2[0]);
+      }
+    }
+    if (postId) {
+      const { data } = await sb.from("movies").select("*").eq("postId", String(postId)).limit(1);
+      if (data && data[0]) return normalizeItemFromDB(data[0]);
+    }
+  } catch (err) {
+    console.warn("buscarEnSupabase:", err.message);
+  }
+  return null;
 }
 
 /** Resultado de listado / search → item ligero */
@@ -446,22 +520,40 @@ function parseIdentidad(itemOrLink) {
 
 async function obtenerDetalle(params) {
   const { link, postId, source_id, slug, tipo } = params;
+  const force = params.force === "1" || params.force === true;
 
-  // 1) Cache Supabase
-  if (link) {
+  // 1) Memoria local
+  if (!force && link) {
     const local = moviesDB.find((m) => m.link === link);
     if (local && itemTieneContenidoValido(local)) {
-      return local;
+      return normalizeItemFromDB(local);
+    }
+  }
+  if (!force && slug) {
+    const local = moviesDB.find((m) => m.slug === slug || (m.link && m.link.includes(slug)));
+    if (local && itemTieneContenidoValido(local)) {
+      return normalizeItemFromDB(local);
     }
   }
 
-  // 2) Resolver identidad y llamar API
+  // 2) Supabase (persistente entre cold starts de Vercel)
+  if (!force) {
+    const fromDb = await buscarEnSupabase({ link, slug, postId });
+    if (fromDb) {
+      // refrescar memoria
+      const idx = moviesDB.findIndex((m) => m.link === fromDb.link);
+      if (idx >= 0) moviesDB[idx] = fromDb;
+      else moviesDB.unshift(fromDb);
+      return fromDb;
+    }
+  }
+
+  // 3) API externa
   const id = parseIdentidad({ link, slug, source_id, tipo });
   if (!id) {
-    // Intentar por postId en memoria
     if (postId) {
       const local = moviesDB.find((m) => String(m.postId) === String(postId));
-      if (local) return local;
+      if (local) return normalizeItemFromDB(local);
     }
     throw new Error("No se pudo identificar la película/serie");
   }
@@ -473,10 +565,13 @@ async function obtenerDetalle(params) {
   }
 
   const item = mapDetail(data, { link, slug: id.slug, source_id: id.sourceId, tipo });
-  // Asegurar link estable
   if (!item.link) item.link = data.link || `${API_BASE}${path}`;
+  if (!item.slug) item.slug = id.slug;
 
-  await guardarEnSupabase([item]);
+  // Solo guardar si trajo players / episodios
+  if (itemTieneContenidoValido(item)) {
+    await guardarEnSupabase([item]);
+  }
   return item;
 }
 
@@ -618,7 +713,8 @@ app.get("/api/detalle", async (req, res) => {
       return res.status(400).json({ error: "Falta link, postId o slug" });
     }
 
-    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo });
+    const force = req.query.force === "1";
+    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force });
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
