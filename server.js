@@ -347,6 +347,10 @@ function mapEmbeds(raw) {
 
 /** Título normalizado para deduplicar entre fuentes */
 function normalizeTitleKey(titulo) {
+  // se redefine abajo — keep one implementation
+  return _normalizeTitleKeyImpl(titulo);
+}
+function _normalizeTitleKeyImpl(titulo) {
   return String(titulo || "")
     .toLowerCase()
     .normalize("NFD")
@@ -357,11 +361,52 @@ function normalizeTitleKey(titulo) {
     .replace(/\s+/g, " ");
 }
 
+/** Portada usable (no placeholder, no data-uri, no SVG) */
+function esPortadaValida(url) {
+  if (!url || typeof url !== "string") return false;
+  const u = url.trim();
+  if (!u || u.includes("placeholder") || u.startsWith("data:")) return false;
+  if (/svg\+xml|lazyload\.min/i.test(u)) return false;
+  // Hackstore a veces no sirve posters reales
+  if (/hackstore\./i.test(u) && !/image\.tmdb\.org/i.test(u)) return false;
+  return /^https?:\/\//i.test(u);
+}
+
+/** Preferir portada de la misma fuente que los reproductores */
+function elegirPortada(a, b, sourcePreferido) {
+  const candidatos = [a, b].filter(esPortadaValida);
+  if (!candidatos.length) return a || b || null;
+  const sid = String(sourcePreferido || "");
+  // Orden de preferencia según fuente del player
+  if (sid === "3" || sid === "pelisplushd") {
+    const pp = candidatos.find((u) => /pelisplushd|\/poster\//i.test(u));
+    if (pp) return pp;
+    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
+    if (tmdb) return tmdb;
+  }
+  if (sid === "1" || sid === "lamovie") {
+    const lm = candidatos.find((u) => /lamovie\.org/i.test(u));
+    if (lm) return lm;
+  }
+  if (sid === "2" || sid === "hackstore") {
+    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
+    if (tmdb) return tmdb;
+  }
+  // General: tmdb > pelisplus poster > lamovie > resto
+  return (
+    candidatos.find((u) => /image\.tmdb\.org/i.test(u)) ||
+    candidatos.find((u) => /pelisplushd|\/poster\//i.test(u)) ||
+    candidatos.find((u) => /lamovie\.org/i.test(u)) ||
+    candidatos[0]
+  );
+}
+
 /** Puntúa un item por cantidad de datos útiles (portada, rating, descripción, players…) */
 function scoreItem(item) {
   if (!item) return 0;
   let s = 0;
-  if (item.portada) s += 3;
+  if (esPortadaValida(item.portada)) s += 3;
+  else if (item.portada) s += 0; // portada rota no suma
   if (item.backdrop) s += 1;
   if (item.calificacion && Number(item.calificacion) > 0) s += 2;
   if (item.descripcion && String(item.descripcion).length > 40) s += 4;
@@ -375,6 +420,10 @@ function scoreItem(item) {
   if (Array.isArray(item.episodios) && item.episodios.length) s += 4;
   if (item.tiene_player) s += 6;
   if (item.slug) s += 1;
+  // Preferir fuente 3 o 1 si empatan en players (portadas más fiables)
+  const sid = String(item.source_id || "");
+  if (sid === "3" || sid === "pelisplushd") s += 2;
+  if (sid === "1" || sid === "lamovie") s += 1;
   return s;
 }
 
@@ -398,14 +447,15 @@ function dedupeListItems(lista) {
       continue;
     }
     // Elegir el más completo y fusionar datos del otro
-    const winner = scoreItem(item) >= scoreItem(prev) ? item : prev;
-    const loser = winner === item ? prev : item;
+    const winner = scoreItem(item) >= scoreItem(prev) ? { ...item } : { ...prev };
+    const loser = scoreItem(item) >= scoreItem(prev) ? prev : item;
     if (loser.tiene_player && !winner.tiene_player) {
       winner.tiene_player = true;
       if (!winner.embeds?.length && loser.embeds?.length) winner.embeds = loser.embeds;
       if (!winner.reproductor && loser.reproductor) winner.reproductor = loser.reproductor;
     }
-    if (!winner.portada && loser.portada) winner.portada = loser.portada;
+    // Portada: misma lógica que la fuente de los players
+    winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
     if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
     if ((!winner.descripcion || winner.descripcion.length < 40) && loser.descripcion) {
       winner.descripcion = loser.descripcion;
@@ -413,13 +463,8 @@ function dedupeListItems(lista) {
     if (!winner.genero && loser.genero) winner.genero = loser.genero;
     if (!winner.backdrop && loser.backdrop) winner.backdrop = loser.backdrop;
     if (!winner.tmdb_id && loser.tmdb_id) winner.tmdb_id = loser.tmdb_id;
-    // Preferir source con más datos (lamovie suele tener postId)
     if (!winner.postId && loser.postId) {
       winner.postId = loser.postId;
-      if (loser.source_id) winner.source_id = loser.source_id;
-      if (loser.slug) winner.slug = loser.slug;
-      if (loser.link) winner.link = loser.link;
-      if (loser.url_extract) winner.url_extract = loser.url_extract;
     }
     map.set(key, winner);
   }
@@ -452,10 +497,12 @@ function mergeItems(base, extra) {
       out[k] = v;
     } else if (k === "calificacion" && Number(v) > 0 && !Number(cur)) {
       out[k] = v;
-    } else if (k === "portada" && !cur) {
-      out[k] = v;
+    } else if (k === "portada") {
+      out[k] = elegirPortada(cur, v, out.source_id || extra.source_id || base.source_id);
     }
   }
+  // Asegurar portada coherente con source_id de quien tiene los embeds
+  out.portada = elegirPortada(out.portada, extra?.portada || base?.portada, out.source_id);
   out.tiene_player = itemTieneContenidoValido(out) || !!(out.episodios && out.episodios.length);
   return out;
 }
@@ -760,20 +807,24 @@ async function buscarOnline(termino, page = 1, limit = 28) {
           (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) && m.tipo === item.tipo)
       ) || null;
     if (local) {
-      return mergeItems(item, {
+      const merged = mergeItems(item, {
         tiene_player: local.tiene_player,
         embeds: local.embeds,
         reproductor: local.reproductor,
         descripcion: local.descripcion,
         calificacion: local.calificacion,
-        portada: local.portada || item.portada,
+        portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
         downloads: local.downloads,
         episodios: local.episodios,
+        source_id: item.source_id || local.source_id,
       });
+      return merged;
     }
     return item;
   });
 
+  // Segunda pasada de dedupe por si merge con locales creó duplicados
+  lista = dedupeListItems(lista);
   lista = filtrarDescartados(lista);
   // Ordenar: primero los que ya tienen player / más datos
   lista.sort((a, b) => scoreItem(b) - scoreItem(a));
@@ -967,8 +1018,15 @@ async function obtenerDetalle(params) {
         best.descripcion = candidate.descripcion;
       }
       if (candidate.genero && !best.genero) best.genero = candidate.genero;
-      if (candidate.portada && (!best.portada || /pelisplushd\.la\/poster/i.test(best.portada))) {
-        best.portada = candidate.portada;
+      // Portada de la fuente que aportó los reproductores (no mezclar hackstore roto)
+      if (itemTieneContenidoValido(candidate) || (candidate.embeds && candidate.embeds.length)) {
+        best.source_id = candidate.source_id || best.source_id;
+        best.slug = candidate.slug || best.slug;
+        best.link = candidate.link || best.link;
+        best.url_extract = candidate.url_extract || best.url_extract;
+        best.portada = elegirPortada(candidate.portada, best.portada, best.source_id);
+      } else {
+        best.portada = elegirPortada(best.portada, candidate.portada, best.source_id);
       }
     }
     // Si ya tenemos players buenos, no hace falta seguir en force solo-meta
@@ -987,6 +1045,8 @@ async function obtenerDetalle(params) {
     best.descripcion = cached.descripcion;
   }
   best.descripcion = limpiarDescripcion(best.descripcion, best.nombre);
+  // Portada final: siempre alineada a la fuente de los reproductores
+  best.portada = elegirPortada(best.portada, cached?.portada, best.source_id);
   if (!best.slug) best.slug = id.slug;
   if (!best.slug && best.link) {
     const m = String(best.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);

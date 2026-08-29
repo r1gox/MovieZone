@@ -722,21 +722,24 @@ body {
   z-index: 10;
 }
 #player-title {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: auto;
   max-width: calc(100% - 96px);
-  text-align: center;
+  text-align: center !important;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
-  margin: 0;
+  margin: 0 !important;
   padding: 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
+  display: block;
 }
 .btn-close-player {
   position: absolute;

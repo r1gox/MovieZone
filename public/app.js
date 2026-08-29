@@ -949,7 +949,8 @@ function reproducir(embed, item) {
     if (!embed?.url) return;
     videoContainer.classList.remove("hidden");
     playerIframe.src = embed.url;
-    playerTitle.textContent = item?.nombre || "Reproduciendo...";
+    playerTitle.textContent = (item?.nombre || "Reproduciendo...")
+        .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
     iniciarSeguimientoProgreso(item || seleccionActual);
     // evita pull-to-refresh sobre el player
     document.body.classList.add("player-open");
