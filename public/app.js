@@ -441,7 +441,19 @@ function crearMediaCard(item) {
         </div>
     `;
 
-    card.querySelector("img").addEventListener("error", (e) => { e.target.src = PLACEHOLDER; });
+    const img = card.querySelector("img");
+    img.addEventListener("error", (e) => {
+        // Evitar bucle de reintentos / parpadeo si la portada no existe
+        if (e.target.dataset.failed === "1") return;
+        e.target.dataset.failed = "1";
+        e.target.src = PLACEHOLDER;
+        e.target.style.opacity = "1";
+    });
+    // Si no hay portada real, no forzar carga de URL vacía
+    if (!item.portada) {
+        img.src = PLACEHOLDER;
+        img.dataset.failed = "1";
+    }
     card.addEventListener("click", () => abrirDetalle(item));
     return card;
 }
@@ -1652,17 +1664,17 @@ function actualizarPaginacion() {
     paginacion.classList.remove("hidden");
 
     paginacion.innerHTML = `
-        <button class="btn-page" id="btn-prev-page" ${gridPage <= 1 ? "disabled" : ""}>
-            ← Anterior
-        </button>
-        
-        <span class="page-info">
+        <div class="pagination-buttons">
+            <button class="btn-page" id="btn-prev-page" ${gridPage <= 1 ? "disabled" : ""}>
+                ← Anterior
+            </button>
+            <button class="btn-page" id="btn-next-page" ${gridPage >= gridTotalPages ? "disabled" : ""}>
+                Siguiente →
+            </button>
+        </div>
+        <div class="page-info">
             Página <strong>${gridPage}</strong> de <strong>${gridTotalPages}</strong>
-        </span>
-        
-        <button class="btn-page" id="btn-next-page" ${gridPage >= gridTotalPages ? "disabled" : ""}>
-            Siguiente →
-        </button>
+        </div>
     `;
 
     document.getElementById("btn-prev-page")?.addEventListener("click", () => {
@@ -1688,6 +1700,53 @@ function actualizarPaginacion() {
 
 initWakeupNotice();
 cargarHome();
+
+// ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------
+(function reportarVisita() {
+    try {
+        if (sessionStorage.getItem("mz_visit_sent") === "1") return;
+        const ua = navigator.userAgent || "";
+        const isMobile = /Mobi|Android|iPhone|iPad/i.test(ua);
+        const isTablet = /iPad|Tablet/i.test(ua);
+        let device = "Desktop";
+        if (isTablet) device = "Tablet";
+        else if (isMobile) device = "Móvil";
+
+        let os = "Desconocido";
+        if (/Windows/i.test(ua)) os = "Windows";
+        else if (/Mac OS X|Macintosh/i.test(ua)) os = "macOS";
+        else if (/Android/i.test(ua)) os = "Android";
+        else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+        else if (/Linux/i.test(ua)) os = "Linux";
+
+        let browser = "Desconocido";
+        if (/Edg\//i.test(ua)) browser = "Edge";
+        else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = "Chrome";
+        else if (/Firefox\//i.test(ua)) browser = "Firefox";
+        else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Safari";
+        else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = "Opera";
+
+        const payload = {
+            device,
+            os,
+            browser,
+            screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
+            lang: navigator.language || "",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+            url: location.href,
+            referrer: document.referrer || "",
+        };
+
+        fetch("/api/visit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            keepalive: true,
+        }).then(() => {
+            sessionStorage.setItem("mz_visit_sent", "1");
+        }).catch(() => {});
+    } catch (_) {}
+})();
 
 
 

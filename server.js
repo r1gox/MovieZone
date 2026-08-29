@@ -126,7 +126,7 @@ async function guardarEnSupabase(items) {
           : (existente?.descripcion || item.descripcion || null);
       return {
         link: item.link,
-        nombre: nombre || existente?.nombre || null,
+        nombre: limpiarTitulo(nombre || existente?.nombre || null),
         titulo_original: item.titulo_original || existente?.titulo_original || null,
         portada: item.portada || existente?.portada || null,
         backdrop: item.backdrop || existente?.backdrop || null,
@@ -198,13 +198,38 @@ function extraerAnio(titulo, year) {
   return m2 ? m2[0] : null;
 }
 
-function limpiarTitulo(titulo) {
-  return String(titulo || "")
+/** Corrige texto mal codificado (mojibake UTF-8 leído como Latin-1): "CÃ³digo" → "Código" */
+function fixEncoding(text) {
+  if (!text || typeof text !== "string") return text || "";
+  let s = text;
+  // Detección rápida de mojibake típico
+  if (/Ã.|Â.|â.|ð./.test(s)) {
+    try {
+      // latin1 bytes → utf8
+      const fixed = Buffer.from(s, "latin1").toString("utf8");
+      // Solo aplicar si mejora (menos caracteres raros)
+      const bad = (t) => (t.match(/Ã.|Â.|â.|ð.|�/g) || []).length;
+      if (bad(fixed) < bad(s) && !fixed.includes("\uFFFD")) {
+        s = fixed;
+      }
+    } catch (_) {}
+  }
+  return s
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function limpiarTitulo(titulo) {
+  return fixEncoding(titulo);
+}
+
+function limpiarTexto(texto) {
+  return fixEncoding(texto);
 }
 
 function mapEmbeds(raw) {
@@ -363,7 +388,9 @@ function normalizeItemFromDB(row) {
   const reproductor = row.reproductor || (embeds[0] && embeds[0].url) || null;
   return {
     ...row,
-    nombre: row.nombre || row.titulo || "Sin título",
+    nombre: limpiarTitulo(row.nombre || row.titulo || "Sin título"),
+    descripcion: limpiarTexto(row.descripcion || ""),
+    genero: limpiarTexto(row.genero || "") || null,
     embeds,
     downloads: Array.isArray(row.downloads) ? row.downloads : [],
     episodios,
@@ -423,11 +450,11 @@ function mapListItem(r) {
     titulo_original: r.titulo_original || null,
     slug,
     tipo,
-    descripcion: r.descripcion || "",
+    descripcion: limpiarTexto(r.descripcion || ""),
     portada,
     backdrop: r.backdrop || null,
     year,
-    genero: r.genero || null,
+    genero: limpiarTexto(r.genero || "") || null,
     idiomas: r.idiomas || [],
     calidad: r.calidad || [],
     calificacion: r.calificacion || r.rating || null,
@@ -511,7 +538,7 @@ function mapDetail(data, fallback = {}) {
     titulo_original: data.titulo_original || null,
     slug,
     tipo: tipo === "Capitulo" ? "Serie" : tipo,
-    descripcion: data.descripcion || fallback.descripcion || "",
+    descripcion: limpiarTexto(data.descripcion || fallback.descripcion || ""),
     portada: data.portada || fallback.portada || null,
     backdrop: data.backdrop || null,
     year: extraerAnio(titulo, data.year || fallback.year),
@@ -812,9 +839,32 @@ async function obtenerDetalle(params) {
 
   best.tiene_player = itemTieneContenidoValido(best) || !!(best.episodios && best.episodios.length);
 
-  // Guardar SIEMPRE metadatos + players para la próxima carga
+  // Sin portada y sin reproductor/episodios tras intentar las 3 fuentes → no guardar y borrar de Supabase
+  const sinPortada = !best.portada || String(best.portada).includes("placeholder");
+  const sinContenido = !best.tiene_player;
+  if (sinPortada && sinContenido) {
+    if (best.link) await borrarDeSupabase(best.link);
+    return best;
+  }
+
+  // Guardar solo si aporta algo útil (portada o players o descripción)
   await guardarEnSupabase([best]);
   return best;
+}
+
+async function borrarDeSupabase(link) {
+  if (!link) return;
+  try {
+    const sb = getSupabase();
+    if (sb) {
+      await sb.from("movies").delete().eq("link", link);
+    }
+    moviesDB = moviesDB.filter((m) => m.link !== link);
+    knownLinks.delete(link);
+    console.log("Eliminado de Supabase (sin portada ni player):", link);
+  } catch (err) {
+    console.warn("No se pudo borrar de Supabase:", err.message);
+  }
 }
 
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie") {
@@ -1173,7 +1223,81 @@ app.get("/api/health", (_req, res) => {
     api: API_BASE,
     supabase: !!getSupabase(),
     items: moviesDB.length,
+    telegram: isTelegramEnabled(),
   });
+});
+
+// ---------- Telegram: aviso de visitas (apagable) ----------
+function isTelegramEnabled() {
+  // TELEGRAM_NOTIFY=0 | false | off → apagado
+  const flag = String(process.env.TELEGRAM_NOTIFY || "1").toLowerCase();
+  if (flag === "0" || flag === "false" || flag === "off" || flag === "no") return false;
+  return !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+}
+
+async function enviarTelegram(texto) {
+  if (!isTelegramEnabled()) return false;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  try {
+    await axios.post(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        chat_id: chatId,
+        text: texto,
+        disable_web_page_preview: true,
+      },
+      { timeout: 8000 }
+    );
+    return true;
+  } catch (err) {
+    console.warn("Telegram:", err.message);
+    return false;
+  }
+}
+
+// Rate limit simple en memoria por IP (1 aviso cada 30 min)
+const visitCooldown = new Map();
+app.post("/api/visit", express.json({ limit: "8kb" }), async (req, res) => {
+  try {
+    if (!isTelegramEnabled()) {
+      return res.json({ ok: true, sent: false, reason: "telegram_off" });
+    }
+    const ip =
+      (req.headers["x-forwarded-for"] && String(req.headers["x-forwarded-for"]).split(",")[0].trim()) ||
+      req.ip ||
+      "unknown";
+    const now = Date.now();
+    const last = visitCooldown.get(ip) || 0;
+    if (now - last < 30 * 60 * 1000) {
+      return res.json({ ok: true, sent: false, reason: "cooldown" });
+    }
+    visitCooldown.set(ip, now);
+
+    const d = req.body || {};
+    const lineas = [
+      "👁 Nueva visita MovieZone",
+      `• IP: ${ip}`,
+      `• Dispositivo: ${d.device || "—"}`,
+      `• SO: ${d.os || "—"}`,
+      `• Navegador: ${d.browser || "—"}`,
+      `• Pantalla: ${d.screen || "—"}`,
+      `• Idioma: ${d.lang || "—"}`,
+      `• Zona: ${d.timezone || "—"}`,
+      `• URL: ${d.url || "—"}`,
+      `• Referrer: ${d.referrer || "directo"}`,
+      `• Hora: ${new Date().toISOString()}`,
+    ];
+    const sent = await enviarTelegram(lineas.join("\n"));
+    res.json({ ok: true, sent });
+  } catch (err) {
+    console.error("/api/visit", err.message);
+    res.status(500).json({ ok: false, error: "visit_failed" });
+  }
+});
+
+app.get("/api/telegram-status", (_req, res) => {
+  res.json({ enabled: isTelegramEnabled() });
 });
 
 // ---------- Frontend estático ----------
