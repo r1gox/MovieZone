@@ -567,18 +567,77 @@ async function obtenerDetalle(params) {
   const item = mapDetail(data, { link, slug: id.slug, source_id: id.sourceId, tipo });
   if (!item.link) item.link = data.link || `${API_BASE}${path}`;
   if (!item.slug) item.slug = id.slug;
+  // Extraer slug del link si falta
+  if (!item.slug && item.link) {
+    const m = String(item.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);
+    if (m) item.slug = m[1];
+  }
 
-  // Solo guardar si trajo players / episodios
-  if (itemTieneContenidoValido(item)) {
+  // Guardar si tiene players O lista de episodios (series/anime)
+  if (itemTieneContenidoValido(item) || (item.episodios && item.episodios.length)) {
+    item.tiene_player = itemTieneContenidoValido(item) || !!(item.episodios && item.episodios.length);
     await guardarEnSupabase([item]);
   }
   return item;
 }
 
-async function obtenerEpisodio(sourceId, slug, temporada, episodio) {
-  const path = `/${sourceId}/serie/${slug}/${temporada}/${episodio}`;
-  const data = await apiGet(path);
-  return mapDetail(data, { slug, source_id: sourceId, tipo: "Serie" });
+async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie") {
+  const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
+  let lastErr = null;
+  for (const k of kinds) {
+    try {
+      const path = `/${sourceId}/${k}/${slug}/${temporada}/${episodio}`;
+      const data = await apiGet(path);
+      if (data && data.success !== false && (data.embeds?.length || data.reproductores?.length || data.reproductor)) {
+        return mapDetail(data, { slug, source_id: sourceId, tipo: k === "anime" ? "Anime" : "Serie" });
+      }
+      if (data && data.success !== false) {
+        return mapDetail(data, { slug, source_id: sourceId, tipo: k === "anime" ? "Anime" : "Serie" });
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("No se pudo cargar el episodio");
+}
+
+/** Guarda players de un episodio dentro del registro de la serie en Supabase */
+async function guardarPlayersEpisodio(serieItem, season, episode, embeds, reproductor) {
+  if (!serieItem || !serieItem.link) return;
+  const eps = Array.isArray(serieItem.episodios) ? [...serieItem.episodios] : [];
+  let found = false;
+  for (let i = 0; i < eps.length; i++) {
+    if (Number(eps[i].season) === Number(season) && Number(eps[i].episode) === Number(episode)) {
+      eps[i] = {
+        ...eps[i],
+        embeds: embeds || [],
+        video: reproductor || (embeds && embeds[0] && embeds[0].url) || null,
+        reproductor: reproductor || null,
+      };
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    eps.push({
+      season: Number(season),
+      episode: Number(episode),
+      nombre: `T${season}E${String(episode).padStart(2, "0")}`,
+      embeds: embeds || [],
+      video: reproductor || null,
+    });
+  }
+  const updated = {
+    ...serieItem,
+    episodios: eps,
+    tiene_player: true,
+  };
+  await guardarEnSupabase([updated]);
+  // memoria
+  const idx = moviesDB.findIndex((m) => m.link === updated.link);
+  if (idx >= 0) moviesDB[idx] = updated;
+  else moviesDB.unshift(updated);
+  return updated;
 }
 
 // ---------- Rutas API ----------
@@ -724,61 +783,122 @@ app.get("/api/detalle", async (req, res) => {
 
 app.get("/api/episodios", async (req, res) => {
   try {
-    const postId = req.query.postId;
+    const postId = req.query.postId || null;
     const season = parseInt(req.query.season) || 1;
     const link = req.query.link || null;
     const slug = req.query.slug || null;
     const source_id = req.query.source_id || DEFAULT_SOURCE;
+    const tipo = req.query.tipo || "Serie";
+    const loadPlayers = req.query.players === "1"; // opcional: cargar players del 1er ep
 
-    // Preferir detalle completo (ya trae temporadas/episodios)
     let item = null;
     try {
-      item = await obtenerDetalle({ link, postId, slug, source_id, tipo: "Serie" });
-    } catch (_) {}
-
-    if (item && Array.isArray(item.episodios) && item.episodios.length) {
-      const eps = item.episodios.filter((e) => Number(e.season) === season);
-      // Cargar players del primer episodio si faltan (lazy)
-      if (eps.length && !eps[0].embeds?.length && eps[0].url_video) {
-        try {
-          const id = parseIdentidad(item);
-          if (id) {
-            const det = await obtenerEpisodio(id.sourceId, id.slug, season, eps[0].episode || 1);
-            if (det.embeds?.length) {
-              eps[0].embeds = det.embeds;
-              eps[0].video = det.reproductor;
-            }
-          }
-        } catch (_) {}
-      }
-      return res.json({
-        temporadas: item.temporadas?.length ? item.temporadas : [season],
-        seasonActual: season,
-        episodios: eps,
-      });
+      item = await obtenerDetalle({ link, postId, slug, source_id, tipo });
+    } catch (err) {
+      console.warn("episodios detalle:", err.message);
     }
 
-    // Fallback vacío
-    res.json({ temporadas: [1], seasonActual: season, episodios: [] });
+    if (!item || !Array.isArray(item.episodios) || !item.episodios.length) {
+      return res.json({ temporadas: [1], seasonActual: season, episodios: [] });
+    }
+
+    let eps = item.episodios.filter((e) => Number(e.season) === season);
+    if (!eps.length) {
+      // si no hay season match, devolver todos de esa temporada si season=1 y hay eps sin season
+      eps = item.episodios.filter((e) => !e.season || Number(e.season) === season);
+    }
+
+    const id = parseIdentidad(item) || {
+      sourceId: String(item.source_id || source_id),
+      slug: item.slug || slug,
+      kind: (item.tipo === "Anime" || tipo === "Anime") ? "anime" : "serie",
+    };
+
+    // Si piden players o el primer ep no tiene embeds, cargar el primero
+    if (eps.length && (loadPlayers || !eps[0].embeds?.length)) {
+      try {
+        const epNum = eps[0].episode || 1;
+        const det = await obtenerEpisodio(id.sourceId, id.slug, season, epNum, id.kind);
+        if (det.embeds?.length) {
+          eps[0].embeds = det.embeds;
+          eps[0].video = det.reproductor;
+          await guardarPlayersEpisodio(item, season, epNum, det.embeds, det.reproductor);
+        }
+      } catch (err) {
+        console.warn("No se pudieron cargar players ep1:", err.message);
+      }
+    }
+
+    res.json({
+      temporadas: item.temporadas?.length ? item.temporadas : [season],
+      seasonActual: season,
+      episodios: eps,
+      slug: item.slug || slug,
+      source_id: item.source_id || source_id,
+      link: item.link,
+    });
   } catch (err) {
     console.error("/api/episodios", err.message);
     res.status(500).json({ error: "No se pudieron cargar los episodios", detalle: err.message });
   }
 });
 
-/** Endpoint auxiliar: players de un capítulo concreto */
+/** Players de un capítulo: carga API → guarda en Supabase → responde */
 app.get("/api/capitulo", async (req, res) => {
   try {
     const sourceId = req.query.source_id || DEFAULT_SOURCE;
     const slug = req.query.slug;
+    const link = req.query.link || null;
+    const tipo = req.query.tipo || "Serie";
     const temporada = parseInt(req.query.temporada || req.query.season) || 1;
     const episodio = parseInt(req.query.episodio || req.query.episode) || 1;
-    if (!slug) return res.status(400).json({ error: "Falta slug" });
-    const item = await obtenerEpisodio(sourceId, slug, temporada, episodio);
-    res.json(item);
+    if (!slug && !link) return res.status(400).json({ error: "Falta slug o link" });
+
+    // 1) ¿Ya está en Supabase (dentro de la serie)?
+    let serie = null;
+    try {
+      serie = await obtenerDetalle({ link, slug, source_id: sourceId, tipo, force: false });
+    } catch (_) {}
+
+    if (serie && Array.isArray(serie.episodios)) {
+      const cached = serie.episodios.find(
+        (e) => Number(e.season) === temporada && Number(e.episode) === episodio && e.embeds?.length
+      );
+      if (cached) {
+        return res.json({
+          season: temporada,
+          episode: episodio,
+          embeds: mapEmbeds(cached.embeds),
+          reproductor: cached.video || cached.reproductor || null,
+          from: "supabase",
+        });
+      }
+    }
+
+    // 2) API
+    const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
+    const resolvedSlug = slug || serie?.slug;
+    if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
+
+    const det = await obtenerEpisodio(sourceId, resolvedSlug, temporada, episodio, kind);
+    const embeds = mapEmbeds(det.embeds);
+
+    // 3) Guardar en Supabase
+    if (serie && embeds.length) {
+      await guardarPlayersEpisodio(serie, temporada, episodio, embeds, det.reproductor);
+    }
+
+    res.json({
+      season: temporada,
+      episode: episodio,
+      embeds,
+      reproductor: det.reproductor || (embeds[0] && embeds[0].url) || null,
+      nombre: det.nombre,
+      from: "api",
+    });
   } catch (err) {
     console.error("/api/capitulo", err.message);
-    res.status(500).json({ error: "No se pudo cargar el capítulo" });
+    res.status(500).json({ error: "No se pudo cargar el capítulo", detalle: err.message });
   }
 });
 

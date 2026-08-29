@@ -779,6 +779,19 @@ document.getElementById("btn-refresh-servers")?.addEventListener("click", async 
 });
 
 // ---------- Temporadas y episodios ----------
+function buildEpisodiosQuery(item, season) {
+    const params = new URLSearchParams();
+    params.set("season", String(season));
+    if (item.postId) params.set("postId", item.postId);
+    if (item.link) params.set("link", item.link);
+    if (item.slug) params.set("slug", item.slug);
+    if (item.source_id) params.set("source_id", item.source_id);
+    if (item.tipo) params.set("tipo", item.tipo);
+    if (item.url_extract && !item.link) params.set("link", item.url_extract);
+    params.set("players", "1"); // cargar players del 1er episodio
+    return params.toString();
+}
+
 function renderTemporadas(item) {
     const tabsContainer = document.getElementById("seasons-tabs-container");
     const temporadas = item.temporadas && item.temporadas.length ? item.temporadas : [1];
@@ -787,28 +800,41 @@ function renderTemporadas(item) {
         `<button class="season-tab${i === 0 ? " active" : ""}" data-season="${s}">Temporada ${s}</button>`
     ).join("");
 
+    const loadSeason = async (season) => {
+        const episodesContainer = document.getElementById("episodes-container");
+        episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios...</p></div>`;
+        try {
+            const res = await fetch(`/api/episodios?${buildEpisodiosQuery(item, season)}`, { cache: "no-store" });
+            const data = await res.json();
+            item.episodios = data.episodios || [];
+            if (data.slug) item.slug = data.slug;
+            if (data.source_id) item.source_id = data.source_id;
+            if (data.link) item.link = data.link;
+            renderEpisodios(item, season);
+            // Si el 1er ep ya trae players, mostrarlos
+            const first = (item.episodios || [])[0];
+            if (first && (first.embeds?.length || first.video)) {
+                renderServidoresYDescargas(first.embeds || [], first.downloads || [], first.video, item);
+            }
+        } catch (err) {
+            console.error(err);
+            episodesContainer.innerHTML = `<p style="color:var(--text-muted);">Error cargando episodios.</p>`;
+        }
+    };
+
     tabsContainer.querySelectorAll(".season-tab").forEach(tab => {
         tab.addEventListener("click", async () => {
             tabsContainer.querySelectorAll(".season-tab").forEach(t => t.classList.remove("active"));
             tab.classList.add("active");
-            const season = parseInt(tab.dataset.season);
-            const episodesContainer = document.getElementById("episodes-container");
-            episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
-            try {
-                const res = await fetch(`/api/episodios?postId=${item.postId}&season=${season}`, { cache: "no-store" });
-                const data = await res.json();
-                item.episodios = data.episodios || [];
-                renderEpisodios(item);
-            } catch {
-                episodesContainer.innerHTML = `<p style="color:var(--text-muted);">Error cargando episodios.</p>`;
-            }
+            await loadSeason(parseInt(tab.dataset.season));
         });
     });
 
-    renderEpisodios(item);
+    // Cargar primera temporada al abrir
+    loadSeason(temporadas[0] || 1);
 }
 
-function renderEpisodios(item) {
+function renderEpisodios(item, season = 1) {
     const episodesContainer = document.getElementById("episodes-container");
     episodesContainer.innerHTML = "";
 
@@ -821,15 +847,53 @@ function renderEpisodios(item) {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
         btn.className = "episode-btn" + (index === 0 ? " active" : "");
-        btn.textContent = index + 1;
-        btn.title = episodio.nombre || `Episodio ${index + 1}`;
-        if (!tieneVideo) btn.style.opacity = "0.4";
+        btn.textContent = episodio.episode || (index + 1);
+        btn.title = episodio.nombre || `Episodio ${episodio.episode || index + 1}`;
+        if (!tieneVideo) btn.style.opacity = "0.55";
 
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
             episodesContainer.querySelectorAll(".episode-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
-            document.getElementById("details-title").textContent = `${item.nombre} - ${episodio.nombre || "Episodio " + (index + 1)}`;
-            renderServidoresYDescargas(episodio.embeds || [], episodio.downloads || [], episodio.video, item);
+            const epNum = episodio.episode || (index + 1);
+            const seasonNum = episodio.season || season || 1;
+            document.getElementById("details-title").textContent =
+                `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
+
+            // Si ya tiene players → mostrar
+            if ((episodio.embeds && episodio.embeds.length) || episodio.video) {
+                renderServidoresYDescargas(episodio.embeds || [], episodio.downloads || [], episodio.video, item);
+                btn.style.opacity = "1";
+                return;
+            }
+
+            // Cargar de API → se guarda en Supabase en el backend
+            const serversContainer = document.getElementById("servers-container");
+            if (serversContainer) {
+                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores...</p></div>`;
+            }
+            try {
+                const params = new URLSearchParams();
+                params.set("temporada", String(seasonNum));
+                params.set("episodio", String(epNum));
+                if (item.slug) params.set("slug", item.slug);
+                if (item.source_id) params.set("source_id", item.source_id);
+                if (item.link) params.set("link", item.link);
+                if (item.tipo) params.set("tipo", item.tipo);
+
+                const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Error");
+
+                episodio.embeds = normalizarEmbeds(data.embeds || []);
+                episodio.video = data.reproductor || null;
+                btn.style.opacity = episodio.embeds.length ? "1" : "0.55";
+                renderServidoresYDescargas(episodio.embeds, [], episodio.video, item);
+            } catch (err) {
+                console.error(err);
+                if (serversContainer) {
+                    serversContainer.innerHTML = `<p style="color:var(--text-muted);">No se pudieron cargar los servidores de este episodio.</p>`;
+                }
+            }
         });
 
         episodesContainer.appendChild(btn);
