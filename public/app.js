@@ -299,9 +299,19 @@ function ensurePlayerVideoEl() {
     vid = document.createElement("video");
     vid.id = "player-video";
     vid.className = "player-video hidden";
-    vid.setAttribute("controls", "");
+    vid.controls = true;
+    vid.playsInline = true;
     vid.setAttribute("playsinline", "");
-    vid.setAttribute("autoplay", "");
+    vid.setAttribute("webkit-playsinline", "true");
+    vid.setAttribute("x5-playsinline", "true");
+    vid.setAttribute("x5-video-player-type", "h5");
+    vid.setAttribute("x5-video-player-fullscreen", "false");
+    vid.disablePictureInPicture = true;
+    // No forzar fullscreen
+    vid.addEventListener("webkitbeginfullscreen", (e) => {
+        try { e.preventDefault(); } catch (_) {}
+        try { if (document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch (_) {}
+    });
     wrap.appendChild(vid);
     return vid;
 }
@@ -331,18 +341,25 @@ async function reproducirHlsNoAds(playUrl, item) {
     playerTitle.textContent = (item?.nombre || "NO ADS")
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
 
+    // Siempre dentro del wrapper 16:9 (igual que los embeds)
+    vid.playsInline = true;
     if (window.Hls && window.Hls.isSupported()) {
-        _hlsInstance = new window.Hls({ enableWorker: true });
+        _hlsInstance = new window.Hls({
+            enableWorker: true,
+            // no auto quality jump que re-layout
+            startLevel: -1
+        });
         _hlsInstance.loadSource(playUrl);
         _hlsInstance.attachMedia(vid);
         _hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
-            vid.play().catch(() => {});
+            const p = vid.play();
+            if (p && p.catch) p.catch(() => {});
         });
     } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
         vid.src = playUrl;
-        vid.play().catch(() => {});
+        const p = vid.play();
+        if (p && p.catch) p.catch(() => {});
     } else {
-        // fallback: abrir en iframe (puede fallar)
         vid.classList.add("hidden");
         playerIframe.classList.remove("hidden");
         playerIframe.src = playUrl;

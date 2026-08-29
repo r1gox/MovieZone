@@ -2442,3 +2442,39 @@ body.player-open {
   overscroll-behavior: none;
   touch-action: manipulation;
 }
+
+
+/* NO ADS — mismo espacio que el iframe (16:9 del modal), sin pantalla completa */
+.player-iframe-wrapper {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+.player-iframe-wrapper iframe,
+.player-iframe-wrapper .player-video {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border: none !important;
+  object-fit: contain !important;
+  background: #000 !important;
+}
+.player-video {
+  z-index: 2;
+}
+.player-video.hidden {
+  display: none !important;
+}
+/* Evitar que el video nativo salga del contenedor */
+.video-player-container {
+  overflow: hidden;
+}
