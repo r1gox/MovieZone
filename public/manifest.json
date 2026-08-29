@@ -1,0 +1,16 @@
+{
+  "name": "MovieZone",
+  "short_name": "MovieZone",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0611",
+  "theme_color": "#0a0611",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3163/3163478.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

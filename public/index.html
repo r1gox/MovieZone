@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieZone — Streaming Premium</title>
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3163/3163478.png">
+
+  <!-- Ionicons -->
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0a0611">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+  <div class="bg-shape shape-1"></div>
+  <div class="bg-shape shape-2"></div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <nav class="netflix-navbar" id="netflix-navbar">
+    <div class="nav-left">
+      <div class="brand" id="brand-logo">
+        <ion-icon name="videocam" class="brand-icon"></ion-icon>
+        <h1>Movie<span>Zone</span></h1>
+      </div>
+      <ul class="nav-links">
+        <li class="active" id="nav-item-home"><a id="nav-link-home">Inicio</a></li>
+        <li id="nav-item-movies"><a class="filter-tab" data-type="movie">Películas</a></li>
+        <li id="nav-item-series"><a class="filter-tab" data-type="series">Series</a></li>
+        <li id="nav-item-anime"><a class="filter-tab" data-type="anime">Anime</a></li>
+        <li id="nav-item-favoritos"><a id="nav-link-favoritos">
+          <ion-icon name="heart-outline" style="font-size:14px; vertical-align:-2px;"></ion-icon> Favoritos
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="nav-right">
+      <div class="search-container">
+        <form id="search-form" class="search-form">
+          <div class="search-box-wrapper">
+            <ion-icon name="search-outline" class="search-icon"></ion-icon>
+            <input type="text" id="search-input" placeholder="Buscar y presiona Enter..." autocomplete="off">
+            <button type="submit" class="btn-search-submit"></button>
+          </div>
+        </form>
+      </div>
+
+      <div class="api-status-badge online" id="status-badge">
+        <span class="status-dot"></span>
+        <span class="status-text">Online</span>
+      </div>
+    </div>
+  </nav>
+
+  <main id="home-view" class="animate-fade-in">
+    <section class="hero-banner" id="hero-banner">
+      <div class="hero-content">
+        <span class="hero-type-badge" id="hero-type">PELÍCULA RECOMENDADA</span>
+        <h2 class="hero-title" id="hero-title">Cargando...</h2>
+
+        <div class="hero-meta-row">
+          <div class="hero-meta-item rating">
+            <ion-icon name="star"></ion-icon>
+            <span id="hero-rating">-</span>
+          </div>
+          <div class="hero-meta-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span id="hero-year">-</span>
+          </div>
+        </div>
+
+        <p class="hero-synopsis" id="hero-synopsis"></p>
+
+        <div class="hero-actions">
+          <button class="btn-hero play" id="hero-play-btn">
+            <ion-icon name="play-sharp"></ion-icon>
+            <span>Ver Ahora</span>
+          </button>
+          <button class="btn-hero info" id="hero-info-btn">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>Más Información</span>
+          </button>
+        </div>
+      </div>
+      <div class="hero-dots" id="hero-dots"></div>
+    </section>
+
+    <section class="view-container carousel-section" id="carousel-section-container">
+      <div class="carousel-row">
+        <h2>Películas Destacadas</h2>
+        <div class="carousel-container" id="carousel-movies">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-row">
+        <h2>Series del Momento</h2>
+        <div class="carousel-container" id="carousel-series">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-row">
+        <h2>Anime Recomendado</h2>
+        <div class="carousel-container" id="carousel-anime">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+      <div class="carousel-row hidden" id="row-continuar">
+        <h2>Continuar viendo</h2>
+        <div class="carousel-container" id="carousel-continuar"></div>
+      </div>
+
+      <div class="carousel-row">
+        <h2>Recién añadidos</h2>
+        <div class="carousel-container" id="carousel-recien">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="view-container grid-section hidden" id="grid-view">
+    <div class="filter-toolbar" id="filter-toolbar">
+      <div class="filter-group">
+        <button class="filter-chip active" data-type="all">Todos</button>
+        <button class="filter-chip" data-type="movie">🎬 Películas</button>
+        <button class="filter-chip" data-type="series">📺 Series</button>
+        <button class="filter-chip" data-type="anime">⛩️ Anime</button>
+      </div>
+      <div class="filter-group sort-group">
+        <label for="sort-select" class="sort-label">Ordenar:</label>
+        <select id="sort-select" class="sort-select">
+          <option value="recent">Más reciente</option>
+          <option value="rating">Mejor calificación</option>
+          <option value="az">A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-header">
+      <h2 id="results-title">Resultados</h2>
+      <span class="results-count" id="results-count">0 items</span>
+    </div>
+
+    <div class="loading-state hidden" id="results-loading">
+      <div class="spinner"></div>
+      <p>Consultando fuentes de contenido...</p>
+    </div>
+
+    <div class="catalog-grid skeleton-grid hidden" id="results-skeleton">
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+    </div>
+    
+    <div class="downloads-empty hidden" id="results-empty">
+      <ion-icon name="film-outline"></ion-icon>
+      <p>No se encontraron resultados.</p>
+    </div>
+
+    <div class="catalog-grid" id="results-grid"></div>
+
+    <div id="scroll-sentinel" class="scroll-sentinel hidden">
+      <div class="spinner"></div>
+      <p>Cargando más contenidos...</p>
+    </div>
+  </section>
+
+  <div id="details-panel" class="hidden">
+    <div class="modal-backdrop-close" id="modal-backdrop-close"></div>
+
+    <button class="btn-close-modal" id="btn-close-modal" title="Cerrar detalles">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+
+    <div class="details-content">
+      <div class="video-player-container hidden" id="video-player-container">
+        <div class="player-header">
+          <span id="player-title">Reproduciendo...</span>
+          <button class="btn-close-player" id="close-player-btn" title="Cerrar reproductor">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="player-iframe-wrapper">
+          <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+        </div>
+      </div>
+
+      <div class="details-body">
+        <div class="details-empty" id="details-empty">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <h3>Detalles del Contenido</h3>
+          <p>Selecciona un elemento para ver su sinopsis, temporadas, servidores y opciones de descarga.</p>
+        </div>
+        <div class="details-content-inner hidden" id="details-content">
+          <div class="details-header-card">
+            <img id="details-poster" src="" alt="Poster" class="details-poster">
+            <div class="details-meta-info">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <span class="media-type-badge" id="details-type">PELICULA</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button class="btn-icon" id="btn-share" title="Copiar enlace">
+                    <ion-icon name="share-outline" id="btn-share-icon"></ion-icon>
+                  </button>
+                  <button class="btn-icon" id="btn-favorito" title="Agregar a favoritos">
+                    <ion-icon name="heart-outline" id="btn-favorito-icon"></ion-icon>
+                  </button>
+                </div>
+              </div>
+      <!-- aquí sigue el título, año, rating, etc. -->
+              <h3 id="details-title">Título del Contenido</h3>
+              <p id="details-original-title" class="subtext"></p>
+
+              <div class="meta-row">
+                <div class="meta-item year">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span id="details-year">-</span>
+                </div>
+                <div class="meta-item rating">
+                  <ion-icon name="star"></ion-icon>
+                  <span id="details-rating">-</span>
+                </div>
+              </div>
+
+              <div class="details-genres" id="details-genres"></div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h4>Sinopsis</h4>
+            <p id="details-synopsis" class="synopsis-text">Sinopsis completa del contenido...</p>
+          </div>
+
+          <div class="details-section hidden" id="seasons-section">
+            <h4>Temporadas y Capítulos</h4>
+            <div class="seasons-tabs" id="seasons-tabs-container"></div>
+            <div class="episodes-grid" id="episodes-container"></div>
+          </div>
+
+          <div class="details-section" id="servers-section">
+            <div class="servers-header">
+              <h4 id="servers-section-title">Servidores de Reproducción</h4>
+              <button type="button" class="btn-refresh-servers" id="btn-refresh-servers" title="Forzar actualización de servidores">
+                <ion-icon name="refresh-outline"></ion-icon>
+                <span>Actualizar</span>
+              </button>
+            </div>
+            <div class="loading-state hidden" id="servers-loading">
+              <div class="spinner"></div>
+              <p>Buscando servidores disponibles...</p>
+            </div>
+            <div class="servers-list" id="servers-container"></div>
+          </div>
+
+          <div class="details-section hidden" id="downloads-section">
+            <h4>Opciones de Descarga</h4>
+            <div class="servers-list" id="downloads-list-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/wakeup.css">
+<script type="module" src="app.js"></script>
+<script src="/mobile-menu.js"></script>
+</body>
+</html>
