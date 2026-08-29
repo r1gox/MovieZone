@@ -1908,7 +1908,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 48px;
   flex-wrap: wrap;
 }
 

@@ -946,6 +946,14 @@ function reproducir(embed, item) {
     iniciarSeguimientoProgreso(item || seleccionActual);
     // evita pull-to-refresh sobre el player
     document.body.classList.add("player-open");
+    // Scroll automático al reproductor
+    requestAnimationFrame(() => {
+        try {
+            videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (_) {
+            videoContainer.scrollIntoView(true);
+        }
+    });
 }
 
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) {

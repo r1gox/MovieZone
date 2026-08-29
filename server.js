@@ -66,13 +66,20 @@ const api = axios.create({
 });
 
 // ---------- Memoria local (espejo de Supabase) ----------
+// En Vercel la memoria es por instancia y se queda vieja: prioritizamos Supabase.
 let moviesDB = [];
 let knownLinks = new Set();
+let moviesDBLoadedAt = 0;
+const MOVIES_DB_TTL_MS = 15 * 1000; // refrescar desde Supabase cada 15s
 
-async function cargarDatosSupabase() {
+async function cargarDatosSupabase(force = false) {
+  const ahora = Date.now();
+  if (!force && moviesDB.length && ahora - moviesDBLoadedAt < MOVIES_DB_TTL_MS) {
+    return moviesDB;
+  }
   try {
     const sb = getSupabase();
-    if (!sb) return;
+    if (!sb) return moviesDB;
     const { data, error } = await sb
       .from("movies")
       .select("*")
@@ -80,12 +87,22 @@ async function cargarDatosSupabase() {
     if (error) throw error;
     moviesDB = (data || []).map(normalizeItemFromDB).filter(Boolean);
     knownLinks = new Set(moviesDB.map((i) => i.link).filter(Boolean));
+    moviesDBLoadedAt = Date.now();
     console.log(`Supabase DB cargada: ${moviesDB.length} items`);
   } catch (err) {
     console.error("No se pudo cargar desde Supabase:", err.message);
-    moviesDB = [];
-    knownLinks = new Set();
+    if (!moviesDB.length) {
+      moviesDB = [];
+      knownLinks = new Set();
+    }
   }
+  return moviesDB;
+}
+
+/** Asegura datos frescos de Supabase antes de listados / búsqueda */
+async function ensureMoviesDB() {
+  await cargarDatosSupabase(false);
+  return moviesDB;
 }
 
 function itemTieneContenidoValido(item) {
@@ -575,6 +592,7 @@ async function apiGet(path) {
 // ---------- Lógica de negocio ----------
 async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   // tipo: peliculas | series | animes
+  await ensureMoviesDB(); // datos frescos de Supabase (Disponible, etc.)
   const path = `/${DEFAULT_SOURCE}/${tipo}/estrenos`;
   try {
     const data = await apiGet(path);
@@ -634,6 +652,7 @@ async function obtenerPopulares(tipo = "peliculas", limit = 24) {
 }
 
 async function buscarOnline(termino, page = 1, limit = 28) {
+  await ensureMoviesDB();
   const q = encodeURIComponent(termino.trim());
   const data = await apiGet(`/search?q=${q}`);
   let lista = (data.resultados || []).map(mapListItem);
@@ -759,8 +778,17 @@ async function obtenerDetalle(params) {
 
   let cached = null;
 
-  // 1) Memoria local
-  if (link) {
+  // 1) SIEMPRE Supabase primero (fuente de verdad entre instancias de Vercel)
+  const fromDb = await buscarEnSupabase({ link, slug, postId });
+  if (fromDb) {
+    cached = fromDb;
+    const idx = moviesDB.findIndex((m) => m.link === fromDb.link);
+    if (idx >= 0) moviesDB[idx] = cached;
+    else moviesDB.unshift(cached);
+  }
+
+  // 2) Memoria local solo como complemento si Supabase no tenía el registro
+  if (!cached && link) {
     const local = moviesDB.find((m) => m.link === link);
     if (local) cached = normalizeItemFromDB(local);
   }
@@ -769,18 +797,7 @@ async function obtenerDetalle(params) {
     if (local) cached = normalizeItemFromDB(local);
   }
 
-  // 2) Supabase (persistente entre cold starts de Vercel)
-  if (!cached || force) {
-    const fromDb = await buscarEnSupabase({ link, slug, postId });
-    if (fromDb) {
-      cached = mergeItems(cached, fromDb);
-      const idx = moviesDB.findIndex((m) => m.link === fromDb.link);
-      if (idx >= 0) moviesDB[idx] = cached;
-      else moviesDB.unshift(cached);
-    }
-  }
-
-  // Si ya tenemos contenido válido (players o episodios) y descripción, y no force → devolver
+  // Si ya tenemos contenido válido (players o episodios) y descripción, y no force → devolver de Supabase
   const tieneDesc = cached && cached.descripcion && String(cached.descripcion).length > 20;
   const tieneContenido = cached && (itemTieneContenidoValido(cached) || (cached.episodios && cached.episodios.length));
   if (!force && cached && tieneContenido && tieneDesc) {
@@ -1035,6 +1052,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     }
 
     if (soloLocal) {
+      await ensureMoviesDB();
       return res.json(buscarLocal(termino, type, page, limit));
     }
 
@@ -1043,6 +1061,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       return res.json(data);
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
+      await ensureMoviesDB();
       return res.json(buscarLocal(termino, type, page, limit));
     }
   } catch (err) {
@@ -1054,8 +1073,10 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
 app.get("/api/recien", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 12, 40);
+    // Directo a Supabase (no confiar en memoria de Vercel)
     const sb = getSupabase();
     if (!sb) {
+      await ensureMoviesDB();
       return res.json({
         resultados: moviesDB.slice(0, limit).map((m) => normalizeItemFromDB(m)),
       });
@@ -1067,6 +1088,13 @@ app.get("/api/recien", async (req, res) => {
       .limit(limit);
     if (error) throw error;
     const resultados = (data || []).map((row) => normalizeItemFromDB(row)).filter(Boolean);
+    // Actualizar espejo en memoria
+    for (const item of resultados) {
+      if (!item.link) continue;
+      const idx = moviesDB.findIndex((m) => m.link === item.link);
+      if (idx >= 0) moviesDB[idx] = { ...moviesDB[idx], ...item };
+      else moviesDB.unshift(item);
+    }
     res.json({ resultados });
   } catch (err) {
     console.error("/api/recien", err.message);
