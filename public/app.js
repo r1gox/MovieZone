@@ -187,6 +187,175 @@ function detectarServidor(url, serverOriginal) {
     return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Servidor";
 }
 
+
+
+// ======================================================
+// NO ADS — stream directo vía worker (NO se guarda en Supabase)
+// Prioridad: Vimeos → Streamwish → Goodstream → Vidhide → Voe
+// ======================================================
+const WORKER_STREAM = "https://moviezone.tvjz.workers.dev";
+
+function rankFuenteNoAds(url) {
+    const u = String(url || "").toLowerCase();
+    if (u.includes("vimeos")) return 1;
+    if (
+        u.includes("streamwish") || u.includes("flaswish") ||
+        u.includes("strwish") || u.includes("ahvsh") || u.includes("streamhg")
+    ) return 2;
+    if (u.includes("goodstream")) return 3;
+    if (
+        u.includes("vidhide") || u.includes("earnvids") ||
+        u.includes("callistanise") || u.includes("smoothpre") ||
+        u.includes("filelions")
+    ) return 4;
+    if (u.includes("voe") || u.includes("jilliandescribe")) return 5;
+    return 99;
+}
+
+function streamUrlParaNoAds(embedUrl) {
+    const r = rankFuenteNoAds(embedUrl);
+    const q = encodeURIComponent(embedUrl);
+    if (r === 1) return `${WORKER_STREAM}/resolve/vimeos?url=${q}&proxy=1`;
+    if (r === 2) return `${WORKER_STREAM}/wish/streamurl?url=${q}`;
+    if (r === 3) return `${WORKER_STREAM}/goodstream/streamurl?url=${q}`;
+    if (r === 4) return `${WORKER_STREAM}/vidhide/streamurl?url=${q}`;
+    if (r === 5) return `${WORKER_STREAM}/voe/streamurl?url=${q}`;
+    return null;
+}
+
+/** Elige UN solo embed según prioridad (no duplica servidores normales) */
+function elegirEmbedNoAds(embeds) {
+    if (!Array.isArray(embeds) || !embeds.length) return null;
+    let best = null;
+    let bestRank = 99;
+    for (const e of embeds) {
+        if (!e || !e.url || e.noAds) continue;
+        if (esEmbedInvalido(e.url)) continue;
+        const rank = rankFuenteNoAds(e.url);
+        if (rank < bestRank) {
+            bestRank = rank;
+            best = e;
+        }
+    }
+    if (!best || bestRank >= 99) return null;
+    const streamApi = streamUrlParaNoAds(best.url);
+    if (!streamApi) return null;
+    return {
+        url: best.url,
+        stream_url: streamApi,
+        server: "NO ADS",
+        name: "NO ADS",
+        noAds: true,
+        lang: best.lang || best.idioma || "",
+        sourceEmbed: best.url
+    };
+}
+
+function insertarNoAdsEnLista(embeds) {
+    const lista = Array.isArray(embeds) ? embeds.slice() : [];
+    // quitar entradas NO ADS previas
+    const limpia = lista.filter(e => !e || !e.noAds);
+    const noAds = elegirEmbedNoAds(limpia);
+    if (!noAds) return limpia;
+
+    // MovieZone (vimeos) primero; NO ADS justo después
+    const mzIdx = limpia.findIndex(e =>
+        e && e.url && (/vimeos/i.test(e.url) || e.server === "MovieZone" || e.name === "MovieZone")
+    );
+    if (mzIdx >= 0) {
+        limpia.splice(mzIdx + 1, 0, noAds);
+    } else {
+        limpia.unshift(noAds);
+    }
+    return limpia;
+}
+
+async function resolverPlayUrlNoAds(embed) {
+    const api = embed.stream_url || streamUrlParaNoAds(embed.url || embed.sourceEmbed);
+    if (!api) throw new Error("Sin stream_url NO ADS");
+    const res = await fetch(api, { cache: "no-store" });
+    const data = await res.json();
+    if (!data || data.success === false) {
+        throw new Error((data && data.error) || "No se pudo resolver NO ADS");
+    }
+    // Preferir play_url / proxy_url (ya filtrados activos en el worker)
+    let play = data.play_url || data.proxy_url || null;
+    if (!play && Array.isArray(data.qualities) && data.qualities.length) {
+        const q720 = data.qualities.find(q => String(q.quality || "").includes("720"));
+        play = (q720 && q720.proxy_url) || data.qualities[data.qualities.length - 1].proxy_url;
+    }
+    if (!play && data.url) {
+        play = `${WORKER_STREAM}/proxy?url=${encodeURIComponent(data.url)}`;
+    }
+    if (!play) throw new Error("Sin URL reproducible");
+    return play;
+}
+
+function ensurePlayerVideoEl() {
+    let vid = document.getElementById("player-video");
+    if (vid) return vid;
+    const wrap = document.querySelector(".player-iframe-wrapper");
+    if (!wrap) return null;
+    vid = document.createElement("video");
+    vid.id = "player-video";
+    vid.className = "player-video hidden";
+    vid.setAttribute("controls", "");
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("autoplay", "");
+    wrap.appendChild(vid);
+    return vid;
+}
+
+let _hlsInstance = null;
+function destruirHls() {
+    if (_hlsInstance) {
+        try { _hlsInstance.destroy(); } catch (_) {}
+        _hlsInstance = null;
+    }
+    const vid = document.getElementById("player-video");
+    if (vid) {
+        try { vid.pause(); vid.removeAttribute("src"); vid.load(); } catch (_) {}
+        vid.classList.add("hidden");
+    }
+    if (playerIframe) playerIframe.classList.remove("hidden");
+}
+
+async function reproducirHlsNoAds(playUrl, item) {
+    destruirHls();
+    const vid = ensurePlayerVideoEl();
+    if (!vid) throw new Error("Sin elemento video");
+    playerIframe.classList.add("hidden");
+    playerIframe.src = "about:blank";
+    vid.classList.remove("hidden");
+    videoContainer.classList.remove("hidden");
+    playerTitle.textContent = (item?.nombre || "NO ADS")
+        .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
+
+    if (window.Hls && window.Hls.isSupported()) {
+        _hlsInstance = new window.Hls({ enableWorker: true });
+        _hlsInstance.loadSource(playUrl);
+        _hlsInstance.attachMedia(vid);
+        _hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            vid.play().catch(() => {});
+        });
+    } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
+        vid.src = playUrl;
+        vid.play().catch(() => {});
+    } else {
+        // fallback: abrir en iframe (puede fallar)
+        vid.classList.add("hidden");
+        playerIframe.classList.remove("hidden");
+        playerIframe.src = playUrl;
+    }
+    iniciarSeguimientoProgreso(item || seleccionActual);
+    document.body.classList.add("player-open");
+    requestAnimationFrame(() => {
+        try { videoContainer.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        catch (_) { videoContainer.scrollIntoView(true); }
+    });
+}
+
+
 // ======================================================
 // NAVEGACIÓN DE VISTAS
 // ======================================================
@@ -760,6 +929,7 @@ function cerrarDetalle() {
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
+    destruirHls();
     playerIframe.src = "about:blank";
     videoContainer.classList.add("hidden");
     cargarContinuarViendo();
@@ -768,6 +938,7 @@ document.getElementById("btn-close-modal").addEventListener("click", cerrarDetal
 document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
 document.getElementById("close-player-btn").addEventListener("click", () => {
     detenerSeguimientoProgreso(true);
+    destruirHls();
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
     document.body.classList.remove("player-open");
@@ -945,16 +1116,30 @@ function renderEpisodios(item, season = 1) {
 }
 
 // ---------- Servidores y descargas ----------
-function reproducir(embed, item) {
-    if (!embed?.url) return;
+async function reproducir(embed, item) {
+    if (!embed?.url && !embed?.stream_url) return;
+
+    // NO ADS: resuelve stream en vivo (caduca; no va a Supabase)
+    if (embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS") {
+        try {
+            playerTitle.textContent = "Cargando NO ADS...";
+            videoContainer.classList.remove("hidden");
+            const playUrl = await resolverPlayUrlNoAds(embed);
+            await reproducirHlsNoAds(playUrl, item);
+        } catch (err) {
+            console.error("NO ADS:", err);
+            alert("NO ADS no disponible: " + (err.message || err));
+        }
+        return;
+    }
+
+    destruirHls();
     videoContainer.classList.remove("hidden");
     playerIframe.src = embed.url;
     playerTitle.textContent = (item?.nombre || "Reproduciendo...")
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
     iniciarSeguimientoProgreso(item || seleccionActual);
-    // evita pull-to-refresh sobre el player
     document.body.classList.add("player-open");
-    // Scroll automático al reproductor
     requestAnimationFrame(() => {
         try {
             videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1035,6 +1220,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
         );
 
     });
+
+    // Insertar UN solo "NO ADS" (después de MovieZone). No se guarda en Supabase.
+    embeds = insertarNoAdsEnLista(embeds);
+
 
 
     /*
@@ -1146,8 +1335,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
         embeds.forEach(
             (embed, index) => {
 
-                const nombre =
-                    detectarServidor(
+                const nombre = embed.noAds
+                    ? "NO ADS"
+                    : detectarServidor(
                         embed.url,
                         embed.server ||
                         embed.name
