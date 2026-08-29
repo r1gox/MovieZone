@@ -934,22 +934,24 @@ async function obtenerDetalle(params) {
 
   best.tiene_player = itemTieneContenidoValido(best) || !!(best.episodios && best.episodios.length);
 
-  // Sin reproductor tras probar las 3 fuentes → borrar de Supabase (no seguir mostrando)
-  // También si no tiene portada ni contenido
   const sinPortada = !best.portada || String(best.portada).includes("placeholder");
   const sinContenido = !best.tiene_player;
-  if (sinContenido) {
-    // Borrar por link y por slug si existen
+  const esSerieOAnime = best.tipo === "Serie" || best.tipo === "Anime";
+
+  // NO descartar series/animes: los players suelen cargarse por episodio
+  // Solo descartar PELÍCULAS sin reproductor, o cualquier cosa sin portada Y sin contenido
+  if (!esSerieOAnime && sinContenido) {
     if (best.link) await borrarDeSupabase(best.link);
     if (best.slug) await borrarDeSupabasePorSlug(best.slug);
     best._eliminado = true;
     return best;
   }
-  if (sinPortada && sinContenido) {
+  if (sinPortada && sinContenido && !esSerieOAnime) {
     if (best.link) await borrarDeSupabase(best.link);
     return best;
   }
 
+  // Series/animes: guardar aunque aún no tengan embeds (sí temporadas/episodios)
   await guardarEnSupabase([best]);
   return best;
 }

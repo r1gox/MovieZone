@@ -1679,15 +1679,15 @@ function actualizarPaginacion() {
     paginacion.classList.remove("hidden");
 
     paginacion.innerHTML = `
-        <div class="pagination-buttons" style="display:flex;justify-content:center;align-items:center;gap:min(30vw,120px);width:100%;flex-wrap:wrap;">
-            <button class="btn-page" id="btn-prev-page" style="min-width:130px;margin:0 12px;" ${gridPage <= 1 ? "disabled" : ""}>
+        <div class="pagination-buttons">
+            <button class="btn-page" id="btn-prev-page" ${gridPage <= 1 ? "disabled" : ""}>
                 ← Anterior
             </button>
-            <button class="btn-page" id="btn-next-page" style="min-width:130px;margin:0 12px;" ${gridPage >= gridTotalPages ? "disabled" : ""}>
+            <button class="btn-page" id="btn-next-page" ${gridPage >= gridTotalPages ? "disabled" : ""}>
                 Siguiente →
             </button>
         </div>
-        <div class="page-info" style="text-align:center;width:100%;margin-top:10px;">
+        <div class="page-info">
             Página <strong>${gridPage}</strong> de <strong>${gridTotalPages}</strong>
         </div>
     `;
