@@ -425,6 +425,13 @@ function crearMediaCard(item) {
     const rating = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
     const tieneVideo = item.tiene_player === true || itemTieneVideo(item);
 
+    const generoCorto = item.genero
+        ? String(item.genero).split(",")[0].trim()
+        : "";
+    const sublinea = item.episodios && item.episodios.length
+        ? `${item.episodios.length} episodios`
+        : [item.year, generoCorto || tipo].filter(Boolean).join(" · ");
+
     card.innerHTML = `
         <div class="poster-wrapper">
             <img class="poster-img" src="${escapeHtml(portada)}" alt="${escapeHtml(nombre)}" loading="lazy">
@@ -437,7 +444,7 @@ function crearMediaCard(item) {
         </div>
         <div class="media-info">
             <h3>${escapeHtml(nombre)}</h3>
-            <p>${item.episodios && item.episodios.length ? `${item.episodios.length} episodios` : (item.year || tipo)}</p>
+            <p>${escapeHtml(sublinea)}</p>
         </div>
     `;
 
@@ -1672,15 +1679,15 @@ function actualizarPaginacion() {
     paginacion.classList.remove("hidden");
 
     paginacion.innerHTML = `
-        <div class="pagination-buttons">
-            <button class="btn-page" id="btn-prev-page" ${gridPage <= 1 ? "disabled" : ""}>
+        <div class="pagination-buttons" style="display:flex;justify-content:center;align-items:center;gap:min(30vw,120px);width:100%;flex-wrap:wrap;">
+            <button class="btn-page" id="btn-prev-page" style="min-width:130px;margin:0 12px;" ${gridPage <= 1 ? "disabled" : ""}>
                 ← Anterior
             </button>
-            <button class="btn-page" id="btn-next-page" ${gridPage >= gridTotalPages ? "disabled" : ""}>
+            <button class="btn-page" id="btn-next-page" style="min-width:130px;margin:0 12px;" ${gridPage >= gridTotalPages ? "disabled" : ""}>
                 Siguiente →
             </button>
         </div>
-        <div class="page-info">
+        <div class="page-info" style="text-align:center;width:100%;margin-top:10px;">
             Página <strong>${gridPage}</strong> de <strong>${gridTotalPages}</strong>
         </div>
     `;

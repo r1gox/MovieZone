@@ -848,6 +848,12 @@ body {
   line-height: 1.6;
   color: var(--text-muted);
   text-align: justify;
+  display: block;
+  -webkit-line-clamp: unset;
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
 }
 .meta-credits {
   font-size: 13px;

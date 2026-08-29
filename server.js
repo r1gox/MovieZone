@@ -69,8 +69,20 @@ const api = axios.create({
 // En Vercel la memoria es por instancia y se queda vieja: prioritizamos Supabase.
 let moviesDB = [];
 let knownLinks = new Set();
+const discardedLinks = new Set();
 let moviesDBLoadedAt = 0;
 const MOVIES_DB_TTL_MS = 15 * 1000; // refrescar desde Supabase cada 15s
+
+function esDescartado(item) {
+  if (!item) return true;
+  if (item.certificacion === "DESCARTADO" || item.descripcion === "__DISCARDED__") return true;
+  if (item.link && discardedLinks.has(item.link)) return true;
+  return false;
+}
+
+function filtrarDescartados(lista) {
+  return (lista || []).filter((i) => !esDescartado(i));
+}
 
 async function cargarDatosSupabase(force = false) {
   const ahora = Date.now();
@@ -85,10 +97,16 @@ async function cargarDatosSupabase(force = false) {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    moviesDB = (data || []).map(normalizeItemFromDB).filter(Boolean);
+    const all = (data || []).map(normalizeItemFromDB).filter(Boolean);
+    // Separar descartados
+    discardedLinks.clear();
+    for (const m of all) {
+      if (esDescartado(m) && m.link) discardedLinks.add(m.link);
+    }
+    moviesDB = all.filter((m) => !esDescartado(m));
     knownLinks = new Set(moviesDB.map((i) => i.link).filter(Boolean));
     moviesDBLoadedAt = Date.now();
-    console.log(`Supabase DB cargada: ${moviesDB.length} items`);
+    console.log(`Supabase DB cargada: ${moviesDB.length} items (${discardedLinks.size} descartados)`);
   } catch (err) {
     console.error("No se pudo cargar desde Supabase:", err.message);
     if (!moviesDB.length) {
@@ -120,7 +138,7 @@ async function guardarEnSupabase(items) {
   if (!sb) return;
 
   const paraInsertarRaw = items
-    .filter((item) => item.link)
+    .filter((item) => item.link && !discardedLinks.has(item.link) && !esDescartado(item))
     .map((item) => {
       let nombre = item.nombre || null;
       if (nombre && (item.tipo === "Serie" || item.tipo === "Anime")) {
@@ -247,6 +265,49 @@ function limpiarTitulo(titulo) {
 
 function limpiarTexto(texto) {
   return fixEncoding(texto);
+}
+
+/** Limpia sinopsis truncadas o con prefijo "Pelicula Título:" */
+function limpiarDescripcion(texto, titulo) {
+  let s = limpiarTexto(texto || "");
+  if (!s) return "";
+  // Quitar prefijo "Pelicula X:" / "Serie X:" típico de pelisplushd
+  s = s.replace(/^(Pel[ií]cula|Serie|Anime|Movie|TV)\s*[^:]{0,80}:\s*/i, "");
+  // Si el título aparece al inicio, quitarlo
+  if (titulo) {
+    const t = limpiarTitulo(titulo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s.replace(new RegExp("^" + t + "\\s*[:\\-–]?\\s*", "i"), "");
+  }
+  return s.trim();
+}
+
+function descripcionIncompleta(texto) {
+  const s = String(texto || "").trim();
+  if (s.length < 40) return true;
+  if (/\.\.\.$|…$/.test(s)) return true;
+  if (/^(Pel[ií]cula|Serie|Anime)\s/i.test(s) && s.length < 80) return true;
+  return false;
+}
+
+function extraerGenero(data) {
+  if (!data) return null;
+  const raw =
+    data.genero ||
+    data.genres ||
+    data.categorias ||
+    data.category ||
+    data.categories ||
+    data.genero_principal ||
+    null;
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map((g) => (typeof g === "string" ? g : g?.name || g?.nombre || ""))
+      .map((g) => limpiarTexto(g))
+      .filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  }
+  return limpiarTexto(String(raw)) || null;
 }
 
 function mapEmbeds(raw) {
@@ -467,11 +528,11 @@ function mapListItem(r) {
     titulo_original: r.titulo_original || null,
     slug,
     tipo,
-    descripcion: limpiarTexto(r.descripcion || ""),
+    descripcion: limpiarDescripcion(r.descripcion || "", titulo),
     portada,
     backdrop: r.backdrop || null,
     year,
-    genero: limpiarTexto(r.genero || "") || null,
+    genero: extraerGenero(r),
     idiomas: r.idiomas || [],
     calidad: r.calidad || [],
     calificacion: r.calificacion || r.rating || null,
@@ -555,11 +616,11 @@ function mapDetail(data, fallback = {}) {
     titulo_original: data.titulo_original || null,
     slug,
     tipo: tipo === "Capitulo" ? "Serie" : tipo,
-    descripcion: limpiarTexto(data.descripcion || fallback.descripcion || ""),
+    descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
     portada: data.portada || fallback.portada || null,
     backdrop: data.backdrop || null,
     year: extraerAnio(titulo, data.year || fallback.year),
-    genero: data.genero || null,
+    genero: extraerGenero(data) || extraerGenero(fallback) || null,
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
     calificacion: data.calificacion || null,
@@ -622,6 +683,7 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
       }
       return item;
     });
+    lista = filtrarDescartados(lista);
     // Guardar en Supabase en background (solo metadatos)
     guardarEnSupabase(lista).catch(() => {});
     return { resultados: lista, total: data.total || lista.length, page: 1, limit };
@@ -636,7 +698,7 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
       })
       .slice(0, limit)
       .map((m) => normalizeItemFromDB(m));
-    return { resultados: locales, total: locales.length, page: 1, limit, source: "local" };
+    return { resultados: filtrarDescartados(locales), total: locales.length, page: 1, limit, source: "local" };
   }
 }
 
@@ -685,6 +747,7 @@ async function buscarOnline(termino, page = 1, limit = 28) {
     return item;
   });
 
+  lista = filtrarDescartados(lista);
   // Ordenar: primero los que ya tienen player / más datos
   lista.sort((a, b) => scoreItem(b) - scoreItem(a));
 
@@ -821,6 +884,7 @@ async function obtenerDetalle(params) {
   }
 
   let best = null;
+  // Probar las 3 fuentes siempre que falten players o la descripción esté incompleta
   for (const sid of sourcesToTry) {
     const candidate = await fetchDetailFromSource(sid, id.kind, id.slug, {
       link,
@@ -831,14 +895,24 @@ async function obtenerDetalle(params) {
       portada: cached?.portada,
       descripcion: cached?.descripcion,
       year: cached?.year,
+      genero: cached?.genero,
       postId: postId || cached?.postId,
     });
     if (!candidate) continue;
-    best = best ? (scoreItem(candidate) > scoreItem(best) ? mergeItems(candidate, best) : mergeItems(best, candidate)) : candidate;
-    // Si ya tiene players + descripción, no hace falta seguir buscando en más fuentes
-    if (itemTieneContenidoValido(best) && best.descripcion && String(best.descripcion).length > 20) {
-      break;
+    best = best
+      ? scoreItem(candidate) > scoreItem(best)
+        ? mergeItems(candidate, best)
+        : mergeItems(best, candidate)
+      : candidate;
+    // Preferir la descripción más larga / completa
+    if (
+      best &&
+      candidate.descripcion &&
+      String(candidate.descripcion).length > String(best.descripcion || "").length
+    ) {
+      best.descripcion = candidate.descripcion;
     }
+    if (candidate.genero && !best.genero) best.genero = candidate.genero;
   }
 
   if (!best) {
@@ -848,6 +922,10 @@ async function obtenerDetalle(params) {
 
   // Fusionar con cache para no perder datos previos
   best = mergeItems(cached, best);
+  if (cached?.descripcion && descripcionIncompleta(best.descripcion) && !descripcionIncompleta(cached.descripcion)) {
+    best.descripcion = cached.descripcion;
+  }
+  best.descripcion = limpiarDescripcion(best.descripcion, best.nombre);
   if (!best.slug) best.slug = id.slug;
   if (!best.slug && best.link) {
     const m = String(best.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);
@@ -856,15 +934,22 @@ async function obtenerDetalle(params) {
 
   best.tiene_player = itemTieneContenidoValido(best) || !!(best.episodios && best.episodios.length);
 
-  // Sin portada y sin reproductor/episodios tras intentar las 3 fuentes → no guardar y borrar de Supabase
+  // Sin reproductor tras probar las 3 fuentes → borrar de Supabase (no seguir mostrando)
+  // También si no tiene portada ni contenido
   const sinPortada = !best.portada || String(best.portada).includes("placeholder");
   const sinContenido = !best.tiene_player;
+  if (sinContenido) {
+    // Borrar por link y por slug si existen
+    if (best.link) await borrarDeSupabase(best.link);
+    if (best.slug) await borrarDeSupabasePorSlug(best.slug);
+    best._eliminado = true;
+    return best;
+  }
   if (sinPortada && sinContenido) {
     if (best.link) await borrarDeSupabase(best.link);
     return best;
   }
 
-  // Guardar solo si aporta algo útil (portada o players o descripción)
   await guardarEnSupabase([best]);
   return best;
 }
@@ -874,13 +959,43 @@ async function borrarDeSupabase(link) {
   try {
     const sb = getSupabase();
     if (sb) {
-      await sb.from("movies").delete().eq("link", link);
+      // Marcar como descartado (sin borrar la fila) para filtrarlo en listados
+      // y no vuelva a aparecer desde estrenos/API
+      await sb.from("movies").upsert(
+        [
+          {
+            link,
+            tiene_player: false,
+            embeds: [],
+            reproductor: null,
+            episodios: [],
+            certificacion: "DESCARTADO",
+            descripcion: "__DISCARDED__",
+          },
+        ],
+        { onConflict: "link" }
+      );
     }
     moviesDB = moviesDB.filter((m) => m.link !== link);
     knownLinks.delete(link);
-    console.log("Eliminado de Supabase (sin portada ni player):", link);
+    discardedLinks.add(link);
+    console.log("Descartado (sin reproductor):", link);
   } catch (err) {
-    console.warn("No se pudo borrar de Supabase:", err.message);
+    console.warn("No se pudo descartar en Supabase:", err.message);
+  }
+}
+
+async function borrarDeSupabasePorSlug(slug) {
+  if (!slug) return;
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+    const { data } = await sb.from("movies").select("link").eq("slug", slug).limit(5);
+    for (const row of data || []) {
+      if (row.link) await borrarDeSupabase(row.link);
+    }
+  } catch (err) {
+    console.warn("borrarDeSupabasePorSlug:", err.message);
   }
 }
 
@@ -982,7 +1097,7 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
     });
 
     // Fusionar y deduplicar; preferir los que tienen más datos / player
-    let all = dedupeListItems([...apiItems, ...locales]);
+    let all = filtrarDescartados(dedupeListItems([...apiItems, ...locales]));
     all.sort((a, b) => {
       // Disponible primero, luego score
       const av = a.tiene_player ? 1 : 0;
@@ -1087,7 +1202,9 @@ app.get("/api/recien", async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
-    const resultados = (data || []).map((row) => normalizeItemFromDB(row)).filter(Boolean);
+    const resultados = filtrarDescartados(
+      (data || []).map((row) => normalizeItemFromDB(row)).filter(Boolean)
+    );
     // Actualizar espejo en memoria
     for (const item of resultados) {
       if (!item.link) continue;
