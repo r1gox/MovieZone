@@ -100,22 +100,27 @@ function tipoLabel(tipo) {
 
 const REPRODUCTORES_PERMITIDOS = [
     "vimeos.net", "player.vimeos", "goodstream", "streamwish", "filemoon",
-    "voe.sx", "voe.", "doodstream", "dood.", "ds2play", "streamtape",
-    "mixdrop", "upstream", "vidmoly", "mp4upload", "uqload",
+    "voe.sx", "voe.", "doodstream", "dood.", "ds2play", "dsvplay", "doods.pro",
+    "streamtape", "mixdrop", "upstream", "vidmoly", "mp4upload", "uqload",
     "vidhide", "vidguard", "lulustream", "filelions", "yourupload",
     "supervideo", "krakenfiles", "ok.ru",
-    "zilla-networks", "mega.nz", "mega.co",
+    "zilla-networks", "mega.nz", "mega.co", "mega.io",
+    // animeav1 / latino frecuentes
+    "hls.", "upnshare", "upns", "waaw.", "hqq.", "netu.", "vizcloud",
+    "mycloud", "vidplay", "megaf", "pixeldrain", "burstcloud", "streamhub",
+    "doodcdn", "voe.sx", "jilliandescribe",
     // aliases / mirrors frecuentes de la API
     "streamhg", "flaswish", "strwish", "ahvsh", "earnvids", "smoothpre",
-    "callistanise", "jilliandescribe", "wish", "vidhidepro", "luluvid",
+    "callistanise", "wish", "vidhidepro", "luluvid",
     "filemoon.", "moon.", "streamvid", "rutube", "vk.com", "vk.ru",
-    "iframe.", "embed.", "player."
+    "iframe.", "embed.", "player.", "stream.", "cdn."
 ];
 
 const REPRODUCTORES_BLOQUEADOS = [
     "sblongvu", "sblanh", "sbfull", "sbfast", "sbthe", "sbanh",
-    "lvturbo", "diasfem", "fembed", "4shared", "lamovie",
+    "lvturbo", "diasfem", "fembed", "4shared",
     "youtube.com", "youtu.be", "play.php", "example.com", "hackstore.fo"
+    // NO bloquear lamovie.org embeds si aparecen; solo meta JSON del worker
 ];
 
 /** URL de la API del worker (detalle/capítulo) — NO es un iframe de video */
@@ -1250,13 +1255,28 @@ function normalizarListaTemporadas(item) {
         out.push({ num, episodios, fromTmdb: false });
     });
 
-    // 2) Añadir temporadas extra de TMDB que no estén (ej. T2 de Wistoria)
-    //    Sin duplicar T1. Episodios como stubs meta (sin players hasta que existan en fuente).
+    const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
+    // Anime largo (One Piece): 1 temporada + muchos eps → NO usar arcs de TMDB (salen 20+ "temporadas")
+    // Usar rangos 1–50, 51–100… en su lugar
+    const esAnimeLargo = totalEps > 50 && out.length <= 1;
+    if (esAnimeLargo) {
+        return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
+    }
+
+    // 2) Temporadas extra de TMDB solo si la fuente ya tiene ≥1 y TMDB aporta T2+ real (Wistoria)
+    //    No inventar 20 arcs de One Piece.
     const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
+    // Límite: como máximo 1 temporada nueva más allá de la fuente (evitar 22 tabs basura)
+    let addedFromTmdb = 0;
+    const maxTmdbExtra = out.length >= 1 ? 3 : 0;
     tmdbSeasons.forEach((ts) => {
+        if (addedFromTmdb >= maxTmdbExtra) return;
         const num = parseInt(ts.season_number || ts.temporada || 0, 10);
         if (!num || num < 1 || seen.has(num)) return;
+        // Ignorar season 0 (especiales TMDB)
+        if (num === 0) return;
         seen.add(num);
+        addedFromTmdb += 1;
         const epsRaw = Array.isArray(ts.episodios) ? ts.episodios : [];
         const episodios = epsRaw.map((ep, idx) => ({
             temporada: num,
@@ -1268,7 +1288,6 @@ function normalizarListaTemporadas(item) {
             video: null,
             still: ep.still || null
         }));
-        // si TMDB no trae lista pero sí episode_count
         if (!episodios.length && ts.episode_count) {
             for (let e = 1; e <= Math.min(Number(ts.episode_count) || 0, 50); e++) {
                 episodios.push({
