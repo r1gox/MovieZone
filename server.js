@@ -512,6 +512,43 @@ function elegirPortada(a, b, sourcePreferido) {
   return candidatos[0];
 }
 
+/** Fallback portada por slug (pelisplus suele tener /poster/{slug}.jpg) */
+function portadaFallbackSlug(slug) {
+  if (!slug) return null;
+  const s = String(slug).toLowerCase().replace(/-\d{4}$/, "").trim();
+  if (!s) return null;
+  return `https://www.pelisplushd.la/poster/${s}.jpg`;
+}
+
+/** Si no hay portada válida, intentar slug pelisplus y otras fuentes en detalle */
+async function asegurarPortada(item) {
+  if (!item) return item;
+  if (esPortadaValida(item.portada)) return item;
+  const fb = portadaFallbackSlug(item.slug);
+  if (fb) item.portada = fb;
+  if (esPortadaValida(item.portada)) return item;
+  // Detalle en fuentes con poster (3, 1, 4)
+  if (!item.slug) return item;
+  const kind =
+    /anime/i.test(String(item.tipo || "")) ? "anime" :
+    /serie/i.test(String(item.tipo || "")) ? "serie" : "pelicula";
+  const slugs = [...new Set([item.slug, String(item.slug).replace(/-\d{4}$/, "")].filter(Boolean))];
+  for (const sid of ["3", "1", "4"]) {
+    for (const s of slugs) {
+      try {
+        const k = sid === "4" && kind === "pelicula" ? "anime" : kind;
+        const det = await fetchDetailFromSource(sid, k, s, { slug: s });
+        if (det && esPortadaValida(det.portada)) {
+          item.portada = det.portada;
+          if (!item.descripcion && det.descripcion) item.descripcion = det.descripcion;
+          return item;
+        }
+      } catch (_) {}
+    }
+  }
+  return item;
+}
+
 /** Puntúa un item por cantidad de datos útiles (portada, rating, descripción, players…) */
 function scoreItem(item) {
   if (!item) return 0;
@@ -864,12 +901,16 @@ function mapListItem(r) {
   const slug = r.slug || null;
   const sourceId = String(r.source_id || r.fuente || DEFAULT_SOURCE);
   const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
-  // Mejor portada disponible (TMDB suele ser la más fiable)
-  const portada = elegirPortada(
+  // Mejor portada: TMDB / fuente / fallback pelisplus por slug
+  let portada = elegirPortada(
     r.portada_tmdb || r.tmdb_poster || null,
     r.portada || r.poster || r.cover || null,
     String(r.source_id || r.fuente || "")
   );
+  if (!esPortadaValida(portada) && r.slug) {
+    const slugClean = String(r.slug).toLowerCase().replace(/-\d{4}$/, "");
+    portada = `https://www.pelisplushd.la/poster/${slugClean}.jpg`;
+  }
   const kindPath =
     tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
   const link =
@@ -1119,20 +1160,32 @@ function scoreSearchRelevance(item, termino) {
   return s;
 }
 
+/** ¿Es película/OVA/especial y no la serie principal? */
+function esSpinoffOFilmSlug(slug, titulo) {
+  const x = `${slug || ""} ${titulo || ""}`.toLowerCase();
+  return /film|movie|pelicula|estampida|stampede|strong.?world|heroines|episode of|episode-of|fan.?letter|3d2y|\bgold\b|aventura en|heart of|chopper|gyojin|sorajima|recap|\bova\b|special|movie \d|film:/.test(x)
+    || /-(film|movie|ova|special|estampida|stampede|heroines|fan-letter|episode-of|3d2y|gold|z)(-|$)/i.test(String(slug || ""));
+}
+
 /**
- * Clave de dedupe en búsqueda:
- * - Conserva el año en el slug (one-piece-1999 ≠ one-piece-2023 ≠ films)
- * - Solo unifica variantes piece / missing-pieces
- * - NO colapsa películas distintas de One Piece
+ * Clave de dedupe en búsqueda (misma obra entre fuentes / idiomas):
+ * - Serie principal: one-piece-1999 + one-piece → una sola
+ * - Live action: one-piece-2023 (Serie) distinta del anime
+ * - Films: strong-world / movie-10-strong-world → una
+ * - Películas: título normalizado + año (2001 odisea espacial)
  */
 function normalizeWorkKey(slug, titulo, tipo) {
-  let s = String(slug || "")
-    .toLowerCase()
-    .trim();
+  let s = String(slug || "").toLowerCase().trim();
   let t = normalizeTitleKey(titulo || "");
-  const tipoKey = String(tipo || "").toLowerCase().replace(/[íÍ]/g, "i");
+  let tipoKey = String(tipo || "").toLowerCase().replace(/[íÍ]/g, "i");
 
-  // Unificar solo piece / missing pieces (misma OVA)
+  let year = null;
+  const ym = s.match(/-(\d{4})$/);
+  if (ym) { year = ym[1]; s = s.replace(/-\d{4}$/, ""); }
+  const yt = t.match(/\b((?:19|20)\d{2})\b/);
+  if (!year && yt) year = yt[1];
+  t = t.replace(/\b(?:19|20)\d{2}\b/g, " ").replace(/\s+/g, " ").trim();
+
   s = s
     .replace(/-the-missing-pieces?(?:-ova)?$/, "-piece")
     .replace(/-missing-pieces?(?:-ova)?$/, "-piece")
@@ -1144,14 +1197,59 @@ function normalizeWorkKey(slug, titulo, tipo) {
     .replace(/\s+/g, " ")
     .trim();
 
-  // slug completo (con año) → más resultados distintos en búsqueda
-  if (s) return `slug:${s}`;
-  // sin slug: título + tipo (Anime ≠ Película)
-  if (t) return `t:${tipoKey}:${t}`;
+  s = s
+    .replace(/-movie-\d+-/g, "-")
+    .replace(/-movie-\d+$/g, "")
+    .replace(/-la-pelicula$/i, "")
+    .replace(/-the-movie$/i, "")
+    .replace(/^one-piece-film-/, "one-piece-")
+    .replace(/estampida/g, "stampede")
+    .replace(/-episode-of-/g, "-")
+    .replace(/--+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  t = t
+    .replace(/\ba space odyssey\b/g, "odisea espacial")
+    .replace(/\bodisea del espacio\b/g, "odisea espacial")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const esPeli = /pelicul/.test(tipoKey);
+  const esSerieOAnime = /anime|serie/.test(tipoKey);
+
+  if (esPeli) {
+    let base = t;
+    if (!base || base.length < 3) base = s.replace(/-/g, " ").trim();
+    base = base.replace(/\bmovie\s*\d+\b/g, "").replace(/\bfilm\b/g, "").replace(/\s+/g, " ").trim();
+    // one piece films as pelicula
+    if (/one.?piece/.test(base + s) && esSpinoffOFilmSlug(s, t)) {
+      let filmId = s.replace(/^one-piece-/, "").replace(/-/g, " ").trim() || base.replace(/one piece/g, "").trim();
+      filmId = filmId.replace(/\bla pelicula\b/g, "").replace(/\s+/g, " ").trim();
+      return `film:${filmId || base}`;
+    }
+    return `peli:${base}:${year || ""}`;
+  }
+
+  if (esSerieOAnime) {
+    if (/one.?piece/.test(s + t) && year === "2023" && /serie/.test(tipoKey)) {
+      return `show:one-piece-live:2023`;
+    }
+    if (esSpinoffOFilmSlug(s, t)) {
+      let filmId = s.replace(/^one-piece-/, "").replace(/-/g, " ").trim();
+      if (!filmId || filmId.length < 2) filmId = t.replace(/one piece/g, "").trim();
+      filmId = filmId.replace(/\bla pelicula\b/g, "").replace(/\bmovie\s*\d+\b/g, "").replace(/\s+/g, " ").trim();
+      return `film:${filmId || s}`;
+    }
+    const core = s.replace(/-/g, " ").trim() || t;
+    return `show:${core}`;
+  }
+
+  if (s) return `slug:${s}:${year || ""}`;
+  if (t) return `t:${tipoKey}:${t}:${year || ""}`;
   return null;
 }
 
-/** Clave dedupe búsqueda: misma obra entre fuentes (mismo slug exacto) */
+/** Clave dedupe búsqueda */
 function searchDedupeKey(item) {
   const key = normalizeWorkKey(item.slug, item.nombre || item.titulo, item.tipo);
   if (key) return key;
@@ -1220,7 +1318,6 @@ function dedupeSearchResults(lista) {
   for (const item of lista || []) {
     if (!item) continue;
     item.nombre = limpiarTitulo(item.nombre || item.titulo || item.nombre);
-    // Nombre preferido para piece: "Horimiya: The Missing Pieces" si hay portada de pelisplus
     const key = searchDedupeKey(item);
     const prev = map.get(key);
     if (!prev) {
@@ -1229,7 +1326,31 @@ function dedupeSearchResults(lista) {
     }
     map.set(key, pickBestSearchItem(prev, item));
   }
-  return Array.from(map.values());
+  let out = Array.from(map.values());
+  // Segunda pasada: títulos casi iguales (misma obra, slug distinto)
+  const map2 = new Map();
+  for (const item of out) {
+    const t = normalizeTitleKey(item.nombre || "");
+    const tipo = String(item.tipo || "").toLowerCase().replace(/[íÍ]/g, "i");
+    let year = String(item.year || "").slice(0, 4);
+    if (!year) {
+      const m = t.match(/\b((?:19|20)\d{2})\b/);
+      if (m) year = m[1];
+    }
+    const tClean = t.replace(/\b(?:19|20)\d{2}\b/g, "").replace(/\s+/g, " ").trim();
+    // Clave suave: tipo + título sin año (+ año si peli)
+    const soft = /pelicul/.test(tipo)
+      ? `soft:peli:${tClean}:${year || ""}`
+      : /anime|serie/.test(tipo)
+        ? (esSpinoffOFilmSlug(item.slug, item.nombre)
+            ? `soft:film:${tClean}`
+            : `soft:show:${tClean}`)
+        : `soft:${tipo}:${tClean}:${year || ""}`;
+    const prev = map2.get(soft);
+    if (!prev) map2.set(soft, item);
+    else map2.set(soft, pickBestSearchItem(prev, item));
+  }
+  return Array.from(map2.values());
 }
 
 async function buscarOnline(termino, page = 1, limit = 48) {
@@ -1751,6 +1872,13 @@ async function obtenerDetalle(params) {
   if (sinPortada && sinContenido && !esSerieOAnime) {
     if (best.link) await borrarDeSupabase(best.link);
     return best;
+  }
+
+  // Rellenar portada si falta (pelisplus / otras fuentes)
+  if (!esPortadaValida(best.portada)) {
+    try {
+      best = await asegurarPortada(best);
+    } catch (_) {}
   }
 
   // Series/animes: guardar aunque aún no tengan embeds (sí temporadas/episodios)
