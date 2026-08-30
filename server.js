@@ -424,11 +424,18 @@ function scoreItem(item) {
   if (Array.isArray(item.episodios) && item.episodios.length) s += 4;
   if (item.tiene_player) s += 6;
   if (item.slug) s += 1;
-  // Preferir fuente 3 o 1 si empatan en players (portadas más fiables)
   const sid = String(item.source_id || "");
-  if (sid === "3" || sid === "pelisplushd") s += 2;
-  if (sid === "4" || sid === "animeav1") s += 3; // buena fuente de anime
-  if (sid === "1" || sid === "lamovie") s += 1;
+  const esAnime = /anime/i.test(String(item.tipo || ""));
+  // En animes: priorizar animeav1 (4) > pelisplus (3) > lamovie (1) > hackstore (2)
+  if (esAnime) {
+    if (sid === "4" || sid === "animeav1") s += 25;
+    else if (sid === "3" || sid === "pelisplushd") s += 12;
+    else if (sid === "1" || sid === "lamovie") s += 6;
+    else if (sid === "2" || sid === "hackstore") s += 2;
+  } else {
+    if (sid === "3" || sid === "pelisplushd") s += 2;
+    if (sid === "1" || sid === "lamovie") s += 1;
+  }
   return s;
 }
 
@@ -442,10 +449,11 @@ function dedupeListItems(lista) {
       .replace(/-\d{4}$/, "")
       .trim();
     // Misma obra aunque venga de varias fuentes / con año distinto en el título
+    // Mismo nombre (o slug) = un solo resultado, sin importar la fuente/tipo
     const key = slugKey
-      ? "slug:" + slugKey + "|" + (item.tipo || "")
+      ? "slug:" + slugKey
       : titleKey
-        ? "t:" + titleKey + "|" + (item.tipo || "Película")
+        ? "t:" + titleKey
         : null;
     if (!key) {
       map.set(item.link || item.slug || String(Math.random()), item);
@@ -456,7 +464,7 @@ function dedupeListItems(lista) {
       map.set(key, item);
       continue;
     }
-    // Elegir el más completo y fusionar datos del otro
+    // Más reproductores / mejor fuente (anime → 4 primero)
     const winner = scoreItem(item) >= scoreItem(prev) ? { ...item } : { ...prev };
     const loser = scoreItem(item) >= scoreItem(prev) ? prev : item;
     if (loser.tiene_player && !winner.tiene_player) {
