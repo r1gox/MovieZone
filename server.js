@@ -336,8 +336,11 @@ function mapEmbeds(raw) {
     })
     .filter(Boolean);
 
-  // Vimeos / MovieZone siempre primero
+  // Latino primero, luego Vimeos / MovieZone
   mapped.sort((a, b) => {
+    const aL = /latino|castellano|español/i.test(`${a.idioma || ""} ${a.lang || ""}`) ? 1 : 0;
+    const bL = /latino|castellano|español/i.test(`${b.idioma || ""} ${b.lang || ""}`) ? 1 : 0;
+    if (aL !== bL) return bL - aL;
     const aV = /vimeos/i.test(a.url || "") || /vimeos|moviezone/i.test(a.servidor || "");
     const bV = /vimeos/i.test(b.url || "") || /vimeos|moviezone/i.test(b.servidor || "");
     return (bV ? 1 : 0) - (aV ? 1 : 0);
