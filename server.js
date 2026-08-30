@@ -1233,13 +1233,34 @@ function dedupeSearchResults(lista) {
 }
 
 async function buscarOnline(termino, page = 1, limit = 48) {
-  await ensureMoviesDB();
-  const q = encodeURIComponent(String(termino || "").trim());
+  // No bloquear la búsqueda si Supabase tarda; enriquecer después
+  ensureMoviesDB().catch(() => {});
+  const qRaw = String(termino || "").trim();
+  const q = encodeURIComponent(qRaw);
   if (!q) return { resultados: [], total: 0, page, limit, source: "online" };
 
-  const data = await apiGet(`/search?q=${q}`);
-  const raw = Array.isArray(data?.resultados) ? data.resultados : [];
-  // Mapear TODOS los resultados de la API (no descartar por falta de players)
+  // Buscar en API general + fuente 4 (animeav1 suele tener el slug JP)
+  let raw = [];
+  try {
+    const data = await apiGet(`/search?q=${q}`);
+    raw = Array.isArray(data?.resultados) ? data.resultados : [];
+  } catch (err) {
+    console.warn("search principal:", err.message);
+  }
+  try {
+    const data4 = await apiGet(`/search?q=${q}&source=4`);
+    const extra = Array.isArray(data4?.resultados) ? data4.resultados : [];
+    raw = raw.concat(extra);
+  } catch (_) {}
+  // Segunda pasada si casi vacío: variaciones
+  if (raw.length < 2) {
+    try {
+      const data2 = await apiGet(`/search?q=${encodeURIComponent(qRaw + " anime")}`);
+      raw = raw.concat(Array.isArray(data2?.resultados) ? data2.resultados : []);
+    } catch (_) {}
+  }
+
+  // Mapear TODOS los resultados (no descartar por falta de players)
   let lista = raw
     .map((r) => {
       try {
