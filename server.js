@@ -679,7 +679,9 @@ function mapDetail(data, fallback = {}) {
 
   let episodios = [];
   let temporadas = [];
+  let temporadas_raw = [];
   if (Array.isArray(data.temporadas) && data.temporadas.length) {
+    temporadas_raw = data.temporadas;
     temporadas = data.temporadas.map((t) => Number(t.temporada || t.season || t)).filter(Boolean);
     for (const temp of data.temporadas) {
       const eps = temp.episodios || temp.episodes || [];
@@ -695,6 +697,7 @@ function mapDetail(data, fallback = {}) {
           soloTrailer: false,
           url_video: ep.url_video || ep.link || null,
           source_id: sourceId,
+          slug_media: ep.slug_media || temp.slug_media || null,
         });
       }
     }
@@ -734,6 +737,7 @@ function mapDetail(data, fallback = {}) {
     soloTrailer: false,
     episodios,
     temporadas: temporadas.length ? [...new Set(temporadas)].sort((a, b) => a - b) : [],
+    temporadas_raw: temporadas_raw.length ? temporadas_raw : null,
     total_temporadas: data.total_temporadas || null,
     total_episodios: data.total_episodios || (episodios.length ? episodios.length : null),
     rangos_episodios: data.rangos_episodios || null,
