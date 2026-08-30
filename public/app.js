@@ -593,7 +593,7 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     if (modo === "search") {
         resultsTitle.textContent = `Resultados para "${termino}"`;
         document.getElementById("filter-toolbar").classList.remove("hidden");
-        busquedaEsLocal = true;
+        busquedaEsLocal = false; // online
     } else if (modo === "favoritos") {
         resultsTitle.innerHTML = `<ion-icon name="heart" style="vertical-align:-3px;"></ion-icon> Mis Favoritos`;
         document.getElementById("filter-toolbar").classList.add("hidden");
@@ -2378,7 +2378,7 @@ searchForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const texto = searchInput.value.trim();
     if (texto) {
-        busquedaEsLocal = true;          // ← importante
+        busquedaEsLocal = false; // online por defecto
         mostrarGrid({ modo: "search", termino: texto });
     }
 });
