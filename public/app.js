@@ -103,7 +103,8 @@ const REPRODUCTORES_PERMITIDOS = [
     "voe.sx", "voe.", "doodstream", "dood.", "ds2play", "streamtape",
     "mixdrop", "upstream", "vidmoly", "mp4upload", "uqload",
     "vidhide", "vidguard", "lulustream", "filelions", "yourupload",
-    "supervideo", "krakenfiles", "ok.ru"
+    "supervideo", "krakenfiles", "ok.ru",
+    "zilla-networks", "mega.nz", "mega.co"
 ];
 
 const REPRODUCTORES_BLOQUEADOS = [
