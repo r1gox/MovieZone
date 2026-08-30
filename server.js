@@ -53,7 +53,6 @@ function getSupabase() {
 
 const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
-const PELISPLUS_API = (process.env.PELISPLUS_API || "https://pelisplushd.tvymas.workers.dev").replace(/\/$/, "");
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
 const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
 
@@ -1218,57 +1217,6 @@ async function borrarDeSupabasePorSlug(slug) {
 }
 
 
-/** Episodio LAT/SUB desde pelisplushd.tvymas (API distinta al scrape de pelisplushd.la) */
-async function fetchPelisplusTvymasEpisode(slug, temporada, episodio) {
-  if (!slug) return null;
-  const paths = [
-    `/anime/${slug}/${temporada}/${episodio}`,
-    `/serie/${slug}/${temporada}/${episodio}`,
-  ];
-  for (const p of paths) {
-    try {
-      const { data } = await axios.get(PELISPLUS_API + p, {
-        timeout: 20000,
-        headers: { Accept: "application/json", "User-Agent": "MovieZone/2.0" },
-        validateStatus: () => true,
-      });
-      if (!data || data.error) continue;
-      const videos = data.embeds?.video || (Array.isArray(data.embeds) ? data.embeds : []);
-      if (!videos.length) continue;
-      const embeds = videos.map((v) => {
-        let idioma = v.language || v.lang || v.lang_code || v.idioma || null;
-        if (idioma) {
-          const L = String(idioma).toUpperCase();
-          if (L === "LAT" || L === "LATINO" || L === "DUB") idioma = "Latino";
-          else if (L === "SUB" || L === "SOFTSUB" || /SUBTIT/.test(L)) idioma = "Subtitulado";
-        }
-        return {
-          url: v.link || v.url || v.stream_url || null,
-          stream_url: v.stream_url || null,
-          idioma,
-          lang: idioma,
-          servidor: v.name || v.server || null,
-          calidad: v.quality || null,
-        };
-      }).filter((e) => e.url);
-      if (!embeds.length) continue;
-      return {
-        success: true,
-        fuente: "pelisplushd-tvymas",
-        source_id: "3",
-        tipo: "Capitulo",
-        nombre: data.title || null,
-        embeds: mapEmbeds(embeds),
-        downloads: [],
-        reproductor: embeds[0].url,
-        temporada,
-        episodio,
-      };
-    } catch (_) { /* next */ }
-  }
-  return null;
-}
-
 /** Extrae slugs alternos desde temporadas_tmdb / urls pelisplus */
 function extraerSlugsAlternos(serie, slug) {
   const out = new Set();
@@ -1358,18 +1306,6 @@ async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "seri
     }
   }
 
-  // Extra: API pelisplushd.tvymas (LATINO real) con slugs TMDB
-  for (const trySlug of slugsTry) {
-    try {
-      const extra = await fetchPelisplusTvymasEpisode(trySlug, temporada, episodio);
-      if (extra && extra.embeds?.length) {
-        allEmbeds = mergeEmbedLists(allEmbeds, extra.embeds);
-        if (!best) best = extra;
-        else best = mergeItems(best, extra);
-      }
-    } catch (_) { /* ok */ }
-  }
-
   if (best) {
     if (allEmbeds.length) {
       best.embeds = allEmbeds;
@@ -1378,17 +1314,6 @@ async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "seri
     }
     if (allDownloads.length) best.downloads = allDownloads;
     return best;
-  }
-  // Si solo tvymas trajo algo
-  if (allEmbeds.length) {
-    return {
-      success: true,
-      embeds: allEmbeds,
-      reproductor: allEmbeds[0].url,
-      downloads: allDownloads,
-      tiene_player: true,
-      tipo: "Capitulo",
-    };
   }
   throw lastErr || new Error("No se pudo cargar el episodio");
 }
