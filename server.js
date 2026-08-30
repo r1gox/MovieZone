@@ -80,6 +80,34 @@ function esDescartado(item) {
   return false;
 }
 
+
+/** En búsqueda online: no mostrar lo que no tiene forma de reproducir */
+function filtrarSinReproductor(lista) {
+  return (lista || []).filter((item) => {
+    if (!item) return false;
+    const tipo = String(item.tipo || "").toLowerCase();
+    const esSA = tipo === "serie" || tipo === "anime";
+    if (item.tiene_player === true) return true;
+    if (item.embeds && item.embeds.length) return true;
+    if (item.reproductor) return true;
+    if (esSA) {
+      if (item.episodios && item.episodios.length) return true;
+      if (item.total_episodios && item.total_episodios > 0) return true;
+      if (item.temporadas && item.temporadas.length) return true;
+      // Listado de búsqueda de animeav1 solo trae slug: se permite si source_id 4 y slug
+      // pero se oculta si ya está en DB marcado sin player y sin episodios
+      if (item.source_id === "4" || item.fuente === "animeav1") {
+        if (item.tiene_player === false) return false;
+        return !!(item.slug || item.link);
+      }
+      return !!(item.slug || item.link);
+    }
+    // Películas: solo si tiene player
+    if (item.tiene_player === false) return false;
+    return false;
+  });
+}
+
 function filtrarDescartados(lista) {
   return (lista || []).filter((i) => !esDescartado(i));
 }
@@ -310,6 +338,19 @@ function extraerGenero(data) {
   return limpiarTexto(String(raw)) || null;
 }
 
+
+function buildStreamUrl(embedUrl) {
+  if (!embedUrl || typeof embedUrl !== "string") return null;
+  const u = embedUrl.toLowerCase();
+  const q = encodeURIComponent(embedUrl);
+  if (u.includes("vimeos")) return `${API_BASE}/resolve/vimeos?url=${q}&proxy=1`;
+  if (/streamwish|flaswish|strwish|ahvsh|streamhg/.test(u)) return `${API_BASE}/wish/streamurl?url=${q}`;
+  if (u.includes("goodstream")) return `${API_BASE}/goodstream/streamurl?url=${q}`;
+  if (/vidhide|earnvids|filelions|smoothpre|callistanise/.test(u)) return `${API_BASE}/vidhide/streamurl?url=${q}`;
+  if (/voe\.|jilliandescribe/.test(u)) return `${API_BASE}/voe/streamurl?url=${q}`;
+  return null;
+}
+
 function mapEmbeds(raw) {
   if (!raw) return [];
   // Si viene string JSON desde Supabase
@@ -331,11 +372,14 @@ function mapEmbeds(raw) {
           if (L === "LAT" || L === "LATINO" || L === "DUB") idioma = "Latino";
           else if (L === "SUB" || L === "SOFTSUB" || /SUBTIT/.test(L)) idioma = "Subtitulado";
         }
+        const servidor = e.servidor || e.server || e.name || null;
+        const stream_url = e.stream_url || buildStreamUrl(url);
         return {
           url,
+          stream_url,
           idioma,
           lang: idioma,
-          servidor: e.servidor || e.server || e.name || null,
+          servidor,
           calidad: e.calidad || e.quality || null,
         };
       }
@@ -435,6 +479,8 @@ function scoreItem(item) {
   if (Array.isArray(item.downloads) && item.downloads.length) s += 2;
   if (Array.isArray(item.episodios) && item.episodios.length) s += 4;
   if (item.tiene_player) s += 6;
+  if (item.total_episodios) s += Math.min(10, Number(item.total_episodios) / 12);
+  if (item.episodios && item.episodios.length) s += Math.min(8, item.episodios.length / 6);
   if (item.slug) s += 1;
   const sid = String(item.source_id || "");
   const esAnime = /anime/i.test(String(item.tipo || ""));
@@ -492,14 +538,15 @@ function dedupeListItems(lista) {
     const titleKey = normalizeTitleKey(item.nombre || item.titulo);
     const slugKey = String(item.slug || "")
       .toLowerCase()
+      .replace(/-season-\d+$/i, "")
       .replace(/-\d{4}$/, "")
       .trim();
-    // Misma obra aunque venga de varias fuentes / con año distinto en el título
-    // Mismo nombre (o slug) = un solo resultado, sin importar la fuente/tipo
-    const key = slugKey
-      ? "slug:" + slugKey
-      : titleKey
-        ? "t:" + titleKey
+    // Misma obra: título normalizado (prioriza unificar Wistoria 10eps vs 24eps)
+    // o slug sin -season-N
+    const key = titleKey
+      ? "t:" + titleKey
+      : slugKey
+        ? "slug:" + slugKey
         : null;
     if (!key) {
       map.set(item.link || item.slug || String(Math.random()), item);
@@ -899,8 +946,14 @@ async function buscarOnline(termino, page = 1, limit = 28) {
   lista = dedupeListItems(lista);
   lista = colapsarTemporadasAnimeAv1(lista);
   lista = filtrarDescartados(lista);
-  // Ordenar: primero los que ya tienen player / más datos
-  lista.sort((a, b) => scoreItem(b) - scoreItem(a));
+  lista = filtrarSinReproductor(lista);
+  // Preferir el que tenga más episodios / temporadas (ej. Wistoria 24 vs 10)
+  lista.sort((a, b) => {
+    const ea = (a.total_episodios || a.episodios?.length || 0);
+    const eb = (b.total_episodios || b.episodios?.length || 0);
+    if (ea !== eb) return eb - ea;
+    return scoreItem(b) - scoreItem(a);
+  });
 
   // Paginación simple en memoria
   const total = lista.length;
