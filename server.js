@@ -1293,7 +1293,7 @@ async function buscarOnline(termino, page = 1, limit = 48) {
   });
 
   const total = lista.length;
-  const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 60);
+  const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 80);
   const start = (Math.max(parseInt(page, 10) || 1, 1) - 1) * lim;
   const pageLista = lista.slice(start, start + lim);
 
@@ -1694,18 +1694,24 @@ async function obtenerDetalle(params) {
     || !!(best.temporadas && best.temporadas.length)
     || !!(best.temporadas_raw && best.temporadas_raw.length);
 
-  // Anime: totales / rangos; preferir fuente 4 cuando aporta más episodios o temporadas
+  // Anime: totales / rangos; preferir fuente 4
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
     best._prefer_source_anime = "4";
-    // Si hay más de 1 temporada o muchos eps, fijar source_id 4 y slug sin año
-    const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
     const nEps = Number(best.total_episodios) || 0;
-    if (nTemps > 1 || nEps > 12) {
-      best.source_id = best.source_id === "4" ? "4" : (best.source_id || "4");
-      // Preferir explícitamente 4 para capítulos cuando hay volumen alto
-      if (nTemps > 1 || nEps > 24) best.source_id = "4";
+    const tieneRangos = Array.isArray(best.rangos_episodios) && best.rangos_episodios.length > 1;
+    // One Piece: muchos eps → forzar 1 temporada (el front usa rangos 1–50…)
+    if (nEps > 50 || tieneRangos) {
+      best.temporadas = [1];
+      best.total_temporadas = 1;
+      best.source_id = "4";
       if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
+    } else {
+      const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
+      if (nTemps > 1 || nEps > 24) {
+        best.source_id = "4";
+        if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
+      }
     }
   }
 
