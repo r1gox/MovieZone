@@ -1,6 +1,6 @@
 /**
  * MOVIEZONE v2 — Backend sin scraping
- * Fuente de datos: https://moviezone.tvjz.workers.dev/
+ * Fuente de datos: https://moviezone.tvjz.workers.dev/ (1=lamovie 2=hackstore 3=pelisplushd 4=animeav1)
  * Persistencia: Supabase (misma tabla "movies")
  * Listo para Vercel (serverless) y Node local.
  */
@@ -392,6 +392,10 @@ function elegirPortada(a, b, sourcePreferido) {
     const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
     if (tmdb) return tmdb;
   }
+  if (sid === "4" || sid === "animeav1") {
+    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
+    if (tmdb) return tmdb;
+  }
   // General: tmdb > pelisplus poster > lamovie > resto
   return (
     candidatos.find((u) => /image\.tmdb\.org/i.test(u)) ||
@@ -423,6 +427,7 @@ function scoreItem(item) {
   // Preferir fuente 3 o 1 si empatan en players (portadas más fiables)
   const sid = String(item.source_id || "");
   if (sid === "3" || sid === "pelisplushd") s += 2;
+  if (sid === "4" || sid === "animeav1") s += 3; // buena fuente de anime
   if (sid === "1" || sid === "lamovie") s += 1;
   return s;
 }
@@ -793,7 +798,7 @@ async function buscarOnline(termino, page = 1, limit = 28) {
   const data = await apiGet(`/search?q=${q}`);
   let lista = (data.resultados || []).map(mapListItem);
 
-  // Deduplicar: la API busca en 3 fuentes y puede devolver el mismo título 2-3 veces.
+  // Deduplicar: la API busca en varias fuentes (lamovie/hackstore/pelisplus/animeav1) y puede devolver el mismo título 2-3 veces.
   // Nos quedamos con el que tenga más datos (portada, calificación, etc.).
   lista = dedupeListItems(lista);
 
@@ -868,10 +873,15 @@ function parseIdentidad(itemOrLink) {
   const slugFromItem = typeof itemOrLink === "object" ? itemOrLink.slug : null;
   const tipoFromItem = typeof itemOrLink === "object" ? itemOrLink.tipo : null;
 
-  // API extract URL
+  // API extract URL (1-4)
   let m = link.match(/\/(\d)\/(pelicula|serie|anime)\/([^/?#]+)/i);
   if (m) {
     return { sourceId: m[1], kind: m[2].toLowerCase(), slug: m[3] };
+  }
+  // AnimeAV1
+  m = link.match(/animeav1\.com\/media\/([^/?#]+)/i);
+  if (m) {
+    return { sourceId: "4", kind: "anime", slug: m[1] };
   }
   // Sitio origen
   m = link.match(/\/(pelicula|serie|anime|peliculas|series|animes)\/([^/?#]+)/i);
@@ -978,7 +988,10 @@ async function obtenerDetalle(params) {
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
   const sourcesToTry = [String(id.sourceId)];
-  for (const s of ["3", "1", "2"]) {
+  // 4 = animeav1 (prioridad alta en anime)
+  const ordenFuentes =
+    id.kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+  for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
   // Si solo necesitamos meta y ya hay players, probar 1 fuente y listo
@@ -1125,7 +1138,9 @@ async function borrarDeSupabasePorSlug(slug) {
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie") {
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
   const sources = [String(sourceId || DEFAULT_SOURCE)];
-  for (const s of ["3", "1", "2"]) {
+  const ordenCap =
+    kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+  for (const s of ordenCap) {
     if (!sources.includes(s)) sources.push(s);
   }
   let lastErr = null;
