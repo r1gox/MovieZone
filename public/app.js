@@ -1295,7 +1295,7 @@ function renderTemporadas(item) {
             renderEpisodios(item, seasonNum);
             const first = (item.episodios || [])[0];
             if (first && (first.embeds?.length || first.video)) {
-                renderServidoresYDescargas(first.embeds || [], first.downloads || [], first.video, item);
+                renderServidoresYDescargas(first.embeds || [], first.downloads || [], first.video, item, { expandido: true });
             }
         } catch (err) {
             console.error(err);
@@ -1445,14 +1445,26 @@ function renderEpisodios(item, season = 1) {
         btn.addEventListener("click", async () => {
             episodesContainer.querySelectorAll(".episode-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
-            const epNum = episodio.episode || (index + 1);
-            const seasonNum = episodio.season || season || 1;
+            // Número real del episodio (no el index del rango filtrado)
+            const epNum = episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index);
+            const seasonNum = episodio.season || episodio.temporada || season || 1;
             document.getElementById("details-title").textContent =
                 `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
 
-            // Si ya tiene players → mostrar
+            const expandirServidores = () => {
+                const sc = document.getElementById("servers-container");
+                const tg = document.getElementById("mz-servers-toggle");
+                if (sc) {
+                    sc.classList.remove("mz-collapsed-content");
+                    sc.classList.add("mz-expanded-content");
+                }
+                if (tg) tg.classList.add("open");
+            };
+
+            // Si ya tiene players (Supabase / sesión) → mostrar al instante
             if ((episodio.embeds && episodio.embeds.length) || episodio.video) {
-                renderServidoresYDescargas(episodio.embeds || [], episodio.downloads || [], episodio.video, item);
+                renderServidoresYDescargas(episodio.embeds || [], episodio.downloads || [], episodio.video, item, { expandido: true });
+                expandirServidores();
                 btn.style.opacity = "1";
                 return;
             }
@@ -1463,10 +1475,8 @@ function renderEpisodios(item, season = 1) {
             // Cargar de API → se guarda en Supabase en el backend
             const serversContainer = document.getElementById("servers-container");
             if (serversContainer) {
-                serversContainer.classList.remove("mz-collapsed-content");
-                serversContainer.classList.add("mz-expanded-content");
-                document.getElementById("mz-servers-toggle")?.classList.add("open");
-                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores...</p></div>`;
+                expandirServidores();
+                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores del episodio ${epNum}...</p></div>`;
             }
             try {
                 const params = new URLSearchParams();
@@ -1475,28 +1485,58 @@ function renderEpisodios(item, season = 1) {
                 if (item.slug) params.set("slug", item.slug);
                 if (item.source_id) params.set("source_id", item.source_id);
                 if (item.link) params.set("link", item.link);
+                if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
 
-                const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store" });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store", signal: controller.signal });
+                clearTimeout(timeoutId);
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Error");
+                if (!res.ok) throw new Error(data.error || data.detalle || "Error");
 
                 episodio.embeds = normalizarEmbeds(data.embeds || []);
                 episodio.video = data.reproductor || null;
                 episodio.downloads = data.downloads || data.descargas || [];
-                // Cache Supabase + stream_url fresco (caduca)
+                episodio.episode = Number(epNum);
+                episodio.season = Number(seasonNum);
+                // Cache local + stream_url fresco (caduca)
                 episodio.embeds = episodio.embeds.map(e => ({
                     ...e,
                     idioma: e.idioma || e.lang || null,
                     lang: e.lang || e.idioma || null,
                     stream_url: streamUrlParaNoAds(e.url) || e.stream_url || null
                 }));
+
+                // Actualizar también en item.episodios (misma referencia de sesión)
+                if (Array.isArray(item.episodios)) {
+                    const idx = item.episodios.findIndex(e =>
+                        Number(e.season || e.temporada || 1) === Number(seasonNum) &&
+                        Number(e.episode || e.episodio || e.episode_number || 0) === Number(epNum)
+                    );
+                    if (idx >= 0) {
+                        item.episodios[idx] = { ...item.episodios[idx], ...episodio };
+                    }
+                }
+
                 btn.style.opacity = episodio.embeds.length ? "1" : "0.55";
-                renderServidoresYDescargas(episodio.embeds, episodio.downloads, episodio.video, item);
+                if (!episodio.embeds.length && !episodio.video) {
+                    if (serversContainer) {
+                        expandirServidores();
+                        serversContainer.innerHTML = `<p style="color:var(--text-muted);padding:12px;">Este episodio aún no tiene servidores disponibles.</p>`;
+                    }
+                } else {
+                    renderServidoresYDescargas(episodio.embeds, episodio.downloads, episodio.video, item, { expandido: true });
+                    expandirServidores();
+                }
             } catch (err) {
                 console.error(err);
                 if (serversContainer) {
-                    serversContainer.innerHTML = `<p style="color:var(--text-muted);">No se pudieron cargar los servidores de este episodio.</p>`;
+                    expandirServidores();
+                    const msg = err.name === "AbortError"
+                        ? "Tiempo de espera agotado. Intenta de nuevo."
+                        : ("No se pudieron cargar los servidores: " + (err.message || "error"));
+                    serversContainer.innerHTML = `<p style="color:var(--text-muted);padding:12px;">${escapeHtml(msg)}</p>`;
                 }
             }
         });
@@ -1540,8 +1580,9 @@ async function reproducir(embed, item) {
     });
 }
 
-function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) {
+function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, opts) {
     embedsRaw = normalizarEmbeds(embedsRaw);
+    const expandido = !!(opts && opts.expandido);
 
     const serversContainer =
         document.getElementById("servers-container");
@@ -1727,17 +1768,17 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
 
 
     /*
-     * Estado inicial cerrado
+     * Estado: expandido si venimos de clic en episodio, si no cerrado
      */
-
-    serversContainer.classList.add(
-        "mz-collapsed-content"
-    );
-
-    serversToggle.classList.remove(
-        "open"
-    );
-
+    if (expandido) {
+        serversContainer.classList.remove("mz-collapsed-content");
+        serversContainer.classList.add("mz-expanded-content");
+        serversToggle.classList.add("open");
+    } else {
+        serversContainer.classList.add("mz-collapsed-content");
+        serversContainer.classList.remove("mz-expanded-content");
+        serversToggle.classList.remove("open");
+    }
 
     /*
      * Abrir / cerrar servidores
