@@ -224,21 +224,32 @@ function streamUrlParaNoAds(embedUrl) {
     return null;
 }
 
-/** Elige UN solo embed según prioridad (no duplica servidores normales) */
+function esIdiomaLatinoEmbed(e) {
+    const t = `${e?.lang || ""} ${e?.idioma || ""} ${e?.language || ""}`.toLowerCase();
+    return /latino|castellano|español|\bdub\b|audio lat/.test(t);
+}
+
+/** Elige UN solo embed: 1) Latino si hay 2) mejor host funcional (vimeos→wish→gs→vidhide→voe) */
 function elegirEmbedNoAds(embeds) {
     if (!Array.isArray(embeds) || !embeds.length) return null;
+    const candidatos = embeds.filter(e =>
+        e && e.url && !e.noAds && !esEmbedInvalido(e.url) && rankFuenteNoAds(e.url) < 99
+    );
+    if (!candidatos.length) return null;
+
+    const latinos = candidatos.filter(esIdiomaLatinoEmbed);
+    const pool = latinos.length ? latinos : candidatos;
+
     let best = null;
     let bestRank = 99;
-    for (const e of embeds) {
-        if (!e || !e.url || e.noAds) continue;
-        if (esEmbedInvalido(e.url)) continue;
+    for (const e of pool) {
         const rank = rankFuenteNoAds(e.url);
         if (rank < bestRank) {
             bestRank = rank;
             best = e;
         }
     }
-    if (!best || bestRank >= 99) return null;
+    if (!best) return null;
     const streamApi = streamUrlParaNoAds(best.url);
     if (!streamApi) return null;
     return {
@@ -247,7 +258,8 @@ function elegirEmbedNoAds(embeds) {
         server: "NO ADS",
         name: "NO ADS",
         noAds: true,
-        lang: best.lang || best.idioma || "",
+        lang: best.lang || best.idioma || (esIdiomaLatinoEmbed(best) ? "Latino" : ""),
+        idioma: best.idioma || best.lang || "",
         sourceEmbed: best.url
     };
 }
@@ -1182,15 +1194,25 @@ function renderTemporadas(item) {
         // Si la fuente ya trajo episodios en temporadas[], usarlos (animeav1)
         const localT = listaTemp.find(t => t.num === seasonNum);
         if (localT && Array.isArray(localT.episodios) && localT.episodios.length) {
-            item.episodios = localT.episodios.map((ep, idx) => ({
-                season: seasonNum,
-                episode: ep.episodio || ep.episode || ep.episode_number || (idx + 1),
-                nombre: ep.titulo || ep.nombre || ep.name || ("Episodio " + (ep.episodio || idx + 1)),
-                embeds: ep.embeds || ep.reproductores || [],
-                video: ep.url_video || ep.video || ep.reproductor || null,
-                link: ep.link || null,
-                source_id: ep.source_id || item.source_id
-            }));
+            const tmdbEps = (() => {
+                const ts = (item.temporadas_tmdb || []).find(t =>
+                    Number(t.season_number || t.temporada) === Number(seasonNum)
+                );
+                return Array.isArray(ts?.episodios) ? ts.episodios : [];
+            })();
+            item.episodios = localT.episodios.map((ep, idx) => {
+                const num = ep.episodio || ep.episode || ep.episode_number || (idx + 1);
+                const meta = tmdbEps.find(t => Number(t.episode_number || t.episodio) === Number(num));
+                return {
+                    season: seasonNum,
+                    episode: num,
+                    nombre: meta?.name || ep.titulo || ep.nombre || ep.name || ("Episodio " + num),
+                    embeds: ep.embeds || ep.reproductores || [],
+                    video: ep.url_video || ep.video || ep.reproductor || null,
+                    link: ep.link || null,
+                    source_id: ep.source_id || item.source_id
+                };
+            });
             // total real del API (no el tamaño del bloque actual)
             if (item.total_episodios) {
                 /* keep */
@@ -1499,9 +1521,12 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
     }
 
 
-    /* MovieZone / Vimeo primero */
+    /* Latino primero, luego MovieZone / Vimeo */
 
     embeds.sort((a, b) => {
+        const aL = esIdiomaLatinoEmbed(a) ? 1 : 0;
+        const bL = esIdiomaLatinoEmbed(b) ? 1 : 0;
+        if (aL !== bL) return bL - aL;
 
         const aV =
             /vimeos/i.test(a.url || "") ||
