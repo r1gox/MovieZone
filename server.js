@@ -719,7 +719,10 @@ function mapDetail(data, fallback = {}) {
     episodios,
     temporadas: temporadas.length ? [...new Set(temporadas)].sort((a, b) => a - b) : [],
     total_temporadas: data.total_temporadas || null,
-    total_episodios: data.total_episodios || null,
+    total_episodios: data.total_episodios || (episodios.length ? episodios.length : null),
+    rangos_episodios: data.rangos_episodios || null,
+    episodio_desde: data.episodio_desde || null,
+    episodio_hasta: data.episodio_hasta || null,
     tiene_player: !!(reproductor || embedsArr.length || episodios.length),
   };
 }
