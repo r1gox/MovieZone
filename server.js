@@ -359,6 +359,8 @@ function _normalizeTitleKeyImpl(titulo) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\(\d{4}\)/g, "")
+    .replace(/\s*season\s*\d+/gi, "")
+    .replace(/\s*temporada\s*\d+/gi, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
@@ -443,6 +445,40 @@ function scoreItem(item) {
 }
 
 /** Deduplica por título: 1 resultado aunque venga de 3 fuentes (ej. Acaramelados) */
+
+/** Si hay "Título" y "Título Season 2", deja solo el base (ya trae ambas temps en detalle) */
+function colapsarTemporadasAnimeAv1(lista) {
+  const bySlug = new Map();
+  for (const it of lista || []) {
+    if (it.slug) bySlug.set(String(it.slug).toLowerCase(), it);
+  }
+  const out = [];
+  for (const it of lista || []) {
+    const slug = String(it.slug || "").toLowerCase();
+    const m = slug.match(/^(.*?)-season-(\d+)$/i);
+    if (m && bySlug.has(m[1])) {
+      // Heredar portada del base si el season no tiene
+      const base = bySlug.get(m[1]);
+      if (base && !esPortadaValida(it.portada) && esPortadaValida(base.portada)) {
+        // no lo añadimos, solo el base
+      }
+      continue; // omitir season suelto
+    }
+    // Si este es base y su season-2 no tiene portada, ya está bien
+    out.push(it);
+  }
+  // Rellenar portadas de seasons huérfanos (sin base en lista)
+  for (const it of out) {
+    if (esPortadaValida(it.portada)) continue;
+    const slug = String(it.slug || "").toLowerCase();
+    const m = slug.match(/^(.*?)-season-\d+$/i);
+    if (m && bySlug.has(m[1]) && esPortadaValida(bySlug.get(m[1]).portada)) {
+      it.portada = bySlug.get(m[1]).portada;
+    }
+  }
+  return out;
+}
+
 function dedupeListItems(lista) {
   const map = new Map();
   for (const item of lista || []) {
@@ -854,6 +890,7 @@ async function buscarOnline(termino, page = 1, limit = 28) {
 
   // Segunda pasada de dedupe por si merge con locales creó duplicados
   lista = dedupeListItems(lista);
+  lista = colapsarTemporadasAnimeAv1(lista);
   lista = filtrarDescartados(lista);
   // Ordenar: primero los que ya tienen player / más datos
   lista.sort((a, b) => scoreItem(b) - scoreItem(a));
