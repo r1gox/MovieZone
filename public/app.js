@@ -1105,18 +1105,26 @@ function buildEpisodiosQuery(item, season) {
 }
 
 function normalizarListaTemporadas(item) {
-    // Acepta [1,2] o [{temporada:1, episodios:[...]}]
+    // SOLO item.temporadas de la fuente real (nunca temporadas_tmdb → evita T1 duplicada / T2 sin streams)
     const raw = item.temporadas && item.temporadas.length ? item.temporadas : [1];
-    return raw.map((s, i) => {
+    const seen = new Set();
+    const out = [];
+    raw.forEach((s, i) => {
+        let num;
+        let episodios = null;
         if (typeof s === "number" || typeof s === "string") {
-            return { num: parseInt(s, 10) || (i + 1), episodios: null };
+            num = parseInt(s, 10) || (i + 1);
+        } else if (s && typeof s === "object") {
+            num = parseInt(s.temporada || s.season_number || s.season || (i + 1), 10) || (i + 1);
+            episodios = Array.isArray(s.episodios) ? s.episodios : null;
+        } else {
+            num = i + 1;
         }
-        if (s && typeof s === "object") {
-            const num = parseInt(s.temporada || s.season_number || s.season || (i + 1), 10) || (i + 1);
-            return { num, episodios: Array.isArray(s.episodios) ? s.episodios : null };
-        }
-        return { num: i + 1, episodios: null };
+        if (seen.has(num)) return; // dedupe Temporada 1 + Temporada 1
+        seen.add(num);
+        out.push({ num, episodios });
     });
+    return out.length ? out : [{ num: 1, episodios: null }];
 }
 
 function renderTemporadas(item) {
