@@ -1117,8 +1117,10 @@ function buildEpisodiosQuery(item, season) {
 }
 
 function normalizarListaTemporadas(item) {
-    // 1) Temporadas de la fuente (animeav1 / etc.) — dedupe
-    const raw = item.temporadas && item.temporadas.length ? item.temporadas : [];
+    // 1) Temporadas de la fuente (preferir objetos completos temporadas_raw)
+    const raw = (item.temporadas_raw && item.temporadas_raw.length)
+      ? item.temporadas_raw
+      : (item.temporadas && item.temporadas.length ? item.temporadas : []);
     const seen = new Set();
     const out = [];
     raw.forEach((s, i) => {
