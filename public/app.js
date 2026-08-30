@@ -275,6 +275,17 @@ function elegirEmbedNoAds(embeds) {
     };
 }
 
+
+function attachStreamUrls(embeds) {
+    if (!Array.isArray(embeds)) return [];
+    return embeds.map((e) => {
+        if (!e || !e.url) return e;
+        if (e.noAds) return e;
+        const su = e.stream_url || streamUrlParaNoAds(e.url);
+        return su ? { ...e, stream_url: su } : { ...e };
+    });
+}
+
 function insertarNoAdsEnLista(embeds) {
     const lista = Array.isArray(embeds) ? embeds.slice() : [];
     // quitar entradas NO ADS previas
@@ -1456,11 +1467,12 @@ function renderEpisodios(item, season = 1) {
                 episodio.embeds = normalizarEmbeds(data.embeds || []);
                 episodio.video = data.reproductor || null;
                 episodio.downloads = data.downloads || data.descargas || [];
-                // Asegurar idioma en cada embed
+                // Cache Supabase + stream_url fresco (caduca)
                 episodio.embeds = episodio.embeds.map(e => ({
                     ...e,
                     idioma: e.idioma || e.lang || null,
-                    lang: e.lang || e.idioma || null
+                    lang: e.lang || e.idioma || null,
+                    stream_url: streamUrlParaNoAds(e.url) || e.stream_url || null
                 }));
                 btn.style.opacity = episodio.embeds.length ? "1" : "0.55";
                 renderServidoresYDescargas(episodio.embeds, episodio.downloads, episodio.video, item);
@@ -1626,7 +1638,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
     if (mostrarFiltroIdioma) {
         const chipBar = document.createElement("div");
         chipBar.className = "idioma-filter-bar";
-        chipBar.style.cssText = "display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;";
+        chipBar.style.cssText = "display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;justify-content:center;align-items:center;width:100%;";
         ["lat", "sub"].forEach((id) => {
             if (id === "lat" && !tieneLat) return;
             if (id === "sub" && !tieneSub) return;
@@ -1650,6 +1662,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
     }
 
     embeds = filtrarPorIdioma(embeds.filter(e => e && e.url));
+    embeds = attachStreamUrls(embeds);
 
 
 

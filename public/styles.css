@@ -2663,3 +2663,26 @@ body.player-open {
 .video-player-container {
   overflow: hidden;
 }
+
+
+/* Centrar filtros de idioma y botones de temporada */
+.idioma-filter-bar {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 12px;
+}
+#seasons-tabs-container,
+.seasons-tabs,
+#seasons-container,
+.seasons-row,
+.season-tabs {
+  display: flex !important;
+  justify-content: center !important;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
