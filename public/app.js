@@ -1349,6 +1349,33 @@ function renderTemporadas(item) {
             if (data.slug) item.slug = data.slug;
             if (data.source_id) item.source_id = data.source_id;
             if (data.link) item.link = data.link;
+            if (data.total_episodios) item.total_episodios = data.total_episodios;
+            if (data.rangos_episodios) item.rangos_episodios = data.rangos_episodios;
+            // Si el total es mayor que la lista (animeav1), generar stubs del rango o 1..total
+            const totalEp = parseInt(item.total_episodios, 10) || 0;
+            if (totalEp > (item.episodios || []).length) {
+                const byNum = new Map((item.episodios || []).map(e => [Number(e.episode || e.episodio), e]));
+                const rangos = item.rangos_episodios;
+                let desde = 1, hasta = totalEp;
+                if (Array.isArray(rangos) && rangos.length > 1) {
+                    desde = Number(rangos[0].desde) || 1;
+                    hasta = Number(rangos[0].hasta) || Math.min(100, totalEp);
+                } else {
+                    hasta = Math.min(totalEp, 300);
+                }
+                const filled = [];
+                for (let n = desde; n <= hasta; n++) {
+                    filled.push(byNum.get(n) || {
+                        season: seasonNum,
+                        episode: n,
+                        nombre: "Episodio " + n,
+                        embeds: [],
+                        video: null,
+                        source_id: item.source_id
+                    });
+                }
+                item.episodios = filled;
+            }
             renderEpisodios(item, seasonNum);
             const first = (item.episodios || [])[0];
             if (first && (first.embeds?.length || first.video)) {
@@ -1426,35 +1453,49 @@ function renderEpisodios(item, season = 1) {
             }
             b.addEventListener("click", async () => {
                 item._epRangoActivo = { desde: r.desde, hasta: r.hasta };
-                // Si source animeav1 / total grande: pedir rango al API de detalle con ep_from/ep_to
-                if (String(item.source_id) === "4" || (item.link && /animeav1/i.test(item.link))) {
-                    episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios ${r.desde}–${r.hasta}...</p></div>`;
-                    try {
-                        const qs = new URLSearchParams();
-                        if (item.slug) qs.set("slug", item.slug);
-                        if (item.source_id) qs.set("source_id", item.source_id);
-                        if (item.link) qs.set("link", item.link);
-                        if (item.tipo) qs.set("tipo", item.tipo);
-                        qs.set("ep_from", String(r.desde));
-                        qs.set("ep_to", String(r.hasta));
-                        // Reusar detalle con rango vía worker a través de un proxy simple:
-                        // /api/episodios no soporta rango → generar stubs locales
-                        item.episodios = [];
-                        for (let n = r.desde; n <= r.hasta; n++) {
-                            item.episodios.push({
-                                season: season,
-                                episode: n,
-                                nombre: "Episodio " + n,
-                                embeds: [],
-                                video: null
-                            });
-                        }
-                    } catch (e) {
-                        console.error(e);
+                episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios ${r.desde}–${r.hasta}...</p></div>`;
+                try {
+                    // Pedir rango al backend (animeav1 / fuente 4)
+                    const qs = new URLSearchParams();
+                    if (item.slug) qs.set("slug", item.slug);
+                    qs.set("source_id", String(item.source_id || "4"));
+                    if (item.link) qs.set("link", item.link);
+                    if (item.tipo) qs.set("tipo", item.tipo || "Anime");
+                    qs.set("season", String(season));
+                    qs.set("ep_from", String(r.desde));
+                    qs.set("ep_to", String(r.hasta));
+                    qs.set("players", "0");
+                    const res = await fetch(`/api/episodios?${qs.toString()}`, { cache: "no-store" });
+                    const data = await res.json();
+                    let lista = data.episodios || [];
+                    if (data.total_episodios) item.total_episodios = data.total_episodios;
+                    if (data.rangos_episodios) item.rangos_episodios = data.rangos_episodios;
+                    // Completar stubs del rango si la API devolvió menos
+                    const byNum = new Map(lista.map(e => [Number(e.episode || e.episodio), e]));
+                    const filled = [];
+                    for (let n = r.desde; n <= r.hasta; n++) {
+                        filled.push(byNum.get(n) || {
+                            season: season,
+                            episode: n,
+                            nombre: "Episodio " + n,
+                            embeds: [],
+                            video: null,
+                            source_id: item.source_id || "4"
+                        });
                     }
-                } else {
-                    // Filtrar episodios ya cargados por número
-                    // (si la lista completa está en memoria)
+                    item.episodios = filled;
+                } catch (e) {
+                    console.error(e);
+                    item.episodios = [];
+                    for (let n = r.desde; n <= r.hasta; n++) {
+                        item.episodios.push({
+                            season: season,
+                            episode: n,
+                            nombre: "Episodio " + n,
+                            embeds: [],
+                            video: null
+                        });
+                    }
                 }
                 renderEpisodios(item, season);
             });
@@ -1542,7 +1583,12 @@ function renderEpisodios(item, season = 1) {
                 params.set("temporada", String(seasonNum));
                 params.set("episodio", String(epNum));
                 if (item.slug) params.set("slug", item.slug);
-                if (item.source_id) params.set("source_id", item.source_id);
+                // Anime → fuente 4 (animeav1) prioritaria para players
+                const sidCap = (item.tipo === "Anime")
+                    ? (item._prefer_source_anime || "4")
+                    : (item.source_id || "");
+                if (sidCap) params.set("source_id", String(sidCap));
+                else if (item.source_id) params.set("source_id", item.source_id);
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
