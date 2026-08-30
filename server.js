@@ -436,13 +436,18 @@ function scoreItem(item) {
 function dedupeListItems(lista) {
   const map = new Map();
   for (const item of lista || []) {
-    // Clave fuerte: título sin año + tipo (no por fuente)
-    const key =
-      normalizeTitleKey(item.nombre || item.titulo) +
-      "|" +
-      (item.tipo || "Película");
-    if (!normalizeTitleKey(item.nombre || item.titulo)) {
-      // fallback único
+    const titleKey = normalizeTitleKey(item.nombre || item.titulo);
+    const slugKey = String(item.slug || "")
+      .toLowerCase()
+      .replace(/-\d{4}$/, "")
+      .trim();
+    // Misma obra aunque venga de varias fuentes / con año distinto en el título
+    const key = slugKey
+      ? "slug:" + slugKey + "|" + (item.tipo || "")
+      : titleKey
+        ? "t:" + titleKey + "|" + (item.tipo || "Película")
+        : null;
+    if (!key) {
       map.set(item.link || item.slug || String(Math.random()), item);
       continue;
     }
@@ -721,6 +726,7 @@ function mapDetail(data, fallback = {}) {
     total_temporadas: data.total_temporadas || null,
     total_episodios: data.total_episodios || (episodios.length ? episodios.length : null),
     rangos_episodios: data.rangos_episodios || null,
+    temporadas_tmdb: data.temporadas_tmdb || null,
     episodio_desde: data.episodio_desde || null,
     episodio_hasta: data.episodio_hasta || null,
     tiene_player: !!(reproductor || embedsArr.length || episodios.length),
