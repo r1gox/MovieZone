@@ -181,8 +181,39 @@ async function guardarEnSupabase(items) {
         tieneNuevo && item.embeds?.length
           ? item.embeds
           : (existente?.embeds?.length ? existente.embeds : item.embeds || []);
-      const episodiosFinal =
-        item.episodios?.length ? item.episodios : (existente?.episodios || []);
+      // Fusionar episodios: no pisar players ya guardados con stubs vacíos del listado/API
+      let episodiosFinal = item.episodios?.length ? item.episodios : (existente?.episodios || []);
+      if (item.episodios?.length && existente?.episodios?.length) {
+        const byKey = new Map();
+        for (const ep of existente.episodios) {
+          const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+          byKey.set(k, ep);
+        }
+        episodiosFinal = item.episodios.map((ep) => {
+          const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+          const prev = byKey.get(k);
+          if (!prev) return ep;
+          const tieneNuevos = Array.isArray(ep.embeds) && ep.embeds.length > 0;
+          if (tieneNuevos) return ep;
+          if (prev.embeds?.length || prev.video || prev.reproductor) {
+            return {
+              ...ep,
+              embeds: prev.embeds || [],
+              video: prev.video || prev.reproductor || ep.video || null,
+              reproductor: prev.reproductor || prev.video || ep.reproductor || null,
+              downloads: (ep.downloads && ep.downloads.length) ? ep.downloads : (prev.downloads || []),
+            };
+          }
+          return ep;
+        });
+        const seen = new Set(episodiosFinal.map((ep) => `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`));
+        for (const ep of existente.episodios) {
+          const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+          if (!seen.has(k) && (ep.embeds?.length || ep.video || ep.reproductor)) {
+            episodiosFinal.push(ep);
+          }
+        }
+      }
       const descripcionFinal =
         item.descripcion && String(item.descripcion).length > 20
           ? item.descripcion
@@ -288,7 +319,19 @@ function fixEncoding(text) {
 }
 
 function limpiarTitulo(titulo) {
-  return fixEncoding(titulo);
+  let s = fixEncoding(titulo);
+  if (!s) return s;
+  // Quitar spam SEO típico: "VER X Online Gratis HD", "Watch X Free Full HD", etc.
+  s = s
+    .replace(/^(ver|watch|ver\s+online|mira|descargar?)\s+/i, "")
+    .replace(/\s*[-–—:|]\s*(ver|watch|online|gratis|free|hd|full\s*hd|4k|subtitulad[oa]?s?|latino|castellano|espa[nñ]ol|pelicula|serie|anime).*$/i, "")
+    .replace(/\s+(online|gratis|free|hd|full\s*hd|4k|1080p|720p|subtitulad[oa]?s?|latino|castellano)(\s+(online|gratis|free|hd|full\s*hd|4k|1080p|720p|subtitulad[oa]?s?|latino|castellano))*$/i, "")
+    .replace(/\s+(online|gratis|free)\s*$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  // Si quedó vacío, devolver el original limpio de encoding
+  if (!s) return fixEncoding(titulo);
+  return s;
 }
 
 function limpiarTexto(texto) {
@@ -405,13 +448,16 @@ function normalizeTitleKey(titulo) {
   return _normalizeTitleKeyImpl(titulo);
 }
 function _normalizeTitleKeyImpl(titulo) {
-  return String(titulo || "")
+  // Aplicar limpieza SEO primero para unificar "VER X Online Gratis HD" con "X"
+  const limpio = limpiarTitulo(titulo);
+  return String(limpio || titulo || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\(\d{4}\)/g, "")
     .replace(/\s*season\s*\d+/gi, "")
     .replace(/\s*temporada\s*\d+/gi, "")
+    .replace(/\b(ver|watch|online|gratis|free|hd|full|4k|1080p|720p|subtitulado|subtitulada|latino|castellano|espanol|pelicula|serie|anime)\b/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
@@ -1175,9 +1221,40 @@ async function obtenerDetalle(params) {
 
   // Fusionar con cache para no perder datos previos
   best = mergeItems(cached, best);
-  // Anime/serie: no perder listado de episodios en un force fallido parcial
-  if (cached && (!best.episodios || !best.episodios.length) && cached.episodios?.length) {
-    best.episodios = cached.episodios;
+  // Anime/serie: no perder listado de episodios ni players ya guardados por capítulo
+  if (cached && Array.isArray(cached.episodios) && cached.episodios.length) {
+    if (!best.episodios || !best.episodios.length) {
+      best.episodios = cached.episodios;
+    } else {
+      // Preservar embeds/video de episodios ya cacheados (API suele devolver stubs sin players)
+      const byKey = new Map();
+      for (const ep of cached.episodios) {
+        const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+        if (ep.embeds?.length || ep.video || ep.reproductor) byKey.set(k, ep);
+      }
+      best.episodios = best.episodios.map((ep) => {
+        const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+        const prev = byKey.get(k);
+        if (!prev) return ep;
+        const tieneNuevos = Array.isArray(ep.embeds) && ep.embeds.length > 0;
+        if (tieneNuevos) return ep;
+        return {
+          ...ep,
+          embeds: prev.embeds || [],
+          video: prev.video || prev.reproductor || ep.video || null,
+          reproductor: prev.reproductor || prev.video || ep.reproductor || null,
+          downloads: (ep.downloads && ep.downloads.length) ? ep.downloads : (prev.downloads || []),
+        };
+      });
+      // Añadir episodios cacheados que no vengan en la respuesta nueva
+      const seen = new Set(best.episodios.map((ep) => `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`));
+      for (const ep of cached.episodios) {
+        const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+        if (!seen.has(k) && (ep.embeds?.length || ep.video || ep.reproductor)) {
+          best.episodios.push(ep);
+        }
+      }
+    }
   }
   if (cached && (!best.temporadas || !best.temporadas.length) && cached.temporadas?.length) {
     best.temporadas = cached.temporadas;
