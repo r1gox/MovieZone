@@ -1120,22 +1120,19 @@ function scoreSearchRelevance(item, termino) {
 }
 
 /**
- * Normaliza slug/título para dedupe de la misma obra:
- * - horimiya-2021 → horimiya
- * - horimiya-piece / horimiya-the-missing-pieces → horimiya-piece (misma OVA/spin-off)
- * - "Horimiya: The Missing Pieces" → misma clave que "Horimiya Piece"
+ * Clave de dedupe en búsqueda:
+ * - Conserva el año en el slug (one-piece-1999 ≠ one-piece-2023 ≠ films)
+ * - Solo unifica variantes piece / missing-pieces
+ * - NO colapsa películas distintas de One Piece
  */
-function normalizeWorkKey(slug, titulo) {
+function normalizeWorkKey(slug, titulo, tipo) {
   let s = String(slug || "")
     .toLowerCase()
     .trim();
   let t = normalizeTitleKey(titulo || "");
+  const tipoKey = String(tipo || "").toLowerCase().replace(/[íÍ]/g, "i");
 
-  // Quitar año al final del slug
-  s = s.replace(/-\d{4}$/, "");
-
-  // Unificar variantes "piece" / "missing pieces" / "the missing pieces"
-  // (Horimiya: Piece === Horimiya: The Missing Pieces)
+  // Unificar solo piece / missing pieces (misma OVA)
   s = s
     .replace(/-the-missing-pieces?(?:-ova)?$/, "-piece")
     .replace(/-missing-pieces?(?:-ova)?$/, "-piece")
@@ -1147,14 +1144,16 @@ function normalizeWorkKey(slug, titulo) {
     .replace(/\s+/g, " ")
     .trim();
 
+  // slug completo (con año) → más resultados distintos en búsqueda
   if (s) return `slug:${s}`;
-  if (t) return `t:${t}`;
+  // sin slug: título + tipo (Anime ≠ Película)
+  if (t) return `t:${tipoKey}:${t}`;
   return null;
 }
 
-/** Clave dedupe búsqueda: misma obra entre fuentes */
+/** Clave dedupe búsqueda: misma obra entre fuentes (mismo slug exacto) */
 function searchDedupeKey(item) {
-  const key = normalizeWorkKey(item.slug, item.nombre || item.titulo);
+  const key = normalizeWorkKey(item.slug, item.nombre || item.titulo, item.tipo);
   if (key) return key;
   return item.link || String(Math.random());
 }
@@ -2268,30 +2267,37 @@ app.get("/api/capitulo", async (req, res) => {
       }
     } catch (_) {}
 
+    // Cache: solo devolver si ya hay varios embeds (evitar quedarse con 1 y perder latino/dub)
+    let cachedEmb = [];
     if (serie && Array.isArray(serie.episodios)) {
       const cached = serie.episodios.find(
         (e) => mismoEpisodio(e, temporada, episodio) && (e.embeds?.length || e.video || e.reproductor)
       );
       if (cached) {
-        const emb = mapEmbeds(cached.embeds || []);
-        return res.json({
-          season: temporada,
-          episode: episodio,
-          embeds: emb,
-          downloads: cached.downloads || cached.descargas || [],
-          reproductor: cached.video || cached.reproductor || (emb[0] && emb[0].url) || null,
-          from: "supabase",
-        });
+        cachedEmb = mapEmbeds(cached.embeds || []);
+        // ≥4 players → suficiente; si no, seguir a API para sumar latino/otras fuentes
+        if (cachedEmb.length >= 4) {
+          return res.json({
+            season: temporada,
+            episode: episodio,
+            embeds: cachedEmb,
+            downloads: cached.downloads || cached.descargas || [],
+            reproductor: cached.video || cached.reproductor || (cachedEmb[0] && cachedEmb[0].url) || null,
+            from: "supabase",
+          });
+        }
       }
     }
 
-    // 2) API externa del episodio
+    // 2) API externa del episodio (fusiona 1/2/3/4 → latino + sub)
     const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
     const resolvedSlug = slug || serie?.slug;
     if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
     const det = await obtenerEpisodio(sourceId, resolvedSlug, temporada, episodio, kind, serie);
-    const embeds = mapEmbeds(det.embeds || []);
+    let embeds = mapEmbeds(det.embeds || []);
+    // Unir con cache parcial
+    if (cachedEmb.length) embeds = mergeEmbedLists(cachedEmb, embeds);
 
     // 3) Guardar en Supabase (crear stub de serie si hace falta)
     if (embeds.length) {
