@@ -951,12 +951,18 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
     const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
+    const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+    // Series/anime no requieren embeds a nivel ficha (van por capítulo)
     const faltaPlayers =
-        !item.embeds || item.embeds.length === 0 ||
-        (Array.isArray(item.embeds) && item.embeds.every(e => esEmbedInvalido(e.url)));
+        !esSA && (
+            !item.embeds || item.embeds.length === 0 ||
+            (Array.isArray(item.embeds) && item.embeds.every(e => esEmbedInvalido(e.url)))
+        );
     const faltaEpisodios =
-        (item.tipo === "Serie" || item.tipo === "Anime") &&
-        (!item.episodios || item.episodios.length === 0);
+        esSA &&
+        (!item.episodios || item.episodios.length === 0) &&
+        (!item.temporadas_raw || !item.temporadas_raw.length) &&
+        (!item.temporadas || !item.temporadas.length);
 
     const necesitaEnriquecer = force || faltaDescripcion || faltaPlayers || faltaEpisodios;
 
@@ -980,8 +986,22 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (res.ok) {
                 const completo = await res.json();
                 if (completo.embeds) completo.embeds = normalizarEmbeds(completo.embeds);
+                // No borrar temporadas/episodios si el force devolvió vacío
+                if ((!completo.episodios || !completo.episodios.length) && item.episodios?.length) {
+                    completo.episodios = item.episodios;
+                }
+                if ((!completo.temporadas || !completo.temporadas.length) && item.temporadas?.length) {
+                    completo.temporadas = item.temporadas;
+                }
+                if ((!completo.temporadas_raw || !completo.temporadas_raw.length) && item.temporadas_raw?.length) {
+                    completo.temporadas_raw = item.temporadas_raw;
+                }
                 Object.assign(item, completo);
-                if (item.tiene_player || itemTieneVideo(item)) item.tiene_player = true;
+                const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+                if (item.tiene_player || itemTieneVideo(item) ||
+                    (esSA && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {
+                    item.tiene_player = true;
+                }
                 seleccionActual = item;
 
                 // Repintar metadatos que ahora sí vienen (descripción, rating, portada…)
@@ -1409,6 +1429,9 @@ function renderEpisodios(item, season = 1) {
                 return;
             }
 
+            // Preferir Latino en cada capítulo (si no hay, el render cae a SUB)
+            _idiomaPlayerActivo = "lat";
+
             // Cargar de API → se guarda en Supabase en el backend
             const serversContainer = document.getElementById("servers-container");
             if (serversContainer) {
@@ -1432,8 +1455,15 @@ function renderEpisodios(item, season = 1) {
 
                 episodio.embeds = normalizarEmbeds(data.embeds || []);
                 episodio.video = data.reproductor || null;
+                episodio.downloads = data.downloads || data.descargas || [];
+                // Asegurar idioma en cada embed
+                episodio.embeds = episodio.embeds.map(e => ({
+                    ...e,
+                    idioma: e.idioma || e.lang || null,
+                    lang: e.lang || e.idioma || null
+                }));
                 btn.style.opacity = episodio.embeds.length ? "1" : "0.55";
-                renderServidoresYDescargas(episodio.embeds, [], episodio.video, item);
+                renderServidoresYDescargas(episodio.embeds, episodio.downloads, episodio.video, item);
             } catch (err) {
                 console.error(err);
                 if (serversContainer) {
