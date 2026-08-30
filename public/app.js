@@ -104,7 +104,12 @@ const REPRODUCTORES_PERMITIDOS = [
     "mixdrop", "upstream", "vidmoly", "mp4upload", "uqload",
     "vidhide", "vidguard", "lulustream", "filelions", "yourupload",
     "supervideo", "krakenfiles", "ok.ru",
-    "zilla-networks", "mega.nz", "mega.co"
+    "zilla-networks", "mega.nz", "mega.co",
+    // aliases / mirrors frecuentes de la API
+    "streamhg", "flaswish", "strwish", "ahvsh", "earnvids", "smoothpre",
+    "callistanise", "jilliandescribe", "wish", "vidhidepro", "luluvid",
+    "filemoon.", "moon.", "streamvid", "rutube", "vk.com", "vk.ru",
+    "iframe.", "embed.", "player."
 ];
 
 const REPRODUCTORES_BLOQUEADOS = [
@@ -115,10 +120,27 @@ const REPRODUCTORES_BLOQUEADOS = [
 
 function esEmbedInvalido(url) {
     if (!url) return true;
-    const u = String(url).toLowerCase();
+    const u = String(url).toLowerCase().trim();
+    if (!/^https?:\/\//i.test(u) && !u.startsWith("//")) return true;
     if (REPRODUCTORES_BLOQUEADOS.some(d => u.includes(d))) return true;
-    if (!REPRODUCTORES_PERMITIDOS.some(d => u.includes(d))) return true;
-    return false;
+    // Permitir cualquier https de host conocido O cualquier http(s) que no esté bloqueado
+    // (antes se exigía allowlist estricta y descartaba mirrors nuevos → "todavía no está disponible")
+    if (REPRODUCTORES_PERMITIDOS.some(d => u.includes(d))) return false;
+    // Host genérico http(s): aceptar (la API ya filtró basura)
+    try {
+        const host = new URL(u.startsWith("//") ? "https:" + u : u).hostname;
+        if (host && host.includes(".")) return false;
+    } catch (_) {}
+    return true;
+}
+
+function embedsValidosDe(episodio) {
+    const raw = normalizarEmbeds(episodio?.embeds);
+    const ok = raw.filter(e => e && e.url && !esEmbedInvalido(e.url));
+    if (ok.length) return ok;
+    // Si hay URLs pero el filtro las tumbó, devolverlas igual (mejor mostrar que decir "no disponible")
+    const conUrl = raw.filter(e => e && e.url && /^https?:\/\//i.test(String(e.url)));
+    return conUrl;
 }
 
 
@@ -1461,9 +1483,11 @@ function renderEpisodios(item, season = 1) {
                 if (tg) tg.classList.add("open");
             };
 
-            // Si ya tiene players (Supabase / sesión) → mostrar al instante
-            if ((episodio.embeds && episodio.embeds.length) || episodio.video) {
-                renderServidoresYDescargas(episodio.embeds || [], episodio.downloads || [], episodio.video, item, { expandido: true });
+            // Si ya tiene players válidos (Supabase / sesión) → mostrar al instante
+            // OJO: embeds:[] o embeds sin URL no cuentan → hay que pedir a la API
+            const yaValidos = embedsValidosDe(episodio);
+            if (yaValidos.length || (episodio.video && !esEmbedInvalido(episodio.video))) {
+                renderServidoresYDescargas(yaValidos.length ? yaValidos : (episodio.embeds || []), episodio.downloads || [], episodio.video, item, { expandido: true });
                 expandirServidores();
                 btn.style.opacity = "1";
                 return;
@@ -1489,24 +1513,27 @@ function renderEpisodios(item, season = 1) {
                 if (item.tipo) params.set("tipo", item.tipo);
 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                const timeoutId = setTimeout(() => controller.abort(), 35000);
                 const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store", signal: controller.signal });
                 clearTimeout(timeoutId);
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || data.detalle || "Error");
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || data.detalle || ("HTTP " + res.status));
 
-                episodio.embeds = normalizarEmbeds(data.embeds || []);
-                episodio.video = data.reproductor || null;
-                episodio.downloads = data.downloads || data.descargas || [];
-                episodio.episode = Number(epNum);
-                episodio.season = Number(seasonNum);
-                // Cache local + stream_url fresco (caduca)
-                episodio.embeds = episodio.embeds.map(e => ({
+                let embedsNuevos = normalizarEmbeds(data.embeds || data.reproductores || []);
+                // Si la API mandó un solo reproductor string
+                if (!embedsNuevos.length && data.reproductor && typeof data.reproductor === "string") {
+                    embedsNuevos = [{ url: data.reproductor }];
+                }
+                episodio.embeds = embedsNuevos.map(e => ({
                     ...e,
                     idioma: e.idioma || e.lang || null,
                     lang: e.lang || e.idioma || null,
                     stream_url: streamUrlParaNoAds(e.url) || e.stream_url || null
                 }));
+                episodio.video = data.reproductor || (episodio.embeds[0] && episodio.embeds[0].url) || null;
+                episodio.downloads = data.downloads || data.descargas || [];
+                episodio.episode = Number(epNum);
+                episodio.season = Number(seasonNum);
 
                 // Actualizar también en item.episodios (misma referencia de sesión)
                 if (Array.isArray(item.episodios)) {
@@ -1516,25 +1543,37 @@ function renderEpisodios(item, season = 1) {
                     );
                     if (idx >= 0) {
                         item.episodios[idx] = { ...item.episodios[idx], ...episodio };
+                    } else {
+                        item.episodios.push({ ...episodio });
                     }
                 }
+                item.tiene_player = true;
 
-                btn.style.opacity = episodio.embeds.length ? "1" : "0.55";
-                if (!episodio.embeds.length && !episodio.video) {
+                const validos = embedsValidosDe(episodio);
+                btn.style.opacity = (validos.length || episodio.video) ? "1" : "0.55";
+
+                if (!validos.length && !episodio.video) {
                     if (serversContainer) {
                         expandirServidores();
-                        serversContainer.innerHTML = `<p style="color:var(--text-muted);padding:12px;">Este episodio aún no tiene servidores disponibles.</p>`;
+                        serversContainer.innerHTML = `<p style="color:var(--text-muted);padding:12px;">Este episodio aún no tiene servidores. Prueba otro o pulsa Actualizar.</p>`;
                     }
                 } else {
-                    renderServidoresYDescargas(episodio.embeds, episodio.downloads, episodio.video, item, { expandido: true });
+                    // Pasar embeds crudos + fallback: el render ya no debe vaciar por allowlist estricta
+                    renderServidoresYDescargas(
+                        validos.length ? validos : episodio.embeds,
+                        episodio.downloads,
+                        episodio.video,
+                        item,
+                        { expandido: true }
+                    );
                     expandirServidores();
                 }
             } catch (err) {
-                console.error(err);
+                console.error("capitulo:", err);
                 if (serversContainer) {
                     expandirServidores();
                     const msg = err.name === "AbortError"
-                        ? "Tiempo de espera agotado. Intenta de nuevo."
+                        ? "Tiempo de espera agotado. Vuelve a pulsar el episodio."
                         : ("No se pudieron cargar los servidores: " + (err.message || "error"));
                     serversContainer.innerHTML = `<p style="color:var(--text-muted);padding:12px;">${escapeHtml(msg)}</p>`;
                 }
@@ -1607,30 +1646,16 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
     let embeds = [];
 
-    if (
-        Array.isArray(embedsRaw) &&
-        embedsRaw.length > 0
-    ) {
-
-        embeds = embedsRaw.filter(
-            e =>
-                e &&
-                e.url &&
-                !esEmbedInvalido(e.url)
-        );
-
-    } else if (
-        fallbackUrl &&
-        !esEmbedInvalido(fallbackUrl)
-    ) {
-
-        embeds = [
-            {
-                url: fallbackUrl,
-                server: "Servidor"
-            }
-        ];
-
+    if (Array.isArray(embedsRaw) && embedsRaw.length > 0) {
+        embeds = embedsRaw.filter(e => e && e.url && !esEmbedInvalido(e.url));
+        // Si el filtro dejó 0 pero había URLs http, mostrarlas igual (evitar "todavía no está disponible")
+        if (!embeds.length) {
+            embeds = embedsRaw.filter(e => e && e.url && /^https?:\/\//i.test(String(e.url)));
+        }
+    } else if (fallbackUrl && /^https?:\/\//i.test(String(fallbackUrl)) && !esEmbedInvalido(fallbackUrl)) {
+        embeds = [{ url: fallbackUrl, server: "Servidor" }];
+    } else if (fallbackUrl && /^https?:\/\//i.test(String(fallbackUrl))) {
+        embeds = [{ url: fallbackUrl, server: "Servidor" }];
     }
 
 
