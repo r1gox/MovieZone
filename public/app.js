@@ -118,15 +118,30 @@ const REPRODUCTORES_BLOQUEADOS = [
     "youtube.com", "youtu.be", "play.php", "example.com", "hackstore.fo"
 ];
 
+/** URL de la API del worker (detalle/capítulo) — NO es un iframe de video */
+function esUrlApiWorker(url) {
+    if (!url) return false;
+    const u = String(url).toLowerCase();
+    // Endpoints de datos JSON del worker (al ponerlos en iframe sale el JSON crudo)
+    if (/moviezone\.tvjz\.workers\.dev/i.test(u)) {
+        // Resolver de stream sí es válido como API de play, pero no como iframe directo
+        if (/\/(resolve|wish|goodstream|vidhide|voe)\//i.test(u)) return false;
+        // /3/serie/slug/1/1 o /3/pelicula/slug → JSON, inválido como player
+        if (/\/\d+\/(serie|anime|pelicula)\//i.test(u)) return true;
+        if (/\/(serie|anime|pelicula)\//i.test(u)) return true;
+        return true; // cualquier otra ruta del worker no es embed de video
+    }
+    return false;
+}
+
 function esEmbedInvalido(url) {
     if (!url) return true;
     const u = String(url).toLowerCase().trim();
     if (!/^https?:\/\//i.test(u) && !u.startsWith("//")) return true;
+    if (esUrlApiWorker(u)) return true;
     if (REPRODUCTORES_BLOQUEADOS.some(d => u.includes(d))) return true;
     // Permitir cualquier https de host conocido O cualquier http(s) que no esté bloqueado
-    // (antes se exigía allowlist estricta y descartaba mirrors nuevos → "todavía no está disponible")
     if (REPRODUCTORES_PERMITIDOS.some(d => u.includes(d))) return false;
-    // Host genérico http(s): aceptar (la API ya filtró basura)
     try {
         const host = new URL(u.startsWith("//") ? "https:" + u : u).hostname;
         if (host && host.includes(".")) return false;
@@ -151,8 +166,22 @@ function normalizarEmbeds(raw) {
     }
     if (!Array.isArray(raw)) return [];
     return raw.map(e => {
-        if (typeof e === "string" && e.startsWith("http")) return { url: e };
-        if (e && e.url) return e;
+        if (typeof e === "string" && e.startsWith("http")) {
+            if (esUrlApiWorker(e)) return null;
+            return { url: e };
+        }
+        if (e && e.url) {
+            if (esUrlApiWorker(e.url)) return null;
+            return {
+                ...e,
+                url: e.url,
+                server: e.server || e.servidor || e.name || null,
+                servidor: e.servidor || e.server || e.name || null,
+                idioma: e.idioma || e.lang || null,
+                lang: e.lang || e.idioma || null,
+                stream_url: e.stream_url || null,
+            };
+        }
         return null;
     }).filter(Boolean);
 }
@@ -177,10 +206,10 @@ const SERVIDORES_CONOCIDOS = {
     "voe.sx": "Voe",
     "doodstream.com": "Doodstream", "dood.to": "Doodstream", "dood.wf": "Doodstream", "dood.la": "Doodstream",
     "streamtape.com": "Streamtape",
-    "streamwish.com": "StreamWish",
+    "streamwish.com": "StreamWish", "streamwish.to": "StreamWish", "streamhg.com": "StreamWish",
     "filemoon.sx": "Filemoon", "filemoon.to": "Filemoon",
     "mixdrop.co": "Mixdrop", "mixdrop.to": "Mixdrop",
-    "vidhide.com": "VidHide",
+    "vidhide.com": "VidHide", "vidhidepro.com": "VidHide",
     "vidguard.to": "VidGuard",
     "uqload.com": "Uqload",
     "streamsb.com": "StreamSB",
@@ -188,6 +217,7 @@ const SERVIDORES_CONOCIDOS = {
     "upstream.to": "Upstream",
     "vidmoly.me": "Vidmoly", "vidmoly.to": "Vidmoly",
     "mp4upload.com": "Mp4Upload",
+    "waaw.to": "Waaw", "netu.tv": "Waaw",
     "mega.nz": "Mega",
     "drive.google.com": "Google Drive",
     "mediafire.com": "Mediafire",
@@ -1291,7 +1321,12 @@ function renderTemporadas(item) {
                     episode: num,
                     nombre: meta?.name || ep.titulo || ep.nombre || ep.name || ("Episodio " + num),
                     embeds: ep.embeds || ep.reproductores || [],
-                    video: ep.url_video || ep.video || ep.reproductor || null,
+                    // url_video del worker es el endpoint JSON del capítulo, NO un player
+                    video: (() => {
+                        const v = ep.video || ep.reproductor || null;
+                        if (v && !esUrlApiWorker(v) && !esEmbedInvalido(v)) return v;
+                        return null;
+                    })(),
                     link: ep.link || null,
                     source_id: ep.source_id || item.source_id
                 };
@@ -1519,18 +1554,28 @@ function renderEpisodios(item, season = 1) {
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || data.detalle || ("HTTP " + res.status));
 
-                let embedsNuevos = normalizarEmbeds(data.embeds || data.reproductores || []);
-                // Si la API mandó un solo reproductor string
-                if (!embedsNuevos.length && data.reproductor && typeof data.reproductor === "string") {
+                // Preferir objetos reproductores (tienen servidor/idioma); embeds puede ser solo strings
+                let embedsNuevos = normalizarEmbeds(
+                    (Array.isArray(data.reproductores) && data.reproductores.length)
+                        ? data.reproductores
+                        : (data.embeds || [])
+                );
+                if (!embedsNuevos.length && data.reproductor && typeof data.reproductor === "string" && !esUrlApiWorker(data.reproductor)) {
                     embedsNuevos = [{ url: data.reproductor }];
                 }
+                // Filtrar URLs de la API worker (JSON) que no son iframes de video
+                embedsNuevos = embedsNuevos.filter(e => e && e.url && !esUrlApiWorker(e.url));
                 episodio.embeds = embedsNuevos.map(e => ({
                     ...e,
                     idioma: e.idioma || e.lang || null,
                     lang: e.lang || e.idioma || null,
-                    stream_url: streamUrlParaNoAds(e.url) || e.stream_url || null
+                    server: e.server || e.servidor || e.name || null,
+                    servidor: e.servidor || e.server || e.name || null,
+                    stream_url: e.stream_url || streamUrlParaNoAds(e.url) || null
                 }));
-                episodio.video = data.reproductor || (episodio.embeds[0] && episodio.embeds[0].url) || null;
+                const prim = episodio.embeds[0]?.url || null;
+                const rep = (data.reproductor && !esUrlApiWorker(data.reproductor)) ? data.reproductor : prim;
+                episodio.video = rep || null;
                 episodio.downloads = data.downloads || data.descargas || [];
                 episodio.episode = Number(epNum);
                 episodio.season = Number(seasonNum);
