@@ -1105,57 +1105,115 @@ function scoreSearchRelevance(item, termino) {
 }
 
 /**
- * Dedupe SOLO duplicados reales entre fuentes:
- * - mismo slug (classroom-for-heroes vs classroom-for-heroes)
- * - mismo título normalizado + mismo tipo
- * NO junta obras distintas que solo comparten una palabra (kyoushitsu).
- * Se queda con el de mejor score (portada, fuente, descripción).
+ * Normaliza slug/título para dedupe de la misma obra:
+ * - horimiya-2021 → horimiya
+ * - horimiya-piece / horimiya-the-missing-pieces → horimiya-piece (misma OVA/spin-off)
+ * - "Horimiya: The Missing Pieces" → misma clave que "Horimiya Piece"
+ */
+function normalizeWorkKey(slug, titulo) {
+  let s = String(slug || "")
+    .toLowerCase()
+    .trim();
+  let t = normalizeTitleKey(titulo || "");
+
+  // Quitar año al final del slug
+  s = s.replace(/-\d{4}$/, "");
+
+  // Unificar variantes "piece" / "missing pieces" / "the missing pieces"
+  // (Horimiya: Piece === Horimiya: The Missing Pieces)
+  s = s
+    .replace(/-the-missing-pieces?(?:-ova)?$/, "-piece")
+    .replace(/-missing-pieces?(?:-ova)?$/, "-piece")
+    .replace(/-pieces$/, "-piece");
+  t = t
+    .replace(/\bthe missing pieces?\b/g, "piece")
+    .replace(/\bmissing pieces?\b/g, "piece")
+    .replace(/\bpieces\b/g, "piece")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (s) return `slug:${s}`;
+  if (t) return `t:${t}`;
+  return null;
+}
+
+/** Clave dedupe búsqueda: misma obra entre fuentes */
+function searchDedupeKey(item) {
+  const key = normalizeWorkKey(item.slug, item.nombre || item.titulo);
+  if (key) return key;
+  return item.link || String(Math.random());
+}
+
+/** Mejor resultado de la misma obra (portada, Anime, fuente 4, descripción) */
+function pickBestSearchItem(a, b) {
+  const score = (it) => {
+    let s = scoreItem(it);
+    if (esPortadaValida(it.portada)) s += 20;
+    if (it.descripcion && String(it.descripcion).length > 40) s += 10;
+    if (it.tiene_player) s += 8;
+    const t = String(it.tipo || "").toLowerCase();
+    if (t === "anime") s += 15;
+    else if (t === "serie") s += 5;
+    const sid = String(it.source_id || "");
+    if (sid === "4") s += 12;
+    else if (sid === "3") s += 6;
+    else if (sid === "1") s += 2;
+    return s;
+  };
+  const preferA = score(a) >= score(b);
+  const winner = preferA ? { ...a } : { ...b };
+  const loser = preferA ? b : a;
+
+  winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
+  if ((!winner.descripcion || String(winner.descripcion).length < 40) && loser.descripcion) {
+    winner.descripcion = loser.descripcion;
+  }
+  if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
+  if (loser.tiene_player && !winner.tiene_player) winner.tiene_player = true;
+  if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
+    winner.total_episodios = loser.total_episodios;
+  }
+  // Si alguno es Anime, el resultado final es Anime (no Película/Serie errónea)
+  const tipos = [winner.tipo, loser.tipo].map((t) => String(t || ""));
+  if (tipos.some((t) => /anime/i.test(t))) winner.tipo = "Anime";
+  else if (tipos.some((t) => /serie/i.test(t))) winner.tipo = "Serie";
+
+  const nW = limpiarTitulo(winner.nombre || "");
+  const nL = limpiarTitulo(loser.nombre || "");
+  if (nL && (!nW || nL.length <= nW.length || /ver |online|gratis/i.test(String(winner.nombre || "")))) {
+    winner.nombre = nL;
+  } else {
+    winner.nombre = nW || winner.nombre;
+  }
+  if (!winner.link && loser.link) winner.link = loser.link;
+  if (!winner.slug && loser.slug) winner.slug = loser.slug;
+  const alts = new Set(
+    [...(winner._alt_sources || []), ...(loser._alt_sources || []), String(loser.source_id || ""), String(winner.source_id || "")].filter(Boolean)
+  );
+  winner._alt_sources = Array.from(alts);
+  return winner;
+}
+
+/**
+ * Dedupe duplicados reales entre fuentes:
+ * - mismo slug (horimiya en 3 y 4 → 1)
+ * - piece === missing pieces → 1
+ * - horimiya-2021 (peli mal tipada) se une a horimiya serie/anime
+ * Mantiene aparte: obra base ≠ spin-off piece
  */
 function dedupeSearchResults(lista) {
   const map = new Map();
   for (const item of lista || []) {
     if (!item) continue;
-    const slugKey = String(item.slug || "")
-      .toLowerCase()
-      .replace(/-\d{4}$/, "")
-      .trim();
-    const titleKey = normalizeTitleKey(item.nombre || item.titulo || "");
-    const tipoKey = String(item.tipo || "").toLowerCase();
-    // Preferir slug; si no hay, título+tipo exacto
-    const key = slugKey
-      ? `slug:${slugKey}`
-      : titleKey
-        ? `t:${tipoKey}:${titleKey}`
-        : item.link || String(Math.random());
+    item.nombre = limpiarTitulo(item.nombre || item.titulo || item.nombre);
+    // Nombre preferido para piece: "Horimiya: The Missing Pieces" si hay portada de pelisplus
+    const key = searchDedupeKey(item);
     const prev = map.get(key);
     if (!prev) {
       map.set(key, item);
       continue;
     }
-    // Mejor: más scoreItem + portada válida
-    const preferItem =
-      scoreItem(item) + (esPortadaValida(item.portada) ? 15 : 0) >=
-      scoreItem(prev) + (esPortadaValida(prev.portada) ? 15 : 0);
-    const winner = preferItem ? { ...item } : { ...prev };
-    const loser = preferItem ? prev : item;
-    winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
-    if ((!winner.descripcion || String(winner.descripcion).length < 40) && loser.descripcion) {
-      winner.descripcion = loser.descripcion;
-    }
-    if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
-    if (loser.tiene_player && !winner.tiene_player) winner.tiene_player = true;
-    if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
-      winner.total_episodios = loser.total_episodios;
-    }
-    // Preferir título limpio en inglés/ES si el otro es romaji sin portada
-    if (!esPortadaValida(winner.portada) && esPortadaValida(loser.portada)) {
-      winner.portada = loser.portada;
-      if (loser.nombre && String(loser.nombre).length > 2) winner.nombre = limpiarTitulo(loser.nombre);
-    }
-    // Conservar link/slug de la fuente ganadora; alternates
-    if (!winner.link && loser.link) winner.link = loser.link;
-    if (!winner.slug && loser.slug) winner.slug = loser.slug;
-    map.set(key, winner);
+    map.set(key, pickBestSearchItem(prev, item));
   }
   return Array.from(map.values());
 }
