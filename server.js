@@ -591,18 +591,20 @@ function colapsarTemporadasAnimeAv1(lista) {
 function dedupeListItems(lista) {
   const map = new Map();
   for (const item of lista || []) {
-    const titleKey = normalizeTitleKey(item.nombre || item.titulo);
+    // Clave: preferir slug completo (NO quitar season → S2 ≠ S1)
+    // Título solo si no hay slug; así "Classroom for Heroes" y "Eiyuu Kyoushitsu" no se pisan
+    // salvo que el slug sea el mismo entre fuentes.
     const slugKey = String(item.slug || "")
       .toLowerCase()
-      .replace(/-season-\d+$/i, "")
       .replace(/-\d{4}$/, "")
       .trim();
-    // Misma obra: título normalizado (prioriza unificar Wistoria 10eps vs 24eps)
-    // o slug sin -season-N
-    const key = titleKey
-      ? "t:" + titleKey
-      : slugKey
-        ? "slug:" + slugKey
+    const titleKey = normalizeTitleKey(item.nombre || item.titulo);
+    const tipoKey = String(item.tipo || "").toLowerCase();
+    // Misma obra entre fuentes: mismo slug O mismo título+tipo (sin mezclar temporadas distintas por slug)
+    const key = slugKey
+      ? `slug:${slugKey}`
+      : titleKey
+        ? `t:${tipoKey}:${titleKey}`
         : null;
     if (!key) {
       map.set(item.link || item.slug || String(Math.random()), item);
@@ -613,7 +615,7 @@ function dedupeListItems(lista) {
       map.set(key, item);
       continue;
     }
-    // Más reproductores / mejor fuente (anime → 4 primero)
+    // Mejor resultado: más datos + mejor fuente (anime → 4, portada, descripción…)
     const winner = scoreItem(item) >= scoreItem(prev) ? { ...item } : { ...prev };
     const loser = scoreItem(item) >= scoreItem(prev) ? prev : item;
     if (loser.tiene_player && !winner.tiene_player) {
@@ -621,7 +623,6 @@ function dedupeListItems(lista) {
       if (!winner.embeds?.length && loser.embeds?.length) winner.embeds = loser.embeds;
       if (!winner.reproductor && loser.reproductor) winner.reproductor = loser.reproductor;
     }
-    // Portada: misma lógica que la fuente de los players
     winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
     if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
     if ((!winner.descripcion || winner.descripcion.length < 40) && loser.descripcion) {
@@ -630,9 +631,15 @@ function dedupeListItems(lista) {
     if (!winner.genero && loser.genero) winner.genero = loser.genero;
     if (!winner.backdrop && loser.backdrop) winner.backdrop = loser.backdrop;
     if (!winner.tmdb_id && loser.tmdb_id) winner.tmdb_id = loser.tmdb_id;
-    if (!winner.postId && loser.postId) {
-      winner.postId = loser.postId;
+    if (!winner.postId && loser.postId) winner.postId = loser.postId;
+    if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
+      winner.total_episodios = loser.total_episodios;
     }
+    // Preferir nombre "limpio" con portada (pelisplus suele traer portada + título EN)
+    if (!esPortadaValida(winner.portada) && esPortadaValida(loser.portada)) {
+      winner.portada = loser.portada;
+    }
+    if ((winner.nombre || "").length < 3 && loser.nombre) winner.nombre = loser.nombre;
     map.set(key, winner);
   }
   return Array.from(map.values());
@@ -852,13 +859,15 @@ function mapListItem(r) {
   const sourceId = String(r.source_id || r.fuente || DEFAULT_SOURCE);
   const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
   const portada = r.portada || r.portada_tmdb || r.poster || r.tmdb_poster || null;
+  const kindPath =
+    tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
   const link =
     r.link ||
     r.url ||
     (r.url_extract
       ? r.url_extract
       : slug
-        ? `${API_BASE}/${sourceId}/${tipo === "Serie" || tipo === "Anime" ? "serie" : "pelicula"}/${slug}`
+        ? `${API_BASE}/${sourceId}/${kindPath}/${slug}`
         : null);
 
   const genero = extraerGenero(r) || (Array.isArray(r.generos) ? r.generos.join(", ") : null);
@@ -1071,77 +1080,178 @@ async function obtenerPopulares(tipo = "peliculas", limit = 24) {
   }
 }
 
-async function buscarOnline(termino, page = 1, limit = 28) {
+/** Relevancia de un item respecto al query (mayor = mejor) */
+function scoreSearchRelevance(item, termino) {
+  const qNorm = normalizeTitleKey(termino);
+  const title = normalizeTitleKey(item.nombre || item.titulo || "");
+  const slug = String(item.slug || "").toLowerCase().replace(/-/g, " ");
+  const qTokens = qNorm.split(/\s+/).filter((t) => t.length > 1);
+  let s = 0;
+  if (!title && !slug) return 0;
+  if (title === qNorm) s += 100;
+  else if (title.startsWith(qNorm) || qNorm.startsWith(title)) s += 60;
+  else if (title.includes(qNorm) || qNorm.includes(title)) s += 40;
+  // tokens del query presentes en título o slug
+  let hit = 0;
+  for (const t of qTokens) {
+    if (title.includes(t) || slug.includes(t)) hit += 1;
+  }
+  if (qTokens.length) s += Math.round((hit / qTokens.length) * 30);
+  if (esPortadaValida(item.portada)) s += 8;
+  if (item.descripcion && String(item.descripcion).length > 40) s += 4;
+  if (item.tiene_player) s += 6;
+  s += Math.min(scoreItem(item), 20);
+  return s;
+}
+
+/**
+ * Dedupe SOLO duplicados reales entre fuentes:
+ * - mismo slug (classroom-for-heroes vs classroom-for-heroes)
+ * - mismo título normalizado + mismo tipo
+ * NO junta obras distintas que solo comparten una palabra (kyoushitsu).
+ * Se queda con el de mejor score (portada, fuente, descripción).
+ */
+function dedupeSearchResults(lista) {
+  const map = new Map();
+  for (const item of lista || []) {
+    if (!item) continue;
+    const slugKey = String(item.slug || "")
+      .toLowerCase()
+      .replace(/-\d{4}$/, "")
+      .trim();
+    const titleKey = normalizeTitleKey(item.nombre || item.titulo || "");
+    const tipoKey = String(item.tipo || "").toLowerCase();
+    // Preferir slug; si no hay, título+tipo exacto
+    const key = slugKey
+      ? `slug:${slugKey}`
+      : titleKey
+        ? `t:${tipoKey}:${titleKey}`
+        : item.link || String(Math.random());
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, item);
+      continue;
+    }
+    // Mejor: más scoreItem + portada válida
+    const preferItem =
+      scoreItem(item) + (esPortadaValida(item.portada) ? 15 : 0) >=
+      scoreItem(prev) + (esPortadaValida(prev.portada) ? 15 : 0);
+    const winner = preferItem ? { ...item } : { ...prev };
+    const loser = preferItem ? prev : item;
+    winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
+    if ((!winner.descripcion || String(winner.descripcion).length < 40) && loser.descripcion) {
+      winner.descripcion = loser.descripcion;
+    }
+    if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
+    if (loser.tiene_player && !winner.tiene_player) winner.tiene_player = true;
+    if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
+      winner.total_episodios = loser.total_episodios;
+    }
+    // Preferir título limpio en inglés/ES si el otro es romaji sin portada
+    if (!esPortadaValida(winner.portada) && esPortadaValida(loser.portada)) {
+      winner.portada = loser.portada;
+      if (loser.nombre && String(loser.nombre).length > 2) winner.nombre = limpiarTitulo(loser.nombre);
+    }
+    // Conservar link/slug de la fuente ganadora; alternates
+    if (!winner.link && loser.link) winner.link = loser.link;
+    if (!winner.slug && loser.slug) winner.slug = loser.slug;
+    map.set(key, winner);
+  }
+  return Array.from(map.values());
+}
+
+async function buscarOnline(termino, page = 1, limit = 48) {
   await ensureMoviesDB();
-  const q = encodeURIComponent(termino.trim());
+  const q = encodeURIComponent(String(termino || "").trim());
+  if (!q) return { resultados: [], total: 0, page, limit, source: "online" };
+
   const data = await apiGet(`/search?q=${q}`);
-  let lista = (data.resultados || []).map(mapListItem);
+  const raw = Array.isArray(data?.resultados) ? data.resultados : [];
+  // Mapear TODOS los resultados de la API (no descartar por falta de players)
+  let lista = raw
+    .map((r) => {
+      try {
+        return mapListItem(r);
+      } catch (_) {
+        return null;
+      }
+    })
+    .filter((item) => item && (item.slug || item.link || item.url_extract));
 
-  // Deduplicar: la API busca en varias fuentes (lamovie/hackstore/pelisplus/animeav1) y puede devolver el mismo título 2-3 veces.
-  // Nos quedamos con el que tenga más datos (portada, calificación, etc.).
-  lista = dedupeListItems(lista);
+  // Deduplicar solo clones entre fuentes (mismo slug / mismo título)
+  lista = dedupeSearchResults(lista);
 
-  // Enriquecer con lo que ya tengamos en Supabase/memoria (tiene_player, descripción…)
+  // Enriquecer con Supabase (portada, tiene_player…) sin eliminar filas
   lista = lista.map((item) => {
     const local =
       moviesDB.find(
         (m) =>
           (item.link && m.link === item.link) ||
           (item.slug && m.slug === item.slug) ||
-          (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) && m.tipo === item.tipo)
+          (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
+            String(m.tipo || "") === String(item.tipo || ""))
       ) || null;
-    if (local) {
-      const merged = mergeItems(item, {
-        tiene_player: local.tiene_player,
-        embeds: local.embeds,
-        reproductor: local.reproductor,
-        descripcion: local.descripcion,
-        calificacion: local.calificacion,
-        portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
-        downloads: local.downloads,
-        episodios: local.episodios,
-        source_id: item.source_id || local.source_id,
-      });
-      return merged;
-    }
-    return item;
+    if (!local || esDescartado(local)) return item;
+    return mergeItems(item, {
+      tiene_player: local.tiene_player,
+      embeds: local.embeds,
+      reproductor: local.reproductor,
+      descripcion: local.descripcion || item.descripcion,
+      calificacion: local.calificacion || item.calificacion,
+      portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
+      downloads: local.downloads,
+      episodios: local.episodios,
+      total_episodios: local.total_episodios || item.total_episodios,
+      source_id: item.source_id || local.source_id,
+    });
   });
 
-  // Segunda pasada de dedupe por si merge con locales creó duplicados
-  lista = dedupeListItems(lista);
-  lista = colapsarTemporadasAnimeAv1(lista);
-  lista = filtrarDescartados(lista);
-  lista = filtrarSinReproductor(lista);
-  // Preferir el que tenga más episodios / temporadas (ej. Wistoria 24 vs 10)
+  // Segunda pasada dedupe por si el merge unificó links
+  lista = dedupeSearchResults(lista);
+
+  // Orden: relevancia al query → portada → score
   lista.sort((a, b) => {
-    const ea = (a.total_episodios || a.episodios?.length || 0);
-    const eb = (b.total_episodios || b.episodios?.length || 0);
-    if (ea !== eb) return eb - ea;
+    const ra = scoreSearchRelevance(a, termino);
+    const rb = scoreSearchRelevance(b, termino);
+    if (ra !== rb) return rb - ra;
+    const aPort = esPortadaValida(a.portada) ? 1 : 0;
+    const bPort = esPortadaValida(b.portada) ? 1 : 0;
+    if (aPort !== bPort) return bPort - aPort;
     return scoreItem(b) - scoreItem(a);
   });
 
-  // Paginación simple en memoria
   const total = lista.length;
-  const start = (page - 1) * limit;
-  const pageLista = lista.slice(start, start + limit);
+  const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 60);
+  const start = (Math.max(parseInt(page, 10) || 1, 1) - 1) * lim;
+  const pageLista = lista.slice(start, start + lim);
 
-  // Guardar metadatos para que la próxima carga ya los tenga
+  // Guardar en background solo metadatos (no bloquea la respuesta)
   guardarEnSupabase(pageLista).catch(() => {});
-  return { resultados: pageLista, total, page, limit, source: "online" };
+
+  return { resultados: pageLista, total, page: parseInt(page, 10) || 1, limit: lim, source: "online" };
 }
 
 function buscarLocal(termino, type = null, page = 1, limit = 28) {
-  const q = termino.toLowerCase().trim();
+  const qNorm = normalizeTitleKey(termino);
+  const tokens = qNorm.split(/\s+/).filter((t) => t.length > 1);
   let lista = moviesDB.filter((m) => {
-    const nombre = (m.nombre || "").toLowerCase();
+    if (esDescartado(m)) return false;
+    const nombre = normalizeTitleKey(m.nombre || "");
+    const slug = String(m.slug || "").toLowerCase().replace(/-/g, " ");
     const okTipo =
       !type ||
       (type === "movie" && (m.tipo === "Película" || !m.tipo)) ||
       (type === "series" && m.tipo === "Serie") ||
       (type === "anime" && m.tipo === "Anime") ||
       (type === "peliculas" && (m.tipo === "Película" || !m.tipo));
-    return okTipo && nombre.includes(q);
+    if (!okTipo) return false;
+    if (nombre.includes(qNorm) || qNorm.includes(nombre)) return true;
+    if (tokens.length && tokens.every((t) => nombre.includes(t) || slug.includes(t))) return true;
+    if (tokens.some((t) => t.length > 3 && (nombre.includes(t) || slug.includes(t)))) return true;
+    return false;
   });
+  lista = dedupeSearchResults(lista);
+  lista.sort((a, b) => scoreSearchRelevance(b, termino) - scoreSearchRelevance(a, termino));
   const total = lista.length;
   const start = (page - 1) * limit;
   lista = lista.slice(start, start + limit);
@@ -1757,7 +1867,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const termino = String(req.query.q || "").trim();
     const soloLocal = req.query.source === "local" || req.query.local === "1";
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 28));
+    const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
     const type = req.query.type || null;
 
     if (!termino) {
@@ -1775,7 +1885,8 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
       await ensureMoviesDB();
-      return res.json(buscarLocal(termino, type, page, limit));
+      const local = buscarLocal(termino, type, page, limit);
+      return res.json({ ...local, source: "local", online_error: err.message });
     }
   } catch (err) {
     console.error("/api/buscar", err.message);
