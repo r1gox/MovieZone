@@ -1349,9 +1349,7 @@ function renderEpisodios(item, season = 1) {
         return;
     }
 
-    const grid = document.createElement("div");
-    grid.className = "episodes-grid";
-
+    // #episodes-container ya tiene class episodes-grid (no anidar otro)
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
@@ -1409,10 +1407,9 @@ function renderEpisodios(item, season = 1) {
             }
         });
 
-        grid.appendChild(btn);
+        episodesContainer.appendChild(btn);
     });
-    episodesContainer.appendChild(grid);
-}
+    }
 
 // ---------- Servidores y descargas ----------
 async function reproducir(embed, item) {
