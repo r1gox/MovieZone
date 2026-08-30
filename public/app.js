@@ -224,6 +224,17 @@ function streamUrlParaNoAds(embedUrl) {
     return null;
 }
 
+
+/** Idioma de un embed/descarga */
+function idiomaDeEmbed(e) {
+    const t = `${e?.idioma || ""} ${e?.lang || ""} ${e?.language || ""}`.toLowerCase();
+    if (/latino|castellano|español|\bdub\b|audio lat/.test(t)) return "lat";
+    if (/sub|subtit/.test(t)) return "sub";
+    return "otro";
+}
+
+let _idiomaPlayerActivo = "lat"; // preferir latino
+
 function esIdiomaLatinoEmbed(e) {
     const t = `${e?.lang || ""} ${e?.idioma || ""} ${e?.language || ""}`.toLowerCase();
     return /latino|castellano|español|\bdub\b|audio lat/.test(t);
@@ -1548,6 +1559,68 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
     // Insertar UN solo "NO ADS" (después de MovieZone). No se guarda en Supabase.
     embeds = insertarNoAdsEnLista(embeds);
 
+    // --- Filtro SUB / LAT ---
+    const tieneLat = embeds.some(e => !e.noAds && idiomaDeEmbed(e) === "lat")
+        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "lat"));
+    const tieneSub = embeds.some(e => !e.noAds && idiomaDeEmbed(e) === "sub")
+        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "sub"));
+    const mostrarFiltroIdioma = tieneLat && tieneSub;
+
+    if (mostrarFiltroIdioma) {
+        if (_idiomaPlayerActivo !== "lat" && _idiomaPlayerActivo !== "sub") {
+            _idiomaPlayerActivo = "lat";
+        }
+    } else if (tieneLat) {
+        _idiomaPlayerActivo = "lat";
+    } else if (tieneSub) {
+        _idiomaPlayerActivo = "sub";
+    }
+
+    const filtrarPorIdioma = (lista) => {
+        if (!mostrarFiltroIdioma || !Array.isArray(lista)) return lista || [];
+        return lista.filter(e => {
+            if (e && e.noAds) return true; // NO ADS se adapta al pool
+            const id = idiomaDeEmbed(e);
+            if (id === "otro") return true;
+            return id === _idiomaPlayerActivo;
+        });
+    };
+
+    // Rebuild NO ADS según idioma activo
+    if (mostrarFiltroIdioma) {
+        const pool = embeds.filter(e => !e.noAds && (idiomaDeEmbed(e) === _idiomaPlayerActivo || idiomaDeEmbed(e) === "otro"));
+        embeds = insertarNoAdsEnLista(pool);
+    }
+
+    // Chips SUB / LAT
+    if (mostrarFiltroIdioma) {
+        const chipBar = document.createElement("div");
+        chipBar.className = "idioma-filter-bar";
+        chipBar.style.cssText = "display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;";
+        ["lat", "sub"].forEach((id) => {
+            if (id === "lat" && !tieneLat) return;
+            if (id === "sub" && !tieneSub) return;
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "idioma-chip" + (_idiomaPlayerActivo === id ? " active" : "");
+            b.textContent = id === "lat" ? "Latino (DUB)" : "Subtitulado (SUB)";
+            b.style.cssText = "padding:8px 14px;border-radius:20px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;";
+            if (_idiomaPlayerActivo === id) {
+                b.style.background = "rgba(168,85,247,0.3)";
+                b.style.color = "#fff";
+                b.style.borderColor = "rgba(168,85,247,0.6)";
+            }
+            b.addEventListener("click", () => {
+                _idiomaPlayerActivo = id;
+                renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item);
+            });
+            chipBar.appendChild(b);
+        });
+        serversContainer.appendChild(chipBar);
+    }
+
+    embeds = filtrarPorIdioma(embeds.filter(e => e && e.url));
+
 
 
     /*
@@ -1803,10 +1876,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item) 
        DESCARGAS
        ========================================================= */
 
-    const downloads =
-        Array.isArray(downloadsRaw)
-            ? downloadsRaw
-            : [];
+    const downloads = filtrarPorIdioma(
+        Array.isArray(downloadsRaw) ? downloadsRaw : []
+    );
 
 
     if (downloads.length > 0) {
