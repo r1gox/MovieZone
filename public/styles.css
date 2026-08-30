@@ -964,24 +964,53 @@ body {
 }
 
 .episodes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
-  gap: 8px;
-  max-height: 130px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 10px;
+  max-height: 220px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding: 4px 4px 8px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .episode-btn {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
-  padding: 8px 0;
+  padding: 10px 4px;
+  min-height: 40px;
+  min-width: 0;
   border-radius: var(--radius-sm);
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
   text-align: center;
   transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.episode-range-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  width: 100%;
+}
+.episode-range-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.episode-range-btn.active {
+  background: rgba(168,85,247,0.25);
+  color: #fff;
+  border-color: rgba(168,85,247,0.5);
 }
 .episode-btn:hover, .episode-btn.active {
   background: var(--accent-gradient);

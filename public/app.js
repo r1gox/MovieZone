@@ -1105,8 +1105,8 @@ function buildEpisodiosQuery(item, season) {
 }
 
 function normalizarListaTemporadas(item) {
-    // SOLO item.temporadas de la fuente real (nunca temporadas_tmdb → evita T1 duplicada / T2 sin streams)
-    const raw = item.temporadas && item.temporadas.length ? item.temporadas : [1];
+    // 1) Temporadas de la fuente (animeav1 / etc.) — dedupe
+    const raw = item.temporadas && item.temporadas.length ? item.temporadas : [];
     const seen = new Set();
     const out = [];
     raw.forEach((s, i) => {
@@ -1120,11 +1120,48 @@ function normalizarListaTemporadas(item) {
         } else {
             num = i + 1;
         }
-        if (seen.has(num)) return; // dedupe Temporada 1 + Temporada 1
+        if (seen.has(num)) return;
         seen.add(num);
-        out.push({ num, episodios });
+        out.push({ num, episodios, fromTmdb: false });
     });
-    return out.length ? out : [{ num: 1, episodios: null }];
+
+    // 2) Añadir temporadas extra de TMDB que no estén (ej. T2 de Wistoria)
+    //    Sin duplicar T1. Episodios como stubs meta (sin players hasta que existan en fuente).
+    const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
+    tmdbSeasons.forEach((ts) => {
+        const num = parseInt(ts.season_number || ts.temporada || 0, 10);
+        if (!num || num < 1 || seen.has(num)) return;
+        seen.add(num);
+        const epsRaw = Array.isArray(ts.episodios) ? ts.episodios : [];
+        const episodios = epsRaw.map((ep, idx) => ({
+            temporada: num,
+            episodio: ep.episode_number || ep.episodio || (idx + 1),
+            episode: ep.episode_number || ep.episodio || (idx + 1),
+            titulo: ep.name || ep.titulo || ("Episodio " + (ep.episode_number || idx + 1)),
+            nombre: ep.name || ep.titulo || ("Episodio " + (ep.episode_number || idx + 1)),
+            embeds: [],
+            video: null,
+            still: ep.still || null
+        }));
+        // si TMDB no trae lista pero sí episode_count
+        if (!episodios.length && ts.episode_count) {
+            for (let e = 1; e <= Math.min(Number(ts.episode_count) || 0, 50); e++) {
+                episodios.push({
+                    temporada: num,
+                    episodio: e,
+                    episode: e,
+                    titulo: "Episodio " + e,
+                    nombre: "Episodio " + e,
+                    embeds: [],
+                    video: null
+                });
+            }
+        }
+        out.push({ num, episodios, fromTmdb: true });
+    });
+
+    out.sort((a, b) => a.num - b.num);
+    return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
 }
 
 function renderTemporadas(item) {
@@ -1314,7 +1351,6 @@ function renderEpisodios(item, season = 1) {
 
     const grid = document.createElement("div");
     grid.className = "episodes-grid";
-    grid.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;";
 
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
