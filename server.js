@@ -394,6 +394,15 @@ function buildStreamUrl(embedUrl) {
   return null;
 }
 
+/** URL del worker que devuelve JSON de capítulo/detalle (no es embed reproducible) */
+function esUrlMetaApi(url) {
+  if (!url || typeof url !== "string") return false;
+  const u = url.toLowerCase();
+  if (!/moviezone\.tvjz\.workers\.dev/i.test(u)) return false;
+  if (/\/(resolve|wish|goodstream|vidhide|voe)\//i.test(u)) return false;
+  return true;
+}
+
 function mapEmbeds(raw) {
   if (!raw) return [];
   // Si viene string JSON desde Supabase
@@ -404,11 +413,12 @@ function mapEmbeds(raw) {
   const mapped = raw
     .map((e) => {
       if (typeof e === "string" && e.startsWith("http")) {
+        if (esUrlMetaApi(e)) return null;
         return { url: e, idioma: null, servidor: null, calidad: null };
       }
       if (e && typeof e === "object") {
         const url = e.url || e.src || e.link || null;
-        if (!url) return null;
+        if (!url || esUrlMetaApi(url)) return null;
         let idioma = e.idioma || e.lang || e.language || e.lang_code || null;
         if (idioma) {
           const L = String(idioma).toUpperCase();
