@@ -328,7 +328,66 @@ function destruirHls() {
         vid.classList.add("hidden");
     }
     if (playerIframe) playerIframe.classList.remove("hidden");
+    mostrarBotonFullscreen(false);
 }
+
+
+function mostrarBotonFullscreen(mostrar) {
+    const btn = document.getElementById("btn-fs-player");
+    if (!btn) return;
+    btn.classList.toggle("hidden", !mostrar);
+    if (!mostrar) {
+        // salir de FS si se oculta el botón
+        salirPantallaCompletaPlayer();
+    }
+}
+
+function actualizarIconoFs(enFs) {
+    const icon = document.getElementById("btn-fs-player-icon");
+    if (icon) icon.setAttribute("name", enFs ? "contract-outline" : "expand-outline");
+}
+
+function salirPantallaCompletaPlayer() {
+    const box = document.getElementById("video-player-container");
+    if (box) box.classList.remove("is-fullscreen");
+    actualizarIconoFs(false);
+    try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+    } catch (_) {}
+}
+
+async function togglePantallaCompletaPlayer() {
+    const box = document.getElementById("video-player-container");
+    const vid = document.getElementById("player-video");
+    if (!box) return;
+
+    // Preferir Fullscreen API del contenedor (funciona en desktop + muchos móviles)
+    const enFs = !!(document.fullscreenElement || document.webkitFullscreenElement || box.classList.contains("is-fullscreen"));
+
+    if (enFs) {
+        salirPantallaCompletaPlayer();
+        return;
+    }
+
+    try {
+        if (box.requestFullscreen) await box.requestFullscreen();
+        else if (box.webkitRequestFullscreen) box.webkitRequestFullscreen();
+        else if (vid && vid.webkitEnterFullscreen) {
+            // iOS Safari: fullscreen nativo del video
+            vid.webkitEnterFullscreen();
+        } else {
+            // Fallback CSS
+            box.classList.add("is-fullscreen");
+        }
+        actualizarIconoFs(true);
+    } catch (e) {
+        // Fallback CSS si el navegador bloquea FS
+        box.classList.add("is-fullscreen");
+        actualizarIconoFs(true);
+    }
+}
+
 
 async function reproducirHlsNoAds(playUrl, item) {
     destruirHls();
@@ -338,6 +397,7 @@ async function reproducirHlsNoAds(playUrl, item) {
     playerIframe.src = "about:blank";
     vid.classList.remove("hidden");
     videoContainer.classList.remove("hidden");
+    mostrarBotonFullscreen(true);
     playerTitle.textContent = (item?.nombre || "NO ADS")
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
 
@@ -953,6 +1013,25 @@ function cerrarDetalle() {
 }
 document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
 document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
+
+document.getElementById("btn-fs-player")?.addEventListener("click", () => {
+    togglePantallaCompletaPlayer();
+});
+document.addEventListener("fullscreenchange", () => {
+    const on = !!document.fullscreenElement;
+    if (!on) {
+        document.getElementById("video-player-container")?.classList.remove("is-fullscreen");
+    }
+    actualizarIconoFs(on || document.getElementById("video-player-container")?.classList.contains("is-fullscreen"));
+});
+document.addEventListener("webkitfullscreenchange", () => {
+    const on = !!document.webkitFullscreenElement;
+    if (!on) {
+        document.getElementById("video-player-container")?.classList.remove("is-fullscreen");
+    }
+    actualizarIconoFs(on);
+});
+
 document.getElementById("close-player-btn").addEventListener("click", () => {
     detenerSeguimientoProgreso(true);
     destruirHls();
@@ -1101,6 +1180,9 @@ function renderEpisodios(item, season = 1) {
             // Cargar de API → se guarda en Supabase en el backend
             const serversContainer = document.getElementById("servers-container");
             if (serversContainer) {
+                serversContainer.classList.remove("mz-collapsed-content");
+                serversContainer.classList.add("mz-expanded-content");
+                document.getElementById("mz-servers-toggle")?.classList.add("open");
                 serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores...</p></div>`;
             }
             try {
@@ -1151,6 +1233,7 @@ async function reproducir(embed, item) {
     }
 
     destruirHls();
+    mostrarBotonFullscreen(false);
     videoContainer.classList.remove("hidden");
     playerIframe.src = embed.url;
     playerTitle.textContent = (item?.nombre || "Reproduciendo...")

@@ -741,6 +741,52 @@ body {
   pointer-events: none;
   display: block;
 }
+.btn-fs-player {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+}
+.btn-fs-player.hidden {
+  display: none !important;
+}
+.btn-fs-player:hover {
+  background: rgba(168, 85, 247, 0.85);
+}
+.btn-fs-player ion-icon {
+  font-size: 18px;
+}
+/* Contenedor en fullscreen real */
+.video-player-container.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  aspect-ratio: auto !important;
+  z-index: 99999 !important;
+  background: #000 !important;
+}
+.video-player-container.is-fullscreen .player-iframe-wrapper,
+.video-player-container.is-fullscreen .player-video,
+.video-player-container.is-fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
 .btn-close-player {
   position: absolute;
   right: 12px;
@@ -1321,6 +1367,31 @@ body {
   gap: 15px;
   color: var(--text-muted);
   font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+/* Series / anime: centrar "Cargando servidores..." en el panel */
+#servers-container,
+#servers-container.mz-expanded-content,
+#servers-container.mz-collapsed-content {
+  width: 100%;
+}
+#servers-container .loading-state {
+  min-height: 180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 16px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+#servers-container .loading-state p {
+  margin: 0;
+  text-align: center;
+  width: 100%;
 }
 .spinner {
   width: 32px;
@@ -2403,6 +2474,52 @@ body {
   height: 48px;
 }
 
+.btn-fs-player {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+}
+.btn-fs-player.hidden {
+  display: none !important;
+}
+.btn-fs-player:hover {
+  background: rgba(168, 85, 247, 0.85);
+}
+.btn-fs-player ion-icon {
+  font-size: 18px;
+}
+/* Contenedor en fullscreen real */
+.video-player-container.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  aspect-ratio: auto !important;
+  z-index: 99999 !important;
+  background: #000 !important;
+}
+.video-player-container.is-fullscreen .player-iframe-wrapper,
+.video-player-container.is-fullscreen .player-video,
+.video-player-container.is-fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
 .btn-close-player {
   width: 36px;
   height: 36px;
@@ -2415,7 +2532,53 @@ body {
   .video-player-container .player-header {
     height: 52px;
   }
-  .btn-close-player {
+  .btn-fs-player {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+}
+.btn-fs-player.hidden {
+  display: none !important;
+}
+.btn-fs-player:hover {
+  background: rgba(168, 85, 247, 0.85);
+}
+.btn-fs-player ion-icon {
+  font-size: 18px;
+}
+/* Contenedor en fullscreen real */
+.video-player-container.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  aspect-ratio: auto !important;
+  z-index: 99999 !important;
+  background: #000 !important;
+}
+.video-player-container.is-fullscreen .player-iframe-wrapper,
+.video-player-container.is-fullscreen .player-video,
+.video-player-container.is-fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+.btn-close-player {
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
