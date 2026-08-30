@@ -53,6 +53,7 @@ function getSupabase() {
 
 const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
+const PELISPLUS_API = (process.env.PELISPLUS_API || "https://pelisplushd.tvymas.workers.dev").replace(/\/$/, "");
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
 const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
 
@@ -325,9 +326,16 @@ function mapEmbeds(raw) {
       if (e && typeof e === "object") {
         const url = e.url || e.src || e.link || null;
         if (!url) return null;
+        let idioma = e.idioma || e.lang || e.language || e.lang_code || null;
+        if (idioma) {
+          const L = String(idioma).toUpperCase();
+          if (L === "LAT" || L === "LATINO" || L === "DUB") idioma = "Latino";
+          else if (L === "SUB" || L === "SOFTSUB" || /SUBTIT/.test(L)) idioma = "Subtitulado";
+        }
         return {
           url,
-          idioma: e.idioma || e.lang || null,
+          idioma,
+          lang: idioma,
           servidor: e.servidor || e.server || e.name || null,
           calidad: e.calidad || e.quality || null,
         };
@@ -1115,6 +1123,16 @@ async function obtenerDetalle(params) {
 
   // Fusionar con cache para no perder datos previos
   best = mergeItems(cached, best);
+  // Anime/serie: no perder listado de episodios en un force fallido parcial
+  if (cached && (!best.episodios || !best.episodios.length) && cached.episodios?.length) {
+    best.episodios = cached.episodios;
+  }
+  if (cached && (!best.temporadas || !best.temporadas.length) && cached.temporadas?.length) {
+    best.temporadas = cached.temporadas;
+  }
+  if (cached && (!best.temporadas_raw || !best.temporadas_raw.length) && cached.temporadas_raw?.length) {
+    best.temporadas_raw = cached.temporadas_raw;
+  }
   if (cached?.descripcion && descripcionIncompleta(best.descripcion) && !descripcionIncompleta(cached.descripcion)) {
     best.descripcion = cached.descripcion;
   }
@@ -1127,7 +1145,10 @@ async function obtenerDetalle(params) {
     if (m) best.slug = m[1];
   }
 
-  best.tiene_player = itemTieneContenidoValido(best) || !!(best.episodios && best.episodios.length);
+  best.tiene_player = itemTieneContenidoValido(best)
+    || !!(best.episodios && best.episodios.length)
+    || !!(best.temporadas && best.temporadas.length)
+    || !!(best.temporadas_raw && best.temporadas_raw.length);
 
   const sinPortada = !best.portada || String(best.portada).includes("placeholder");
   const sinContenido = !best.tiene_player;
@@ -1196,37 +1217,179 @@ async function borrarDeSupabasePorSlug(slug) {
   }
 }
 
-async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie") {
+
+/** Episodio LAT/SUB desde pelisplushd.tvymas (API distinta al scrape de pelisplushd.la) */
+async function fetchPelisplusTvymasEpisode(slug, temporada, episodio) {
+  if (!slug) return null;
+  const paths = [
+    `/anime/${slug}/${temporada}/${episodio}`,
+    `/serie/${slug}/${temporada}/${episodio}`,
+  ];
+  for (const p of paths) {
+    try {
+      const { data } = await axios.get(PELISPLUS_API + p, {
+        timeout: 20000,
+        headers: { Accept: "application/json", "User-Agent": "MovieZone/2.0" },
+        validateStatus: () => true,
+      });
+      if (!data || data.error) continue;
+      const videos = data.embeds?.video || (Array.isArray(data.embeds) ? data.embeds : []);
+      if (!videos.length) continue;
+      const embeds = videos.map((v) => {
+        let idioma = v.language || v.lang || v.lang_code || v.idioma || null;
+        if (idioma) {
+          const L = String(idioma).toUpperCase();
+          if (L === "LAT" || L === "LATINO" || L === "DUB") idioma = "Latino";
+          else if (L === "SUB" || L === "SOFTSUB" || /SUBTIT/.test(L)) idioma = "Subtitulado";
+        }
+        return {
+          url: v.link || v.url || v.stream_url || null,
+          stream_url: v.stream_url || null,
+          idioma,
+          lang: idioma,
+          servidor: v.name || v.server || null,
+          calidad: v.quality || null,
+        };
+      }).filter((e) => e.url);
+      if (!embeds.length) continue;
+      return {
+        success: true,
+        fuente: "pelisplushd-tvymas",
+        source_id: "3",
+        tipo: "Capitulo",
+        nombre: data.title || null,
+        embeds: mapEmbeds(embeds),
+        downloads: [],
+        reproductor: embeds[0].url,
+        temporada,
+        episodio,
+      };
+    } catch (_) { /* next */ }
+  }
+  return null;
+}
+
+/** Extrae slugs alternos desde temporadas_tmdb / urls pelisplus */
+function extraerSlugsAlternos(serie, slug) {
+  const out = new Set();
+  if (slug) out.add(String(slug));
+  const tmdb = serie && (serie.temporadas_tmdb || serie.temporadasTmdb);
+  if (Array.isArray(tmdb)) {
+    for (const s of tmdb) {
+      for (const ep of s.episodios || s.episodes || []) {
+        const u = String(ep.url || ep.link || "");
+        const m = u.match(/\/(?:anime|serie|pelicula)\/([a-z0-9-]+)\//i);
+        if (m) out.add(m[1]);
+      }
+    }
+  }
+  // título inglés típico → slug
+  const tit = String(serie?.titulo_tmdb || serie?.nombre || "").toLowerCase();
+  if (tit) {
+    const approx = tit
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (approx.length > 3) out.add(approx);
+  }
+  return [...out];
+}
+
+function mergeEmbedLists(...lists) {
+  const seen = new Set();
+  const out = [];
+  for (const list of lists) {
+    for (const e of list || []) {
+      const url = (e && e.url) || (typeof e === "string" ? e : null);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      out.push(typeof e === "string" ? { url: e } : e);
+    }
+  }
+  return mapEmbeds(out);
+}
+
+async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie", serieCtx = null) {
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
   const sources = [String(sourceId || DEFAULT_SOURCE)];
+  // En anime: probar varias fuentes para juntar SUB (animeav1) + LAT (pelisplus)
   const ordenCap =
     kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
   for (const s of ordenCap) {
     if (!sources.includes(s)) sources.push(s);
   }
+  const slugsTry = extraerSlugsAlternos(serieCtx, slug);
+  if (!slugsTry.includes(slug) && slug) slugsTry.unshift(slug);
+
   let lastErr = null;
   let best = null;
+  let allEmbeds = [];
+  let allDownloads = [];
+
   for (const sid of sources) {
     for (const k of kinds) {
-      try {
-        const path = `/${sid}/${k}/${slug}/${temporada}/${episodio}`;
-        const data = await apiGet(path);
-        if (!data || data.success === false) continue;
-        const mapped = mapDetail(data, {
-          slug,
-          source_id: sid,
-          tipo: k === "anime" ? "Anime" : "Serie",
-        });
-        if (!best || scoreItem(mapped) > scoreItem(best)) {
-          best = best ? mergeItems(best, mapped) : mapped;
+      for (const trySlug of slugsTry) {
+        try {
+          const path = `/${sid}/${k}/${trySlug}/${temporada}/${episodio}`;
+          const data = await apiGet(path);
+          if (!data || data.success === false) continue;
+          const mapped = mapDetail(data, {
+            slug: trySlug,
+            source_id: sid,
+            tipo: k === "anime" ? "Anime" : "Serie",
+          });
+          const emb = mapped.embeds || mapEmbeds(data.reproductores || data.embeds || []);
+          if (emb.length) allEmbeds = mergeEmbedLists(allEmbeds, emb);
+          const dl = mapped.downloads || data.descargas || data.downloads || [];
+          if (Array.isArray(dl) && dl.length) {
+            allDownloads = mergeEmbedLists(allDownloads, dl.map((d) =>
+              typeof d === "string" ? { url: d } : d
+            ));
+          }
+          if (!best || scoreItem(mapped) > scoreItem(best)) {
+            best = best ? mergeItems(best, mapped) : mapped;
+          }
+          // No return early: seguir buscando LAT en otras fuentes
+        } catch (err) {
+          lastErr = err;
         }
-        if (itemTieneContenidoValido(best)) return best;
-      } catch (err) {
-        lastErr = err;
       }
     }
   }
-  if (best) return best;
+
+  // Extra: API pelisplushd.tvymas (LATINO real) con slugs TMDB
+  for (const trySlug of slugsTry) {
+    try {
+      const extra = await fetchPelisplusTvymasEpisode(trySlug, temporada, episodio);
+      if (extra && extra.embeds?.length) {
+        allEmbeds = mergeEmbedLists(allEmbeds, extra.embeds);
+        if (!best) best = extra;
+        else best = mergeItems(best, extra);
+      }
+    } catch (_) { /* ok */ }
+  }
+
+  if (best) {
+    if (allEmbeds.length) {
+      best.embeds = allEmbeds;
+      best.reproductor = allEmbeds[0]?.url || best.reproductor;
+      best.tiene_player = true;
+    }
+    if (allDownloads.length) best.downloads = allDownloads;
+    return best;
+  }
+  // Si solo tvymas trajo algo
+  if (allEmbeds.length) {
+    return {
+      success: true,
+      embeds: allEmbeds,
+      reproductor: allEmbeds[0].url,
+      downloads: allDownloads,
+      tiene_player: true,
+      tipo: "Capitulo",
+    };
+  }
   throw lastErr || new Error("No se pudo cargar el episodio");
 }
 
@@ -1527,6 +1690,7 @@ app.get("/api/capitulo", async (req, res) => {
           season: temporada,
           episode: episodio,
           embeds: mapEmbeds(cached.embeds),
+          downloads: cached.downloads || cached.descargas || [],
           reproductor: cached.video || cached.reproductor || null,
           from: "supabase",
         });
@@ -1538,7 +1702,7 @@ app.get("/api/capitulo", async (req, res) => {
     const resolvedSlug = slug || serie?.slug;
     if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
-    const det = await obtenerEpisodio(sourceId, resolvedSlug, temporada, episodio, kind);
+    const det = await obtenerEpisodio(sourceId, resolvedSlug, temporada, episodio, kind, serie);
     const embeds = mapEmbeds(det.embeds);
 
     // 3) Guardar en Supabase
@@ -1550,6 +1714,7 @@ app.get("/api/capitulo", async (req, res) => {
       season: temporada,
       episode: episodio,
       embeds,
+      downloads: det.downloads || det.descargas || [],
       reproductor: det.reproductor || (embeds[0] && embeds[0].url) || null,
       nombre: det.nombre,
       from: "api",
