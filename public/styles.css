@@ -2621,6 +2621,11 @@ body.player-open {
   touch-action: pan-x;
   overflow: hidden;
 }
+/* Con reproductor abierto: ocultar botón cerrar detalle (mismo sitio que cerrar player) */
+body.player-open .btn-close-modal {
+  display: none !important;
+  pointer-events: none !important;
+}
 .video-player-container,
 .player-iframe-wrapper,
 .player-iframe-wrapper iframe {

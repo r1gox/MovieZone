@@ -961,11 +961,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.getElementById("downloads-section").classList.add("hidden");
 
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
+    // También si el listado marcó "Sin servidores" (tiene_player !== true) para películas
     const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
     const esSA = item.tipo === "Serie" || item.tipo === "Anime";
     // Series/anime no requieren embeds a nivel ficha (van por capítulo)
     const faltaPlayers =
         !esSA && (
+            item.tiene_player !== true ||
             !item.embeds || item.embeds.length === 0 ||
             (Array.isArray(item.embeds) && item.embeds.every(e => esEmbedInvalido(e.url)))
         );
@@ -989,7 +991,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (force) params.set("force", "1");
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000);
+            const timeoutId = setTimeout(() => controller.abort(), 25000);
 
             const res = await fetch(`/api/detalle?${params.toString()}`, { cache: "no-store", signal: controller.signal });
             clearTimeout(timeoutId);
@@ -1007,10 +1009,24 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 if ((!completo.temporadas_raw || !completo.temporadas_raw.length) && item.temporadas_raw?.length) {
                     completo.temporadas_raw = item.temporadas_raw;
                 }
+                // Preservar embeds de episodios ya cargados en el cliente
+                if (item.episodios?.length && completo.episodios?.length) {
+                    const byKey = new Map();
+                    for (const ep of item.episodios) {
+                        const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+                        if (ep.embeds?.length || ep.video) byKey.set(k, ep);
+                    }
+                    completo.episodios = completo.episodios.map((ep) => {
+                        const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+                        const prev = byKey.get(k);
+                        if (!prev || (ep.embeds && ep.embeds.length)) return ep;
+                        return { ...ep, embeds: prev.embeds || [], video: prev.video || prev.reproductor || null, downloads: prev.downloads || ep.downloads };
+                    });
+                }
                 Object.assign(item, completo);
-                const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+                const esSA2 = item.tipo === "Serie" || item.tipo === "Anime";
                 if (item.tiene_player || itemTieneVideo(item) ||
-                    (esSA && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {
+                    (esSA2 && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {
                     item.tiene_player = true;
                 }
                 seleccionActual = item;
@@ -1044,7 +1060,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.getElementById("servers-loading").classList.add("hidden");
 
     const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
-    if (esSerieOAnime && Array.isArray(item.episodios) && item.episodios.length > 0) {
+    if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
         document.getElementById("seasons-section").classList.remove("hidden");
         renderTemporadas(item);
     } else {
@@ -1093,6 +1109,7 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
     document.body.classList.remove("player-open");
+    // Al cerrar el player vuelve a mostrarse el botón de cerrar detalle (CSS body.player-open)
     cargarContinuarViendo();
 });
 
