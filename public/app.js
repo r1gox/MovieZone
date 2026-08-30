@@ -619,10 +619,10 @@ async function fetchSeccion(seccion, page, limit = LIMIT) {
     return data.resultados || [];
 }
 
-// Estado extra
-let busquedaEsLocal = true; // true = resultados locales, false = ya buscamos online
+// Estado extra: por defecto ONLINE (la API tiene muchos más resultados que Supabase local)
+let busquedaEsLocal = false;
 
-async function fetchBusqueda(termino, source = "local", page = 1, limit = LIMIT) {
+async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     const data = await searchCatalog(termino, source, page, limit);
     return {
         resultados: data.resultados || [],
@@ -693,13 +693,13 @@ async function cargarPaginaGrid() {
             gridPage = 1;
             actualizarBotonOnline(false);
         } else if (gridModo === "search") {
+            // Siempre online primero; local solo si el usuario lo pidiera explícitamente
             const data = await fetchBusqueda(gridTermino, busquedaEsLocal ? "local" : "online", gridPage, LIMIT);
             lista = data.resultados;
             gridTotalItems = data.total || lista.length;
             gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / LIMIT));
+            // Botón online ya no hace falta (búsqueda es online por defecto)
             actualizarBotonOnline(false);
-            // Mostrar / ocultar botón "Buscar online"
-            actualizarBotonOnline(busquedaEsLocal);
         } else {
             actualizarBotonOnline(false);
             // Sección normal → aquí se actualiza gridTotalItems y gridTotalPages
@@ -1289,24 +1289,69 @@ function normalizarListaTemporadas(item) {
     return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
 }
 
+/** Rangos de episodios (animes largos tipo One Piece) — bloques de 50 */
+function construirRangosEpisodios(total, step = 50) {
+    const t = parseInt(total, 10) || 0;
+    if (t < 1) return [];
+    const out = [];
+    for (let i = 1; i <= t; i += step) {
+        const hasta = Math.min(i + step - 1, t);
+        out.push({ desde: i, hasta, label: `${i}–${hasta}` });
+    }
+    return out;
+}
+
+/** Normaliza rangos del API a bloques de 50 (si vienen de 100, se parten) */
+function normalizarRangosEpisodios(item) {
+    const total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
+        || (Array.isArray(item.episodios) ? item.episodios.length : 0);
+    if (total <= 50) return [];
+    const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
+    // Si la API ya trae pasos ≤ 50, usarlos
+    if (api.length > 1) {
+        const step0 = Number(api[0].hasta) - Number(api[0].desde) + 1;
+        if (step0 > 0 && step0 <= 50) return api;
+    }
+    return construirRangosEpisodios(total, 50);
+}
+
 function renderTemporadas(item) {
     const tabsContainer = document.getElementById("seasons-tabs-container");
     const listaTemp = normalizarListaTemporadas(item);
+    const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
+        || (Array.isArray(item.episodios) ? item.episodios.length : 0);
+    const rangos = normalizarRangosEpisodios(item);
+    // Anime largo (1 temporada / muchos eps): pestañas = rangos 1–50, 51–100…
+    const usarRangosComoTabs = rangos.length > 1 && listaTemp.length <= 1;
 
-    // Solo temporadas reales de la fuente (no inventar T2 de TMDB si no hay streams)
-    // temporadas_tmdb es solo meta: no se usa para botones de reproducción
-    tabsContainer.innerHTML = listaTemp.map((t, i) =>
-        `<button class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
-    ).join("");
+    if (usarRangosComoTabs) {
+        if (!item._epRangoActivo) {
+            item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
+        }
+        tabsContainer.innerHTML = rangos.map((r, i) => {
+            const act = item._epRangoActivo
+                && item._epRangoActivo.desde === r.desde
+                && item._epRangoActivo.hasta === r.hasta;
+            return `<button class="season-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}">${r.label || (r.desde + "–" + r.hasta)}</button>`;
+        }).join("");
+    } else {
+        tabsContainer.innerHTML = listaTemp.map((t, i) =>
+            `<button class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
+        ).join("");
+    }
 
-    const loadSeason = async (season) => {
+    const loadSeason = async (season, rangoForzado) => {
         const seasonNum = parseInt(season, 10) || 1;
         const episodesContainer = document.getElementById("episodes-container");
         episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios...</p></div>`;
 
+        if (rangoForzado) {
+            item._epRangoActivo = { desde: rangoForzado.desde, hasta: rangoForzado.hasta };
+        }
+
         // Si la fuente ya trajo episodios en temporadas[], usarlos (animeav1)
         const localT = listaTemp.find(t => t.num === seasonNum);
-        if (localT && Array.isArray(localT.episodios) && localT.episodios.length) {
+        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !rangoForzado) {
             const tmdbEps = (() => {
                 const ts = (item.temporadas_tmdb || []).find(t =>
                     Number(t.season_number || t.temporada) === Number(seasonNum)
@@ -1321,7 +1366,6 @@ function renderTemporadas(item) {
                     episode: num,
                     nombre: meta?.name || ep.titulo || ep.nombre || ep.name || ("Episodio " + num),
                     embeds: ep.embeds || ep.reproductores || [],
-                    // url_video del worker es el endpoint JSON del capítulo, NO un player
                     video: (() => {
                         const v = ep.video || ep.reproductor || null;
                         if (v && !esUrlApiWorker(v) && !esEmbedInvalido(v)) return v;
@@ -1331,19 +1375,19 @@ function renderTemporadas(item) {
                     source_id: ep.source_id || item.source_id
                 };
             });
-            // total real del API (no el tamaño del bloque actual)
-            if (item.total_episodios) {
-                /* keep */
-            } else if (item.totalEpisodios) {
-                item.total_episodios = item.totalEpisodios;
-            }
-            if (item.rangos_episodios) { /* keep */ }
+            if (item.totalEpisodios && !item.total_episodios) item.total_episodios = item.totalEpisodios;
             renderEpisodios(item, seasonNum);
             return;
         }
 
         try {
-            const res = await fetch(`/api/episodios?${buildEpisodiosQuery(item, seasonNum)}`, { cache: "no-store" });
+            const qs = new URLSearchParams(buildEpisodiosQuery(item, seasonNum));
+            const rango = item._epRangoActivo;
+            if (rango) {
+                qs.set("ep_from", String(rango.desde));
+                qs.set("ep_to", String(rango.hasta));
+            }
+            const res = await fetch(`/api/episodios?${qs.toString()}`, { cache: "no-store" });
             const data = await res.json();
             item.episodios = data.episodios || [];
             if (data.slug) item.slug = data.slug;
@@ -1351,18 +1395,25 @@ function renderTemporadas(item) {
             if (data.link) item.link = data.link;
             if (data.total_episodios) item.total_episodios = data.total_episodios;
             if (data.rangos_episodios) item.rangos_episodios = data.rangos_episodios;
-            // Si el total es mayor que la lista (animeav1), generar stubs del rango o 1..total
+
+            // Completar stubs del rango activo (o primer bloque de 50)
             const totalEp = parseInt(item.total_episodios, 10) || 0;
-            if (totalEp > (item.episodios || []).length) {
-                const byNum = new Map((item.episodios || []).map(e => [Number(e.episode || e.episodio), e]));
-                const rangos = item.rangos_episodios;
-                let desde = 1, hasta = totalEp;
-                if (Array.isArray(rangos) && rangos.length > 1) {
-                    desde = Number(rangos[0].desde) || 1;
-                    hasta = Number(rangos[0].hasta) || Math.min(100, totalEp);
-                } else {
-                    hasta = Math.min(totalEp, 300);
+            const byNum = new Map((item.episodios || []).map(e => [Number(e.episode || e.episodio), e]));
+            let desde = 1, hasta = Math.min(50, totalEp || 50);
+            if (item._epRangoActivo) {
+                desde = item._epRangoActivo.desde;
+                hasta = item._epRangoActivo.hasta;
+            } else if (totalEp > 50) {
+                const r0 = normalizarRangosEpisodios(item)[0];
+                if (r0) {
+                    desde = r0.desde;
+                    hasta = r0.hasta;
+                    item._epRangoActivo = { desde, hasta };
                 }
+            } else if (totalEp > (item.episodios || []).length) {
+                hasta = totalEp;
+            }
+            if (totalEp > (item.episodios || []).length || item._epRangoActivo) {
                 const filled = [];
                 for (let n = desde; n <= hasta; n++) {
                     filled.push(byNum.get(n) || {
@@ -1377,10 +1428,6 @@ function renderTemporadas(item) {
                 item.episodios = filled;
             }
             renderEpisodios(item, seasonNum);
-            const first = (item.episodios || [])[0];
-            if (first && (first.embeds?.length || first.video)) {
-                renderServidoresYDescargas(first.embeds || [], first.downloads || [], first.video, item, { expandido: true });
-            }
         } catch (err) {
             console.error(err);
             episodesContainer.innerHTML = `<p style="color:var(--text-muted);">Error cargando episodios.</p>`;
@@ -1391,24 +1438,23 @@ function renderTemporadas(item) {
         tab.addEventListener("click", async () => {
             tabsContainer.querySelectorAll(".season-tab").forEach(t => t.classList.remove("active"));
             tab.classList.add("active");
-            await loadSeason(parseInt(tab.dataset.season, 10));
+            if (tab.dataset.rangeFrom) {
+                await loadSeason(1, {
+                    desde: parseInt(tab.dataset.rangeFrom, 10),
+                    hasta: parseInt(tab.dataset.rangeTo, 10)
+                });
+            } else {
+                item._epRangoActivo = null;
+                await loadSeason(parseInt(tab.dataset.season, 10));
+            }
         });
     });
 
-    loadSeason(listaTemp[0]?.num || 1);
-}
-
-
-/** Rangos de episodios (series largas tipo One Piece) */
-function construirRangosEpisodios(total, step = 100) {
-    const t = parseInt(total, 10) || 0;
-    if (t < 1) return [];
-    const out = [];
-    for (let i = 1; i <= t; i += step) {
-        const hasta = Math.min(i + step - 1, t);
-        out.push({ desde: i, hasta, label: `${i}–${hasta}` });
+    if (usarRangosComoTabs && item._epRangoActivo) {
+        loadSeason(1, item._epRangoActivo);
+    } else {
+        loadSeason(listaTemp[0]?.num || 1);
     }
-    return out;
 }
 
 function episodioNumero(ep, index) {
@@ -1422,19 +1468,19 @@ function renderEpisodios(item, season = 1) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
         || (Array.isArray(item.episodios) ? item.episodios.length : 0);
 
-    // Preferir rangos del API; si no, construir
-    let rangos = Array.isArray(item.rangos_episodios) && item.rangos_episodios.length
-        ? item.rangos_episodios
-        : construirRangosEpisodios(totalEps, 100);
+    // Rangos en bloques de 50 (One Piece, etc.)
+    let rangos = normalizarRangosEpisodios(item);
+    // Si los tabs de temporada YA muestran rangos, no duplicar barra aquí
+    const tabsContainer = document.getElementById("seasons-tabs-container");
+    const tabsSonRangos = !!(tabsContainer && tabsContainer.querySelector("[data-range-from]"));
 
-    // Si hay muchos episodios y no hay rango activo, usar el primero
     if (!item._epRangoActivo && rangos.length > 1) {
         item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
     }
     const rango = item._epRangoActivo || null;
 
-    // Barra de rangos
-    if (rangos.length > 1) {
+    // Barra de rangos solo si NO están ya en las pestañas (p.ej. multi-temp + muchos eps)
+    if (rangos.length > 1 && !tabsSonRangos) {
         const bar = document.createElement("div");
         bar.className = "episode-range-bar";
         bar.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;width:100%;";
@@ -1455,7 +1501,6 @@ function renderEpisodios(item, season = 1) {
                 item._epRangoActivo = { desde: r.desde, hasta: r.hasta };
                 episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios ${r.desde}–${r.hasta}...</p></div>`;
                 try {
-                    // Pedir rango al backend (animeav1 / fuente 4)
                     const qs = new URLSearchParams();
                     if (item.slug) qs.set("slug", item.slug);
                     qs.set("source_id", String(item.source_id || "4"));
@@ -1470,7 +1515,6 @@ function renderEpisodios(item, season = 1) {
                     let lista = data.episodios || [];
                     if (data.total_episodios) item.total_episodios = data.total_episodios;
                     if (data.rangos_episodios) item.rangos_episodios = data.rangos_episodios;
-                    // Completar stubs del rango si la API devolvió menos
                     const byNum = new Map(lista.map(e => [Number(e.episode || e.episodio), e]));
                     const filled = [];
                     for (let n = r.desde; n <= r.hasta; n++) {
