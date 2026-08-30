@@ -473,48 +473,43 @@ function _normalizeTitleKeyImpl(titulo) {
     .replace(/\s+/g, " ");
 }
 
-/** Portada usable (no placeholder, no data-uri, no SVG) */
+/** Portada usable (no placeholder, no data-uri, no SVG roto) */
 function esPortadaValida(url) {
   if (!url || typeof url !== "string") return false;
   const u = url.trim();
   if (!u || u.includes("placeholder") || u.startsWith("data:")) return false;
-  if (/svg\+xml|lazyload\.min/i.test(u)) return false;
-  // Hackstore a veces no sirve posters reales
+  if (/svg\+xml|lazyload\.min|1x1|pixel\.gif|blank\./i.test(u)) return false;
+  // Hackstore posters rotos salvo que sea TMDB reenviado
   if (/hackstore\./i.test(u) && !/image\.tmdb\.org/i.test(u)) return false;
   return /^https?:\/\//i.test(u);
 }
 
-/** Preferir portada de la misma fuente que los reproductores */
+/** Preferir la mejor portada disponible (TMDB > pelisplus > lamovie > resto) */
 function elegirPortada(a, b, sourcePreferido) {
   const candidatos = [a, b].filter(esPortadaValida);
   if (!candidatos.length) return a || b || null;
-  const sid = String(sourcePreferido || "");
-  // Orden de preferencia según fuente del player
-  if (sid === "3" || sid === "pelisplushd") {
-    const pp = candidatos.find((u) => /pelisplushd|\/poster\//i.test(u));
-    if (pp) return pp;
-    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
-    if (tmdb) return tmdb;
-  }
-  if (sid === "1" || sid === "lamovie") {
-    const lm = candidatos.find((u) => /lamovie\.org/i.test(u));
-    if (lm) return lm;
-  }
-  if (sid === "2" || sid === "hackstore") {
-    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
-    if (tmdb) return tmdb;
-  }
-  if (sid === "4" || sid === "animeav1") {
-    const tmdb = candidatos.find((u) => /image\.tmdb\.org/i.test(u));
-    if (tmdb) return tmdb;
-  }
-  // General: tmdb > pelisplus poster > lamovie > resto
-  return (
-    candidatos.find((u) => /image\.tmdb\.org/i.test(u)) ||
-    candidatos.find((u) => /pelisplushd|\/poster\//i.test(u)) ||
-    candidatos.find((u) => /lamovie\.org/i.test(u)) ||
-    candidatos[0]
-  );
+  // Calidad: w500/original TMDB, posters HD pelisplus, thumbs HD lamovie
+  const score = (u) => {
+    let s = 0;
+    if (/image\.tmdb\.org/i.test(u)) {
+      s += 50;
+      if (/\/original\//i.test(u)) s += 15;
+      else if (/\/w780\//i.test(u)) s += 12;
+      else if (/\/w500\//i.test(u)) s += 10;
+      else if (/\/w342\//i.test(u)) s += 6;
+    }
+    if (/pelisplushd|\/poster\//i.test(u)) s += 35;
+    if (/lamovie\.org/i.test(u)) {
+      s += 25;
+      if (/_hd\.|thumbs\//i.test(u)) s += 5;
+    }
+    if (/myanimelist|cdn\.myanimelist|anilist|kitsu/i.test(u)) s += 30;
+    if (/animeav1|webp$/i.test(u)) s += 15;
+    if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(u)) s += 3;
+    return s;
+  };
+  candidatos.sort((x, y) => score(y) - score(x));
+  return candidatos[0];
 }
 
 /** Puntúa un item por cantidad de datos útiles (portada, rating, descripción, players…) */
@@ -535,7 +530,14 @@ function scoreItem(item) {
   if (Array.isArray(item.downloads) && item.downloads.length) s += 2;
   if (Array.isArray(item.episodios) && item.episodios.length) s += 4;
   if (item.tiene_player) s += 6;
-  if (item.total_episodios) s += Math.min(10, Number(item.total_episodios) / 12);
+  // Más episodios / temporadas = mejor (evita quedarse con Wistoria 10eps de hackstore)
+  const nEps = Number(item.total_episodios) || (Array.isArray(item.episodios) ? item.episodios.length : 0) || 0;
+  const nTemps =
+    Number(item.total_temporadas) ||
+    (Array.isArray(item.temporadas) ? item.temporadas.length : 0) ||
+    0;
+  if (nEps) s += Math.min(40, nEps / 5); // One Piece 1175 suma mucho
+  if (nTemps > 1) s += nTemps * 8; // 2 temporadas gana a 1
   if (item.episodios && item.episodios.length) s += Math.min(8, item.episodios.length / 6);
   if (item.slug) s += 1;
   const sid = String(item.source_id || "");
@@ -773,9 +775,13 @@ function mergeItems(base, extra) {
       out[k] = len(v) > len(cur) ? v : cur;
     } else if (k === "total_episodios") {
       out[k] = Math.max(Number(cur) || 0, Number(v) || 0) || cur || v;
+    } else if (k === "total_temporadas") {
+      out[k] = Math.max(Number(cur) || 0, Number(v) || 0) || cur || v;
     } else if (k === "rangos_episodios") {
-      // preferir rangos si vienen (animeav1)
-      if (Array.isArray(v) && v.length && (!Array.isArray(cur) || v.length >= cur.length)) out[k] = v;
+      // preferir el set de rangos que cubra más episodios (animeav1 actualizado)
+      const sumR = (arr) =>
+        (arr || []).reduce((s, r) => s + (Number(r.hasta || 0) - Number(r.desde || 0) + 1), 0);
+      if (Array.isArray(v) && v.length && (!Array.isArray(cur) || sumR(v) >= sumR(cur))) out[k] = v;
     } else if (k === "descripcion" && String(v).length > String(cur || "").length) {
       out[k] = v;
     } else if (k === "calificacion" && Number(v) > 0 && !Number(cur)) {
@@ -858,7 +864,12 @@ function mapListItem(r) {
   const slug = r.slug || null;
   const sourceId = String(r.source_id || r.fuente || DEFAULT_SOURCE);
   const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
-  const portada = r.portada || r.portada_tmdb || r.poster || r.tmdb_poster || null;
+  // Mejor portada disponible (TMDB suele ser la más fiable)
+  const portada = elegirPortada(
+    r.portada_tmdb || r.tmdb_poster || null,
+    r.portada || r.poster || r.cover || null,
+    String(r.source_id || r.fuente || "")
+  );
   const kindPath =
     tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
   const link =
@@ -975,7 +986,11 @@ function mapDetail(data, fallback = {}) {
     slug,
     tipo: tipo === "Capitulo" ? "Serie" : tipo,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
-    portada: data.portada || data.portada_tmdb || fallback.portada || null,
+    portada: elegirPortada(
+      data.portada_tmdb || data.tmdb_poster || null,
+      data.portada || fallback.portada || null,
+      String(data.source_id || fallback.source_id || "")
+    ),
     portada_tmdb: data.portada_tmdb || null,
     backdrop: data.backdrop || fallback.backdrop || null,
     year: extraerAnio(titulo, data.year || data.fecha_estreno || fallback.year),
@@ -1362,6 +1377,68 @@ function parseIdentidad(itemOrLink) {
   return null;
 }
 
+/**
+ * Anime en cache: consultar fuente 4 para actualizar total_episodios / temporadas / rangos
+ * (One Piece 1125→1175, Wistoria 1 temp→2 temps). No re-scrapea todos los players.
+ */
+async function refreshAnimeMetaFromSource4(cached, id) {
+  if (!cached) return null;
+  const baseSlug = String(id?.slug || cached.slug || "")
+    .replace(/-\d{4}$/, "")
+    .trim();
+  const slugsTry = [...new Set([cached.slug, id?.slug, baseSlug].filter(Boolean))];
+  let bestMeta = null;
+  for (const s of slugsTry) {
+    const item = await fetchDetailFromSource("4", "anime", s, { slug: s, tipo: "Anime" });
+    if (!item) continue;
+    const better =
+      !bestMeta ||
+      (Number(item.total_episodios) || 0) > (Number(bestMeta.total_episodios) || 0) ||
+      (item.temporadas || []).length > (bestMeta.temporadas || []).length;
+    if (better) bestMeta = item;
+  }
+  if (!bestMeta) return null;
+
+  const oldTotal = Number(cached.total_episodios) || 0;
+  const newTotal = Number(bestMeta.total_episodios) || 0;
+  const oldTemps = Math.max(
+    Number(cached.total_temporadas) || 0,
+    Array.isArray(cached.temporadas) ? cached.temporadas.length : 0
+  );
+  const newTemps = Math.max(
+    Number(bestMeta.total_temporadas) || 0,
+    Array.isArray(bestMeta.temporadas) ? bestMeta.temporadas.length : 0
+  );
+  const needsUpdate =
+    newTotal > oldTotal ||
+    newTemps > oldTemps ||
+    (!cached.rangos_episodios && bestMeta.rangos_episodios);
+
+  if (!needsUpdate) {
+    // Aun así asegurar expandir con total actual
+    return expandirEpisodiosAnime({ ...cached });
+  }
+
+  let merged = mergeItems(cached, bestMeta);
+  // Preferir fuente 4 y slug sin año cuando aporta más episodios/temps
+  merged.source_id = "4";
+  merged.slug = bestMeta.slug || baseSlug || merged.slug;
+  if (bestMeta.link) merged.link = bestMeta.link;
+  merged.total_episodios = Math.max(oldTotal, newTotal);
+  merged.total_temporadas = Math.max(oldTemps, newTemps);
+  if (newTemps > oldTemps) {
+    merged.temporadas = bestMeta.temporadas?.length ? bestMeta.temporadas : merged.temporadas;
+    merged.temporadas_raw = bestMeta.temporadas_raw || merged.temporadas_raw;
+  }
+  if (bestMeta.rangos_episodios) merged.rangos_episodios = bestMeta.rangos_episodios;
+  merged = expandirEpisodiosAnime(merged);
+  // Guardar totales actualizados
+  try {
+    await guardarEnSupabase([merged]);
+  } catch (_) {}
+  return merged;
+}
+
 async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
   // animeav1 (4): puede paginar episodios con ep_from/ep_to
   let path = `/${sourceId}/${kind}/${slug}`;
@@ -1413,14 +1490,7 @@ async function obtenerDetalle(params) {
     if (local) cached = normalizeItemFromDB(local);
   }
 
-  // Si ya tenemos contenido válido (players o episodios) y descripción, y no force → devolver de Supabase
-  const tieneDesc = cached && cached.descripcion && String(cached.descripcion).length > 20;
-  const tieneContenido = cached && (itemTieneContenidoValido(cached) || (cached.episodios && cached.episodios.length));
-  if (!force && cached && tieneContenido && tieneDesc) {
-    return cached;
-  }
-
-  // 3) API externa
+  // 3) Identidad
   const id = parseIdentidad({ link, slug, source_id: source_id || cached?.source_id, tipo: tipo || cached?.tipo });
   if (!id) {
     if (cached) return cached;
@@ -1431,8 +1501,12 @@ async function obtenerDetalle(params) {
     throw new Error("No se pudo identificar la película/serie");
   }
 
-  // Si ya funciona bien (players + descripción + portada) y no es force → no re-scrapear
-  // (force = usuario pulsó Actualizar: solo re-busca fuentes si faltan players/episodios/portada)
+  const esAnimeKind = id.kind === "anime" || /anime/i.test(String(tipo || cached?.tipo || ""));
+
+  // Si ya tenemos contenido válido y no force → devolver cache
+  // EXCEPCIÓN anime: refrescar totales desde fuente 4 (One Piece sigue subiendo; Wistoria T2)
+  const tieneDesc = cached && cached.descripcion && String(cached.descripcion).length > 20;
+  const tieneContenido = cached && (itemTieneContenidoValido(cached) || (cached.episodios && cached.episodios.length));
   const yaFunciona =
     cached &&
     itemTieneContenidoValido(cached) &&
@@ -1441,7 +1515,15 @@ async function obtenerDetalle(params) {
     cached.portada &&
     !String(cached.portada).includes("placeholder");
 
-  if (!force && yaFunciona) {
+  if (!force && cached && (tieneContenido && tieneDesc || yaFunciona)) {
+    if (esAnimeKind) {
+      try {
+        const refreshed = await refreshAnimeMetaFromSource4(cached, id);
+        if (refreshed) return refreshed;
+      } catch (err) {
+        console.warn("refreshAnimeMeta:", err.message);
+      }
+    }
     return cached;
   }
 
@@ -1452,29 +1534,28 @@ async function obtenerDetalle(params) {
     itemTieneContenidoValido(cached) &&
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
-  const sourcesToTry = [String(id.sourceId)];
-  // 4 = animeav1 (prioridad alta en anime)
-  const ordenFuentes =
-    id.kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+  // Anime: SIEMPRE empezar por fuente 4; también probar slug sin año
+  // (wistoria-wand-and-sword-2024 en src2 = 10eps/1temp; sin año en src4 = 24eps/2temps)
+  const sourcesToTry = esAnimeKind ? ["4"] : [String(id.sourceId)];
+  const ordenFuentes = esAnimeKind ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
   for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
-  // Si solo necesitamos meta y ya hay players, probar 1 fuente y listo
-  const fuentes = soloMeta ? sourcesToTry.slice(0, 1) : sourcesToTry;
+  const fuentes = soloMeta && !esAnimeKind ? sourcesToTry.slice(0, 1) : sourcesToTry;
+
+  const slugSinAnio = String(id.slug || "").replace(/-\d{4}$/, "");
+  const slugsTryBase = [...new Set([id.slug, slugSinAnio].filter(Boolean))];
 
   let best = null;
+  let triedSource4 = false;
   for (const sid of fuentes) {
-    // Probar slug actual y variantes sin año
-    const slugsTry = [id.slug];
-    const slugSinAnio = String(id.slug || "").replace(/-\d{4}$/, "");
-    if (slugSinAnio && slugSinAnio !== id.slug) slugsTry.push(slugSinAnio);
-
-    for (const slugTry of slugsTry) {
-      const candidate = await fetchDetailFromSource(sid, id.kind, slugTry, {
+    if (String(sid) === "4") triedSource4 = true;
+    for (const slugTry of slugsTryBase) {
+      const candidate = await fetchDetailFromSource(sid, id.kind === "anime" || esAnimeKind ? "anime" : id.kind, slugTry, {
         link,
         slug: slugTry,
         source_id: sid,
-        tipo: tipo || cached?.tipo,
+        tipo: tipo || cached?.tipo || (esAnimeKind ? "Anime" : null),
         nombre: cached?.nombre,
         portada: cached?.portada,
         descripcion: cached?.descripcion,
@@ -1496,24 +1577,34 @@ async function obtenerDetalle(params) {
         best.descripcion = candidate.descripcion;
       }
       if (candidate.genero && !best.genero) best.genero = candidate.genero;
-      // Portada de la fuente que aportó los reproductores (no mezclar hackstore roto)
-      if (itemTieneContenidoValido(candidate) || (candidate.embeds && candidate.embeds.length)) {
-        best.source_id = candidate.source_id || best.source_id;
+
+      // Preferir la fuente con MÁS episodios/temporadas (no la primera que responda)
+      const tBest = Number(best.total_episodios) || (best.episodios || []).length || 0;
+      const tCand = Number(candidate.total_episodios) || (candidate.episodios || []).length || 0;
+      const sBest = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
+      const sCand = Math.max(Number(candidate.total_temporadas) || 0, (candidate.temporadas || []).length || 0);
+      if (tCand > tBest || sCand > sBest || (tCand === tBest && String(sid) === "4")) {
+        best.source_id = String(sid);
         best.slug = candidate.slug || best.slug;
         best.link = candidate.link || best.link;
         best.url_extract = candidate.url_extract || best.url_extract;
-        best.portada = elegirPortada(candidate.portada, best.portada, best.source_id);
-      } else {
-        best.portada = elegirPortada(best.portada, candidate.portada, best.source_id);
+        if (sCand >= sBest && candidate.temporadas?.length) {
+          best.temporadas = candidate.temporadas;
+          best.temporadas_raw = candidate.temporadas_raw || best.temporadas_raw;
+          best.total_temporadas = Math.max(sBest, sCand);
+        }
+        if (tCand >= tBest) best.total_episodios = Math.max(tBest, tCand);
+        if (candidate.rangos_episodios) best.rangos_episodios = candidate.rangos_episodios;
       }
+      best.portada = elegirPortada(best.portada, candidate.portada, best.source_id);
     }
-    // soloMeta: 1 fuente basta
-    if (soloMeta && best) break;
-    // NO cortar en el primer source: hay que juntar reproductores de 1/2/3/4
-    // (antes se hacía break y solo quedaba p.ej. MovieZone/vimeos de una fuente)
-    // Solo paramos si ya tenemos bastantes embeds distintos (≥4) + meta completa
+    // Anime: no cortar hasta haber intentado fuente 4
+    if (esAnimeKind && !triedSource4) continue;
+    if (soloMeta && best && !esAnimeKind) break;
+    // Películas: cortar si ya hay bastantes embeds
     const nEmbeds = Array.isArray(best?.embeds) ? best.embeds.length : 0;
     if (
+      !esAnimeKind &&
       !force &&
       best &&
       itemTieneContenidoValido(best) &&
@@ -1522,6 +1613,20 @@ async function obtenerDetalle(params) {
       nEmbeds >= 4
     ) {
       break;
+    }
+    // Anime: cortar solo si ya tenemos fuente 4 + totales razonables
+    if (
+      esAnimeKind &&
+      triedSource4 &&
+      best &&
+      (Number(best.total_episodios) > 0 || (best.temporadas || []).length > 0) &&
+      best.descripcion
+    ) {
+      // seguir con 3/1/2 solo si aún faltan players a nivel ficha (raro en anime)
+      if ((best.temporadas || []).length >= 1 && Number(best.total_episodios) >= 1) {
+        // ya tenemos meta de anime; no hace falta más fuentes para temporadas
+        break;
+      }
     }
   }
 
@@ -1590,13 +1695,18 @@ async function obtenerDetalle(params) {
     || !!(best.temporadas && best.temporadas.length)
     || !!(best.temporadas_raw && best.temporadas_raw.length);
 
-  // Anime: total_episodios / rangos desde cualquier fuente; expandir lista si hace falta
+  // Anime: totales / rangos; preferir fuente 4 cuando aporta más episodios o temporadas
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
-    // Si source_id no es 4 pero hay slug, preferir 4 para players de capítulos
-    if (best.source_id !== "4" && best.slug) {
-      // mantener source_id actual para listados, pero marcar preferencia animeav1 en capítulos
-      best._prefer_source_anime = "4";
+    best._prefer_source_anime = "4";
+    // Si hay más de 1 temporada o muchos eps, fijar source_id 4 y slug sin año
+    const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
+    const nEps = Number(best.total_episodios) || 0;
+    if (nTemps > 1 || nEps > 12) {
+      best.source_id = best.source_id === "4" ? "4" : (best.source_id || "4");
+      // Preferir explícitamente 4 para capítulos cuando hay volumen alto
+      if (nTemps > 1 || nEps > 24) best.source_id = "4";
+      if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
     }
   }
 
