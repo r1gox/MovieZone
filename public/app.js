@@ -5,7 +5,7 @@
 import { initWakeupNotice } from './js/ui/wakeup.js';
 import { getCatalog, searchCatalog } from './js/data/catalogo.js';
 
-const LIMIT = 28;
+const LIMIT = 48;
 
 // Estado de paginación
 let gridTotalItems = 0;
@@ -1233,7 +1233,19 @@ function buildEpisodiosQuery(item, season) {
 }
 
 function normalizarListaTemporadas(item) {
-    // 1) Temporadas de la fuente (preferir objetos completos temporadas_raw)
+    const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
+    const tieneRangos = Array.isArray(item.rangos_episodios) && item.rangos_episodios.length > 1;
+    // One Piece / animes por número continuo: SOLO 1 “temporada” + pestañas 1–50, 51–100…
+    // Ignorar lista inflada de arcs TMDB (T1…T22)
+    if (totalEps > 50 || tieneRangos) {
+        let epsT1 = null;
+        const raw0 = (item.temporadas_raw && item.temporadas_raw[0])
+            || (Array.isArray(item.temporadas) && item.temporadas.find(t => t && typeof t === "object" && Number(t.temporada || t.season) === 1));
+        if (raw0 && Array.isArray(raw0.episodios)) epsT1 = raw0.episodios;
+        return [{ num: 1, episodios: epsT1, fromTmdb: false }];
+    }
+
+    // 1) Temporadas de la fuente
     const raw = (item.temporadas_raw && item.temporadas_raw.length)
       ? item.temporadas_raw
       : (item.temporadas && item.temporadas.length ? item.temporadas : []);
@@ -1250,31 +1262,21 @@ function normalizarListaTemporadas(item) {
         } else {
             num = i + 1;
         }
-        if (seen.has(num)) return;
+        if (seen.has(num) || num < 1) return;
         seen.add(num);
         out.push({ num, episodios, fromTmdb: false });
     });
 
-    const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
-    // Anime largo (One Piece): 1 temporada + muchos eps → NO usar arcs de TMDB (salen 20+ "temporadas")
-    // Usar rangos 1–50, 51–100… en su lugar
-    const esAnimeLargo = totalEps > 50 && out.length <= 1;
-    if (esAnimeLargo) {
-        return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
-    }
-
-    // 2) Temporadas extra de TMDB solo si la fuente ya tiene ≥1 y TMDB aporta T2+ real (Wistoria)
-    //    No inventar 20 arcs de One Piece.
+    // 2) TMDB solo para completar 1–2 temporadas reales (Wistoria T2), nunca 20 arcs
     const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
-    // Límite: como máximo 1 temporada nueva más allá de la fuente (evitar 22 tabs basura)
     let addedFromTmdb = 0;
-    const maxTmdbExtra = out.length >= 1 ? 3 : 0;
+    const maxTmdbExtra = 2;
     tmdbSeasons.forEach((ts) => {
         if (addedFromTmdb >= maxTmdbExtra) return;
         const num = parseInt(ts.season_number || ts.temporada || 0, 10);
         if (!num || num < 1 || seen.has(num)) return;
-        // Ignorar season 0 (especiales TMDB)
-        if (num === 0) return;
+        // Si la fuente ya tiene ≥2 temps, no añadir más de TMDB
+        if (out.length >= 2) return;
         seen.add(num);
         addedFromTmdb += 1;
         const epsRaw = Array.isArray(ts.episodios) ? ts.episodios : [];
@@ -1813,93 +1815,65 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     }
 
 
-    /* Latino primero, luego MovieZone / Vimeo */
-
-    embeds.sort((a, b) => {
-        const aL = esIdiomaLatinoEmbed(a) ? 1 : 0;
-        const bL = esIdiomaLatinoEmbed(b) ? 1 : 0;
-        if (aL !== bL) return bL - aL;
-
-        const aV =
-            /vimeos/i.test(a.url || "") ||
-            a.server === "MovieZone";
-
-        const bV =
-            /vimeos/i.test(b.url || "") ||
-            b.server === "MovieZone";
-
-        return (
-            (bV ? 1 : 0) -
-            (aV ? 1 : 0)
-        );
-
-    });
-
-    // Insertar UN solo "NO ADS" (después de MovieZone). No se guarda en Supabase.
-    embeds = insertarNoAdsEnLista(embeds);
-
-    // --- Filtro SUB / LAT ---
-    const tieneLat = embeds.some(e => !e.noAds && idiomaDeEmbed(e) === "lat")
-        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "lat"));
-    const tieneSub = embeds.some(e => !e.noAds && idiomaDeEmbed(e) === "sub")
-        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "sub"));
-    const mostrarFiltroIdioma = tieneLat && tieneSub;
-
-    if (mostrarFiltroIdioma) {
-        if (_idiomaPlayerActivo !== "lat" && _idiomaPlayerActivo !== "sub") {
-            _idiomaPlayerActivo = "lat";
-        }
-    } else if (tieneLat) {
-        _idiomaPlayerActivo = "lat";
-    } else if (tieneSub) {
-        _idiomaPlayerActivo = "sub";
-    }
-
-    const filtrarPorIdioma = (lista) => {
-        if (!mostrarFiltroIdioma || !Array.isArray(lista)) return lista || [];
-        return lista.filter(e => {
-            if (e && e.noAds) return true; // NO ADS se adapta al pool
-            const id = idiomaDeEmbed(e);
-            if (id === "otro") return true;
-            return id === _idiomaPlayerActivo;
+    // Deduplicar por URL (todas las fuentes sumadas)
+    {
+        const seenU = new Set();
+        embeds = embeds.filter((e) => {
+            const u = String(e.url || "").trim();
+            if (!u || seenU.has(u)) return false;
+            seenU.add(u);
+            return true;
         });
-    };
-
-    // Rebuild NO ADS según idioma activo
-    if (mostrarFiltroIdioma) {
-        const pool = embeds.filter(e => !e.noAds && (idiomaDeEmbed(e) === _idiomaPlayerActivo || idiomaDeEmbed(e) === "otro"));
-        embeds = insertarNoAdsEnLista(pool);
     }
 
-    // Chips SUB / LAT
-    if (mostrarFiltroIdioma) {
+    // Clasificar: Latino / Sub / Otros (desconocido — a veces es español sin etiqueta)
+    const grupoLat = embeds.filter(e => !e.noAds && idiomaDeEmbed(e) === "lat");
+    const grupoSub = embeds.filter(e => !e.noAds && idiomaDeEmbed(e) === "sub");
+    const grupoOtro = embeds.filter(e => !e.noAds && idiomaDeEmbed(e) !== "lat" && idiomaDeEmbed(e) !== "sub");
+    const tieneLat = grupoLat.length > 0
+        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "lat"));
+    const tieneSub = grupoSub.length > 0
+        || (Array.isArray(downloadsRaw) && downloadsRaw.some(d => idiomaDeEmbed(d) === "sub"));
+    const tieneOtro = grupoOtro.length > 0;
+
+    // Secciones: mostrar TODOS los reproductores agrupados (no ocultar “desconocido”)
+    const secciones = [];
+    if (tieneLat) secciones.push({ id: "lat", label: "Latino (DUB)", list: grupoLat });
+    if (tieneSub) secciones.push({ id: "sub", label: "Subtitulado (SUB)", list: grupoSub });
+    if (tieneOtro) secciones.push({ id: "otro", label: "Otros / Sin etiqueta", list: grupoOtro });
+    // Si no hay clasificación, un solo bloque con todos
+    if (!secciones.length) secciones.push({ id: "all", label: "Reproductores", list: embeds.filter(e => !e.noAds) });
+
+    // Chips para saltar a sección (opcional; por defecto se muestran todas)
+    if (secciones.length > 1) {
         const chipBar = document.createElement("div");
         chipBar.className = "idioma-filter-bar";
         chipBar.style.cssText = "display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;justify-content:center;align-items:center;width:100%;";
-        ["lat", "sub"].forEach((id) => {
-            if (id === "lat" && !tieneLat) return;
-            if (id === "sub" && !tieneSub) return;
+        secciones.forEach((sec) => {
             const b = document.createElement("button");
             b.type = "button";
-            b.className = "idioma-chip" + (_idiomaPlayerActivo === id ? " active" : "");
-            b.textContent = id === "lat" ? "Latino (DUB)" : "Subtitulado (SUB)";
+            b.className = "idioma-chip";
+            b.textContent = `${sec.label} (${sec.list.length})`;
             b.style.cssText = "padding:8px 14px;border-radius:20px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;";
-            if (_idiomaPlayerActivo === id) {
-                b.style.background = "rgba(168,85,247,0.3)";
-                b.style.color = "#fff";
-                b.style.borderColor = "rgba(168,85,247,0.6)";
-            }
             b.addEventListener("click", () => {
-                _idiomaPlayerActivo = id;
-                renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item);
+                const el = document.getElementById("player-section-" + sec.id);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
             });
             chipBar.appendChild(b);
         });
         serversContainer.appendChild(chipBar);
     }
 
-    embeds = filtrarPorIdioma(embeds.filter(e => e && e.url));
+    // Lista plana ordenada: LAT → SUB → Otros (para autoplay / NO ADS)
+    embeds = [...grupoLat, ...grupoSub, ...grupoOtro];
+    embeds = insertarNoAdsEnLista(embeds);
     embeds = attachStreamUrls(embeds);
+
+    // Guardar secciones para el render de botones más abajo
+    serversContainer._seccionesPlayers = secciones.map((s) => ({
+        ...s,
+        list: attachStreamUrls(s.list.slice())
+    }));
 
 
 
@@ -2004,99 +1978,69 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
 
     /*
-     * Crear servidores
+     * Crear servidores por sección: Latino / Sub / Otros
      */
+    const seccionesRender = serversContainer._seccionesPlayers || [
+        { id: "all", label: "Reproductores", list: embeds.filter(e => !e.noAds) }
+    ];
+    // NO ADS al inicio de la primera sección si existe
+    const noAds = embeds.find(e => e && e.noAds);
 
     if (embeds.length > 0) {
+        let globalIndex = 0;
+        // Lista plana para data-index (play handlers)
+        const flatForPlay = [];
+        if (noAds) flatForPlay.push(noAds);
 
-        embeds.forEach(
-            (embed, index) => {
+        seccionesRender.forEach((sec) => {
+            const wrap = document.createElement("div");
+            wrap.id = "player-section-" + sec.id;
+            wrap.style.cssText = "width:100%;margin:0 0 14px;";
+            const h = document.createElement("div");
+            h.style.cssText = "font-size:12px;font-weight:700;color:var(--text-muted);margin:8px 0 6px;text-transform:uppercase;letter-spacing:0.04em;";
+            h.textContent = `${sec.label} · ${sec.list.length}`;
+            wrap.appendChild(h);
+
+            const listToShow = sec.id === seccionesRender[0].id && noAds
+                ? [noAds, ...sec.list]
+                : sec.list;
+
+            listToShow.forEach((embed) => {
+                if (!embed || !embed.url) return;
+                if (embed.noAds && sec.id !== seccionesRender[0].id) return;
+                const index = flatForPlay.indexOf(embed);
+                const idx = index >= 0 ? index : (flatForPlay.push(embed) - 1);
 
                 const nombre = embed.noAds
                     ? "NO ADS"
-                    : detectarServidor(
-                        embed.url,
-                        embed.server ||
-                        embed.name
-                    );
+                    : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
 
-                const lang =
-                    embed.lang ||
-                    embed.idioma ||
-                    "";
+                const lang = embed.lang || embed.idioma || "";
+                const quality = embed.quality || embed.calidad || "";
+                const idTag = idiomaDeEmbed(embed);
+                const badge =
+                    embed.noAds ? "" :
+                    idTag === "lat" ? '<span class="latino-badge">Latino</span>' :
+                    idTag === "sub" ? '<span class="latino-badge" style="background:#3b82f6">SUB</span>' :
+                    '<span class="latino-badge" style="background:#6b7280">?</span>';
 
-                const quality =
-                    embed.quality ||
-                    embed.calidad ||
-                    "";
-
-
-                const row =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                row.className =
-                    "server-row" +
-                    (
-                        lang
-                            .toLowerCase()
-                            .includes("latino")
-                            ? " latino-highlight"
-                            : ""
-                    );
-
-
+                const row = document.createElement("div");
+                row.className = "server-row" + (idTag === "lat" ? " latino-highlight" : "");
                 row.innerHTML = `
-
                     <div class="server-name-group">
-
-                        <ion-icon
-                            name="play-circle-outline"
-                            class="server-logo">
-                        </ion-icon>
-
+                        <ion-icon name="play-circle-outline" class="server-logo"></ion-icon>
                         <div class="server-info">
-
                             <span class="server-title">
-
                                 ${escapeHtml(nombre)}
-
-                                ${
-                                    lang
-                                        .toLowerCase()
-                                        .includes("latino")
-                                        ? '<span class="latino-badge">Latino</span>'
-                                        : ""
-                                }
-
+                                ${badge}
                             </span>
-
                             <span class="server-lang">
-
-                                ${escapeHtml(
-                                    [
-                                        lang,
-                                        quality
-                                    ]
-                                    .filter(Boolean)
-                                    .join(" · ")
-                                )}
-
+                                ${escapeHtml([lang || (idTag === "otro" ? "Sin etiqueta" : ""), quality].filter(Boolean).join(" · "))}
                             </span>
-
                         </div>
-
                     </div>
-
-
                     <div class="server-actions">
-
-                        <button
-                            class="btn-action play"
-                            data-index="${index}"
-                        >
+                        <button class="btn-action play" data-index="${idx}">
 
                             <ion-icon
                                 name="play">
@@ -2111,54 +2055,24 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 `;
 
 
-                row
-                    .querySelector(
-                        ".btn-action.play"
-                    )
-                    .addEventListener(
-                        "click",
-                        () => reproducir(
-                            embed,
-                            item
-                        )
-                    );
-
-
-                serversContainer.appendChild(
-                    row
-                );
-
-            }
-        );
-
+                row.querySelector(".btn-action.play").addEventListener("click", () => reproducir(embed, item));
+                wrap.appendChild(row);
+            });
+            serversContainer.appendChild(wrap);
+        });
     } else {
-
         serversContainer.innerHTML = `
-
-            <div
-                style="
-                    color:var(--text-muted);
-                    padding:20px 0;
-                    text-align:center;
-                "
-            >
-
+            <div style="color:var(--text-muted);padding:20px 0;text-align:center;">
                 Este contenido todavía no está disponible
-
             </div>
-
         `;
-
     }
 
-
     /* =========================================================
-       DESCARGAS
+       DESCARGAS (todas, sin filtrar por idioma)
        ========================================================= */
 
-    const downloads = filtrarPorIdioma(
-        Array.isArray(downloadsRaw) ? downloadsRaw : []
-    );
+    const downloads = Array.isArray(downloadsRaw) ? downloadsRaw : [];
 
 
     if (downloads.length > 0) {
