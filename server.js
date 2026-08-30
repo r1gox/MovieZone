@@ -1209,9 +1209,22 @@ async function obtenerDetalle(params) {
         best.portada = elegirPortada(best.portada, candidate.portada, best.source_id);
       }
     }
-    // Si ya tenemos players buenos, no hace falta seguir en force solo-meta
+    // soloMeta: 1 fuente basta
     if (soloMeta && best) break;
-    if (!force && best && itemTieneContenidoValido(best) && best.descripcion && best.portada) break;
+    // NO cortar en el primer source: hay que juntar reproductores de 1/2/3/4
+    // (antes se hacía break y solo quedaba p.ej. MovieZone/vimeos de una fuente)
+    // Solo paramos si ya tenemos bastantes embeds distintos (≥4) + meta completa
+    const nEmbeds = Array.isArray(best?.embeds) ? best.embeds.length : 0;
+    if (
+      !force &&
+      best &&
+      itemTieneContenidoValido(best) &&
+      best.descripcion &&
+      best.portada &&
+      nEmbeds >= 4
+    ) {
+      break;
+    }
   }
 
   if (!best) {
@@ -1391,7 +1404,7 @@ function mergeEmbedLists(...lists) {
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie", serieCtx = null) {
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
   const sources = [String(sourceId || DEFAULT_SOURCE)];
-  // En anime: probar varias fuentes para juntar SUB (animeav1) + LAT (pelisplus)
+  // Juntar players de TODAS las fuentes (1 lamovie, 2 hackstore, 3 pelisplus, 4 animeav1)
   const ordenCap =
     kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
   for (const s of ordenCap) {
@@ -1405,34 +1418,54 @@ async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "seri
   let allEmbeds = [];
   let allDownloads = [];
 
+  // Peticiones en paralelo por fuente (más rápido; antes se paraba en la 1ª y solo salía MovieZone)
+  const jobs = [];
   for (const sid of sources) {
     for (const k of kinds) {
       for (const trySlug of slugsTry) {
-        try {
-          const path = `/${sid}/${k}/${trySlug}/${temporada}/${episodio}`;
-          const data = await apiGet(path);
-          if (!data || data.success === false) continue;
-          const mapped = mapDetail(data, {
-            slug: trySlug,
-            source_id: sid,
-            tipo: k === "anime" ? "Anime" : "Serie",
-          });
-          const emb = mapped.embeds || mapEmbeds(data.reproductores || data.embeds || []);
-          if (emb.length) allEmbeds = mergeEmbedLists(allEmbeds, emb);
-          const dl = mapped.downloads || data.descargas || data.downloads || [];
-          if (Array.isArray(dl) && dl.length) {
-            allDownloads = mergeEmbedLists(allDownloads, dl.map((d) =>
-              typeof d === "string" ? { url: d } : d
-            ));
-          }
-          if (!best || scoreItem(mapped) > scoreItem(best)) {
-            best = best ? mergeItems(best, mapped) : mapped;
-          }
-          // No return early: seguir buscando LAT en otras fuentes
-        } catch (err) {
-          lastErr = err;
-        }
+        jobs.push({ sid, k, trySlug });
       }
+    }
+  }
+
+  const results = await Promise.all(
+    jobs.map(async ({ sid, k, trySlug }) => {
+      try {
+        const path = `/${sid}/${k}/${trySlug}/${temporada}/${episodio}`;
+        const data = await apiGet(path);
+        if (!data || data.success === false) return null;
+        const mapped = mapDetail(data, {
+          slug: trySlug,
+          source_id: sid,
+          tipo: k === "anime" ? "Anime" : "Serie",
+        });
+        const emb = mapEmbeds(
+          (data.reproductores && data.reproductores.length)
+            ? data.reproductores
+            : (data.embeds || mapped.embeds || [])
+        );
+        const dl = mapped.downloads || data.descargas || data.downloads || [];
+        return { mapped, emb, dl, sid };
+      } catch (err) {
+        lastErr = err;
+        return null;
+      }
+    })
+  );
+
+  for (const r of results) {
+    if (!r) continue;
+    if (r.emb && r.emb.length) allEmbeds = mergeEmbedLists(allEmbeds, r.emb);
+    if (Array.isArray(r.dl) && r.dl.length) {
+      allDownloads = mergeEmbedLists(
+        allDownloads,
+        r.dl.map((d) => (typeof d === "string" ? { url: d } : d))
+      );
+    }
+    if (!best || scoreItem(r.mapped) > scoreItem(best)) {
+      best = best ? mergeItems(best, r.mapped) : r.mapped;
+    } else {
+      best = mergeItems(best, r.mapped);
     }
   }
 
