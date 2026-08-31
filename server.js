@@ -959,6 +959,38 @@ async function buscarEnSupabase({ link, slug, postId }) {
   return null;
 }
 
+
+/** Extrae bloques imdb/tmdb/omdb de la API Worker (formato compacto o plano) */
+function extraerMetaFuentes(r) {
+  r = r || {};
+  const imdb = r.imdb && typeof r.imdb === "object" ? { ...r.imdb } : {};
+  const tmdb = r.tmdb && typeof r.tmdb === "object" ? { ...r.tmdb } : {};
+  const omdb = r.omdb && typeof r.omdb === "object" ? { ...r.omdb } : {};
+
+  if (!imdb.id && r.imdb_id) imdb.id = r.imdb_id;
+  if (imdb.rating == null && r.rating_imdb != null) imdb.rating = r.rating_imdb;
+  if (!imdb.votos && r.votos_imdb) imdb.votos = r.votos_imdb;
+  if (!imdb.portada && r.portada_imdb) imdb.portada = r.portada_imdb;
+  if (!imdb.generos && Array.isArray(r.generos_imdb)) imdb.generos = r.generos_imdb;
+  if (imdb.duracion == null && r.duracion_imdb != null) imdb.duracion = r.duracion_imdb;
+  if (!imdb.duracion_texto && r.duracion_texto_imdb) imdb.duracion_texto = r.duracion_texto_imdb;
+  if (!imdb.certificacion && r.certificacion_imdb) imdb.certificacion = r.certificacion_imdb;
+
+  if (!tmdb.id && r.tmdb_id) tmdb.id = r.tmdb_id;
+  if (tmdb.rating == null && r.rating_tmdb != null) tmdb.rating = r.rating_tmdb;
+  if (!tmdb.portada && r.portada_tmdb) tmdb.portada = r.portada_tmdb;
+  if (!tmdb.generos && Array.isArray(r.generos_tmdb)) tmdb.generos = r.generos_tmdb;
+  if (tmdb.duracion == null && r.duracion_tmdb != null) tmdb.duracion = r.duracion_tmdb;
+  if (!tmdb.certificacion && r.certificacion_tmdb) tmdb.certificacion = r.certificacion_tmdb;
+  if (!tmdb.titulo && r.titulo_tmdb) tmdb.titulo = r.titulo_tmdb;
+  if (!tmdb.backdrop && r.backdrop) tmdb.backdrop = r.backdrop;
+
+  if (omdb.rating == null && r.rating_omdb != null) omdb.rating = r.rating_omdb;
+  if (!omdb.votos && r.votos_omdb) omdb.votos = r.votos_omdb;
+
+  return { imdb, tmdb, omdb };
+}
+
 /** Resultado de listado / search → item ligero (API v2 con TMDB) */
 function mapListItem(r) {
   const titulo = limpiarTitulo(r.titulo || r.title || r.nombre || r.titulo_tmdb || "Sin título");
@@ -998,22 +1030,31 @@ function mapListItem(r) {
     calificacion = null;
   }
 
+  const metaF = extraerMetaFuentes(r);
+  if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
+    calificacion = Math.round(Number(metaF.imdb.rating) * 10) / 10;
+  } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
+    calificacion = Math.round(Number(metaF.omdb.rating) * 10) / 10;
+  }
+  if (metaF.imdb.portada && (!portada || !esPortadaValida(portada))) portada = metaF.imdb.portada;
+  else if (metaF.tmdb.portada && (!portada || !esPortadaValida(portada))) portada = metaF.tmdb.portada;
+
   return {
-    id: r.postId || r.id || r.tmdb_id || `${sourceId}-${slug || titulo}`,
+    id: r.postId || r.id || r.tmdb_id || metaF.tmdb.id || `${sourceId}-${slug || titulo}`,
     postId: r.postId || null,
-    tmdb_id: r.tmdb_id || null,
-    imdb_id: r.imdb_id || null,
+    tmdb_id: r.tmdb_id || metaF.tmdb.id || null,
+    imdb_id: r.imdb_id || metaF.imdb.id || null,
     nombre: titulo,
-    titulo_original: r.titulo_original || r.original_title || null,
+    titulo_original: r.titulo_original || r.original_title || metaF.tmdb.titulo || null,
     slug,
     tipo,
     formato: r.formato || null,
     descripcion,
     portada,
-    portada_tmdb: r.portada_tmdb || null,
-    portada_imdb: r.portada_imdb || null,
+    portada_tmdb: r.portada_tmdb || metaF.tmdb.portada || null,
+    portada_imdb: r.portada_imdb || metaF.imdb.portada || null,
     poster_source: r.poster_source || null,
-    backdrop: r.backdrop || null,
+    backdrop: r.backdrop || metaF.tmdb.backdrop || null,
     year,
     genero,
     generos: Array.isArray(r.generos) ? r.generos : (genero ? genero.split(",").map((g) => g.trim()) : []),
@@ -1021,10 +1062,14 @@ function mapListItem(r) {
     calidad: r.calidad || [],
     calificacion,
     calificacion_comunidad: null,
-    votos: r.votos || null,
+    votos: r.votos || metaF.imdb.votos || null,
     fecha_estreno: r.fecha_estreno || r.release_date || r.tmdb_release_date || null,
-    duracion: r.duracion || r.runtime || null,
-    certificacion: null,
+    duracion: r.duracion || r.runtime || metaF.imdb.duracion || metaF.tmdb.duracion || null,
+    duracion_texto: r.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
+    certificacion: r.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
+    imdb: Object.keys(metaF.imdb).length ? metaF.imdb : null,
+    tmdb: Object.keys(metaF.tmdb).length ? metaF.tmdb : null,
+    omdb: Object.keys(metaF.omdb).length ? metaF.omdb : null,
     paises: [],
     ultimo_episodio: null,
     link,
@@ -1103,7 +1148,13 @@ function mapDetail(data, fallback = {}) {
     }
   }
 
+  const metaF = extraerMetaFuentes({ ...fallback, ...data });
   let calificacion = data.calificacion != null ? data.calificacion : (data.rating || fallback.calificacion || null);
+  if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
+    calificacion = metaF.imdb.rating;
+  } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
+    calificacion = metaF.omdb.rating;
+  }
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
     calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
@@ -1136,13 +1187,17 @@ function mapDetail(data, fallback = {}) {
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
     calificacion,
-    tmdb_id: data.tmdb_id || fallback.tmdb_id || null,
-    imdb_id: data.imdb_id || fallback.imdb_id || null,
+    tmdb_id: data.tmdb_id || metaF.tmdb.id || fallback.tmdb_id || null,
+    imdb_id: data.imdb_id || metaF.imdb.id || fallback.imdb_id || null,
     calificacion_comunidad: null,
-    votos: data.votos || null,
+    votos: data.votos || metaF.imdb.votos || metaF.tmdb.votos || null,
     fecha_estreno: data.fecha_estreno || null,
-    duracion: data.duracion || null,
-    certificacion: null,
+    duracion: data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null,
+    duracion_texto: data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
+    certificacion: data.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
+    imdb: Object.keys(metaF.imdb).length ? metaF.imdb : null,
+    tmdb: Object.keys(metaF.tmdb).length ? metaF.tmdb : null,
+    omdb: Object.keys(metaF.omdb).length ? metaF.omdb : null,
     paises: [],
     ultimo_episodio: data.ultimo_episodio || null,
     link: data.link || fallback.link || null,
