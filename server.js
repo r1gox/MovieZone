@@ -245,18 +245,40 @@ async function guardarEnSupabase(items) {
         portada: item.portada || existente?.portada || null,
         backdrop: item.backdrop || existente?.backdrop || null,
         descripcion: descripcionFinal,
-        year: item.year || existente?.year || null,
+        year: (function () {
+          const yi = item.year && String(item.year).match(/(19|20)\d{2}/);
+          const ye = existente?.year && String(existente.year).match(/(19|20)\d{2}/);
+          // Si la API trae año distinto al de DB, confiar en la API (no mezclar 2012 con 2026)
+          if (yi) return yi[0];
+          if (ye) return ye[0];
+          return item.year || existente?.year || null;
+        })(),
         genero: item.genero || existente?.genero || null,
+        generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
         tipo: item.tipo || existente?.tipo || "Película",
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
         paises: item.paises || existente?.paises || [],
-        calificacion: item.calificacion || existente?.calificacion || null,
+        calificacion: (function () {
+          const yi = item.year && String(item.year).match(/(19|20)\d{2}/);
+          const ye = existente?.year && String(existente.year).match(/(19|20)\d{2}/);
+          if (yi && ye && yi[0] !== ye[0]) return item.calificacion ?? null;
+          return item.calificacion ?? existente?.calificacion ?? null;
+        })(),
         calificacion_comunidad: item.calificacion_comunidad || existente?.calificacion_comunidad || null,
-        votos: item.votos ? Math.trunc(Number(item.votos)) || null : (existente?.votos || null),
+        votos: (function () {
+          const yi = item.year && String(item.year).match(/(19|20)\d{2}/);
+          const ye = existente?.year && String(existente.year).match(/(19|20)\d{2}/);
+          if (yi && ye && yi[0] !== ye[0]) {
+            return item.votos ? Math.trunc(Number(item.votos)) || null : null;
+          }
+          return item.votos ? Math.trunc(Number(item.votos)) || null : (existente?.votos || null);
+        })(),
         fecha_estreno: item.fecha_estreno || existente?.fecha_estreno || null,
         duracion: item.duracion ? Math.trunc(Number(item.duracion)) || null : (existente?.duracion || null),
         certificacion: item.certificacion || existente?.certificacion || null,
+        imdb: item.imdb || (existente && (!item.year || !existente.year || String(item.year).slice(0,4) === String(existente.year).slice(0,4)) ? existente.imdb : null) || null,
+        tmdb: item.tmdb || (existente && (!item.year || !existente.year || String(item.year).slice(0,4) === String(existente.year).slice(0,4)) ? existente.tmdb : null) || null,
         ultimo_episodio: item.ultimo_episodio || existente?.ultimo_episodio || null,
         reproductor: item.reproductor || existente?.reproductor || null,
         embeds: embedsFinal,
@@ -693,60 +715,9 @@ function colapsarTemporadasAnimeAv1(lista) {
 }
 
 function dedupeListItems(lista) {
-  const map = new Map();
-  for (const item of lista || []) {
-    // Clave: preferir slug completo (NO quitar season → S2 ≠ S1)
-    // Título solo si no hay slug; así "Classroom for Heroes" y "Eiyuu Kyoushitsu" no se pisan
-    // salvo que el slug sea el mismo entre fuentes.
-    const slugKey = String(item.slug || "")
-      .toLowerCase()
-      .replace(/-\d{4}$/, "")
-      .trim();
-    const titleKey = normalizeTitleKey(item.nombre || item.titulo);
-    const tipoKey = String(item.tipo || "").toLowerCase();
-    // Misma obra entre fuentes: mismo slug O mismo título+tipo (sin mezclar temporadas distintas por slug)
-    const key = slugKey
-      ? `slug:${slugKey}`
-      : titleKey
-        ? `t:${tipoKey}:${titleKey}`
-        : null;
-    if (!key) {
-      map.set(item.link || item.slug || String(Math.random()), item);
-      continue;
-    }
-    const prev = map.get(key);
-    if (!prev) {
-      map.set(key, item);
-      continue;
-    }
-    // Mejor resultado: más datos + mejor fuente (anime → 4, portada, descripción…)
-    const winner = scoreItem(item) >= scoreItem(prev) ? { ...item } : { ...prev };
-    const loser = scoreItem(item) >= scoreItem(prev) ? prev : item;
-    if (loser.tiene_player && !winner.tiene_player) {
-      winner.tiene_player = true;
-      if (!winner.embeds?.length && loser.embeds?.length) winner.embeds = loser.embeds;
-      if (!winner.reproductor && loser.reproductor) winner.reproductor = loser.reproductor;
-    }
-    winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
-    if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
-    if ((!winner.descripcion || winner.descripcion.length < 40) && loser.descripcion) {
-      winner.descripcion = loser.descripcion;
-    }
-    if (!winner.genero && loser.genero) winner.genero = loser.genero;
-    if (!winner.backdrop && loser.backdrop) winner.backdrop = loser.backdrop;
-    if (!winner.tmdb_id && loser.tmdb_id) winner.tmdb_id = loser.tmdb_id;
-    if (!winner.postId && loser.postId) winner.postId = loser.postId;
-    if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
-      winner.total_episodios = loser.total_episodios;
-    }
-    // Preferir nombre "limpio" con portada (pelisplus suele traer portada + título EN)
-    if (!esPortadaValida(winner.portada) && esPortadaValida(loser.portada)) {
-      winner.portada = loser.portada;
-    }
-    if ((winner.nombre || "").length < 3 && loser.nombre) winner.nombre = loser.nombre;
-    map.set(key, winner);
-  }
-  return Array.from(map.values());
+  // Sin deduplicación: los datos vienen de la API (ya fusionados allí).
+  // Devolver la lista tal cual para no mezclar obras (ej. La captura 2012 vs 2026).
+  return Array.isArray(lista) ? lista.slice() : [];
 }
 
 /** Une listas de episodios por (season, episode); conserva embeds si ya existían */
@@ -1022,7 +993,7 @@ function mapListItem(r) {
   const genero = extraerGenero(r) || (Array.isArray(r.generos) ? r.generos.join(", ") : null);
   // Descripción: la API prioriza español de la fuente
   const descripcion = limpiarDescripcion(r.descripcion || r.overview_tmdb || r.tmdb_overview || "", titulo);
-  let calificacion = r.calificacion != null ? r.calificacion : (r.rating || r.tmdb_rating || null);
+  let calificacion = r.rating != null ? r.rating : (r.calificacion != null ? r.calificacion : (r.tmdb_rating != null ? r.tmdb_rating : null));
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
     calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
@@ -1149,7 +1120,7 @@ function mapDetail(data, fallback = {}) {
   }
 
   const metaF = extraerMetaFuentes({ ...fallback, ...data });
-  let calificacion = data.calificacion != null ? data.calificacion : (data.rating || fallback.calificacion || null);
+  let calificacion = data.rating != null ? data.rating : (data.calificacion != null ? data.calificacion : (fallback.rating != null ? fallback.rating : (fallback.calificacion != null ? fallback.calificacion : null)));
   if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
     calificacion = metaF.imdb.rating;
   } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
@@ -1181,7 +1152,13 @@ function mapDetail(data, fallback = {}) {
     portada_imdb: data.portada_imdb || null,
     poster_source: data.poster_source || null,
     backdrop: data.backdrop || fallback.backdrop || null,
-    year: extraerAnio(titulo, data.year || data.fecha_estreno || fallback.year),
+    year: (function () {
+      const yData = extraerAnio(titulo, data.year || data.fecha_estreno || null);
+      const yFall = extraerAnio(titulo, fallback.year || null);
+      // Si API y fallback tienen años distintos, quedarse con el de la API (no mezclar 2012/2026)
+      if (yData) return yData;
+      return yFall || null;
+    })(),
     genero: extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null),
     generos: Array.isArray(data.generos) ? data.generos : [],
     idiomas: data.idiomas || [],
