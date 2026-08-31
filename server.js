@@ -237,10 +237,7 @@ async function guardarEnSupabase(items) {
           }
         }
       }
-      const descripcionFinal =
-        item.descripcion && String(item.descripcion).length > 20
-          ? item.descripcion
-          : (existente?.descripcion || item.descripcion || null);
+      const descripcionFinal = elegirMejorDescripcion(item.descripcion, existente?.descripcion);
       return {
         link: item.link,
         nombre: limpiarTitulo(nombre || existente?.nombre || null),
@@ -381,6 +378,51 @@ function descripcionIncompleta(texto) {
   if (/\.\.\.$|…$/.test(s)) return true;
   if (/^(Pel[ií]cula|Serie|Anime)\s/i.test(s) && s.length < 80) return true;
   return false;
+}
+
+/** Detecta si un texto parece español (preferir sobre inglés) */
+function pareceEspanol(txt) {
+  const s = String(txt || "");
+  if (!s || s.length < 20) return false;
+  if (/[áéíóúñü¿¡]/i.test(s)) return true;
+  const es = (s.match(/\b(el|la|los|las|de|del|que|en|un|una|por|con|para|como|más|también|después|cuando|sobre|entre|hasta|desde|sin|este|esta|estos|sus|su|se|es|son|fue|ser|está|están|luego|demasiadas|contratar)\b/gi) || []).length;
+  const en = (s.match(/\b(the|and|with|from|after|when|his|her|their|this|that|was|were|are|is|for|into|about|which|who|whom|all|of|made|by)\b/gi) || []).length;
+  return es >= 3 && es > en;
+}
+
+function pareceIngles(txt) {
+  const s = String(txt || "");
+  if (!s || s.length < 20) return false;
+  if (/[áéíóúñü¿¡]/i.test(s)) return false;
+  const en = (s.match(/\b(the|and|with|from|after|when|his|her|their|this|that|was|were|are|is|for|into|about|which|all|of|made|by)\b/gi) || []).length;
+  return en >= 3;
+}
+
+/**
+ * Elige la mejor descripción: español completo > español > cualquier completa > más larga
+ * Nunca reemplaza español válido por inglés solo porque sea más largo.
+ */
+function elegirMejorDescripcion(a, b) {
+  const A = String(a || "").trim();
+  const B = String(b || "").trim();
+  if (!A) return B || null;
+  if (!B) return A || null;
+  const aEs = pareceEspanol(A);
+  const bEs = pareceEspanol(B);
+  const aEn = pareceIngles(A);
+  const bEn = pareceIngles(B);
+  const aInc = descripcionIncompleta(A);
+  const bInc = descripcionIncompleta(B);
+
+  // Español gana sobre inglés
+  if (aEs && bEn) return aInc && !bInc && bEs ? B : A;
+  if (bEs && aEn) return bInc && !aInc && aEs ? A : B;
+  if (aEs && !bEs) return A;
+  if (bEs && !aEs) return B;
+  // Ambos mismo idioma: preferir completa / más larga
+  if (!aInc && bInc) return A;
+  if (!bInc && aInc) return B;
+  return A.length >= B.length ? A : B;
 }
 
 function extraerGenero(data) {
@@ -842,8 +884,8 @@ function mergeItems(base, extra) {
       const sumR = (arr) =>
         (arr || []).reduce((s, r) => s + (Number(r.hasta || 0) - Number(r.desde || 0) + 1), 0);
       if (Array.isArray(v) && v.length && (!Array.isArray(cur) || sumR(v) >= sumR(cur))) out[k] = v;
-    } else if (k === "descripcion" && String(v).length > String(cur || "").length) {
-      out[k] = v;
+    } else if (k === "descripcion") {
+      out[k] = elegirMejorDescripcion(cur, v);
     } else if (k === "calificacion" && Number(v) > 0 && !Number(cur)) {
       out[k] = v;
     } else if (k === "portada") {
@@ -1153,7 +1195,7 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
           tiene_player: local.tiene_player,
           embeds: local.embeds,
           reproductor: local.reproductor,
-          descripcion: local.descripcion,
+          descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
           calificacion: local.calificacion || item.calificacion,
           portada: item.portada || local.portada,
           downloads: local.downloads,
@@ -1333,9 +1375,8 @@ function pickBestSearchItem(a, b) {
   const loser = preferA ? b : a;
 
   winner.portada = elegirPortada(winner.portada, loser.portada, winner.source_id);
-  if ((!winner.descripcion || String(winner.descripcion).length < 40) && loser.descripcion) {
-    winner.descripcion = loser.descripcion;
-  }
+  winner.descripcion = elegirMejorDescripcion(winner.descripcion, loser.descripcion);
+
   if (!winner.calificacion && loser.calificacion) winner.calificacion = loser.calificacion;
   if (loser.tiene_player && !winner.tiene_player) winner.tiene_player = true;
   if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
@@ -1473,8 +1514,10 @@ async function buscarOnline(termino, page = 1, limit = 48) {
       tiene_player: local.tiene_player,
       embeds: local.embeds,
       reproductor: local.reproductor,
-      descripcion: local.descripcion || item.descripcion,
-      calificacion: local.calificacion || item.calificacion,
+      // API (español) gana sobre caché inglesa de Supabase
+      descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
+      calificacion: item.calificacion || local.calificacion,
+      year: item.year || local.year,
       portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
       downloads: local.downloads,
       episodios: local.episodios,
@@ -1776,12 +1819,8 @@ async function obtenerDetalle(params) {
           ? mergeItems(candidate, best)
           : mergeItems(best, candidate)
         : candidate;
-      if (
-        best &&
-        candidate.descripcion &&
-        String(candidate.descripcion).length > String(best.descripcion || "").length
-      ) {
-        best.descripcion = candidate.descripcion;
+      if (best && candidate.descripcion) {
+        best.descripcion = elegirMejorDescripcion(best.descripcion, candidate.descripcion);
       }
       if (candidate.genero && !best.genero) best.genero = candidate.genero;
 
@@ -1885,9 +1924,8 @@ async function obtenerDetalle(params) {
   if (cached && (!best.temporadas_raw || !best.temporadas_raw.length) && cached.temporadas_raw?.length) {
     best.temporadas_raw = cached.temporadas_raw;
   }
-  if (cached?.descripcion && descripcionIncompleta(best.descripcion) && !descripcionIncompleta(cached.descripcion)) {
-    best.descripcion = cached.descripcion;
-  }
+  // Preferir español de la API sobre inglés cacheado (aunque el inglés sea más largo)
+  best.descripcion = elegirMejorDescripcion(best.descripcion, cached?.descripcion);
   best.descripcion = limpiarDescripcion(best.descripcion, best.nombre);
   // Portada final: siempre alineada a la fuente de los reproductores
   best.portada = elegirPortada(best.portada, cached?.portada, best.source_id);
