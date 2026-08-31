@@ -31,13 +31,14 @@ function ratingInfo(item) {
     const imdbR = item.imdb && item.imdb.rating != null ? Number(item.imdb.rating) : null;
     const tmdbR = item.tmdb && item.tmdb.rating != null ? Number(item.tmdb.rating) : null;
     const omdbR = item.omdb && item.omdb.rating != null ? Number(item.omdb.rating) : null;
-    const main = item.calificacion != null ? Number(item.calificacion) : null;
+    const mainRaw = item.rating != null ? item.rating : (item.calificacion != null ? item.calificacion : null);
+    const main = mainRaw != null ? Number(mainRaw) : null;
 
     let primary;
     if (imdbR != null && imdbR > 0) primary = { label: "IMDb " + imdbR.toFixed(1), value: imdbR, source: "imdb" };
     else if (omdbR != null && omdbR > 0) primary = { label: "IMDb " + omdbR.toFixed(1), value: omdbR, source: "omdb" };
     else if (tmdbR != null && tmdbR > 0) primary = { label: "TMDB " + tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
-    else if (main != null && main > 0) primary = { label: main.toFixed(1), value: main, source: "fuente" };
+    else if (main != null && !isNaN(main) && main > 0) primary = { label: main.toFixed(1), value: main, source: "fuente" };
     else primary = { label: "—", value: null, source: null };
 
     let secondary = null;
@@ -1157,23 +1158,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         originalEl.style.display = "none";
     }
 
-    document.getElementById("details-year").textContent = item.year || "-";
+    document.getElementById("details-year").textContent = item.year || "—";
     rellenarMetaDetalle(item);
     document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
-
-    const generosEl = document.getElementById("details-genres");
-    generosEl.innerHTML = "";
-    if (item.genero) {
-        String(item.genero).split(",").map(g => g.trim()).filter(Boolean).forEach(g => {
-            generosEl.innerHTML += `<span class="genre-tag">${escapeHtml(g)}</span>`;
-        });
-    }
-    if (item.idiomas && item.idiomas.length) {
-        generosEl.innerHTML += `<span class="genre-tag">${escapeHtml(item.idiomas.join(", "))}</span>`;
-    }
-    if (item.calidad && item.calidad.length) {
-        generosEl.innerHTML += `<span class="genre-tag">${escapeHtml(item.calidad.join(", "))}</span>`;
-    }
 
     actualizarBotonFavorito();
 
@@ -1248,7 +1235,31 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         return { ...ep, embeds: prev.embeds || [], video: prev.video || prev.reproductor || null, downloads: prev.downloads || ep.downloads };
                     });
                 }
-                Object.assign(item, completo);
+                // Fusionar con cuidado: no mezclar meta de distinto año
+                const yOld = item.year && String(item.year).match(/(19|20)\d{2}/);
+                const yNew = completo.year && String(completo.year).match(/(19|20)\d{2}/);
+                if (yOld && yNew && yOld[0] !== yNew[0]) {
+                    // Obra distinta: usar datos del detalle (API) como fuente de verdad
+                    Object.keys(item).forEach(function (k) { delete item[k]; });
+                    Object.assign(item, completo);
+                } else {
+                    Object.assign(item, completo);
+                    // Si el detalle trae rating/imdb, asegurar que pisen valores viejos
+                    if (completo.calificacion != null) item.calificacion = completo.calificacion;
+                    if (completo.rating != null && item.calificacion == null) item.calificacion = completo.rating;
+                    if (completo.imdb) item.imdb = completo.imdb;
+                    if (completo.tmdb) item.tmdb = completo.tmdb;
+                    if (completo.year) item.year = completo.year;
+                    if (completo.titulo_original) item.titulo_original = completo.titulo_original;
+                    if (completo.generos && completo.generos.length) item.generos = completo.generos;
+                    if (completo.genero) item.genero = completo.genero;
+                    if (completo.votos) item.votos = completo.votos;
+                    if (completo.duracion) item.duracion = completo.duracion;
+                    if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
+                    if (completo.certificacion) item.certificacion = completo.certificacion;
+                    if (completo.imdb_id) item.imdb_id = completo.imdb_id;
+                    if (completo.tmdb_id) item.tmdb_id = completo.tmdb_id;
+                }
                 const esSA2 = item.tipo === "Serie" || item.tipo === "Anime";
                 if (item.tiene_player || itemTieneVideo(item) ||
                     (esSA2 && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {
@@ -1262,20 +1273,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 document.getElementById("details-year").textContent = item.year || "-";
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
-
-                const generosEl2 = document.getElementById("details-genres");
-                generosEl2.innerHTML = "";
-                if (item.genero) {
-                    String(item.genero).split(",").map(g => g.trim()).filter(Boolean).forEach(g => {
-                        generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(g)}</span>`;
-                    });
-                }
-                if (item.idiomas && item.idiomas.length) {
-                    generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(item.idiomas.join(", "))}</span>`;
-                }
-                if (item.calidad && item.calidad.length) {
-                    generosEl2.innerHTML += `<span class="genre-tag">${escapeHtml(item.calidad.join(", "))}</span>`;
-                }
             }
         } catch (err) {
             console.error("Error o timeout enriqueciendo detalle:", err);
