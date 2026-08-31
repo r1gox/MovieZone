@@ -2744,3 +2744,91 @@ body.player-open .btn-close-modal {
   margin: 0.35rem 0 0.75rem;
   letter-spacing: 0.02em;
 }
+
+
+/* ===== Detalle: meta visual (rating, duración, cert, votos) ===== */
+.details-meta-info h3#details-title {
+  margin-bottom: 0.15rem;
+  line-height: 1.25;
+}
+#details-original-title {
+  display: none;
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  opacity: 0.72;
+  color: var(--text-muted, #a1a1aa);
+  font-weight: 400;
+}
+.details-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  margin: 0.5rem 0 0.85rem;
+}
+.details-meta-row .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.details-meta-row .meta-item ion-icon {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+.details-meta-row .meta-item.hidden {
+  display: none !important;
+}
+.details-meta-row .meta-item.rating.rating-src-imdb,
+.details-meta-row .meta-item.rating.rating-src-omdb {
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.22), rgba(245, 197, 24, 0.08));
+  border-color: rgba(245, 197, 24, 0.45);
+  color: #f5c518;
+}
+.details-meta-row .meta-item.rating.rating-src-tmdb {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.22), rgba(1, 180, 228, 0.08));
+  border-color: rgba(1, 180, 228, 0.45);
+  color: #01b4e4;
+}
+.details-meta-row .meta-item.cert {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+.details-meta-row .meta-item.duration {
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.3);
+}
+.details-meta-row .meta-item.votes {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.details-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+.details-genres .genre-tag {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #c7d2fe;
+}
+.details-genres .genre-tag-extra {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
+}

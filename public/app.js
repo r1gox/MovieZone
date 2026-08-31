@@ -52,15 +52,137 @@ function ratingBadgeHtml(item) {
         return '<div class="rating-badge rating-empty"><ion-icon name="star-outline"></ion-icon> —</div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-    const sec = r.secondary ? ('<span class="rating-secondary">' + escapeHtml(r.secondary) + "</span>") : "";
+    // Solo una fuente: IMDb preferido (ratingInfo ya lo elige)
     return (
-        '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + (r.secondary ? (" · " + r.secondary) : "") + '">' +
+        '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + '">' +
         '<ion-icon name="star"></ion-icon> ' +
-        '<span class="rating-main">' + escapeHtml(r.label) + "</span> " +
-        sec +
+        '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
         "</div>"
     );
 }
+
+
+/** Rellena meta del panel de detalle (rating IMDb preferido, géneros, duración, cert, votos, título original) */
+function rellenarMetaDetalle(item) {
+    if (!item) return;
+
+    const originalEl = document.getElementById("details-original-title");
+    if (originalEl) {
+        const orig = item.titulo_original || (item.tmdb && item.tmdb.titulo) || null;
+        const mainTitle = String(item.nombre || item.titulo || "").trim().toLowerCase();
+        if (orig && String(orig).trim() && String(orig).trim().toLowerCase() !== mainTitle) {
+            originalEl.textContent = orig;
+            originalEl.style.display = "block";
+        } else {
+            originalEl.textContent = "";
+            originalEl.style.display = "none";
+        }
+    }
+
+    const yearEl = document.getElementById("details-year");
+    if (yearEl) yearEl.textContent = item.year || "—";
+
+    // Rating: SOLO IMDb si hay; si no, el otro. No mostrar ambos.
+    const ri = ratingInfo(item);
+    const ratingEl = document.getElementById("details-rating");
+    const ratingWrap = document.getElementById("details-rating-wrap") || (ratingEl && ratingEl.closest(".meta-item"));
+    if (ratingEl) {
+        ratingEl.textContent = ri.value != null ? ri.label : "—";
+        ratingEl.title = (ri.source === "imdb" || ri.source === "omdb")
+            ? "Calificación IMDb"
+            : (ri.source === "tmdb" ? "Calificación TMDB" : "");
+    }
+    if (ratingWrap) {
+        ratingWrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente", "hidden");
+        if (ri.source) ratingWrap.classList.add("rating-src-" + ri.source);
+        if (ri.value == null) ratingWrap.classList.add("hidden");
+    }
+
+    // Duración
+    const durEl = document.getElementById("details-duration");
+    const durWrap = document.getElementById("details-duration-wrap");
+    let durTxt = item.duracion_texto || null;
+    if (!durTxt && item.imdb && item.imdb.duracion_texto) durTxt = item.imdb.duracion_texto;
+    if (!durTxt && item.tmdb && item.tmdb.duracion_texto) durTxt = item.tmdb.duracion_texto;
+    if (!durTxt && item.duracion) {
+        const m = Number(item.duracion);
+        if (m >= 60) {
+            const h = Math.floor(m / 60);
+            const mins = m % 60;
+            durTxt = mins ? (h + "h " + mins + "min") : (h + "h");
+        } else if (m > 0) durTxt = m + " min";
+    }
+    if (durEl) durEl.textContent = durTxt || "—";
+    if (durWrap) {
+        if (durTxt) durWrap.classList.remove("hidden");
+        else durWrap.classList.add("hidden");
+    }
+
+    // Certificación
+    const certEl = document.getElementById("details-cert");
+    const certWrap = document.getElementById("details-cert-wrap");
+    const cert = item.certificacion || (item.imdb && item.imdb.certificacion) || (item.tmdb && item.tmdb.certificacion) || null;
+    if (certEl) certEl.textContent = cert || "—";
+    if (certWrap) {
+        if (cert) certWrap.classList.remove("hidden");
+        else certWrap.classList.add("hidden");
+    }
+
+    // Votos (preferir IMDb)
+    const votosEl = document.getElementById("details-votes");
+    const votosWrap = document.getElementById("details-votes-wrap");
+    let votosRaw = (item.imdb && item.imdb.votos) || item.votos || (item.tmdb && item.tmdb.votos) || null;
+    let votosLabel = null;
+    if (votosRaw) {
+        const n = Number(String(votosRaw).replace(/[^\d]/g, ""));
+        if (Number.isFinite(n) && n > 0) {
+            if (n >= 1000000) votosLabel = (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M votos";
+            else if (n >= 1000) votosLabel = (n / 1000).toFixed(1).replace(/\.0$/, "") + "k votos";
+            else votosLabel = n + " votos";
+        } else {
+            votosLabel = String(votosRaw) + " votos";
+        }
+    }
+    if (votosEl) votosEl.textContent = votosLabel || "—";
+    if (votosWrap) {
+        if (votosLabel) votosWrap.classList.remove("hidden");
+        else votosWrap.classList.add("hidden");
+    }
+
+    // Géneros: todos
+    const generosEl = document.getElementById("details-genres");
+    if (generosEl) {
+        generosEl.innerHTML = "";
+        let lista = [];
+        if (Array.isArray(item.generos) && item.generos.length) {
+            lista = item.generos.map(function (g) { return String(g).trim(); }).filter(Boolean);
+        } else if (item.genero) {
+            lista = String(item.genero).split(",").map(function (g) { return g.trim(); }).filter(Boolean);
+        } else if (item.imdb && Array.isArray(item.imdb.generos) && item.imdb.generos.length) {
+            lista = item.imdb.generos;
+        } else if (item.tmdb && Array.isArray(item.tmdb.generos) && item.tmdb.generos.length) {
+            lista = item.tmdb.generos;
+        }
+        const seen = {};
+        lista.forEach(function (g) {
+            const k = g.toLowerCase();
+            if (seen[k]) return;
+            seen[k] = true;
+            generosEl.innerHTML += '<span class="genre-tag">' + escapeHtml(g) + "</span>";
+        });
+        if (item.idiomas && item.idiomas.length) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.idiomas.join(", ")) + "</span>";
+        }
+        if (item.calidad && item.calidad.length) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.calidad.join(", ")) + "</span>";
+        }
+    }
+
+    const extra = document.getElementById("details-meta-extra");
+    if (extra) extra.remove();
+}
+
+
 
 
 
@@ -1036,36 +1158,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     }
 
     document.getElementById("details-year").textContent = item.year || "-";
-    (function() {
-        const el = document.getElementById("details-rating");
-        const ri = ratingInfo(item);
-        el.textContent = ri.label;
-        el.title = ri.secondary ? ri.label + " · " + ri.secondary : ri.label;
-        const wrap = el.closest(".meta-item") || el.parentElement;
-        if (wrap) {
-            wrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
-            if (ri.source) wrap.classList.add("rating-src-" + ri.source);
-        }
-        // Extra meta: duración + certificación
-        let extra = document.getElementById("details-meta-extra");
-        if (!extra) {
-            extra = document.createElement("div");
-            extra.id = "details-meta-extra";
-            extra.className = "details-meta-extra";
-            const syn = document.getElementById("details-synopsis");
-            if (syn && syn.parentElement) syn.parentElement.insertBefore(extra, syn);
-        }
-        const bits = [];
-        if (item.duracion_texto || item.duracion) {
-            bits.push(item.duracion_texto || (item.duracion + " min"));
-        }
-        if (item.certificacion) bits.push(item.certificacion);
-        if (item.imdb && item.imdb.votos) bits.push(item.imdb.votos + " votos IMDb");
-        else if (item.votos) bits.push(String(item.votos) + " votos");
-        if (ri.secondary) bits.push(ri.secondary);
-        extra.textContent = bits.join(" · ");
-        extra.style.display = bits.length ? "block" : "none";
-    })();
+    rellenarMetaDetalle(item);
     document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
     const generosEl = document.getElementById("details-genres");
@@ -1167,36 +1260,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
                 document.getElementById("details-title").textContent = item.nombre || "Sin título";
                 document.getElementById("details-year").textContent = item.year || "-";
-                (function() {
-        const el = document.getElementById("details-rating");
-        const ri = ratingInfo(item);
-        el.textContent = ri.label;
-        el.title = ri.secondary ? ri.label + " · " + ri.secondary : ri.label;
-        const wrap = el.closest(".meta-item") || el.parentElement;
-        if (wrap) {
-            wrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
-            if (ri.source) wrap.classList.add("rating-src-" + ri.source);
-        }
-        // Extra meta: duración + certificación
-        let extra = document.getElementById("details-meta-extra");
-        if (!extra) {
-            extra = document.createElement("div");
-            extra.id = "details-meta-extra";
-            extra.className = "details-meta-extra";
-            const syn = document.getElementById("details-synopsis");
-            if (syn && syn.parentElement) syn.parentElement.insertBefore(extra, syn);
-        }
-        const bits = [];
-        if (item.duracion_texto || item.duracion) {
-            bits.push(item.duracion_texto || (item.duracion + " min"));
-        }
-        if (item.certificacion) bits.push(item.certificacion);
-        if (item.imdb && item.imdb.votos) bits.push(item.imdb.votos + " votos IMDb");
-        else if (item.votos) bits.push(String(item.votos) + " votos");
-        if (ri.secondary) bits.push(ri.secondary);
-        extra.textContent = bits.join(" · ");
-        extra.style.display = bits.length ? "block" : "none";
-    })();
+                rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
                 const generosEl2 = document.getElementById("details-genres");
