@@ -2691,3 +2691,56 @@ body.player-open .btn-close-modal {
   gap: 8px;
   width: 100%;
 }
+
+
+/* ===== Rating con fuente (IMDb / TMDB) ===== */
+.rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.rating-badge .rating-main {
+  font-weight: 700;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.rating-badge .rating-secondary {
+  font-size: 0.7em;
+  opacity: 0.85;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rating-badge.rating-src-imdb {
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.95), rgba(230, 180, 20, 0.9));
+  color: #111;
+}
+.rating-badge.rating-src-tmdb {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.95), rgba(0, 140, 180, 0.9));
+  color: #fff;
+}
+.rating-badge.rating-src-omdb {
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.95), rgba(230, 180, 20, 0.9));
+  color: #111;
+}
+.rating-badge.rating-empty {
+  opacity: 0.55;
+}
+.meta-item.rating.rating-src-imdb span#details-rating,
+.meta-item.rating.rating-src-imdb #details-rating,
+.hero-meta-item.rating.rating-src-imdb #hero-rating {
+  color: #f5c518;
+  font-weight: 700;
+}
+.meta-item.rating.rating-src-tmdb span#details-rating,
+.hero-meta-item.rating.rating-src-tmdb #hero-rating {
+  color: #01b4e4;
+  font-weight: 700;
+}
+.details-meta-extra {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 0.35rem 0 0.75rem;
+  letter-spacing: 0.02em;
+}

@@ -24,6 +24,46 @@ const searchInput = document.getElementById("search-input");
 const searchForm = document.getElementById("search-form");
 const statusBadge = document.getElementById("status-badge");
 
+
+/** Rating con fuente: "IMDb 6.7" / "TMDB 8.8" */
+function ratingInfo(item) {
+    if (!item) return { label: "—", value: null, source: null, secondary: null };
+    const imdbR = item.imdb && item.imdb.rating != null ? Number(item.imdb.rating) : null;
+    const tmdbR = item.tmdb && item.tmdb.rating != null ? Number(item.tmdb.rating) : null;
+    const omdbR = item.omdb && item.omdb.rating != null ? Number(item.omdb.rating) : null;
+    const main = item.calificacion != null ? Number(item.calificacion) : null;
+
+    let primary;
+    if (imdbR != null && imdbR > 0) primary = { label: "IMDb " + imdbR.toFixed(1), value: imdbR, source: "imdb" };
+    else if (omdbR != null && omdbR > 0) primary = { label: "IMDb " + omdbR.toFixed(1), value: omdbR, source: "omdb" };
+    else if (tmdbR != null && tmdbR > 0) primary = { label: "TMDB " + tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
+    else if (main != null && main > 0) primary = { label: main.toFixed(1), value: main, source: "fuente" };
+    else primary = { label: "—", value: null, source: null };
+
+    let secondary = null;
+    if (primary.source === "imdb" && tmdbR != null && tmdbR > 0) secondary = "TMDB " + tmdbR.toFixed(1);
+    else if (primary.source === "tmdb" && imdbR != null && imdbR > 0) secondary = "IMDb " + imdbR.toFixed(1);
+    return Object.assign({ secondary: secondary }, primary);
+}
+
+function ratingBadgeHtml(item) {
+    const r = ratingInfo(item);
+    if (!r.value) {
+        return '<div class="rating-badge rating-empty"><ion-icon name="star-outline"></ion-icon> —</div>';
+    }
+    const srcClass = r.source ? (" rating-src-" + r.source) : "";
+    const sec = r.secondary ? ('<span class="rating-secondary">' + escapeHtml(r.secondary) + "</span>") : "";
+    return (
+        '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + (r.secondary ? (" · " + r.secondary) : "") + '">' +
+        '<ion-icon name="star"></ion-icon> ' +
+        '<span class="rating-main">' + escapeHtml(r.label) + "</span> " +
+        sec +
+        "</div>"
+    );
+}
+
+
+
 const resultsGrid = document.getElementById("results-grid");
 const resultsTitle = document.getElementById("results-title");
 const resultsCount = document.getElementById("results-count");
@@ -760,7 +800,7 @@ function crearMediaCard(item) {
     const nombre = item.nombre || "Sin título";
     const tipo = tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
-    const rating = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
+    const rating = ratingInfo(item).label;
     const tieneVideo = item.tiene_player === true || itemTieneVideo(item);
 
     const generoCorto = item.genero
@@ -774,7 +814,7 @@ function crearMediaCard(item) {
         <div class="poster-wrapper">
             <img class="poster-img" src="${escapeHtml(portada)}" alt="${escapeHtml(nombre)}" loading="lazy">
             <div class="poster-overlay"><ion-icon name="play-circle" class="overlay-icon"></ion-icon></div>
-            <div class="rating-badge"><ion-icon name="star"></ion-icon> ${escapeHtml(rating)}</div>
+            ${ratingBadgeHtml(item)}
             <span class="type-badge">${escapeHtml(tipo)}</span>
             <span class="availability-badge ${tieneVideo ? "available" : "unavailable"}">
                 <span class="dot"></span> ${tieneVideo ? "▶ Disponible" : "Sin servidores"}
@@ -829,7 +869,13 @@ function pintarHero(item) {
     if (!item) return;
     heroType.textContent = tipoLabel(item.tipo).toUpperCase() + (item.tipo !== "Serie" && item.tipo !== "Anime" ? " RECOMENDADA" : "");
     heroTitle.textContent = item.nombre || "Sin título";
-    heroRating.textContent = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
+    const heroR = ratingInfo(item);
+    heroRating.textContent = heroR.label;
+    heroRating.title = heroR.secondary ? heroR.label + " · " + heroR.secondary : heroR.label;
+    if (heroRating.parentElement) {
+        heroRating.parentElement.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
+        if (heroR.source) heroRating.parentElement.classList.add("rating-src-" + heroR.source);
+    }
     heroYear.textContent = item.year || "-";
     heroSynopsis.textContent = item.descripcion || "";
     if (item.backdrop || item.portada) {
@@ -990,7 +1036,36 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     }
 
     document.getElementById("details-year").textContent = item.year || "-";
-    document.getElementById("details-rating").textContent = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
+    (function() {
+        const el = document.getElementById("details-rating");
+        const ri = ratingInfo(item);
+        el.textContent = ri.label;
+        el.title = ri.secondary ? ri.label + " · " + ri.secondary : ri.label;
+        const wrap = el.closest(".meta-item") || el.parentElement;
+        if (wrap) {
+            wrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
+            if (ri.source) wrap.classList.add("rating-src-" + ri.source);
+        }
+        // Extra meta: duración + certificación
+        let extra = document.getElementById("details-meta-extra");
+        if (!extra) {
+            extra = document.createElement("div");
+            extra.id = "details-meta-extra";
+            extra.className = "details-meta-extra";
+            const syn = document.getElementById("details-synopsis");
+            if (syn && syn.parentElement) syn.parentElement.insertBefore(extra, syn);
+        }
+        const bits = [];
+        if (item.duracion_texto || item.duracion) {
+            bits.push(item.duracion_texto || (item.duracion + " min"));
+        }
+        if (item.certificacion) bits.push(item.certificacion);
+        if (item.imdb && item.imdb.votos) bits.push(item.imdb.votos + " votos IMDb");
+        else if (item.votos) bits.push(String(item.votos) + " votos");
+        if (ri.secondary) bits.push(ri.secondary);
+        extra.textContent = bits.join(" · ");
+        extra.style.display = bits.length ? "block" : "none";
+    })();
     document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
     const generosEl = document.getElementById("details-genres");
@@ -1092,7 +1167,36 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
                 document.getElementById("details-title").textContent = item.nombre || "Sin título";
                 document.getElementById("details-year").textContent = item.year || "-";
-                document.getElementById("details-rating").textContent = item.calificacion ? Number(item.calificacion).toFixed(1) : "0";
+                (function() {
+        const el = document.getElementById("details-rating");
+        const ri = ratingInfo(item);
+        el.textContent = ri.label;
+        el.title = ri.secondary ? ri.label + " · " + ri.secondary : ri.label;
+        const wrap = el.closest(".meta-item") || el.parentElement;
+        if (wrap) {
+            wrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
+            if (ri.source) wrap.classList.add("rating-src-" + ri.source);
+        }
+        // Extra meta: duración + certificación
+        let extra = document.getElementById("details-meta-extra");
+        if (!extra) {
+            extra = document.createElement("div");
+            extra.id = "details-meta-extra";
+            extra.className = "details-meta-extra";
+            const syn = document.getElementById("details-synopsis");
+            if (syn && syn.parentElement) syn.parentElement.insertBefore(extra, syn);
+        }
+        const bits = [];
+        if (item.duracion_texto || item.duracion) {
+            bits.push(item.duracion_texto || (item.duracion + " min"));
+        }
+        if (item.certificacion) bits.push(item.certificacion);
+        if (item.imdb && item.imdb.votos) bits.push(item.imdb.votos + " votos IMDb");
+        else if (item.votos) bits.push(String(item.votos) + " votos");
+        if (ri.secondary) bits.push(ri.secondary);
+        extra.textContent = bits.join(" · ");
+        extra.style.display = bits.length ? "block" : "none";
+    })();
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
                 const generosEl2 = document.getElementById("details-genres");
