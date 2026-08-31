@@ -1,81 +1,69 @@
-# MovieZone v2 (Vercel + API)
+# MovieZone v2 (Vercel + Worker API)
 
-Proyecto convertido desde el original (scraping) a **API**  
-Fuente: `https://moviezone.tvjz.workers.dev/`
+Frontend + backend Express en **Vercel**.  
+**API de datos (Cloudflare Worker):** [`https://moviezone.tvjz.workers.dev`](https://moviezone.tvjz.workers.dev)  
+Código del Worker: [`r1gox/vimeos-resolver`](https://github.com/r1gox/vimeos-resolver)
 
-## Qué cambió
+## Fuentes del Worker
 
-- ❌ Eliminado todo el scraping (cheerio / Lamovie HTML / Hackstore scrape).
-- ✅ Todos los datos salen de tu Worker API.
-- ✅ **Películas destacadas** y **Película recomendada (hero)** muestran **estrenos** (`/3/peliculas/estrenos`).
-- ✅ Series y anime del home también usan estrenos.
-- ✅ Búsqueda online vía `/search?q=...`.
-- ✅ Detalle / players vía `/{id}/pelicula/{slug}` o `/{id}/serie/{slug}`.
-- ✅ Sigue guardando en **Supabase** (tabla `movies`, upsert por `link`).
-- ✅ Listo para **Vercel**.
+| ID | Fuente |
+|----|--------|
+| 1 | lamovie |
+| 2 | hackstore |
+| 3 | pelisplushd |
+| 4 | animeav1 |
+| 5 | animedbs |
+| 6 | doramasflix |
+
+Búsqueda en cascada (prioridad): animeav1 → animedbs → doramasflix → pelisplushd → lamovie → hackstore.
+
+## Qué consume este repo de la API
+
+- Metadatos de la **fuente primero**; IMDb/TMDB solo rellenan huecos.
+- `calificacion`, `year`, `descripcion` (español), `formato` (TV/OVA/ONA/Especial).
+- Portadas ya resueltas por el Worker (`portada`, `portada_imdb`, `poster_source`).
+- Temporada real en animes (`One Punch Man 3` → temporada 3).
+- `stream_url` HLS en reproductores cuando el Worker lo trae.
+- Fuentes 5 (animedbs) y 6 (doramasflix) en detalle y capítulos.
 
 ## Estructura
 
 ```
-moviezone-vercel/
-├── api/index.js          # Entry serverless Vercel
-├── server.js             # Express (API + estáticos)
-├── public/               # Frontend (igual que antes)
+MovieZone/
+├── api/index.js     # Entry serverless Vercel
+├── server.js        # Express (proxy + mapeo + Supabase)
+├── public/          # Frontend
 ├── package.json
-├── vercel.json
-└── .env.example
+└── vercel.json
 ```
 
-## Variables de entorno (Vercel)
+## Variables de entorno
 
 | Variable | Descripción |
 |----------|-------------|
-| `SUPABASE_URL` | URL del proyecto Supabase |
-| `SUPABASE_KEY` | Key (service role recomendada para upsert) |
+| `SUPABASE_URL` | URL Supabase |
+| `SUPABASE_KEY` | Key (service role para upsert) |
 | `MOVIEZONE_API` | `https://moviezone.tvjz.workers.dev` |
-| `MOVIEZONE_SOURCE` | `3` (pelisplushd) por defecto |
-
-## Deploy en Vercel
-
-1. Sube esta carpeta a un repo GitHub.
-2. Importa en Vercel.
-3. Añade las env vars.
-4. Deploy.
-
-O CLI:
-
-```bash
-npm i -g vercel
-vercel
-```
+| `MOVIEZONE_SOURCE` | Fuente por defecto listados (`3`) |
 
 ## Local
 
 ```bash
-cp .env.example .env
-# edita SUPABASE_*
 npm install
+# export MOVIEZONE_API=https://moviezone.tvjz.workers.dev
 npm start
-# http://localhost:3000
 ```
 
-## Endpoints API (backend)
+## Endpoints Express
 
 | Ruta | Descripción |
 |------|-------------|
 | `GET /api/estrenos?tipo=peliculas\|series\|animes` | Estrenos |
-| `GET /api/catalogo` | Películas (estrenos) |
-| `GET /api/series` | Series (estrenos) |
-| `GET /api/animes` | Animes (estrenos) |
-| `GET /api/buscar?q=...&source=local\|online` | Búsqueda |
-| `GET /api/detalle?link=...&slug=...&source_id=3` | Detalle + players |
-| `GET /api/episodios?slug=...&season=1` | Episodios |
-| `GET /api/capitulo?slug=...&temporada=1&episodio=1` | Players de un capítulo |
-| `GET /api/recien` | Últimos guardados en Supabase |
+| `GET /api/catalogo` | Películas |
+| `GET /api/series` | Series |
+| `GET /api/animes` | Animes |
+| `GET /api/buscar?q=...` | Búsqueda (vía Worker) |
+| `GET /api/detalle?...` | Detalle + players |
+| `GET /api/episodios?...` | Episodios |
+| `GET /api/capitulo?...` | Players de un capítulo |
 | `GET /api/health` | Estado |
-
-## Notas
-
-- El formato de items es compatible con el frontend original (`nombre`, `portada`, `embeds`, `link`, etc.).
-- Si Supabase no está configurado, la app igual funciona (solo no persiste).
-- En Vercel cada request es serverless; la memoria `moviesDB` se recarga desde Supabase al cold start.

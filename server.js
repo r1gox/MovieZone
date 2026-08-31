@@ -1,6 +1,8 @@
 /**
  * MOVIEZONE v2 — Backend sin scraping
- * Fuente de datos: https://moviezone.tvjz.workers.dev/ (1=lamovie 2=hackstore 3=pelisplushd 4=animeav1)
+ * Fuente de datos: https://moviezone.tvjz.workers.dev/
+ * Fuentes Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=animedbs 6=doramasflix
+ * Meta: la fuente manda; IMDb/TMDB solo rellenan huecos (calificacion, year, descripcion, portada)
  * Persistencia: Supabase (misma tabla "movies")
  * Listo para Vercel (serverless) y Node local.
  */
@@ -54,7 +56,26 @@ function getSupabase() {
 const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
+// Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=animedbs 6=doramasflix
 const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
+
+/** Normaliza nombre de fuente o id numérico → "1"…"6" */
+function resolverSourceId(val) {
+  if (val == null || val === "") return DEFAULT_SOURCE;
+  const s = String(val).toLowerCase().trim();
+  if (/^[1-6]$/.test(s)) return s;
+  const map = {
+    lamovie: "1",
+    hackstore: "2",
+    pelisplushd: "3",
+    pelisplus: "3",
+    animeav1: "4",
+    animedbs: "5",
+    doramasflix: "6",
+    doramaflix: "6",
+  };
+  return map[s] || DEFAULT_SOURCE;
+}
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -96,7 +117,9 @@ function filtrarSinReproductor(lista) {
       if (item.temporadas && item.temporadas.length) return true;
       // Listado de búsqueda de animeav1 solo trae slug: se permite si source_id 4 y slug
       // pero se oculta si ya está en DB marcado sin player y sin episodios
-      if (item.source_id === "4" || item.fuente === "animeav1") {
+      const sid = resolverSourceId(item.source_id || item.fuente);
+      // animeav1 / animedbs / doramasflix: listado con slug basta
+      if (["4", "5", "6"].includes(sid)) {
         if (item.tiene_player === false) return false;
         return !!(item.slug || item.link);
       }
@@ -899,50 +922,62 @@ function mapListItem(r) {
   const titulo = limpiarTitulo(r.titulo || r.title || r.nombre || r.titulo_tmdb || "Sin título");
   const tipo = normalizarTipo(r.tipo || r.type);
   const slug = r.slug || null;
-  const sourceId = String(r.source_id || r.fuente || DEFAULT_SOURCE);
+  // API Worker ya manda source_id numérico o nombre de fuente
+  const sourceId = resolverSourceId(r.source_id || r.fuente);
+  // Año de la fuente primero (API ya prioriza ficha sobre IMDb)
   const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
-  // Mejor portada: TMDB / fuente / fallback pelisplus por slug
+  // Portada: la API ya eligió (fuente → IMDb → TMDB). Preferir r.portada
   let portada = elegirPortada(
-    r.portada_tmdb || r.tmdb_poster || null,
     r.portada || r.poster || r.cover || null,
-    String(r.source_id || r.fuente || "")
+    r.portada_imdb || r.portada_tmdb || r.tmdb_poster || null,
+    sourceId
   );
-  if (!esPortadaValida(portada) && r.slug) {
+  // Fallback pelisplus solo si source es 3 y no hay portada
+  if (!esPortadaValida(portada) && r.slug && sourceId === "3") {
     const slugClean = String(r.slug).toLowerCase().replace(/-\d{4}$/, "");
     portada = `https://www.pelisplushd.la/poster/${slugClean}.jpg`;
   }
   const kindPath =
     tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
   const link =
+    r.url_extract ||
     r.link ||
     r.url ||
-    (r.url_extract
-      ? r.url_extract
-      : slug
-        ? `${API_BASE}/${sourceId}/${kindPath}/${slug}`
-        : null);
+    (slug ? `${API_BASE}/${sourceId}/${kindPath}/${slug}` : null);
 
   const genero = extraerGenero(r) || (Array.isArray(r.generos) ? r.generos.join(", ") : null);
+  // Descripción: la API prioriza español de la fuente
   const descripcion = limpiarDescripcion(r.descripcion || r.overview_tmdb || r.tmdb_overview || "", titulo);
+  let calificacion = r.calificacion != null ? r.calificacion : (r.rating || r.tmdb_rating || null);
+  if (calificacion != null && calificacion !== "") {
+    const n = Number(String(calificacion).replace(",", "."));
+    calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
+  } else {
+    calificacion = null;
+  }
 
   return {
     id: r.postId || r.id || r.tmdb_id || `${sourceId}-${slug || titulo}`,
     postId: r.postId || null,
     tmdb_id: r.tmdb_id || null,
+    imdb_id: r.imdb_id || null,
     nombre: titulo,
     titulo_original: r.titulo_original || r.original_title || null,
     slug,
     tipo,
+    formato: r.formato || null,
     descripcion,
     portada,
     portada_tmdb: r.portada_tmdb || null,
+    portada_imdb: r.portada_imdb || null,
+    poster_source: r.poster_source || null,
     backdrop: r.backdrop || null,
     year,
     genero,
     generos: Array.isArray(r.generos) ? r.generos : (genero ? genero.split(",").map((g) => g.trim()) : []),
     idiomas: r.idiomas || [],
     calidad: r.calidad || [],
-    calificacion: r.calificacion || r.rating || r.tmdb_rating || null,
+    calificacion,
     calificacion_comunidad: null,
     votos: r.votos || null,
     fecha_estreno: r.fecha_estreno || r.release_date || r.tmdb_release_date || null,
@@ -953,6 +988,8 @@ function mapListItem(r) {
     link,
     url_extract: r.url_extract || link,
     source_id: sourceId,
+    fuente: r.fuente || null,
+    temporada: r.temporada != null ? Number(r.temporada) : null,
     reproductor: null,
     downloads: [],
     embeds: [],
@@ -967,11 +1004,11 @@ function mapListItem(r) {
 function mapDetail(data, fallback = {}) {
   const titulo = limpiarTitulo(data.titulo || data.title || fallback.nombre || "Sin título");
   const tipo = normalizarTipo(data.tipo || fallback.tipo);
-  const sourceId = String(data.source_id || fallback.source_id || DEFAULT_SOURCE);
+  const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
   const slug = data.slug || fallback.slug || null;
   const embedsArr = mapEmbeds(data.reproductores && data.reproductores.length ? data.reproductores : data.embeds);
-  // Primer reproductor = el de vimeos si existe (mapEmbeds ya los ordena primero)
-  const reproductor = embedsArr[0]?.url || data.reproductor || null;
+  // Preferir stream_url HLS si el Worker lo trajo
+  const reproductor = embedsArr[0]?.stream_url || embedsArr[0]?.url || data.reproductor || null;
 
   // Descargas con idioma / calidad
   let downloadsRaw = data.descargas || data.downloads || [];
@@ -1002,48 +1039,65 @@ function mapDetail(data, fallback = {}) {
     for (const temp of data.temporadas) {
       const eps = temp.episodios || temp.episodes || [];
       for (const ep of eps) {
+        // temporada real de la API (ej. One Punch Man 3 → T3, no forzar 1)
+        const seasonNum = Number(ep.temporada || temp.temporada || data.temporada_principal || 1) || 1;
+        const epNum = Number(ep.episodio || ep.episode || 1) || 1;
+        const epEmbeds = mapEmbeds(ep.reproductores || ep.embeds || []);
         episodios.push({
-          id: `${slug}-t${ep.temporada || temp.temporada}-e${ep.episodio || ep.episode}`,
-          nombre: ep.titulo || `T${ep.temporada || temp.temporada}E${String(ep.episodio || ep.episode).padStart(2, "0")}`,
-          season: Number(ep.temporada || temp.temporada || 1),
-          episode: Number(ep.episodio || ep.episode || 1),
-          video: ep.reproductor || null,
-          embeds: mapEmbeds(ep.reproductores || ep.embeds || []),
+          id: `${slug}-t${seasonNum}-e${epNum}`,
+          nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
+          season: seasonNum,
+          episode: epNum,
+          video: epEmbeds[0]?.stream_url || epEmbeds[0]?.url || ep.reproductor || null,
+          embeds: epEmbeds,
           downloads: ep.descargas || [],
           soloTrailer: false,
           url_video: ep.url_video || ep.link || null,
           source_id: sourceId,
           slug_media: ep.slug_media || temp.slug_media || null,
+          formato: ep.formato || temp.formato || data.formato || null,
         });
       }
     }
+  }
+
+  let calificacion = data.calificacion != null ? data.calificacion : (data.rating || fallback.calificacion || null);
+  if (calificacion != null && calificacion !== "") {
+    const n = Number(String(calificacion).replace(",", "."));
+    calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
+  } else {
+    calificacion = null;
   }
 
   return {
     id: data.postId || fallback.postId || fallback.id || `${sourceId}-${slug || titulo}`,
     postId: data.postId || fallback.postId || null,
     nombre: titulo,
-    titulo_original: data.titulo_original || null,
+    titulo_original: data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
-    tipo: tipo === "Capitulo" ? "Serie" : tipo,
+    tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
+    formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
+    // Portada: la de la API (fuente/IMDb) primero
     portada: elegirPortada(
-      data.portada_tmdb || data.tmdb_poster || null,
       data.portada || fallback.portada || null,
-      String(data.source_id || fallback.source_id || "")
+      data.portada_imdb || data.portada_tmdb || data.tmdb_poster || null,
+      sourceId
     ),
     portada_tmdb: data.portada_tmdb || null,
+    portada_imdb: data.portada_imdb || null,
+    poster_source: data.poster_source || null,
     backdrop: data.backdrop || fallback.backdrop || null,
     year: extraerAnio(titulo, data.year || data.fecha_estreno || fallback.year),
     genero: extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null),
     generos: Array.isArray(data.generos) ? data.generos : [],
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
-    calificacion: data.calificacion || data.rating || null,
+    calificacion,
     tmdb_id: data.tmdb_id || fallback.tmdb_id || null,
-    titulo_original: data.titulo_original || data.original_title || fallback.titulo_original || null,
+    imdb_id: data.imdb_id || fallback.imdb_id || null,
     calificacion_comunidad: null,
-    votos: null,
+    votos: data.votos || null,
     fecha_estreno: data.fecha_estreno || null,
     duracion: data.duracion || null,
     certificacion: null,
@@ -1051,6 +1105,8 @@ function mapDetail(data, fallback = {}) {
     ultimo_episodio: data.ultimo_episodio || null,
     link: data.link || fallback.link || null,
     source_id: sourceId,
+    fuente: data.fuente || fallback.fuente || null,
+    temporada_principal: data.temporada_principal || null,
     reproductor,
     embeds: embedsArr,
     downloads: downloadsMapped.length ? downloadsMapped : (data.descargas || data.downloads || []),
@@ -1360,7 +1416,8 @@ async function buscarOnline(termino, page = 1, limit = 48) {
   const q = encodeURIComponent(qRaw);
   if (!q) return { resultados: [], total: 0, page, limit, source: "online" };
 
-  // Buscar en API general + fuente 4 (animeav1 suele tener el slug JP)
+  // Worker ya hace cascada (animeav1 → animedbs → doramasflix → pelisplus → …)
+  // No forzar fusión entre fuentes: la API elige la primera con resultados
   let raw = [];
   try {
     const data = await apiGet(`/search?q=${q}`);
@@ -1368,16 +1425,22 @@ async function buscarOnline(termino, page = 1, limit = 48) {
   } catch (err) {
     console.warn("search principal:", err.message);
   }
-  try {
-    const data4 = await apiGet(`/search?q=${q}&source=4`);
-    const extra = Array.isArray(data4?.resultados) ? data4.resultados : [];
-    raw = raw.concat(extra);
-  } catch (_) {}
-  // Segunda pasada si casi vacío: variaciones
+  // Si vacío, probar fuentes concretas (anime / dorama)
+  if (raw.length === 0) {
+    for (const src of ["4", "6", "5", "3"]) {
+      try {
+        const dataS = await apiGet(`/search?q=${q}&source=${src}`);
+        const extra = Array.isArray(dataS?.resultados) ? dataS.resultados : [];
+        if (extra.length) { raw = extra; break; }
+      } catch (_) {}
+    }
+  }
   if (raw.length < 2) {
     try {
       const data2 = await apiGet(`/search?q=${encodeURIComponent(qRaw + " anime")}`);
-      raw = raw.concat(Array.isArray(data2?.resultados) ? data2.resultados : []);
+      const extra2 = Array.isArray(data2?.resultados) ? data2.resultados : [];
+      if (extra2.length && raw.length === 0) raw = extra2;
+      else raw = raw.concat(extra2);
     } catch (_) {}
   }
 
@@ -1677,7 +1740,10 @@ async function obtenerDetalle(params) {
 
   // Anime: SIEMPRE empezar por fuente 4; también probar slug sin año
   // (wistoria-wand-and-sword-2024 en src2 = 10eps/1temp; sin año en src4 = 24eps/2temps)
-  const sourcesToTry = esAnimeKind ? ["4"] : [String(id.sourceId)];
+  // Anime: animeav1 → animedbs; Serie/dorama: fuente pedida + doramasflix + pelisplus
+  const sourcesToTry = esAnimeKind
+    ? ["4", "5"]
+    : [resolverSourceId(id.sourceId), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
   const ordenFuentes = esAnimeKind ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
   for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
@@ -1976,9 +2042,9 @@ function mergeEmbedLists(...lists) {
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie", serieCtx = null) {
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
   const sources = [String(sourceId || DEFAULT_SOURCE)];
-  // Juntar players de TODAS las fuentes (1 lamovie, 2 hackstore, 3 pelisplus, 4 animeav1)
+  // Juntar players de todas las fuentes del Worker (1–6)
   const ordenCap =
-    kind === "anime" ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+    kind === "anime" ? ["4", "5", "3", "1", "2"] : ["6", "3", "1", "2", "4", "5"];
   for (const s of ordenCap) {
     if (!sources.includes(s)) sources.push(s);
   }
@@ -2279,7 +2345,7 @@ app.get("/api/episodios", async (req, res) => {
     const slug = req.query.slug || null;
     const tipo = req.query.tipo || "Serie";
     const isAnime = tipo === "Anime" || /anime/i.test(String(tipo));
-    // Anime → preferir fuente 4 (animeav1)
+    // Anime → preferir fuente 4 (animeav1); doramas → 6
     const source_id = req.query.source_id || (isAnime ? "4" : DEFAULT_SOURCE);
     const loadPlayers = req.query.players === "1";
     const epFrom = parseInt(req.query.ep_from, 10) || null;
@@ -2288,7 +2354,7 @@ app.get("/api/episodios", async (req, res) => {
     let item = null;
     try {
       // Si piden rango (animeav1), ir directo a esa fuente con ep_from/ep_to
-      if (isAnime && slug && (epFrom || epTo || String(source_id) === "4")) {
+      if (isAnime && slug && (epFrom || epTo || ["4", "5"].includes(String(resolverSourceId(source_id))))) {
         const from = epFrom || 1;
         const to = epTo || (epFrom ? epFrom + 99 : 100);
         item = await fetchDetailFromSource("4", "anime", slug, {
@@ -2368,7 +2434,7 @@ app.get("/api/episodios", async (req, res) => {
       try {
         const epNum = eps[0].episode || 1;
         // Anime: preferir fuente 4 para players
-        const sidPlayers = id.kind === "anime" ? "4" : id.sourceId;
+        const sidPlayers = id.kind === "anime" ? "4" : resolverSourceId(id.sourceId);
         const det = await obtenerEpisodio(sidPlayers, id.slug, season, epNum, id.kind, item);
         if (det.embeds?.length) {
           eps[0].embeds = det.embeds;
