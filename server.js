@@ -964,24 +964,20 @@ function extraerMetaFuentes(r) {
 
 /** Resultado de listado / search → item ligero (API v2 con TMDB) */
 function mapListItem(r) {
-  const titulo = limpiarTitulo(r.titulo || r.title || r.nombre || r.titulo_tmdb || "Sin título");
-  const tipo = normalizarTipo(r.tipo || r.type);
-  const slug = r.slug || null;
-  // API Worker ya manda source_id numérico o nombre de fuente
+  if (!r || typeof r !== "object") return null;
+  // Datos tal cual los manda la API Worker (no inventar ni mezclar)
+  const titulo = String(r.titulo || r.title || r.nombre || "").trim() || "Sin título";
+  const tipoRaw = String(r.tipo || r.type || "Pelicula");
+  const tipo = /anime/i.test(tipoRaw)
+    ? "Anime"
+    : /serie|tv/i.test(tipoRaw)
+      ? "Serie"
+      : "Película";
+  const slug = r.slug ? String(r.slug) : null;
   const sourceId = resolverSourceId(r.source_id || r.fuente);
-  // Año de la fuente primero (API ya prioriza ficha sobre IMDb)
-  const year = extraerAnio(titulo, r.year || (r.fecha_estreno || "").slice(0, 4));
-  // Portada: la API ya eligió (fuente → IMDb → TMDB). Preferir r.portada
-  let portada = elegirPortada(
-    r.portada || r.poster || r.cover || null,
-    r.portada_imdb || r.portada_tmdb || r.tmdb_poster || null,
-    sourceId
-  );
-  // Fallback pelisplus solo si source es 3 y no hay portada
-  if (!esPortadaValida(portada) && r.slug && sourceId === "3") {
-    const slugClean = String(r.slug).toLowerCase().replace(/-\d{4}$/, "");
-    portada = `https://www.pelisplushd.la/poster/${slugClean}.jpg`;
-  }
+  const year = r.year
+    ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
+    : null;
   const kindPath =
     tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
   const link =
@@ -990,10 +986,21 @@ function mapListItem(r) {
     r.url ||
     (slug ? `${API_BASE}/${sourceId}/${kindPath}/${slug}` : null);
 
-  const genero = extraerGenero(r) || (Array.isArray(r.generos) ? r.generos.join(", ") : null);
-  // Descripción: la API prioriza español de la fuente
-  const descripcion = limpiarDescripcion(r.descripcion || r.overview_tmdb || r.tmdb_overview || "", titulo);
-  let calificacion = r.rating != null ? r.rating : (r.calificacion != null ? r.calificacion : (r.tmdb_rating != null ? r.tmdb_rating : null));
+  const generos = Array.isArray(r.generos)
+    ? r.generos
+    : r.genero
+      ? String(r.genero).split(",").map((g) => g.trim()).filter(Boolean)
+      : [];
+  const genero = generos.length ? generos.join(", ") : r.genero || null;
+
+  let calificacion =
+    r.rating != null
+      ? r.rating
+      : r.calificacion != null
+        ? r.calificacion
+        : r.imdb && r.imdb.rating != null
+          ? r.imdb.rating
+          : null;
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
     calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
@@ -1001,67 +1008,58 @@ function mapListItem(r) {
     calificacion = null;
   }
 
-  const metaF = extraerMetaFuentes(r);
-  if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
-    calificacion = Math.round(Number(metaF.imdb.rating) * 10) / 10;
-  } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
-    calificacion = Math.round(Number(metaF.omdb.rating) * 10) / 10;
-  }
-  if (metaF.imdb.portada && (!portada || !esPortadaValida(portada))) portada = metaF.imdb.portada;
-  else if (metaF.tmdb.portada && (!portada || !esPortadaValida(portada))) portada = metaF.tmdb.portada;
+  const portada =
+    r.portada ||
+    (r.imdb && r.imdb.portada) ||
+    (r.tmdb && r.tmdb.portada) ||
+    r.portada_imdb ||
+    r.portada_tmdb ||
+    null;
 
   return {
-    id: r.postId || r.id || r.tmdb_id || metaF.tmdb.id || `${sourceId}-${slug || titulo}`,
+    id: r.postId || r.id || r.tmdb_id || r.imdb_id || `${sourceId}-${slug || titulo}`,
     postId: r.postId || null,
-    tmdb_id: r.tmdb_id || metaF.tmdb.id || null,
-    imdb_id: r.imdb_id || metaF.imdb.id || null,
+    tmdb_id: r.tmdb_id || (r.tmdb && r.tmdb.id) || null,
+    imdb_id: r.imdb_id || (r.imdb && r.imdb.id) || null,
     nombre: titulo,
-    titulo_original: r.titulo_original || r.original_title || metaF.tmdb.titulo || null,
+    titulo: titulo,
+    titulo_original: r.titulo_original || (r.tmdb && r.tmdb.titulo) || null,
     slug,
     tipo,
-    formato: r.formato || null,
-    descripcion,
+    descripcion: r.descripcion || null,
     portada,
-    portada_tmdb: r.portada_tmdb || metaF.tmdb.portada || null,
-    portada_imdb: r.portada_imdb || metaF.imdb.portada || null,
-    poster_source: r.poster_source || null,
-    backdrop: r.backdrop || metaF.tmdb.backdrop || null,
+    backdrop: r.backdrop || (r.tmdb && r.tmdb.backdrop) || null,
     year,
     genero,
-    generos: Array.isArray(r.generos) ? r.generos : (genero ? genero.split(",").map((g) => g.trim()) : []),
-    idiomas: r.idiomas || [],
-    calidad: r.calidad || [],
+    generos,
     calificacion,
-    calificacion_comunidad: null,
-    votos: r.votos || metaF.imdb.votos || null,
-    fecha_estreno: r.fecha_estreno || r.release_date || r.tmdb_release_date || null,
-    duracion: r.duracion || r.runtime || metaF.imdb.duracion || metaF.tmdb.duracion || null,
-    duracion_texto: r.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
-    certificacion: r.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
-    imdb: Object.keys(metaF.imdb).length ? metaF.imdb : null,
-    tmdb: Object.keys(metaF.tmdb).length ? metaF.tmdb : null,
-    omdb: Object.keys(metaF.omdb).length ? metaF.omdb : null,
-    paises: [],
-    ultimo_episodio: null,
+    rating: r.rating != null ? r.rating : calificacion,
+    votos: r.votos || (r.imdb && r.imdb.votos) || null,
+    fecha_estreno: r.fecha_estreno || null,
+    duracion: r.duracion || (r.imdb && r.imdb.duracion) || null,
+    duracion_texto:
+      r.duracion_texto || (r.imdb && r.imdb.duracion_texto) || null,
+    certificacion:
+      r.certificacion || (r.imdb && r.imdb.certificacion) || null,
+    imdb: r.imdb || null,
+    tmdb: r.tmdb || null,
+    omdb: r.omdb || null,
     link,
     url_extract: r.url_extract || link,
     source_id: sourceId,
     fuente: r.fuente || null,
-    temporada: r.temporada != null ? Number(r.temporada) : null,
-    reproductor: null,
-    downloads: [],
+    tiene_player: false,
     embeds: [],
-    soloTrailer: false,
+    downloads: [],
     episodios: [],
     temporadas: [],
-    tiene_player: false,
   };
 }
 
 /** Detalle de película / serie / capítulo → item completo */
 function mapDetail(data, fallback = {}) {
-  const titulo = limpiarTitulo(data.titulo || data.title || fallback.nombre || "Sin título");
-  const tipo = normalizarTipo(data.tipo || fallback.tipo);
+  const titulo = String(data.titulo || data.title || data.nombre || fallback.nombre || fallback.titulo || "Sin título").trim();
+  const tipo = normalizarTipo(data.tipo || data.type || fallback.tipo);
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
   const slug = data.slug || fallback.slug || null;
   const embedsArr = mapEmbeds(data.reproductores && data.reproductores.length ? data.reproductores : data.embeds);
@@ -1443,82 +1441,30 @@ function pickBestSearchItem(a, b) {
  * Mantiene aparte: obra base ≠ spin-off piece
  */
 function dedupeSearchResults(lista) {
-  const map = new Map();
-  for (const item of lista || []) {
-    if (!item) continue;
-    item.nombre = limpiarTitulo(item.nombre || item.titulo || item.nombre);
-    const key = searchDedupeKey(item);
-    const prev = map.get(key);
-    if (!prev) {
-      map.set(key, item);
-      continue;
-    }
-    map.set(key, pickBestSearchItem(prev, item));
-  }
-  let out = Array.from(map.values());
-  // Segunda pasada: títulos casi iguales (misma obra, slug distinto)
-  const map2 = new Map();
-  for (const item of out) {
-    const t = normalizeTitleKey(item.nombre || "");
-    const tipo = String(item.tipo || "").toLowerCase().replace(/[íÍ]/g, "i");
-    let year = String(item.year || "").slice(0, 4);
-    if (!year) {
-      const m = t.match(/\b((?:19|20)\d{2})\b/);
-      if (m) year = m[1];
-    }
-    const tClean = t.replace(/\b(?:19|20)\d{2}\b/g, "").replace(/\s+/g, " ").trim();
-    // Clave suave: tipo + título sin año (+ año si peli)
-    const soft = /pelicul/.test(tipo)
-      ? `soft:peli:${tClean}:${year || ""}`
-      : /anime|serie/.test(tipo)
-        ? (esSpinoffOFilmSlug(item.slug, item.nombre)
-            ? `soft:film:${tClean}`
-            : `soft:show:${tClean}`)
-        : `soft:${tipo}:${tClean}:${year || ""}`;
-    const prev = map2.get(soft);
-    if (!prev) map2.set(soft, item);
-    else map2.set(soft, pickBestSearchItem(prev, item));
-  }
-  return Array.from(map2.values());
+  // Sin dedupe: la API ya devuelve resultados correctos
+  return Array.isArray(lista) ? lista.slice() : [];
 }
 
 async function buscarOnline(termino, page = 1, limit = 48) {
-  // No bloquear la búsqueda si Supabase tarda; enriquecer después
-  ensureMoviesDB().catch(() => {});
   const qRaw = String(termino || "").trim();
-  const q = encodeURIComponent(qRaw);
-  if (!q) return { resultados: [], total: 0, page, limit, source: "online" };
+  if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
 
-  // Worker ya hace cascada (animeav1 → animedbs → doramasflix → pelisplus → …)
-  // No forzar fusión entre fuentes: la API elige la primera con resultados
   let raw = [];
   try {
-    const data = await apiGet(`/search?q=${q}`);
+    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}`);
     raw = Array.isArray(data?.resultados) ? data.resultados : [];
   } catch (err) {
-    console.warn("search principal:", err.message);
+    console.warn("search:", err.message);
   }
-  // Si vacío, probar fuentes concretas (anime / dorama)
-  if (raw.length === 0) {
-    for (const src of ["4", "6", "5", "3"]) {
-      try {
-        const dataS = await apiGet(`/search?q=${q}&source=${src}`);
-        const extra = Array.isArray(dataS?.resultados) ? dataS.resultados : [];
-        if (extra.length) { raw = extra; break; }
-      } catch (_) {}
-    }
-  }
-  if (raw.length < 2) {
+  // Si vacío, una sola fuente de respaldo
+  if (!raw.length) {
     try {
-      const data2 = await apiGet(`/search?q=${encodeURIComponent(qRaw + " anime")}`);
-      const extra2 = Array.isArray(data2?.resultados) ? data2.resultados : [];
-      if (extra2.length && raw.length === 0) raw = extra2;
-      else raw = raw.concat(extra2);
+      const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3`);
+      raw = Array.isArray(dataS?.resultados) ? dataS.resultados : [];
     } catch (_) {}
   }
 
-  // Mapear TODOS los resultados (no descartar por falta de players)
-  let lista = raw
+  const lista = raw
     .map((r) => {
       try {
         return mapListItem(r);
@@ -1528,138 +1474,22 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     })
     .filter((item) => item && (item.slug || item.link || item.url_extract));
 
-  // Deduplicar solo clones entre fuentes (mismo slug / mismo título)
-  lista = dedupeSearchResults(lista);
+  // Paginación simple
+  const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 100);
+  const p = Math.max(parseInt(page, 10) || 1, 1);
+  const startIdx = (p - 1) * lim;
+  const pageLista = lista.slice(startIdx, startIdx + lim);
 
-  // Enriquecer con Supabase (portada, tiene_player…) sin eliminar filas
-  lista = lista.map((item) => {
-    const local =
-      moviesDB.find(
-        (m) =>
-          (item.link && m.link === item.link) ||
-          (item.slug && m.slug === item.slug) ||
-          (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
-            String(m.tipo || "") === String(item.tipo || ""))
-      ) || null;
-    if (!local || esDescartado(local)) return item;
-    return mergeItems(item, {
-      tiene_player: local.tiene_player,
-      embeds: local.embeds,
-      reproductor: local.reproductor,
-      // API (español) gana sobre caché inglesa de Supabase
-      descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
-      calificacion: item.calificacion || local.calificacion,
-      year: item.year || local.year,
-      portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
-      downloads: local.downloads,
-      episodios: local.episodios,
-      total_episodios: local.total_episodios || item.total_episodios,
-      source_id: item.source_id || local.source_id,
-    });
-  });
-
-  // Segunda pasada dedupe por si el merge unificó links
-  lista = dedupeSearchResults(lista);
-
-  // Orden: relevancia al query → portada → score
-  lista.sort((a, b) => {
-    const ra = scoreSearchRelevance(a, termino);
-    const rb = scoreSearchRelevance(b, termino);
-    if (ra !== rb) return rb - ra;
-    const aPort = esPortadaValida(a.portada) ? 1 : 0;
-    const bPort = esPortadaValida(b.portada) ? 1 : 0;
-    if (aPort !== bPort) return bPort - aPort;
-    return scoreItem(b) - scoreItem(a);
-  });
-
-  const total = lista.length;
-  const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 80);
-  const start = (Math.max(parseInt(page, 10) || 1, 1) - 1) * lim;
-  const pageLista = lista.slice(start, start + lim);
-
-  // Guardar en background solo metadatos (no bloquea la respuesta)
-  guardarEnSupabase(pageLista).catch(() => {});
-
-  return { resultados: pageLista, total, page: parseInt(page, 10) || 1, limit: lim, source: "online" };
+  return {
+    resultados: pageLista,
+    total: lista.length,
+    page: p,
+    limit: lim,
+    source: "online",
+  };
 }
 
-function buscarLocal(termino, type = null, page = 1, limit = 28) {
-  const qNorm = normalizeTitleKey(termino);
-  const tokens = qNorm.split(/\s+/).filter((t) => t.length > 1);
-  let lista = moviesDB.filter((m) => {
-    if (esDescartado(m)) return false;
-    const nombre = normalizeTitleKey(m.nombre || "");
-    const slug = String(m.slug || "").toLowerCase().replace(/-/g, " ");
-    const okTipo =
-      !type ||
-      (type === "movie" && (m.tipo === "Película" || !m.tipo)) ||
-      (type === "series" && m.tipo === "Serie") ||
-      (type === "anime" && m.tipo === "Anime") ||
-      (type === "peliculas" && (m.tipo === "Película" || !m.tipo));
-    if (!okTipo) return false;
-    if (nombre.includes(qNorm) || qNorm.includes(nombre)) return true;
-    if (tokens.length && tokens.every((t) => nombre.includes(t) || slug.includes(t))) return true;
-    if (tokens.some((t) => t.length > 3 && (nombre.includes(t) || slug.includes(t)))) return true;
-    return false;
-  });
-  lista = dedupeSearchResults(lista);
-  lista.sort((a, b) => scoreSearchRelevance(b, termino) - scoreSearchRelevance(a, termino));
-  const total = lista.length;
-  const start = (page - 1) * limit;
-  lista = lista.slice(start, start + limit);
-  return { resultados: lista, total, page, limit, source: "local" };
-}
 
-/**
- * Resolver slug + source desde link o url_extract
- * Ej: https://moviezone.tvjz.workers.dev/3/pelicula/yellow-mirror
- *     https://www.pelisplushd.la/pelicula/yellow-mirror/
- */
-function parseIdentidad(itemOrLink) {
-  const link = typeof itemOrLink === "string" ? itemOrLink : itemOrLink?.link || itemOrLink?.url_extract || "";
-  const sourceFromItem = typeof itemOrLink === "object" ? itemOrLink.source_id : null;
-  const slugFromItem = typeof itemOrLink === "object" ? itemOrLink.slug : null;
-  const tipoFromItem = typeof itemOrLink === "object" ? itemOrLink.tipo : null;
-
-  // API extract URL (1-4)
-  let m = link.match(/\/(\d)\/(pelicula|serie|anime)\/([^/?#]+)/i);
-  if (m) {
-    return { sourceId: m[1], kind: m[2].toLowerCase(), slug: m[3] };
-  }
-  // AnimeAV1
-  m = link.match(/animeav1\.com\/media\/([^/?#]+)/i);
-  if (m) {
-    return { sourceId: "4", kind: "anime", slug: m[1] };
-  }
-  // Sitio origen
-  m = link.match(/\/(pelicula|serie|anime|peliculas|series|animes)\/([^/?#]+)/i);
-  if (m) {
-    let kind = m[1].toLowerCase();
-    if (kind === "peliculas") kind = "pelicula";
-    if (kind === "series") kind = "serie";
-    if (kind === "animes") kind = "anime";
-    return {
-      sourceId: String(sourceFromItem || DEFAULT_SOURCE),
-      kind,
-      slug: m[2],
-    };
-  }
-  if (slugFromItem) {
-    const kind =
-      tipoFromItem === "Serie" || tipoFromItem === "Anime"
-        ? tipoFromItem === "Anime"
-          ? "anime"
-          : "serie"
-        : "pelicula";
-    return { sourceId: String(sourceFromItem || DEFAULT_SOURCE), kind, slug: slugFromItem };
-  }
-  return null;
-}
-
-/**
- * Anime en cache: consultar fuente 4 para actualizar total_episodios / temporadas / rangos
- * (One Piece 1125→1175, Wistoria 1 temp→2 temps). No re-scrapea todos los players.
- */
 async function refreshAnimeMetaFromSource4(cached, id) {
   if (!cached) return null;
   const baseSlug = String(id?.slug || cached.slug || "")

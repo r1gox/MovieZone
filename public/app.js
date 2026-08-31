@@ -920,7 +920,7 @@ function crearMediaCard(item) {
     card.className = "media-card";
 
     const portada = item.portada || PLACEHOLDER;
-    const nombre = item.nombre || "Sin título";
+    const nombre = item.nombre || item.titulo || "Sin título";
     const tipo = tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
     const rating = ratingInfo(item).label;
@@ -991,7 +991,7 @@ function renderCarousel(contenedorId, lista) {
 function pintarHero(item) {
     if (!item) return;
     heroType.textContent = tipoLabel(item.tipo).toUpperCase() + (item.tipo !== "Serie" && item.tipo !== "Anime" ? " RECOMENDADA" : "");
-    heroTitle.textContent = item.nombre || "Sin título";
+    heroTitle.textContent = item.nombre || item.titulo || "Sin título";
     const heroR = ratingInfo(item);
     heroRating.textContent = heroR.label;
     heroRating.title = heroR.secondary ? heroR.label + " · " + heroR.secondary : heroR.label;
@@ -1138,6 +1138,13 @@ const playerTitle = document.getElementById("player-title");
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
+    // Preferir título legible de la API (nunca mostrar slug como título)
+    if (item) {
+        if (item.titulo && String(item.titulo).trim()) item.nombre = String(item.titulo).trim();
+        else if (item.nombre && /-/.test(item.nombre) && item.nombre === item.slug) {
+            item.nombre = String(item.nombre).replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+        }
+    }
     seleccionActual = item;
 
     detailsEmpty.classList.add("hidden");
@@ -1148,7 +1155,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     // Pintar lo que ya tenemos
     document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
-    document.getElementById("details-title").textContent = item.nombre || "Sin título";
+    document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
@@ -1269,7 +1276,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
                 // Repintar metadatos que ahora sí vienen (descripción, rating, portada…)
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
-                document.getElementById("details-title").textContent = item.nombre || "Sin título";
+                document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 document.getElementById("details-year").textContent = item.year || "-";
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
