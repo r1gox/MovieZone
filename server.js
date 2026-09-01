@@ -379,18 +379,87 @@ async function guardarEnSupabase(items) {
   }
   if (!paraInsertar.length) return;
 
+  // Campos seguros (evita fallo si la tabla no tiene columnas nuevas)
+  function rowSafe(row) {
+    const {
+      link, nombre, titulo_original, portada, backdrop, descripcion, year, genero, tipo,
+      idiomas, calidad, paises, calificacion, calificacion_comunidad, votos, fecha_estreno,
+      duracion, certificacion, ultimo_episodio, reproductor, embeds, downloads, solo_trailer,
+      episodios, temporadas, postId, slug, source_id, tiene_player,
+    } = row;
+    return {
+      link, nombre, titulo_original, portada, backdrop, descripcion, year, genero, tipo,
+      idiomas: idiomas || [],
+      calidad: calidad || [],
+      paises: paises || [],
+      calificacion,
+      calificacion_comunidad,
+      votos,
+      fecha_estreno,
+      duracion,
+      certificacion,
+      ultimo_episodio,
+      reproductor,
+      embeds: embeds || [],
+      downloads: downloads || [],
+      solo_trailer: !!solo_trailer,
+      episodios: episodios || [],
+      temporadas: temporadas || [],
+      postId,
+      slug,
+      source_id: source_id != null ? String(source_id) : null,
+      tiene_player: !!tiene_player,
+    };
+  }
+
+  const safeRows = paraInsertar.map(rowSafe);
+
   try {
-    const { error } = await sb.from("movies").upsert(paraInsertar, { onConflict: "link" });
-    if (error) throw error;
+    let { error } = await sb.from("movies").upsert(safeRows, { onConflict: "link" });
+    if (error) {
+      console.warn("Upsert full falló, reintento mínimo:", error.message);
+      // Reintento solo columnas esenciales
+      const minimal = safeRows.map((r) => ({
+        link: r.link,
+        nombre: r.nombre,
+        portada: r.portada,
+        descripcion: r.descripcion,
+        year: r.year,
+        genero: r.genero,
+        tipo: r.tipo,
+        calificacion: r.calificacion,
+        embeds: r.embeds,
+        downloads: r.downloads,
+        episodios: r.episodios,
+        temporadas: r.temporadas,
+        slug: r.slug,
+        source_id: r.source_id,
+        tiene_player: r.tiene_player,
+        reproductor: r.reproductor,
+      }));
+      const r2 = await sb.from("movies").upsert(minimal, { onConflict: "link" });
+      if (r2.error) throw r2.error;
+    }
+    // Memoria local siempre (aunque Supabase falle parcialmente)
     paraInsertar.forEach((item) => {
+      knownLinks.add(item.link);
+      const idx = moviesDB.findIndex((m) => m.link === item.link);
+      if (idx >= 0) moviesDB[idx] = { ...moviesDB[idx], ...item, tiene_player: !!(item.tiene_player || itemTieneContenidoValido(item)) };
+      else moviesDB.unshift({ ...item, tiene_player: !!(item.tiene_player || itemTieneContenidoValido(item)) });
+    });
+    console.log(`Guardados/actualizados ${paraInsertar.length} items en Supabase (players=${paraInsertar.filter((i) => i.tiene_player).length})`);
+    return true;
+  } catch (err) {
+    console.error("Error guardando en Supabase:", err.message || err);
+    // Aun así espejo en memoria para esta instancia
+    paraInsertar.forEach((item) => {
+      if (!item.link) return;
       knownLinks.add(item.link);
       const idx = moviesDB.findIndex((m) => m.link === item.link);
       if (idx >= 0) moviesDB[idx] = { ...moviesDB[idx], ...item };
       else moviesDB.unshift(item);
     });
-    console.log(`Guardados/actualizados ${paraInsertar.length} items en Supabase`);
-  } catch (err) {
-    console.error("Error guardando en Supabase:", err.message);
+    return false;
   }
 }
 
@@ -1546,7 +1615,7 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     } catch (_) {}
   }
 
-  const lista = raw
+  let lista = raw
     .map((r) => {
       try {
         return mapListItem(r);
@@ -1555,6 +1624,28 @@ async function buscarOnline(termino, page = 1, limit = 48) {
       }
     })
     .filter((item) => item && (item.slug || item.link || item.url_extract));
+
+  // Marcar Disponible si ya está en Supabase/memoria con players (sin pisar meta API)
+  try {
+    await ensureMoviesDB().catch(() => {});
+  } catch (_) {}
+  lista = lista.map((item) => {
+    const local =
+      moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug && String(m.source_id || "") === String(item.source_id || "")) ||
+          (item.slug && m.slug === item.slug)
+      ) || null;
+    if (!local || esDescartado(local)) return item;
+    if (local.tiene_player || itemTieneContenidoValido(local)) {
+      item.tiene_player = true;
+      if ((!item.embeds || !item.embeds.length) && local.embeds?.length) {
+        item.embeds = local.embeds;
+      }
+    }
+    return item;
+  });
 
   // Paginación simple
   const lim = Math.min(Math.max(parseInt(limit, 10) || 48, 1), 100);

@@ -1363,14 +1363,32 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     (esSA2 && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {
                     item.tiene_player = true;
                 }
+                if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
 
-                // Repintar metadatos que ahora sí vienen (descripción, rating, portada…)
+                // Repintar metadatos
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
                 document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
-                document.getElementById("details-year").textContent = item.year || "-";
+                document.getElementById("details-year").textContent = item.year || "—";
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
+
+                // Actualizar badge Disponible en la tarjeta del grid si existe
+                try {
+                    if (item.tiene_player || (item.embeds && item.embeds.length)) {
+                        document.querySelectorAll(".media-card").forEach(function (card) {
+                            const h = card.querySelector("h3");
+                            if (!h) return;
+                            if (h.textContent.trim() !== String(item.nombre || item.titulo || "").trim()) return;
+                            const badge = card.querySelector(".availability-badge");
+                            if (badge) {
+                                badge.classList.remove("unavailable");
+                                badge.classList.add("available");
+                                badge.innerHTML = '<span class="dot"></span> ▶ Disponible';
+                            }
+                        });
+                    }
+                } catch (_) {}
             }
         } catch (err) {
             console.error("Error o timeout enriqueciendo detalle:", err);
