@@ -1188,6 +1188,36 @@ function dedupeListItems(lista) {
 }
 
 /** Une listas de episodios por (season, episode); conserva embeds si ya existían */
+/** URL directa del Worker para un capítulo: /{src}/{kind}/{slug}/{T}/{E} */
+function urlExtractEpisodio(sourceId, kind, slug, season, episode) {
+  const sid = resolverSourceId(sourceId || DEFAULT_SOURCE);
+  const k = kind === "anime" || kind === "Anime" ? "anime" : "serie";
+  const s = String(slug || "").replace(/^\/+|\/+$/g, "");
+  if (!s) return null;
+  const t = Number(season) || 1;
+  const e = Number(episode) || 1;
+  return `${API_BASE}/${sid}/${k}/${s}/${t}/${e}`;
+}
+
+/** Asegura url_extract en cada episodio (para no reconstruir al pulsar) */
+function asegurarUrlExtractEpisodios(item) {
+  if (!item || !Array.isArray(item.episodios)) return item;
+  const sid = item.source_id || resolverSourceId(item.fuente) || DEFAULT_SOURCE;
+  const kind = item.tipo === "Anime" ? "anime" : "serie";
+  const slug = item.slug || (parseIdentidad(item) || {}).slug;
+  if (!slug) return item;
+  item.episodios = item.episodios.map((ep) => {
+    if (!ep) return ep;
+    const t = Number(ep.season || ep.temporada || 1) || 1;
+    const e = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
+    if (!e) return ep;
+    if (ep.url_extract && String(ep.url_extract).includes(`/${t}/${e}`)) return ep;
+    const ue = urlExtractEpisodio(ep.source_id || sid, kind, ep.slug_media || slug, t, e);
+    return { ...ep, url_extract: ue || ep.url_extract || null, link: ep.link || ue || null };
+  });
+  return item;
+}
+
 function mergeEpisodiosLists(a, b) {
   const map = new Map();
   const put = (ep) => {
@@ -1252,6 +1282,8 @@ function expandirEpisodiosAnime(item) {
           embeds: [],
           video: null,
           source_id: item.source_id,
+          url_extract: urlExtractEpisodio(item.source_id, item.tipo === "Anime" ? "anime" : "serie", item.slug, 1, n),
+          link: urlExtractEpisodio(item.source_id, item.tipo === "Anime" ? "anime" : "serie", item.slug, 1, n),
         }
       );
     }
@@ -1372,7 +1404,11 @@ function normalizeItemFromDB(row) {
     slug
   );
   const tipoFixed = resolverTipoItem(row, row.source_id);
-  return {
+  const _tmp = { ...row, episodios, source_id: row.source_id, tipo: tipoFixed, slug: row.slug };
+  asegurarUrlExtractEpisodios(_tmp);
+  episodios = _tmp.episodios || episodios;
+
+    return {
     ...row,
     nombre: nombreFixed,
     titulo: nombreFixed,
@@ -1632,6 +1668,13 @@ function mapDetail(data, fallback = {}) {
         const seasonNum = Number(ep.temporada || temp.temporada || data.temporada_principal || 1) || 1;
         const epNum = Number(ep.episodio || ep.episode || 1) || 1;
         const epEmbeds = mapEmbeds(ep.reproductores || ep.embeds || []);
+        const ueEp = urlExtractEpisodio(
+          sourceId,
+          (data.tipo === "Anime" || String(data.tipo || "").toLowerCase() === "anime") ? "anime" : "serie",
+          ep.slug_media || temp.slug_media || slug,
+          seasonNum,
+          epNum
+        );
         episodios.push({
           id: `${slug}-t${seasonNum}-e${epNum}`,
           nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
@@ -1641,7 +1684,9 @@ function mapDetail(data, fallback = {}) {
           embeds: epEmbeds,
           downloads: ep.descargas || [],
           soloTrailer: false,
-          url_video: ep.url_video || ep.link || null,
+          url_video: ep.url_video || ep.link || ueEp || null,
+          url_extract: ueEp,
+          link: ep.link || ueEp || null,
           source_id: sourceId,
           slug_media: ep.slug_media || temp.slug_media || null,
           formato: ep.formato || temp.formato || data.formato || null,
@@ -2684,7 +2729,8 @@ async function obtenerDetalle(params) {
     best._sin_players = true;
     best = preferApiMeta(best, cached);
     if (best.link && (best.descripcion || best.portada || best.calificacion)) {
-      try { await guardarEnSupabase([best]); } catch (_) {}
+      try { asegurarUrlExtractEpisodios(best);
+  await guardarEnSupabase([best]); } catch (_) {}
     }
     return best;
   }
@@ -2711,6 +2757,7 @@ async function obtenerDetalle(params) {
     else best.nombre = String(best.slug).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
+  asegurarUrlExtractEpisodios(best);
   await guardarEnSupabase([best]);
   return best;
 }
@@ -3416,10 +3463,12 @@ app.get("/api/capitulo", async (req, res) => {
     const sourceId = req.query.source_id || DEFAULT_SOURCE;
     const slug = req.query.slug;
     const link = req.query.link || null;
+    // url_extract del episodio (guardado al listar) → no reconstruir desde cero
+    const epUrlExtract = req.query.url_extract || req.query.ep_url || null;
     const tipo = req.query.tipo || "Serie";
     const temporada = parseInt(req.query.temporada || req.query.season) || 1;
     const episodio = parseInt(req.query.episodio || req.query.episode) || 1;
-    if (!slug && !link) return res.status(400).json({ error: "Falta slug o link" });
+    if (!slug && !link && !epUrlExtract) return res.status(400).json({ error: "Falta slug, link o url_extract" });
 
     // 1) Supabase / memoria: ¿ya tenemos este capítulo con players?
     let serie = null;
@@ -3463,19 +3512,42 @@ app.get("/api/capitulo", async (req, res) => {
       }
     }
 
-    // 2) API externa del episodio (fuente de la serie primero)
+    // 2) API externa del episodio
     const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
     const resolvedSlug = slug || serie?.slug || (parseIdentidad(serie || { link }) || {}).slug;
     const resolvedSource = resolverSourceId(
       sourceId || serie?.source_id || (parseIdentidad(serie || { link }) || {}).sourceId || DEFAULT_SOURCE
     );
-    if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
     let det = null;
     let embeds = [];
     try {
-      det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
-      embeds = mapEmbeds(det.embeds || []);
+      // Atajo: url_extract del episodio ya guardado al listar (entrada directa al Worker)
+      if (epUrlExtract && String(epUrlExtract).includes(API_BASE.replace(/\/$/, ""))) {
+        try {
+          const pathOnly = String(epUrlExtract).replace(API_BASE.replace(/\/$/, ""), "").replace(/^\/?/, "/");
+          const dataEp = await apiGet(pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly);
+          if (dataEp && dataEp.success !== false) {
+            det = mapDetail(dataEp, {
+              slug: resolvedSlug,
+              source_id: resolvedSource,
+              tipo: kind === "anime" ? "Anime" : "Serie",
+            });
+            embeds = mapEmbeds(
+              (dataEp.reproductores && dataEp.reproductores.length)
+                ? dataEp.reproductores
+                : (dataEp.embeds || det.embeds || [])
+            );
+          }
+        } catch (eDirect) {
+          console.warn("capitulo url_extract:", eDirect.message);
+        }
+      }
+      if (!embeds.length) {
+        if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
+        det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
+        embeds = mapEmbeds(det.embeds || []);
+      }
     } catch (apiErr) {
       // Si había cache parcial o falla el Worker, no tumbar al usuario con 500
       if (cachedEmb.length) {
