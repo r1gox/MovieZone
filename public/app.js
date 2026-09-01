@@ -78,7 +78,7 @@ function rellenarMetaDetalle(item) {
         const orig = item.titulo_original || (item.tmdb && item.tmdb.titulo) || null;
         const mainTitle = String(item.nombre || item.titulo || "").trim().toLowerCase();
         if (orig && String(orig).trim() && String(orig).trim().toLowerCase() !== mainTitle) {
-            originalEl.textContent = orig;
+            originalEl.textContent = "Título original: " + String(orig).trim();
             originalEl.style.display = "block";
         } else {
             originalEl.textContent = "";
@@ -1428,7 +1428,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     const fields = [
                         "nombre", "titulo", "titulo_original", "year", "calificacion", "rating",
                         "genero", "generos", "descripcion", "votos", "duracion", "duracion_texto",
-                        "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "portada", "backdrop",
+                        "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "omdb", "portada", "backdrop",
+                        "fecha_estreno", "estado", "en_emision", "finalizado",
                         "embeds", "downloads", "reproductor", "episodios", "temporadas", "temporadas_raw",
                         "tiene_player", "link", "url_extract", "slug", "source_id"
                     ];
@@ -1439,6 +1440,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                             item[f] = keep[f];
                         }
                     });
+                    // Rellenar huecos desde imdb/tmdb anidados (Chrome a veces pierde campos planos)
+                    if (item.imdb) {
+                        if (item.votos == null && item.imdb.votos) item.votos = item.imdb.votos;
+                        if (item.duracion == null && item.imdb.duracion) item.duracion = item.imdb.duracion;
+                        if (!item.duracion_texto && item.imdb.duracion_texto) item.duracion_texto = item.imdb.duracion_texto;
+                        if (!item.certificacion && item.imdb.certificacion) item.certificacion = item.imdb.certificacion;
+                        if ((item.calificacion == null || item.calificacion === "") && item.imdb.rating != null) {
+                            item.calificacion = item.imdb.rating;
+                        }
+                    }
+                    if (item.tmdb) {
+                        if (!item.fecha_estreno && item.tmdb.fecha_estreno) item.fecha_estreno = item.tmdb.fecha_estreno;
+                        if (item.duracion == null && item.tmdb.duracion) item.duracion = item.tmdb.duracion;
+                        if (!item.duracion_texto && item.tmdb.duracion_texto) item.duracion_texto = item.tmdb.duracion_texto;
+                    }
                     // Players del detalle siempre ganan si traen algo
                     if (Array.isArray(completo.embeds) && completo.embeds.length) {
                         item.embeds = completo.embeds;
