@@ -366,8 +366,10 @@ async function guardarEnSupabase(items) {
         postId: item.postId || existente?.postId || null,
         slug: item.slug || existente?.slug || null,
         source_id: item.source_id || existente?.source_id || null,
-        // @ts-ignore optional col
-        ...(item.imdb_id || existente?.imdb_id ? {} : {}),
+        imdb_id: item.imdb_id || existente?.imdb_id || (item.imdb && item.imdb.id) || null,
+        tmdb_id: item.tmdb_id || existente?.tmdb_id || (item.tmdb && item.tmdb.id) || null,
+        generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
+        duracion_texto: item.duracion_texto || existente?.duracion_texto || null,
         tiene_player: tieneNuevo || !!(existente && (existente.tiene_player || itemTieneContenidoValido(existente))),
       };
     });
@@ -383,36 +385,45 @@ async function guardarEnSupabase(items) {
 
   // Campos seguros (evita fallo si la tabla no tiene columnas nuevas)
   function rowSafe(row) {
-    const {
-      link, nombre, titulo_original, portada, backdrop, descripcion, year, genero, tipo,
-      idiomas, calidad, paises, calificacion, calificacion_comunidad, votos, fecha_estreno,
-      duracion, certificacion, ultimo_episodio, reproductor, embeds, downloads, solo_trailer,
-      episodios, temporadas, postId, slug, source_id, tiene_player,
-    } = row;
-    return {
-      link, nombre, titulo_original, portada, backdrop, descripcion, year, genero, tipo,
-      idiomas: idiomas || [],
-      calidad: calidad || [],
-      paises: paises || [],
-      calificacion,
-      calificacion_comunidad,
-      votos,
-      fecha_estreno,
-      duracion,
-      certificacion,
-      ultimo_episodio,
-      reproductor,
-      embeds: embeds || [],
-      downloads: downloads || [],
-      solo_trailer: !!solo_trailer,
-      episodios: episodios || [],
-      temporadas: temporadas || [],
-      postId,
-      slug,
-      source_id: source_id != null ? String(source_id) : null,
-      tiene_player: !!tiene_player,
-      ...(row.imdb_id ? { imdb_id: row.imdb_id } : {}),
+    const out = {
+      link: row.link,
+      nombre: row.nombre,
+      titulo_original: row.titulo_original || null,
+      portada: row.portada || null,
+      backdrop: row.backdrop || null,
+      descripcion: row.descripcion || null,
+      year: row.year || null,
+      genero: row.genero || null,
+      tipo: row.tipo || null,
+      idiomas: row.idiomas || [],
+      calidad: row.calidad || [],
+      paises: row.paises || [],
+      calificacion: row.calificacion != null ? row.calificacion : null,
+      calificacion_comunidad: row.calificacion_comunidad || null,
+      votos: row.votos || null,
+      fecha_estreno: row.fecha_estreno || null,
+      duracion: row.duracion != null ? row.duracion : null,
+      certificacion: row.certificacion || null,
+      ultimo_episodio: row.ultimo_episodio || null,
+      reproductor: row.reproductor || null,
+      embeds: row.embeds || [],
+      downloads: row.downloads || [],
+      solo_trailer: !!row.solo_trailer,
+      episodios: row.episodios || [],
+      temporadas: row.temporadas || [],
+      postId: row.postId || null,
+      slug: row.slug || null,
+      source_id: row.source_id != null ? String(row.source_id) : null,
+      tiene_player: !!row.tiene_player,
     };
+    // Columnas opcionales (si no existen en Supabase el upsert puede fallar → reintento mínimo)
+    if (row.imdb_id) out.imdb_id = row.imdb_id;
+    if (row.tmdb_id) out.tmdb_id = String(row.tmdb_id);
+    if (row.duracion_texto) out.duracion_texto = row.duracion_texto;
+    if (row.generos) out.generos = row.generos;
+    if (row.imdb) out.imdb = row.imdb;
+    if (row.tmdb) out.tmdb = row.tmdb;
+    return out;
   }
 
   const safeRows = paraInsertar.map(rowSafe);
@@ -870,13 +881,14 @@ function dedupeListItems(lista) {
 
   function keyOf(item) {
     if (!item) return null;
-    if (item.link) return "link:" + String(item.link).replace(/\/+$/, "").toLowerCase();
+    // Prioridad: slug+año (evita duplicado al guardar en Supabase con otro link)
     const slug = String(item.slug || "").toLowerCase().trim();
     const year = (String(item.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
     if (slug) return "slug:" + slug + ":y:" + year;
     const t = normalizeTitleKey(item.nombre || item.titulo || "");
     const tipo = String(item.tipo || "").toLowerCase();
     if (t) return "t:" + tipo + ":" + t + ":y:" + year;
+    if (item.link) return "link:" + String(item.link).replace(/\/+$/, "").toLowerCase();
     return null;
   }
 
@@ -2506,6 +2518,8 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
       const local = matchLocal(item);
       if (local) {
         usedLocal.add(local.link || local.slug || local.nombre);
+        if (local.slug) usedLocal.add("slug:" + String(local.slug).toLowerCase());
+        if (item.slug) usedLocal.add("slug:" + String(item.slug).toLowerCase());
         const row = { ...item };
         // Datos cargados (usuario ya abrió el detalle)
         if (local.tiene_player || itemTieneContenidoValido(local)) {
@@ -2534,16 +2548,12 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         }
         merged.push(row);
       } else {
-        // Aún no cargado por el usuario
+        // Aún no abierto en detalle: mostrar meta IMDb de la API, sin marcar Disponible
         merged.push({
           ...item,
           tiene_player: false,
           embeds: [],
-          // Sin rating hasta que se cargue en detalle y se guarde en Supabase
-          calificacion: null,
-          rating: null,
-          imdb: null,
-          imdb_id: null,
+          // Conservar calificacion / imdb_id / duracion de la API Worker
         });
       }
     }
@@ -2551,15 +2561,24 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
     // 2) Ítems solo en Supabase (cargados) que no salieron en el listado API de estrenos
     for (const local of locales) {
       const key = local.link || local.slug || local.nombre;
-      if (!key || usedLocal.has(key)) continue;
+      const slugKey = local.slug ? "slug:" + String(local.slug).toLowerCase() : null;
+      if (!key || usedLocal.has(key) || (slugKey && usedLocal.has(slugKey))) continue;
       if (!(local.tiene_player || itemTieneContenidoValido(local))) continue;
       // Evitar duplicar por slug ya presente
       const slug = String(local.slug || "").toLowerCase();
       if (slug && merged.some((m) => String(m.slug || "").toLowerCase() === slug)) continue;
+      const tLocal = normalizeTitleKey(local.nombre || "");
+      const yLocal = (String(local.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
+      if (tLocal && merged.some((m) => {
+        const same = normalizeTitleKey(m.nombre || m.titulo || "") === tLocal;
+        if (!same) return false;
+        const ym = (String(m.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
+        return !yLocal || !ym || yLocal === ym;
+      })) continue;
       merged.push(normalizeItemFromDB(local) || local);
     }
 
-    let all = filtrarDescartados(merged);
+    let all = dedupeListItems(filtrarDescartados(merged));
     // Orden: disponibles primero, luego el resto
     all.sort((a, b) => {
       const av = a.tiene_player ? 1 : 0;
