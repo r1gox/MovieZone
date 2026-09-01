@@ -37,27 +37,6 @@ const limiterBusqueda = rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas búsquedas. Espera un momento." },
 });
-const limiterDetalle = rateLimit({
-  windowMs: 60 * 1000,
-  max: 40,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Demasiadas peticiones de detalle. Espera un momento." },
-});
-const limiterForce = rateLimit({
-  windowMs: 60 * 1000,
-  max: 8,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Demasiadas actualizaciones. Espera un momento." },
-});
-const limiterTelegram = rateLimit({
-  windowMs: 60 * 1000,
-  max: 12,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Demasiadas notificaciones. Espera un momento." },
-});
 app.use(limiterGeneral);
 
 // No crashear si faltan env en el arranque (Vercel cold start / misconfig)
@@ -76,28 +55,6 @@ function getSupabase() {
 
 const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
-
-/** Mensaje de error seguro al cliente (log completo en servidor) */
-function errorCliente(res, status, publico, err) {
-  if (err) console.error(publico + ":", (err && err.message) || err);
-  const body = { error: publico };
-  if (process.env.NODE_ENV === "development" && err && err.message) body.detalle = err.message;
-  return res.status(status).json(body);
-}
-
-/** Solo permitir url_capitulo del Worker configurado (anti-SSRF); no cambia el flujo si es válida */
-function urlCapituloPermitida(url) {
-  if (!url || typeof url !== "string") return null;
-  let u = String(url).trim();
-  try { u = decodeURIComponent(u); } catch (_) {}
-  if (!/^https?:\/\//i.test(u)) return null;
-  const base = API_BASE.replace(/\/$/, "");
-  if (!u.startsWith(base + "/")) return null;
-  const pathPart = u.slice(base.length);
-  if (!/^\/[1-6]\/(serie|anime|pelicula)\/[^/?#]+\/\d+\/\d+\/?$/i.test(pathPart)) return null;
-  return u;
-}
-
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
 // Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=animedbs 6=doramasflix
 const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
@@ -3047,7 +3004,7 @@ app.get("/api/animes", async (req, res) => {
 
 app.get("/api/buscar", limiterBusqueda, async (req, res) => {
   try {
-    const termino = String(req.query.q || "").trim().slice(0, 100);
+    const termino = String(req.query.q || "").trim();
     const soloLocal = req.query.source === "local" || req.query.local === "1";
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
@@ -3111,10 +3068,7 @@ app.get("/api/recien", async (req, res) => {
   }
 });
 
-app.get("/api/detalle", limiterDetalle, (req, res, next) => {
-  if (String(req.query.force || "") === "1") return limiterForce(req, res, next);
-  return next();
-}, async (req, res) => {
+app.get("/api/detalle", async (req, res) => {
   try {
     const link = req.query.link || null;
     const postId = req.query.postId || null;
@@ -3131,7 +3085,7 @@ app.get("/api/detalle", limiterDetalle, (req, res, next) => {
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
-    return errorCliente(res, 500, "No se pudo cargar el detalle", err);
+    res.status(500).json({ error: "No se pudo cargar el detalle", detalle: err.message });
   }
 });
 
@@ -3301,7 +3255,7 @@ app.get("/api/episodios", async (req, res) => {
     });
   } catch (err) {
     console.error("/api/episodios", err.message);
-    return errorCliente(res, 500, "No se pudieron cargar los episodios", err);
+    res.status(500).json({ error: "No se pudieron cargar los episodios", detalle: err.message });
   }
 });
 
@@ -3372,12 +3326,9 @@ app.get("/api/capitulo", async (req, res) => {
         Array.isArray(serie.episodios) &&
         serie.episodios.find((e) => mismoEpisodio(e, temporada, episodio))) ||
       null;
-    const urlCapRaw =
+    const urlCap =
       (req.query.url_capitulo && String(req.query.url_capitulo)) ||
       (epStub && epStub.url_capitulo) ||
-      null;
-    const urlCap =
-      urlCapituloPermitida(urlCapRaw) ||
       urlCapituloWorker(resolvedSource, kind, resolvedSlug, temporada, episodio);
 
     let det = null;
@@ -3463,7 +3414,7 @@ app.get("/api/capitulo", async (req, res) => {
     });
   } catch (err) {
     console.error("/api/capitulo", err.message);
-    return errorCliente(res, 500, "No se pudo cargar el capítulo", err);
+    res.status(500).json({ error: "No se pudo cargar el capítulo", detalle: err.message });
   }
 });
 
@@ -3509,7 +3460,7 @@ async function enviarTelegram(texto) {
 
 // Rate limit simple en memoria por IP (1 aviso cada 30 min)
 const visitCooldown = new Map();
-app.post("/api/visit", limiterTelegram, express.json({ limit: "8kb" }), async (req, res) => {
+app.post("/api/visit", express.json({ limit: "8kb" }), async (req, res) => {
   try {
     if (!isTelegramEnabled()) {
       return res.json({ ok: true, sent: false, reason: "telegram_off" });
