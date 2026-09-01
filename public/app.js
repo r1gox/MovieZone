@@ -1245,6 +1245,55 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         return { ...ep, embeds: prev.embeds || [], video: prev.video || prev.reproductor || null, downloads: prev.downloads || ep.downloads };
                     });
                 }
+                // force (Actualizar servidores): solo players; conservar título/sinopsis/portada/meta
+                if (force) {
+                    const keepMeta = {
+                        nombre: item.nombre,
+                        titulo: item.titulo,
+                        titulo_original: item.titulo_original,
+                        year: item.year,
+                        calificacion: item.calificacion,
+                        rating: item.rating,
+                        genero: item.genero,
+                        generos: item.generos,
+                        descripcion: item.descripcion,
+                        portada: item.portada,
+                        imdb: item.imdb,
+                        tmdb: item.tmdb,
+                        imdb_id: item.imdb_id,
+                        votos: item.votos,
+                        duracion: item.duracion,
+                        duracion_texto: item.duracion_texto,
+                        certificacion: item.certificacion,
+                    };
+                    if (Array.isArray(completo.embeds) && completo.embeds.length) {
+                        item.embeds = completo.embeds;
+                        item.tiene_player = true;
+                    }
+                    if (completo.reproductor) item.reproductor = completo.reproductor;
+                    if (Array.isArray(completo.downloads) && completo.downloads.length) {
+                        item.downloads = completo.downloads;
+                    }
+                    if (Array.isArray(completo.episodios) && completo.episodios.length) {
+                        item.episodios = completo.episodios;
+                    }
+                    // Restaurar meta (no dejar que API ponga slug / inglés)
+                    Object.keys(keepMeta).forEach(function (k) {
+                        if (keepMeta[k] != null && keepMeta[k] !== "") item[k] = keepMeta[k];
+                    });
+                    // Descripción: si completo trae español mejor, usarla
+                    if (completo.descripcion && String(completo.descripcion).length > 40) {
+                        const esComp = /[áéíóúñ¿¡]/i.test(completo.descripcion) ||
+                            /\b(el|la|los|las|de|que|una|unos|con|por)\b/i.test(completo.descripcion);
+                        const esKeep = item.descripcion && (/[áéíóúñ¿¡]/i.test(item.descripcion) ||
+                            /\b(el|la|los|las|de|que|una)\b/i.test(item.descripcion));
+                        if (esComp && !esKeep) item.descripcion = completo.descripcion;
+                    }
+                    if (item.nombre && item.slug &&
+                        String(item.nombre).toLowerCase().replace(/\s+/g, "-") === String(item.slug).toLowerCase()) {
+                        item.nombre = keepMeta.nombre || item.titulo || item.nombre;
+                    }
+                } else {
                 // Fusionar: el detalle rellena huecos; NUNCA borrar meta buena con null
                 const yOld = item.year && String(item.year).match(/(19|20)\d{2}/);
                 const yNew = completo.year && String(completo.year).match(/(19|20)\d{2}/);
@@ -1308,6 +1357,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         if (completo.imdb) item.imdb = completo.imdb;
                     }
                 }
+                } // end !force
                 const esSA2 = item.tipo === "Serie" || item.tipo === "Anime";
                 if (item.tiene_player || itemTieneVideo(item) ||
                     (esSA2 && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))) {

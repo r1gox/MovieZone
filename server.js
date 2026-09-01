@@ -513,9 +513,9 @@ function elegirMejorDescripcion(a, b) {
   const aInc = descripcionIncompleta(A);
   const bInc = descripcionIncompleta(B);
 
-  // Español gana sobre inglés
-  if (aEs && bEn) return aInc && !bInc && bEs ? B : A;
-  if (bEs && aEn) return bInc && !aInc && aEs ? A : B;
+  // Si una es española y la otra inglesa → SIEMPRE la española (fuente > IMDb EN)
+  if (aEs && bEn) return A;
+  if (bEs && aEn) return B;
   if (aEs && !bEs) return A;
   if (bEs && !aEs) return B;
   // Ambos mismo idioma: preferir completa / más larga
@@ -1814,6 +1814,74 @@ async function obtenerDetalle(params) {
   }
   // Si cache no tiene players o nombre=slug → seguir a la API
 
+  // force = botón "Actualizar servidores": refrescar PLAYERS sin romper título/meta/portada
+  if (force && id && id.slug) {
+    try {
+      const sid = String(id.source_id || cached?.source_id || "3");
+      const kind = id.kind || (esAnimeKind ? "anime" : /serie/i.test(String(tipo || cached?.tipo || "")) ? "serie" : "pelicula");
+      const candidate = await fetchDetailFromSource(sid, kind, id.slug, {
+        link: link || cached?.link,
+        slug: id.slug,
+        source_id: sid,
+        tipo: tipo || cached?.tipo,
+        nombre: cached?.nombre,
+        portada: cached?.portada,
+        descripcion: cached?.descripcion,
+        year: cached?.year,
+        genero: cached?.genero,
+        postId: postId || cached?.postId,
+      });
+
+      const base = cached ? { ...cached } : (candidate ? { ...candidate } : null);
+      if (base || candidate) {
+        const out = preferApiMeta(candidate || base, base);
+        // Conservar título legible (nunca slug)
+        const goodName = (cached && cached.nombre && cached.slug &&
+          String(cached.nombre).toLowerCase().replace(/\s+/g, "-") !== String(cached.slug).toLowerCase())
+          ? cached.nombre
+          : (out.nombre && out.slug && String(out.nombre).toLowerCase().replace(/\s+/g, "-") !== String(out.slug).toLowerCase()
+            ? out.nombre
+            : (out.titulo || cached?.nombre || out.nombre));
+        out.nombre = goodName;
+        // Portada: no cambiar si ya hay una válida
+        if (cached && esPortadaValida(cached.portada)) out.portada = cached.portada;
+        // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
+        if (cached?.year) out.year = cached.year;
+        if (cached?.calificacion != null) out.calificacion = cached.calificacion;
+        if (cached?.genero) out.genero = cached.genero;
+        if (cached?.generos?.length) out.generos = cached.generos;
+        if (cached?.imdb) out.imdb = cached.imdb;
+        if (cached?.imdb_id) out.imdb_id = cached.imdb_id;
+        if (cached?.votos) out.votos = cached.votos;
+        if (cached?.duracion) out.duracion = cached.duracion;
+        if (cached?.duracion_texto) out.duracion_texto = cached.duracion_texto;
+        if (cached?.certificacion) out.certificacion = cached.certificacion;
+        if (cached?.titulo_original) out.titulo_original = cached.titulo_original;
+        // Descripción: fuente/caché en español primero; no pisar con inglés de IMDb
+        out.descripcion = elegirMejorDescripcion(cached?.descripcion, candidate?.descripcion);
+        // Players: del fetch fresco
+        if (candidate?.embeds?.length) {
+          out.embeds = candidate.embeds;
+          out.tiene_player = true;
+          out.reproductor = candidate.reproductor || candidate.embeds[0]?.stream_url || candidate.embeds[0]?.url || out.reproductor;
+        }
+        if (candidate?.downloads?.length) out.downloads = candidate.downloads;
+        // Episodios: fusionar si serie
+        if (candidate?.episodios?.length) {
+          out.episodios = mergeEpisodiosLists(cached?.episodios || [], candidate.episodios);
+        }
+        if (candidate?.temporadas?.length) out.temporadas = candidate.temporadas;
+        if (candidate?.temporadas_raw?.length) out.temporadas_raw = candidate.temporadas_raw;
+        if (!out.link) out.link = candidate?.link || cached?.link || link;
+        await guardarEnSupabase([out]);
+        return out;
+      }
+    } catch (errForce) {
+      console.warn("force refresh servers:", errForce.message);
+      if (cached) return cached;
+    }
+  }
+
   // force con players OK: solo refrescar meta (descripcion/genero) de la fuente actual, no rehacer todo
   const soloMeta =
     force &&
@@ -1826,7 +1894,7 @@ async function obtenerDetalle(params) {
   // Anime: animeav1 → animedbs; Serie/dorama: fuente pedida + doramasflix + pelisplus
   const sourcesToTry = esAnimeKind
     ? ["4", "5"]
-    : [resolverSourceId(id.sourceId), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
+    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
   const ordenFuentes = esAnimeKind ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
   for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
@@ -2524,7 +2592,7 @@ app.get("/api/episodios", async (req, res) => {
       try {
         const epNum = eps[0].episode || 1;
         // Anime: preferir fuente 4 para players
-        const sidPlayers = id.kind === "anime" ? "4" : resolverSourceId(id.sourceId);
+        const sidPlayers = id.kind === "anime" ? "4" : resolverSourceId(id.source_id);
         const det = await obtenerEpisodio(sidPlayers, id.slug, season, epNum, id.kind, item);
         if (det.embeds?.length) {
           eps[0].embeds = det.embeds;
