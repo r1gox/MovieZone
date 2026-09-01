@@ -537,34 +537,32 @@ function elegirMejorTitulo(r, slug) {
   r = r || {};
   const slugRef = slug || r.slug || null;
 
-  const pick = (val) => {
+  const usable = (val) => {
     if (val == null) return null;
     const s = String(val).trim();
     if (!s) return null;
+    // Rechazar si es el slug crudo (teach-you-a-lesson)
     if (pareceSlugTitulo(s, slugRef)) return null;
     return limpiarTitulo(s) || s;
   };
 
-  // 1) titulo en español de la API (doramasflix, pelisplus, etc.)
-  const t1 = pick(r.titulo);
-  if (t1) return t1;
+  // 1) titulo de la fuente en español ("Así aprenderás", "Acaramelados")
+  const tFuente = usable(r.titulo);
+  if (tFuente) return tFuente;
 
-  // 2) titulo_tmdb
-  const t2 = pick(r.titulo_tmdb) || pick(r.tmdb && r.tmdb.titulo);
-  if (t2) return t2;
+  // 2) si titulo no sirve → titulo_tmdb
+  const tTmdb = usable(r.titulo_tmdb) || usable(r.tmdb && r.tmdb.titulo);
+  if (tTmdb) return tTmdb;
 
-  // 3) titulo_original
-  const t3 = pick(r.titulo_original);
-  if (t3) return t3;
+  // 3) resto
+  const tExtra =
+    usable(r.titulo_original) ||
+    usable(r.title) ||
+    usable(r.nombre) ||
+    usable(r.imdb && (r.imdb.titulo || r.imdb.title));
+  if (tExtra) return tExtra;
 
-  // 4) otros campos legibles
-  const t4 =
-    pick(r.title) ||
-    pick(r.nombre) ||
-    pick(r.imdb && (r.imdb.titulo || r.imdb.title));
-  if (t4) return t4;
-
-  // 5) último recurso: humanizar slug (nunca devolver slug crudo)
+  // 4) humanizar slug solo si no hay nada más
   const s = String(slugRef || r.titulo || r.nombre || "").trim();
   if (!s) return "Sin título";
   if (pareceSlugTitulo(s, slugRef || s)) {
@@ -590,31 +588,37 @@ function resolverTipoItem(r, sourceIdHint) {
       ? sourceIdHint
       : resolverSourceId(r.source_id || r.fuente || r.source)
   );
-  const tipoRaw = String(r.tipo || r.type || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const tipoRaw = String(r.tipo || r.type || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   const link = String(r.link || r.url_extract || r.url || "").toLowerCase();
   const fuente = String(r.fuente || "").toLowerCase();
 
-  // Episodios ya vinculados a doramasflix → es Serie (corrige híbridos animeav1+dorama)
-  const eps = r.episodios || [];
-  const epSrc6 =
-    Array.isArray(eps) &&
-    eps.some((e) => {
-      const es = String(e && (e.source_id || e.fuente) || "");
-      const eu = String(e && (e.url_video || e.link || e.video) || "").toLowerCase();
-      return es === "6" || /doramasflix|\/6\/serie\//.test(eu);
-    });
+  const eps = Array.isArray(r.episodios) ? r.episodios : [];
+  // Señales de SERIE live-action (dorama / TV), aunque animeav1 lo haya guardado como Anime
+  const epEsSerie = eps.some((e) => {
+    if (!e) return false;
+    const es = String(e.source_id || e.fuente || "");
+    const eu = String(e.url_video || e.link || e.video || e.reproductor || "").toLowerCase();
+    // fuente doramasflix, o cualquier URL de capítulo bajo /serie/
+    if (es === "6") return true;
+    if (/doramasflix/.test(eu)) return true;
+    if (/\/\d+\/serie\//.test(eu)) return true;
+    if (/\/serie\//.test(eu)) return true;
+    return false;
+  });
 
-  // Fuentes de doramas / series live-action
   if (
     sid === "6" ||
     fuente.includes("dorama") ||
     /\/serie\//.test(link) ||
     /doramasflix/.test(link) ||
-    epSrc6
+    epEsSerie
   ) {
     return "Serie";
   }
-  // API ya dice serie/dorama/tv → respetar
+
   if (
     tipoRaw.includes("dorama") ||
     tipoRaw.includes("serie") ||
@@ -624,7 +628,7 @@ function resolverTipoItem(r, sourceIdHint) {
   ) {
     return "Serie";
   }
-  // Ruta /anime/ o tipo anime o fuentes 4/5
+
   if (
     tipoRaw.includes("anime") ||
     /\/anime\//.test(link) ||
@@ -635,29 +639,35 @@ function resolverTipoItem(r, sourceIdHint) {
     if (/\/serie\//.test(link) || /doramasflix/.test(link)) return "Serie";
     return "Anime";
   }
+
   if (tipoRaw.includes("cap") || tipoRaw.includes("episod")) return "Capitulo";
-  if (tipoRaw.includes("pelicul") || tipoRaw.includes("movie") || tipoRaw.includes("film")) return "Película";
+  if (tipoRaw.includes("pelicul") || tipoRaw.includes("movie") || tipoRaw.includes("film")) {
+    return "Película";
+  }
   return normalizarTipo(r.tipo || r.type || "Pelicula");
 }
 
 /** ¿Este ítem debe listarse en la sección Anime? */
 function esItemAnimeValido(item) {
   if (!item) return false;
-  const tipo = String(item.tipo || "").toLowerCase();
-  if (tipo !== "anime") return false;
+  const tipo = resolverTipoItem(item, item.source_id);
+  if (tipo !== "Anime") return false;
+
   const sid = String(item.source_id || resolverSourceId(item.fuente) || "");
   const link = String(item.link || item.url_extract || "").toLowerCase();
-  // Nunca listar doramasflix / rutas /serie/ como anime
   if (sid === "6") return false;
   if (/doramasflix/.test(link) || /\/serie\//.test(link)) return false;
-  // Si el nombre sigue siendo slug y hay titulo_original distinto, suele ser basura de animeav1
-  const nombre = String(item.nombre || item.titulo || "");
-  const orig = String(item.titulo_original || (item.tmdb && item.tmdb.titulo) || "");
-  if (pareceSlugTitulo(nombre, item.slug) && orig && !pareceSlugTitulo(orig, item.slug)) {
-    // Permitir solo si source es claramente anime (4/5) Y no hay indicios de dorama en episodios
-    const eps = item.episodios || [];
-    const epSrc6 = Array.isArray(eps) && eps.some((e) => String(e.source_id || "") === "6");
-    if (epSrc6) return false;
+
+  // Capítulos bajo /serie/ o fuente 6 → no es anime de catálogo
+  const eps = Array.isArray(item.episodios) ? item.episodios : [];
+  if (
+    eps.some((e) => {
+      const es = String((e && e.source_id) || "");
+      const eu = String((e && (e.url_video || e.link || e.video)) || "").toLowerCase();
+      return es === "6" || /\/serie\//.test(eu) || /doramasflix/.test(eu);
+    })
+  ) {
+    return false;
   }
   return true;
 }
@@ -1354,10 +1364,33 @@ function mapListItem(r) {
   if (!r || typeof r !== "object") return null;
   const slug = r.slug ? String(r.slug) : null;
   const sourceId = resolverSourceId(r.source_id || r.fuente);
-  // Título legible (nunca slug crudo si hay TMDB/original)
-  const titulo = elegirMejorTitulo(r, slug);
-  // Tipo fiable: doramasflix → Serie; no confiar ciegamente en animeav1
-  const tipo = resolverTipoItem(r, sourceId);
+  // Prioridad: r.titulo (español) → titulo_tmdb → resto. Nunca el slug.
+  const titulo = elegirMejorTitulo(
+    {
+      titulo: r.titulo, // "Así aprenderás"
+      titulo_tmdb: r.titulo_tmdb,
+      titulo_original: r.titulo_original,
+      title: r.title,
+      nombre: r.nombre,
+      tmdb: r.tmdb,
+      imdb: r.imdb,
+      slug,
+    },
+    slug
+  );
+  // doramasflix / rutas serie / caps en /serie/ → Serie (no Anime)
+  const tipo = resolverTipoItem(
+    {
+      tipo: r.tipo || r.type,
+      type: r.type,
+      source_id: sourceId,
+      fuente: r.fuente,
+      link: r.url_extract || r.link || r.url,
+      url_extract: r.url_extract,
+      episodios: r.episodios,
+    },
+    sourceId
+  );
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
@@ -1841,11 +1874,13 @@ function pickBestSearchItem(a, b) {
     if (it.descripcion && String(it.descripcion).length > 40) s += 10;
     if (it.tiene_player) s += 8;
     const t = String(it.tipo || "").toLowerCase();
-    if (t === "anime") s += 15;
-    else if (t === "serie") s += 5;
+    // Preferir Serie/doramasflix sobre Anime mal etiquetado
+    if (t === "serie") s += 15;
+    else if (t === "anime") s += 5;
     const sid = String(it.source_id || "");
-    if (sid === "4") s += 12;
-    else if (sid === "3") s += 6;
+    if (sid === "6") s += 14; // doramasflix
+    else if (sid === "3") s += 10;
+    else if (sid === "4") s += 4;
     else if (sid === "1") s += 2;
     return s;
   };
@@ -1861,18 +1896,27 @@ function pickBestSearchItem(a, b) {
   if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
     winner.total_episodios = loser.total_episodios;
   }
-  // Si alguno es Anime, el resultado final es Anime (no Película/Serie errónea)
-  const tipos = [winner.tipo, loser.tipo].map((t) => String(t || ""));
-  if (tipos.some((t) => /anime/i.test(t))) winner.tipo = "Anime";
-  else if (tipos.some((t) => /serie/i.test(t))) winner.tipo = "Serie";
-
-  const nW = limpiarTitulo(winner.nombre || "");
-  const nL = limpiarTitulo(loser.nombre || "");
-  if (nL && (!nW || nL.length <= nW.length || /ver |online|gratis/i.test(String(winner.nombre || "")))) {
-    winner.nombre = nL;
+  // Tipo: respetar Serie/Película de doramasflix/pelisplus; NO forzar Anime
+  const tipoW = resolverTipoItem(winner, winner.source_id);
+  const tipoL = resolverTipoItem(loser, loser.source_id);
+  if (tipoW === "Serie" || tipoL === "Serie") winner.tipo = "Serie";
+  else if (tipoW === "Película" || tipoL === "Película") {
+    // Solo Anime si AMBOS son anime
+    winner.tipo = (tipoW === "Anime" && tipoL === "Anime") ? "Anime" : (tipoW === "Película" ? "Película" : tipoL);
   } else {
-    winner.nombre = nW || winner.nombre;
+    winner.tipo = tipoW || tipoL || "Película";
   }
+  // Título: preferir el que NO sea slug (español de doramasflix gana)
+  const tituloW = elegirMejorTitulo(winner, winner.slug);
+  const tituloL = elegirMejorTitulo(loser, loser.slug);
+  if (tituloL && (!tituloW || pareceSlugTitulo(tituloW, winner.slug))) {
+    winner.nombre = tituloL;
+    winner.titulo = tituloL;
+  } else {
+    winner.nombre = tituloW || winner.nombre;
+    winner.titulo = winner.nombre;
+  }
+
   if (!winner.link && loser.link) winner.link = loser.link;
   if (!winner.slug && loser.slug) winner.slug = loser.slug;
   const alts = new Set(
@@ -1928,13 +1972,22 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     await ensureMoviesDB().catch(() => {});
   } catch (_) {}
   lista = lista.map((item) => {
+    // Preferir match por link o (slug + misma fuente); evitar mezclar con clone Anime de animeav1
     const local =
       moviesDB.find(
+        (m) => item.link && m.link === item.link
+      ) ||
+      moviesDB.find(
         (m) =>
-          (item.link && m.link === item.link) ||
-          (item.slug && m.slug === item.slug && String(m.source_id || "") === String(item.source_id || "")) ||
-          (item.slug && m.slug === item.slug)
-      ) || null;
+          item.slug &&
+          m.slug === item.slug &&
+          String(m.source_id || "") === String(item.source_id || "")
+      ) ||
+      null;
+    // Tipo SIEMPRE del resultado online (Worker). No heredar "Anime" de Supabase.
+    item.tipo = resolverTipoItem(item, item.source_id);
+    item.nombre = elegirMejorTitulo(item, item.slug);
+    item.titulo = item.nombre;
     if (!local || esDescartado(local)) return item;
     if (local.tiene_player || itemTieneContenidoValido(local)) {
       item.tiene_player = true;
@@ -2807,6 +2860,14 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
     const data = await obtenerEstrenos(tipoApi, 48);
     let apiItems = Array.isArray(data.resultados) ? data.resultados : [];
 
+    // Slugs que ya existen como Serie real (doramasflix, etc.) → no listar como Anime
+    const slugsSerie = new Set(
+      moviesDB
+        .filter((m) => m && !esDescartado(m) && resolverTipoItem(m, m.source_id) === "Serie")
+        .map((m) => String(m.slug || "").toLowerCase())
+        .filter(Boolean)
+    );
+
     const locales = moviesDB.filter((m) => {
       if (!m || esDescartado(m)) return false;
       // Re-evaluar tipo al filtrar (corrige basura antigua en Supabase)
@@ -2815,7 +2876,8 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         return tipoOk === "Serie";
       }
       if (tipoItem === "Anime") {
-        // Solo animes reales: no doramasflix ni mal etiquetados
+        const slug = String(m.slug || "").toLowerCase();
+        if (slug && slugsSerie.has(slug)) return false; // mismo título ya es Serie
         return tipoOk === "Anime" && esItemAnimeValido({ ...m, tipo: tipoOk });
       }
       {
