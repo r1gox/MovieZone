@@ -1,4 +1,4 @@
-const CACHE = "moviezone-v2";  // ← cambia el nombre para invalidar el cache viejo
+const CACHE = "moviezone-v3";
 const ASSETS = ["/", "/index.html", "/styles.css"];
 
 self.addEventListener("install", (e) => {
@@ -20,13 +20,16 @@ self.addEventListener("fetch", (e) => {
 
   const url = new URL(e.request.url);
 
-  // NUNCA cachear app.js ni rutas de API → siempre red
+  // Nunca cachear JS ni API → siempre red (evita Brave vs Chrome distinto)
   if (
     url.pathname.endsWith("app.js") ||
     url.pathname.endsWith("sw.js") ||
+    url.pathname.endsWith("styles.css") ||
     url.pathname.startsWith("/api/")
   ) {
-    e.respondWith(fetch(e.request));
+    e.respondWith(
+      fetch(e.request, { cache: "no-store" }).catch(() => caches.match(e.request))
+    );
     return;
   }
 
