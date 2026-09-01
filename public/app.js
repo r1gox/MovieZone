@@ -326,7 +326,7 @@ function tipoLabel(tipo) {
     return "Película";
 }
 
-/** Título para UI: prioriza titulo (español de la fuente), luego titulo_tmdb. Nunca el slug. */
+/** Título UI: 1) titulo (español) 2) titulo_original. Nunca slug ni pisar con TMDB si hay titulo. */
 function elegirTituloUI(item) {
     if (!item) return "Sin título";
     const slug = String(item.slug || "").toLowerCase();
@@ -339,17 +339,20 @@ function elegirTituloUI(item) {
         if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(s) && !/\s/.test(s)) return true;
         return false;
     };
-    const candidates = [
-        item.titulo,           // español: "Así aprenderás"
-        item.titulo_tmdb,      // fallback
-        item.tmdb && item.tmdb.titulo,
-        item.nombre,
-        item.title,
-        item.titulo_original,
-    ];
-    for (const c of candidates) {
-        if (c && !isSlug(c)) return String(c).trim();
+    // 1) titulo de la API (español: "Acaramelados")
+    if (item.titulo && !isSlug(item.titulo)) return String(item.titulo).trim();
+    // 2) titulo_original
+    if (item.titulo_original && !isSlug(item.titulo_original)) return String(item.titulo_original).trim();
+    // 3) nombre solo si no es el original inglés ya usado como reemplazo indebido
+    //    y no es slug
+    if (item.nombre && !isSlug(item.nombre)) {
+        // Si nombre === titulo_original y había titulo, no debería llegar aquí
+        return String(item.nombre).trim();
     }
+    // 4) tmdb último recurso
+    const tmdb = item.titulo_tmdb || (item.tmdb && item.tmdb.titulo);
+    if (tmdb && !isSlug(tmdb)) return String(tmdb).trim();
+    if (item.title && !isSlug(item.title)) return String(item.title).trim();
     if (slug) {
         return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
@@ -1264,8 +1267,12 @@ const playerTitle = document.getElementById("player-title");
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
-    // titulo (español) → titulo_tmdb → resto. Nunca slug.
+    // titulo (español) → titulo_original. No reemplazar titulo con original.
     if (item) {
+        if (!item.titulo && item.nombre && item.titulo_original &&
+            String(item.nombre).trim() === String(item.titulo_original).trim()) {
+            // nombre ya fue pisado con original: no hay titulo español recuperable aquí
+        }
         item.nombre = elegirTituloUI(item);
     }
     seleccionActual = item;
@@ -1475,12 +1482,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.duracion) item.duracion = completo.duracion;
                     if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
                     if (completo.certificacion) item.certificacion = completo.certificacion;
-                    // Conservar titulo español del API si viene
-                    if (completo.titulo) item.titulo = completo.titulo;
-                    if (completo.titulo_tmdb) item.titulo_tmdb = completo.titulo_tmdb;
+                    // titulo español se conserva; original/tmdb solo como meta
+                    if (completo.titulo && String(completo.titulo).trim()) {
+                        item.titulo = completo.titulo;
+                    }
                     if (completo.titulo_original) item.titulo_original = completo.titulo_original;
-                    // titulo → titulo_tmdb (elegirTituloUI)
-                    item.nombre = elegirTituloUI({ ...item, ...completo, titulo: completo.titulo || item.titulo });
+                    if (completo.titulo_tmdb) item.titulo_tmdb = completo.titulo_tmdb;
+                    // nombre visible = titulo → titulo_original (nunca al revés)
+                    item.nombre = elegirTituloUI({
+                        titulo: item.titulo || completo.titulo,
+                        titulo_original: item.titulo_original || completo.titulo_original,
+                        titulo_tmdb: item.titulo_tmdb || completo.titulo_tmdb,
+                        nombre: item.nombre,
+                        slug: item.slug || completo.slug,
+                        tmdb: completo.tmdb || item.tmdb,
+                    });
 
                     // Si años conflictúan, confiar 100% en detalle API
                     if (completo.year && item.year && String(completo.year).slice(0,4) !== String(item.year).slice(0,4)) {
