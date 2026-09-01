@@ -352,6 +352,9 @@ async function guardarEnSupabase(items) {
           return item.votos ? Math.trunc(Number(item.votos)) || null : (existente?.votos || null);
         })(),
         fecha_estreno: item.fecha_estreno || existente?.fecha_estreno || null,
+        estado: item.estado || existente?.estado || null,
+        en_emision: item.en_emision != null ? !!item.en_emision : (existente?.en_emision != null ? !!existente.en_emision : null),
+        finalizado: item.finalizado != null ? !!item.finalizado : (existente?.finalizado != null ? !!existente.finalizado : null),
         duracion: item.duracion ? Math.trunc(Number(item.duracion)) || null : (existente?.duracion || null),
         certificacion: item.certificacion || existente?.certificacion || null,
         imdb: item.imdb || (existente && (!item.year || !existente.year || String(item.year).slice(0,4) === String(existente.year).slice(0,4)) ? existente.imdb : null) || null,
@@ -402,6 +405,9 @@ async function guardarEnSupabase(items) {
       calificacion_comunidad: row.calificacion_comunidad || null,
       votos: row.votos || null,
       fecha_estreno: row.fecha_estreno || null,
+      estado: row.estado || null,
+      en_emision: row.en_emision != null ? !!row.en_emision : null,
+      finalizado: row.finalizado != null ? !!row.finalizado : null,
       duracion: row.duracion != null ? row.duracion : null,
       certificacion: row.certificacion || null,
       ultimo_episodio: row.ultimo_episodio || null,
@@ -1364,7 +1370,11 @@ function mapDetail(data, fallback = {}) {
     imdb_id: data.imdb_id || metaF.imdb.id || fallback.imdb_id || null,
     calificacion_comunidad: null,
     votos: data.votos || metaF.imdb.votos || metaF.tmdb.votos || null,
-    fecha_estreno: data.fecha_estreno || null,
+    fecha_estreno: data.fecha_estreno || fallback.fecha_estreno || null,
+    // Estado de emisión (series / anime / doramas)
+    estado: data.estado || data.status || fallback.estado || null,
+    en_emision: data.en_emision != null ? !!data.en_emision : (fallback.en_emision != null ? !!fallback.en_emision : null),
+    finalizado: data.finalizado != null ? !!data.finalizado : (fallback.finalizado != null ? !!fallback.finalizado : null),
     duracion: data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null,
     duracion_texto: data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
     certificacion: data.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
@@ -1987,7 +1997,7 @@ async function obtenerDetalle(params) {
   }
   // Si cache no tiene players o nombre=slug → seguir a la API
 
-  // force = botón "Actualizar servidores": refrescar PLAYERS sin romper título/meta/portada
+  // force = botón "Actualizar": detectar episodios/temporadas nuevas + meta; conservar players
   if (force && id && id.slug) {
     try {
       const sid = String(id.source_id || cached?.source_id || "3");
@@ -2041,11 +2051,35 @@ async function obtenerDetalle(params) {
         if (candidate?.downloads?.length) out.downloads = candidate.downloads;
         // Episodios: fusionar si serie
         if (candidate?.episodios?.length) {
+          // Añadir episodios/temporadas NUEVAS; conservar players ya guardados
           out.episodios = mergeEpisodiosLists(cached?.episodios || [], candidate.episodios);
+          out.total_episodios = Math.max(
+            Number(cached?.total_episodios) || 0,
+            Number(candidate.total_episodios) || 0,
+            out.episodios.length
+          );
         }
-        if (candidate?.temporadas?.length) out.temporadas = candidate.temporadas;
+        if (candidate?.temporadas?.length) {
+          const set = new Set([
+            ...(Array.isArray(cached?.temporadas) ? cached.temporadas : []),
+            ...candidate.temporadas,
+          ].map(Number).filter(Boolean));
+          out.temporadas = Array.from(set).sort((a, b) => a - b);
+          out.total_temporadas = Math.max(
+            Number(cached?.total_temporadas) || 0,
+            Number(candidate.total_temporadas) || 0,
+            out.temporadas.length
+          );
+        }
         if (candidate?.temporadas_raw?.length) out.temporadas_raw = candidate.temporadas_raw;
+        if (candidate?.rangos_episodios) out.rangos_episodios = candidate.rangos_episodios;
+        // Estado emisión + fecha
+        if (candidate?.estado) out.estado = candidate.estado;
+        if (candidate?.en_emision != null) out.en_emision = !!candidate.en_emision;
+        if (candidate?.finalizado != null) out.finalizado = !!candidate.finalizado;
+        if (candidate?.fecha_estreno) out.fecha_estreno = candidate.fecha_estreno;
         if (!out.link) out.link = candidate?.link || cached?.link || link;
+        out.tiene_player = true;
         await guardarEnSupabase([out]);
         return out;
       }
@@ -2905,19 +2939,44 @@ app.get("/api/episodios", async (req, res) => {
       kind: isAnime || item.tipo === "Anime" ? "anime" : "serie",
     };
 
-    if (eps.length && (loadPlayers || !eps[0].embeds?.length)) {
+    // NO precargar players del ep1: el reproductor se pide al pulsar el episodio (/api/capitulo)
+    // Guardar listado de temporadas/episodios (stubs) en Supabase para la próxima visita
+    if (item.link || item.slug) {
       try {
-        const epNum = eps[0].episode || 1;
-        // Anime: preferir fuente 4 para players
-        const sidPlayers = id.kind === "anime" ? "4" : resolverSourceId(id.source_id);
-        const det = await obtenerEpisodio(sidPlayers, id.slug, season, epNum, id.kind, item);
-        if (det.embeds?.length) {
-          eps[0].embeds = det.embeds;
-          eps[0].video = det.reproductor;
-          await guardarPlayersEpisodio(item, season, epNum, det.embeds, det.reproductor);
+        // Fusionar eps de esta temporada en el item completo
+        const allEps = Array.isArray(item.episodios) ? [...item.episodios] : [];
+        const byKey = new Map();
+        for (const ep of allEps) {
+          const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
+          byKey.set(k, ep);
         }
-      } catch (err) {
-        console.warn("No se pudieron cargar players ep1:", err.message);
+        for (const ep of eps) {
+          const k = `${Number(ep.season) || season}-${Number(ep.episode || ep.episodio) || 0}`;
+          const prev = byKey.get(k);
+          if (prev && (prev.embeds?.length || prev.video || prev.reproductor)) {
+            byKey.set(k, {
+              ...ep,
+              embeds: prev.embeds,
+              video: prev.video || prev.reproductor,
+              reproductor: prev.reproductor || prev.video,
+            });
+          } else {
+            byKey.set(k, { ...ep, season: Number(ep.season) || season });
+          }
+        }
+        item.episodios = Array.from(byKey.values()).sort((a, b) => {
+          const sa = Number(a.season) || 1;
+          const sb = Number(b.season) || 1;
+          if (sa !== sb) return sa - sb;
+          return (Number(a.episode || a.episodio) || 0) - (Number(b.episode || b.episodio) || 0);
+        });
+        if (!item.temporadas || !item.temporadas.length) {
+          item.temporadas = [...new Set(item.episodios.map((e) => Number(e.season) || 1))].sort((a, b) => a - b);
+        }
+        item.tiene_player = true; // serie con listado = "Disponible" en catálogo
+        await guardarEnSupabase([item]);
+      } catch (saveErr) {
+        console.warn("guardar listado episodios:", saveErr.message);
       }
     }
 
@@ -2930,6 +2989,10 @@ app.get("/api/episodios", async (req, res) => {
       link: item.link,
       total_episodios: item.total_episodios || eps.length,
       rangos_episodios: item.rangos_episodios || null,
+      estado: item.estado || null,
+      en_emision: item.en_emision != null ? !!item.en_emision : null,
+      finalizado: item.finalizado != null ? !!item.finalizado : null,
+      fecha_estreno: item.fecha_estreno || null,
     });
   } catch (err) {
     console.error("/api/episodios", err.message);
