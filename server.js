@@ -535,11 +535,35 @@ function pareceSlugTitulo(texto, slug) {
  * Elige el mejor título humano.
  * Prioridad estricta:
  *   1) titulo (español de la fuente) — si no es slug
- *   2) titulo_tmdb
- *   3) titulo_original
+ *   2) titulo_original (si no es inglés peor que titulo)
+ *   3) titulo_tmdb último (evitar inglés si hay español)
  *   4) title / nombre / tmdb.titulo / imdb
  *   5) humanizar slug solo como último recurso
  */
+/**
+ * Puntuación de idioma del título: español gana sobre inglés.
+ * "Diario de una pasión" >> "The Notebook"
+ */
+function scoreTituloIdioma(t) {
+  const s = String(t || "").trim();
+  if (!s) return -100;
+  let sc = 0;
+  if (/[áéíóúñü¿¡ÁÉÍÓÚÑÜ]/.test(s)) sc += 80;
+  const es = (
+    s.match(
+      /\b(el|la|los|las|de|del|un|una|unos|unas|por|con|para|como|más|así|diario|pasión|pasion|código|codigo|venganza|amor|noche|días|dias|años|anos|historia|casa|vida|último|ultimo|última|ultima|señor|senor|señora|corazón|corazon|sangre|juego|guerra|mundo|tiempo|camino|sueño|sueño|sueños|aprenderás|aprenderas|acaramelados|película|pelicula|serie|temporada)\b/gi
+    ) || []
+  ).length;
+  const en = (
+    s.match(
+      /\b(the|of|and|a|an|in|on|for|to|with|from|notebook|love|code|revenge|sticky|lesson|teach|our|you|your|movie|film|episode|season|into|about|when|after)\b/gi
+    ) || []
+  ).length;
+  sc += es * 22;
+  sc -= en * 28;
+  return sc;
+}
+
 function elegirMejorTitulo(r, slug) {
   r = r || {};
   const slugRef = slug || r.slug || null;
@@ -552,24 +576,34 @@ function elegirMejorTitulo(r, slug) {
     return limpiarTitulo(s) || s;
   };
 
-  // 1) titulo de la fuente en español ("Acaramelados") — SIEMPRE primero
-  const t1 = usable(r.titulo);
-  if (t1) return t1;
+  // Candidatos con prioridad de campo (titulo fuente primero)
+  const ranked = [
+    { v: usable(r.titulo), pri: 100 },
+    { v: usable(r.nombre), pri: 55 },
+    { v: usable(r.titulo_original), pri: 45 },
+    { v: usable(r.titulo_tmdb), pri: 25 },
+    { v: usable(r.tmdb && r.tmdb.titulo), pri: 20 },
+    { v: usable(r.imdb && (r.imdb.titulo || r.imdb.title)), pri: 15 },
+    { v: usable(r.title), pri: 10 },
+  ].filter((x) => x.v);
 
-  // 2) titulo_original (solo si no hay titulo)
-  const t2 = usable(r.titulo_original);
-  if (t2) return t2;
+  if (ranked.length) {
+    // Si hay alguno claramente en español, descartar los muy ingleses
+    const maxEs = Math.max(...ranked.map((x) => scoreTituloIdioma(x.v)));
+    let pool = ranked;
+    if (maxEs >= 20) {
+      pool = ranked.filter((x) => scoreTituloIdioma(x.v) >= 0 || x.pri >= 100);
+      if (!pool.length) pool = ranked;
+    }
+    pool.sort((a, b) => {
+      const sa = scoreTituloIdioma(a.v) + a.pri;
+      const sb = scoreTituloIdioma(b.v) + b.pri;
+      return sb - sa;
+    });
+    return pool[0].v;
+  }
 
-  // 3) titulo_tmdb / otros
-  const t3 =
-    usable(r.titulo_tmdb) ||
-    usable(r.tmdb && r.tmdb.titulo) ||
-    usable(r.title) ||
-    usable(r.nombre) ||
-    usable(r.imdb && (r.imdb.titulo || r.imdb.title));
-  if (t3) return t3;
-
-  // 4) humanizar slug
+  // Humanizar slug
   const s = String(slugRef || r.titulo || r.nombre || "").trim();
   if (!s) return "Sin título";
   if (pareceSlugTitulo(s, slugRef || s)) {
