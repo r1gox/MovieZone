@@ -87,7 +87,10 @@ function rellenarMetaDetalle(item) {
     }
 
     const yearEl = document.getElementById("details-year");
-    if (yearEl) yearEl.textContent = item.year || "—";
+    if (yearEl) {
+        // Año; si hay fecha completa se muestra también en details-release
+        yearEl.textContent = item.year || (item.fecha_estreno ? String(item.fecha_estreno).slice(0, 4) : "—");
+    }
 
     // Rating: SOLO IMDb si hay; si no, el otro. No mostrar ambos.
     const ri = ratingInfo(item);
@@ -168,6 +171,47 @@ function rellenarMetaDetalle(item) {
     if (votosWrap) {
         if (votosLabel) votosWrap.classList.remove("hidden");
         else votosWrap.classList.add("hidden");
+    }
+
+    // Estado: En emisión / Finalizado (series, anime, doramas)
+    const statusEl = document.getElementById("details-status");
+    const statusWrap = document.getElementById("details-status-wrap");
+    let statusLabel = null;
+    const tipoLow = String(item.tipo || "").toLowerCase();
+    const esSerieTipo = /serie|anime|dorama|tv/.test(tipoLow);
+    if (esSerieTipo) {
+        if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
+            statusLabel = "Finalizado";
+        } else if (item.en_emision === true || /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))) {
+            statusLabel = "En emisión";
+        } else if (item.estado) {
+            statusLabel = String(item.estado);
+        }
+    }
+    if (statusEl) statusEl.textContent = statusLabel || "—";
+    if (statusWrap) {
+        if (statusLabel) statusWrap.classList.remove("hidden");
+        else statusWrap.classList.add("hidden");
+    }
+
+    // Fecha de estreno (películas y series)
+    const releaseEl = document.getElementById("details-release");
+    const releaseWrap = document.getElementById("details-release-wrap");
+    let releaseLabel = null;
+    if (item.fecha_estreno) {
+        const f = String(item.fecha_estreno).slice(0, 10);
+        // Preferir formato legible YYYY-MM-DD o solo año
+        if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+            const [yy, mm, dd] = f.split("-");
+            releaseLabel = dd + "/" + mm + "/" + yy;
+        } else {
+            releaseLabel = f;
+        }
+    }
+    if (releaseEl) releaseEl.textContent = releaseLabel || "—";
+    if (releaseWrap) {
+        if (releaseLabel) releaseWrap.classList.remove("hidden");
+        else releaseWrap.classList.add("hidden");
     }
 
     // Géneros: todos
