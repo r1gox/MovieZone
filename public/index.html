@@ -221,9 +221,15 @@
           <div class="details-header-card">
             <img id="details-poster" src="" alt="Poster" class="details-poster">
             <div class="details-meta-info">
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <span class="media-type-badge" id="details-type">PELICULA</span>
-                <div style="display:flex; align-items:center; gap:8px;">
+              <div class="details-type-row">
+                <div class="details-type-left">
+                  <span class="media-type-badge" id="details-type">PELICULA</span>
+                  <span class="details-type-rating hidden" id="details-type-rating" title="">
+                    <ion-icon name="star"></ion-icon>
+                    <span id="details-type-rating-text">—</span>
+                  </span>
+                </div>
+                <div class="details-type-actions">
                   <button class="btn-icon" id="btn-share" title="Copiar enlace">
                     <ion-icon name="share-outline" id="btn-share-icon"></ion-icon>
                   </button>

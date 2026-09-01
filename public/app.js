@@ -98,6 +98,20 @@ function rellenarMetaDetalle(item) {
         if (ri.source) ratingWrap.classList.add("rating-src-" + ri.source);
         if (ri.value == null) ratingWrap.classList.add("hidden");
     }
+    // Badge compacto junto a PELÍCULA / SERIE
+    const typeRating = document.getElementById("details-type-rating");
+    const typeRatingText = document.getElementById("details-type-rating-text");
+    if (typeRating && typeRatingText) {
+        typeRating.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente", "hidden");
+        if (ri.value != null) {
+            typeRatingText.textContent = ri.label;
+            typeRating.title = ri.label;
+            if (ri.source) typeRating.classList.add("rating-src-" + ri.source);
+        } else {
+            typeRating.classList.add("hidden");
+            typeRatingText.textContent = "—";
+        }
+    }
 
     // Duración
     const durEl = document.getElementById("details-duration");
@@ -1199,7 +1213,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         (!item.temporadas_raw || !item.temporadas_raw.length) &&
         (!item.temporadas || !item.temporadas.length);
 
-    const necesitaEnriquecer = force || faltaDescripcion || faltaPlayers || faltaEpisodios || !(item.embeds && item.embeds.length) && item.tipo !== "Serie" && item.tipo !== "Anime";
+    // Ya completo (Supabase/list con players): NO llamar API de nuevo
+    const yaCompleto =
+        !force &&
+        item.tiene_player === true &&
+        item.descripcion && String(item.descripcion).trim().length >= 20 &&
+        (
+            (item.embeds && item.embeds.length > 0) ||
+            (esSA && (item.episodios?.length || item.temporadas?.length || item.temporadas_raw?.length))
+        );
+
+    const necesitaEnriquecer =
+        force ||
+        (!yaCompleto && (faltaDescripcion || faltaPlayers || faltaEpisodios));
 
     if (necesitaEnriquecer && (item.postId || item.link || item.slug || item.url_extract)) {
         try {
