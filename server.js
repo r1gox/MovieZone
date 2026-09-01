@@ -267,7 +267,15 @@ async function guardarEnSupabase(items) {
           .trim();
       }
       // Proteger datos ya guardados: un listado no debe borrar players/descripción
-      const existente = moviesDB.find((m) => m.link === item.link) || null;
+      const existente =
+        moviesDB.find((m) => m.link === item.link) ||
+        moviesDB.find(
+          (m) =>
+            item.slug &&
+            m.slug === item.slug &&
+            normalizarTipo(m.tipo || "") === normalizarTipo(item.tipo || "")
+        ) ||
+        null;
       const tieneNuevo = itemTieneContenidoValido(item);
       const embedsFinal =
         tieneNuevo && item.embeds?.length
@@ -347,18 +355,12 @@ async function guardarEnSupabase(items) {
         genero: item.genero || existente?.genero || null,
         generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
         tipo: (function () {
-          // Respetar tipo de la API; no subir Serie a Anime al guardar
           const nuevo = normalizarTipo(item.tipo || "");
           const viejo = normalizarTipo(existente?.tipo || "");
-          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") {
-            // Si ya estaba como Serie y llega Anime sin ser explícito de fuente animeav1, conservar Serie
-            if (viejo === "Serie" && nuevo === "Anime") {
-              const sid = String(item.source_id || "");
-              const fuente = String(item.fuente || "").toLowerCase();
-              if (sid !== "4" && fuente !== "animeav1") return "Serie";
-            }
-            return nuevo;
-          }
+          // Nunca degradar Serie → Anime ni Anime → Serie por un merge erróneo
+          if (viejo === "Serie" && nuevo === "Anime") return "Serie";
+          if (viejo === "Anime" && nuevo === "Serie") return "Anime";
+          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") return nuevo;
           return viejo || "Película";
         })(),
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
@@ -970,12 +972,12 @@ function dedupeListItems(lista) {
 
   function keyOf(item) {
     if (!item) return null;
-    // Prioridad: slug+año (evita duplicado al guardar en Supabase con otro link)
+    // slug + tipo + año (Serie y Anime del mismo slug NO se fusionan)
     const slug = String(item.slug || "").toLowerCase().trim();
     const year = (String(item.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
-    if (slug) return "slug:" + slug + ":y:" + year;
+    const tipo = normalizarTipo(item.tipo || "").toLowerCase();
+    if (slug) return "slug:" + slug + ":tipo:" + tipo + ":y:" + year;
     const t = normalizeTitleKey(item.nombre || item.titulo || "");
-    const tipo = String(item.tipo || "").toLowerCase();
     if (t) return "t:" + tipo + ":" + t + ":y:" + year;
     if (item.link) return "link:" + String(item.link).replace(/\/+$/, "").toLowerCase();
     return null;
@@ -1833,18 +1835,33 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     await ensureMoviesDB().catch(() => {});
   } catch (_) {}
   lista = lista.map((item) => {
+    const tipoItem = normalizarTipo(item.tipo || "");
     const local =
       moviesDB.find(
         (m) =>
           (item.link && m.link === item.link) ||
-          (item.slug && m.slug === item.slug && String(m.source_id || "") === String(item.source_id || "")) ||
-          (item.slug && m.slug === item.slug)
+          (item.slug &&
+            m.slug === item.slug &&
+            String(m.source_id || "") === String(item.source_id || "") &&
+            normalizarTipo(m.tipo || "") === tipoItem) ||
+          (item.slug &&
+            m.slug === item.slug &&
+            normalizarTipo(m.tipo || "") === tipoItem)
       ) || null;
     if (!local || esDescartado(local)) return item;
+    // No mezclar meta de un Anime guardado con una Serie del mismo slug
+    if (normalizarTipo(local.tipo || "") !== tipoItem && tipoItem) return item;
     if (local.tiene_player || itemTieneContenidoValido(local)) {
       item.tiene_player = true;
       if ((!item.embeds || !item.embeds.length) && local.embeds?.length) {
         item.embeds = local.embeds;
+      }
+    }
+    // Conservar nombre bueno de DB si el listado trae slug
+    if (local.nombre && !esSlugComoTitulo(local.nombre, local.slug)) {
+      if (!item.nombre || esSlugComoTitulo(item.nombre, item.slug)) {
+        item.nombre = local.nombre;
+        item.titulo = local.nombre;
       }
     }
     return item;
@@ -2220,13 +2237,11 @@ async function obtenerDetalle(params) {
     itemTieneContenidoValido(cached) &&
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
-  // Anime: SIEMPRE empezar por fuente 4; también probar slug sin año
-  // (wistoria-wand-and-sword-2024 en src2 = 10eps/1temp; sin año en src4 = 24eps/2temps)
-  // Anime: animeav1 → animedbs; Serie/dorama: fuente pedida + doramasflix + pelisplus
+  // Anime → solo fuentes de anime (4). Serie/dorama → NUNCA fuente 4 (animeav1 inventa Anime con el mismo slug)
   const sourcesToTry = esAnimeKind
-    ? ["4", "5"]
-    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
-  const ordenFuentes = esAnimeKind ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+    ? ["4"]
+    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4" && v !== "5");
+  const ordenFuentes = esAnimeKind ? ["4"] : ["6", "3", "1", "2"];
   for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
@@ -2240,11 +2255,12 @@ async function obtenerDetalle(params) {
   for (const sid of fuentes) {
     if (String(sid) === "4") triedSource4 = true;
     for (const slugTry of slugsTryBase) {
-      const candidate = await fetchDetailFromSource(sid, id.kind === "anime" || esAnimeKind ? "anime" : id.kind, slugTry, {
+      const kindFetch = esAnimeKind ? "anime" : (id.kind === "pelicula" ? "pelicula" : "serie");
+      const candidate = await fetchDetailFromSource(sid, kindFetch, slugTry, {
         link,
         slug: slugTry,
         source_id: sid,
-        tipo: tipo || cached?.tipo || (esAnimeKind ? "Anime" : null),
+        tipo: tipo || cached?.tipo || (esAnimeKind ? "Anime" : (kindFetch === "serie" ? "Serie" : null)),
         nombre: cached?.nombre,
         portada: cached?.portada,
         descripcion: cached?.descripcion,
@@ -2253,11 +2269,30 @@ async function obtenerDetalle(params) {
         postId: postId || cached?.postId,
       });
       if (!candidate) continue;
+      // Rechazar si la fuente cambió el tipo (Serie ≠ Anime)
+      const tipoEsp = normalizarTipo(tipo || cached?.tipo || (esAnimeKind ? "Anime" : "Serie"));
+      const tipoCand = normalizarTipo(candidate.tipo || "");
+      if (!esAnimeKind && tipoCand === "Anime") continue;
+      if (esAnimeKind && tipoCand === "Serie" && String(sid) !== "4") continue;
+      if (tipoEsp === "Serie" && tipoCand === "Anime") continue;
+      if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
+      // Título = slug → basura (ej. animeav1 con our-sticky-love)
+      const nomCand = String(candidate.nombre || candidate.titulo || "");
+      if (candidate.slug && nomCand.toLowerCase().replace(/\s+/g, "-") === String(candidate.slug).toLowerCase()) {
+        if (cached?.nombre && !esSlugComoTitulo(cached.nombre, cached.slug)) {
+          candidate.nombre = cached.nombre;
+          candidate.titulo = cached.nombre;
+        } else if (tipoEsp === "Serie") {
+          continue; // no contaminar series con ficha anime vacía
+        }
+      }
       best = best
         ? scoreItem(candidate) > scoreItem(best)
-          ? mergeItems(candidate, best)
+          ? mergeItems(best, candidate) // base = best (conserva tipo/nombre)
           : mergeItems(best, candidate)
         : candidate;
+      // Forzar tipo esperado
+      if (tipoEsp === "Serie" || tipoEsp === "Anime") best.tipo = tipoEsp;
       if (best && candidate.descripcion) {
         best.descripcion = elegirMejorDescripcion(best.descripcion, candidate.descripcion);
       }
@@ -2268,7 +2303,8 @@ async function obtenerDetalle(params) {
       const tCand = Number(candidate.total_episodios) || (candidate.episodios || []).length || 0;
       const sBest = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
       const sCand = Math.max(Number(candidate.total_temporadas) || 0, (candidate.temporadas || []).length || 0);
-      if (tCand > tBest || sCand > sBest || (tCand === tBest && String(sid) === "4")) {
+      // No saltar a fuente 4 en series; solo cambiar fuente si realmente aporta más episodios
+      if ((tCand > tBest || sCand > sBest) && !(String(sid) === "4" && !esAnimeKind)) {
         best.source_id = String(sid);
         best.slug = candidate.slug || best.slug;
         best.link = candidate.link || best.link;
@@ -2372,6 +2408,40 @@ async function obtenerDetalle(params) {
   if (!best.slug && best.link) {
     const m = String(best.link).match(/\/(?:serie|anime|pelicula|series|animes|peliculas)\/([^/?#]+)/i);
     if (m) best.slug = m[1];
+  }
+
+  // Bloquear tipo y nombre (evitar Serie → Anime y título = slug)
+  {
+    const tipoLock = normalizarTipo(tipo || cached?.tipo || best.tipo || "");
+    if (tipoLock === "Serie" || tipoLock === "Anime" || tipoLock === "Película") {
+      best.tipo = tipoLock;
+    }
+    if (cached?.nombre && !esSlugComoTitulo(cached.nombre, cached.slug)) {
+      if (!best.nombre || esSlugComoTitulo(best.nombre, best.slug) || best.nombre === "Sin título") {
+        best.nombre = cached.nombre;
+        best.titulo = cached.nombre;
+      }
+    }
+    best.nombre = elegirTituloPrincipal({
+      nombre: best.nombre,
+      titulo: best.titulo,
+      titulo_original: best.titulo_original,
+      slug: best.slug,
+      cachedNombre: cached?.nombre,
+    });
+    best.titulo = best.nombre;
+    // Link coherente con tipo (no /4/anime/ para una Serie)
+    if (best.slug && best.source_id) {
+      const k =
+        best.tipo === "Anime" ? "anime" : best.tipo === "Serie" ? "serie" : "pelicula";
+      if (!esAnimeKind && String(best.source_id) === "4") {
+        best.source_id = resolverSourceId(id.source_id || cached?.source_id || "6");
+      }
+      const expected = `${API_BASE}/${best.source_id}/${k}/${best.slug}`;
+      if (!best.link || /\/4\/anime\//.test(String(best.link)) && best.tipo === "Serie") {
+        best.link = expected;
+      }
+    }
   }
 
   best.tiene_player = itemTieneContenidoValido(best)
