@@ -526,32 +526,48 @@ function pareceSlugTitulo(texto, slug) {
 
 /**
  * Elige el mejor título humano.
- * Prioridad: titulo legible de API → titulo_tmdb → titulo_original → nombre limpio → slug humanizado.
- * NUNCA devolver el slug crudo si hay alternativa.
+ * Prioridad estricta:
+ *   1) titulo (español de la fuente) — si no es slug
+ *   2) titulo_tmdb
+ *   3) titulo_original
+ *   4) title / nombre / tmdb.titulo / imdb
+ *   5) humanizar slug solo como último recurso
  */
 function elegirMejorTitulo(r, slug) {
   r = r || {};
-  const candidatos = [
-    r.titulo,
-    r.title,
-    r.nombre,
-    r.titulo_tmdb,
-    r.titulo_original,
-    r.tmdb && r.tmdb.titulo,
-    r.imdb && (r.imdb.titulo || r.imdb.title),
-  ]
-    .map((x) => (x != null ? String(x).trim() : ""))
-    .filter(Boolean);
+  const slugRef = slug || r.slug || null;
 
-  for (const c of candidatos) {
-    if (!pareceSlugTitulo(c, slug || r.slug)) {
-      return limpiarTitulo(c) || c;
-    }
-  }
-  // Último recurso: humanizar slug
-  const s = String(slug || r.slug || candidatos[0] || "").trim();
+  const pick = (val) => {
+    if (val == null) return null;
+    const s = String(val).trim();
+    if (!s) return null;
+    if (pareceSlugTitulo(s, slugRef)) return null;
+    return limpiarTitulo(s) || s;
+  };
+
+  // 1) titulo en español de la API (doramasflix, pelisplus, etc.)
+  const t1 = pick(r.titulo);
+  if (t1) return t1;
+
+  // 2) titulo_tmdb
+  const t2 = pick(r.titulo_tmdb) || pick(r.tmdb && r.tmdb.titulo);
+  if (t2) return t2;
+
+  // 3) titulo_original
+  const t3 = pick(r.titulo_original);
+  if (t3) return t3;
+
+  // 4) otros campos legibles
+  const t4 =
+    pick(r.title) ||
+    pick(r.nombre) ||
+    pick(r.imdb && (r.imdb.titulo || r.imdb.title));
+  if (t4) return t4;
+
+  // 5) último recurso: humanizar slug (nunca devolver slug crudo)
+  const s = String(slugRef || r.titulo || r.nombre || "").trim();
   if (!s) return "Sin título";
-  if (pareceSlugTitulo(s, s)) {
+  if (pareceSlugTitulo(s, slugRef || s)) {
     return s
       .replace(/[-_]+/g, " ")
       .replace(/\s+/g, " ")
