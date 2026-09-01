@@ -1434,6 +1434,36 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
       return item;
     });
     lista = filtrarDescartados(lista);
+
+    // Añadir al inicio ítems de Supabase del mismo tipo (búsquedas guardadas: Acaramelados → Series, etc.)
+    const tipoMatch = (m) => {
+      const t = String(m.tipo || "").toLowerCase();
+      if (tipo === "series") return t === "serie" || t === "dorama" || t === "tv";
+      if (tipo === "animes") return t === "anime";
+      return t === "película" || t === "pelicula" || t === "movie" || !t;
+    };
+    const seenSlug = new Set(
+      lista.map((it) => String(it.slug || "").toLowerCase()).filter(Boolean)
+    );
+    const seenTitle = new Set(
+      lista.map((it) => normalizeTitleKey(it.nombre || it.titulo || "")).filter(Boolean)
+    );
+    const extras = [];
+    for (const m of moviesDB) {
+      if (!m || esDescartado(m) || !tipoMatch(m)) continue;
+      const slug = String(m.slug || "").toLowerCase();
+      const tk = normalizeTitleKey(m.nombre || "");
+      if (slug && seenSlug.has(slug)) continue;
+      if (tk && seenTitle.has(tk)) continue;
+      if (slug) seenSlug.add(slug);
+      if (tk) seenTitle.add(tk);
+      const mapped = normalizeItemFromDB(m);
+      if (mapped) extras.push(mapped);
+      if (extras.length >= Math.min(12, limit)) break;
+    }
+    // Preferir recién guardados al frente de la sección
+    lista = dedupeListItems([...extras, ...lista]).slice(0, limit);
+
     // Guardar en Supabase en background (solo metadatos)
     guardarEnSupabase(lista).catch(() => {});
     return { resultados: lista, total: data.total || lista.length, page: 1, limit };
@@ -1442,9 +1472,13 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
     // Fallback: recientes de Supabase
     const locales = moviesDB
       .filter((m) => {
-        if (tipo === "series") return m.tipo === "Serie";
-        if (tipo === "animes") return m.tipo === "Anime";
-        return m.tipo === "Película" || !m.tipo;
+        if (tipo === "series") {
+          const t = String(m.tipo || "").toLowerCase();
+          return t === "serie" || t === "dorama" || t === "tv";
+        }
+        if (tipo === "animes") return String(m.tipo || "").toLowerCase() === "anime";
+        const t = String(m.tipo || "").toLowerCase();
+        return t === "película" || t === "pelicula" || t === "movie" || !t;
       })
       .slice(0, limit)
       .map((m) => normalizeItemFromDB(m));
@@ -2337,41 +2371,39 @@ function mergeEmbedLists(...lists) {
 }
 
 async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "serie", serieCtx = null) {
+  const preferred = String(resolverSourceId(sourceId || (serieCtx && serieCtx.source_id) || DEFAULT_SOURCE));
   const kinds = kind === "anime" ? ["anime", "serie"] : ["serie", "anime"];
-  const sources = [String(sourceId || DEFAULT_SOURCE)];
-  // Juntar players de todas las fuentes del Worker (1–6)
+  // Preferir la fuente real de la serie; el resto solo si hace falta
   const ordenCap =
-    kind === "anime" ? ["4", "5", "3", "1", "2"] : ["6", "3", "1", "2", "4", "5"];
+    kind === "anime" ? ["4", "5", "3", "1", "2", "6"] : ["3", "6", "1", "2", "4", "5"];
+  const sources = [preferred];
   for (const s of ordenCap) {
     if (!sources.includes(s)) sources.push(s);
   }
   const slugsTry = extraerSlugsAlternos(serieCtx, slug);
-  if (!slugsTry.includes(slug) && slug) slugsTry.unshift(slug);
+  if (slug && !slugsTry.includes(slug)) slugsTry.unshift(slug);
+  // Parsear slug desde link si hace falta
+  if ((!slugsTry.length || !slugsTry[0]) && serieCtx && serieCtx.link) {
+    const id = parseIdentidad(serieCtx);
+    if (id && id.slug) slugsTry.unshift(id.slug);
+  }
 
   let lastErr = null;
   let best = null;
   let allEmbeds = [];
   let allDownloads = [];
 
-  // Peticiones en paralelo por fuente (más rápido; antes se paraba en la 1ª y solo salía MovieZone)
-  const jobs = [];
-  for (const sid of sources) {
-    for (const k of kinds) {
-      for (const trySlug of slugsTry) {
-        jobs.push({ sid, k, trySlug });
-      }
-    }
-  }
-
-  const results = await Promise.all(
-    jobs.map(async ({ sid, k, trySlug }) => {
+  // 1) Fuente preferida primero (rápido, evita 404 en cadena)
+  for (const k of kinds) {
+    for (const trySlug of slugsTry) {
+      if (!trySlug) continue;
       try {
-        const path = `/${sid}/${k}/${trySlug}/${temporada}/${episodio}`;
+        const path = `/${preferred}/${k}/${trySlug}/${temporada}/${episodio}`;
         const data = await apiGet(path);
-        if (!data || data.success === false) return null;
+        if (!data || data.success === false) continue;
         const mapped = mapDetail(data, {
           slug: trySlug,
-          source_id: sid,
+          source_id: preferred,
           tipo: k === "anime" ? "Anime" : "Serie",
         });
         const emb = mapEmbeds(
@@ -2379,32 +2411,81 @@ async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "seri
             ? data.reproductores
             : (data.embeds || mapped.embeds || [])
         );
-        const dl = mapped.downloads || data.descargas || data.downloads || [];
-        return { mapped, emb, dl, sid };
+        if (emb.length) {
+          allEmbeds = mergeEmbedLists(allEmbeds, emb);
+          best = mapped;
+          best.embeds = allEmbeds;
+          best.reproductor = allEmbeds[0]?.url || best.reproductor;
+          best.tiene_player = true;
+          // Con players de la fuente correcta, no hace falta spamear el resto
+          if (allEmbeds.length >= 2) {
+            return best;
+          }
+        } else if (!best) {
+          best = mapped;
+        }
       } catch (err) {
         lastErr = err;
-        return null;
+        // 404/timeout de esta fuente → seguir
       }
-    })
-  );
-
-  for (const r of results) {
-    if (!r) continue;
-    if (r.emb && r.emb.length) allEmbeds = mergeEmbedLists(allEmbeds, r.emb);
-    if (Array.isArray(r.dl) && r.dl.length) {
-      allDownloads = mergeEmbedLists(
-        allDownloads,
-        r.dl.map((d) => (typeof d === "string" ? { url: d } : d))
-      );
-    }
-    if (!best || scoreItem(r.mapped) > scoreItem(best)) {
-      best = best ? mergeItems(best, r.mapped) : r.mapped;
-    } else {
-      best = mergeItems(best, r.mapped);
     }
   }
 
-  if (best) {
+  // 2) Otras fuentes en paralelo limitado (solo si aún faltan players)
+  if (allEmbeds.length < 2) {
+    const otros = sources.filter((s) => s !== preferred).slice(0, 3);
+    const jobs = [];
+    for (const sid of otros) {
+      for (const k of kinds.slice(0, 1)) {
+        for (const trySlug of slugsTry.slice(0, 2)) {
+          if (!trySlug) continue;
+          jobs.push({ sid, k, trySlug });
+        }
+      }
+    }
+    const results = await Promise.all(
+      jobs.map(async ({ sid, k, trySlug }) => {
+        try {
+          const path = `/${sid}/${k}/${trySlug}/${temporada}/${episodio}`;
+          const data = await apiGet(path);
+          if (!data || data.success === false) return null;
+          const mapped = mapDetail(data, {
+            slug: trySlug,
+            source_id: sid,
+            tipo: k === "anime" ? "Anime" : "Serie",
+          });
+          const emb = mapEmbeds(
+            (data.reproductores && data.reproductores.length)
+              ? data.reproductores
+              : (data.embeds || mapped.embeds || [])
+          );
+          const dl = mapped.downloads || data.descargas || data.downloads || [];
+          return { mapped, emb, dl, sid };
+        } catch (err) {
+          lastErr = err;
+          return null;
+        }
+      })
+    );
+    for (const r of results) {
+      if (!r) continue;
+      if (r.emb && r.emb.length) allEmbeds = mergeEmbedLists(allEmbeds, r.emb);
+      if (Array.isArray(r.dl) && r.dl.length) {
+        allDownloads = mergeEmbedLists(
+          allDownloads,
+          r.dl.map((d) => (typeof d === "string" ? { url: d } : d))
+        );
+      }
+      if (!best || scoreItem(r.mapped) > scoreItem(best)) {
+        best = best ? mergeItems(best, r.mapped) : r.mapped;
+      } else {
+        best = mergeItems(best, r.mapped);
+      }
+    }
+  }
+
+  if (best || allEmbeds.length) {
+    if (!best) best = { slug, source_id: preferred, tipo: kind === "anime" ? "Anime" : "Serie" };
     if (allEmbeds.length) {
       best.embeds = allEmbeds;
       best.reproductor = allEmbeds[0]?.url || best.reproductor;
@@ -2413,7 +2494,10 @@ async function obtenerEpisodio(sourceId, slug, temporada, episodio, kind = "seri
     if (allDownloads.length) best.downloads = allDownloads;
     return best;
   }
-  throw lastErr || new Error("No se pudo cargar el episodio");
+  const msg = lastErr && lastErr.response
+    ? `Request failed with status code ${lastErr.response.status}`
+    : (lastErr && lastErr.message) || "No se pudo cargar el episodio";
+  throw new Error(msg);
 }
 
 function mismoEpisodio(ep, season, episode) {
@@ -2485,9 +2569,15 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
 
     const locales = moviesDB.filter((m) => {
       if (!m || esDescartado(m)) return false;
-      if (tipoItem === "Serie") return m.tipo === "Serie";
-      if (tipoItem === "Anime") return m.tipo === "Anime";
-      return m.tipo === "Película" || !m.tipo;
+      if (tipoItem === "Serie") {
+        const t = String(m.tipo || "").toLowerCase();
+        return t === "serie" || t === "dorama" || t === "tv";
+      }
+      if (tipoItem === "Anime") return String(m.tipo || "").toLowerCase() === "anime";
+      {
+        const t = String(m.tipo || "").toLowerCase();
+        return t === "película" || t === "pelicula" || t === "movie" || !t;
+      }
     });
 
     function matchLocal(item) {
@@ -2873,53 +2963,86 @@ app.get("/api/capitulo", async (req, res) => {
       }
     } catch (_) {}
 
-    // Cache: solo devolver si ya hay varios embeds (evitar quedarse con 1 y perder latino/dub)
+    // Cache: si el episodio ya tiene players en Supabase → servirlos ya
+    // (el resto de episodios se cargan al pulsarlos, como pediste)
     let cachedEmb = [];
+    let cachedEp = null;
     if (serie && Array.isArray(serie.episodios)) {
-      const cached = serie.episodios.find(
+      cachedEp = serie.episodios.find(
         (e) => mismoEpisodio(e, temporada, episodio) && (e.embeds?.length || e.video || e.reproductor)
       );
-      if (cached) {
-        cachedEmb = mapEmbeds(cached.embeds || []);
-        // ≥4 players → suficiente; si no, seguir a API para sumar latino/otras fuentes
-        if (cachedEmb.length >= 4) {
+      if (cachedEp) {
+        cachedEmb = mapEmbeds(cachedEp.embeds || []);
+        if (!cachedEmb.length && (cachedEp.video || cachedEp.reproductor)) {
+          cachedEmb = mapEmbeds([{ url: cachedEp.video || cachedEp.reproductor }]);
+        }
+        // ≥1 player guardado → devolver de Supabase (sin ir al Worker)
+        if (cachedEmb.length >= 1) {
           return res.json({
             season: temporada,
             episode: episodio,
             embeds: cachedEmb,
-            downloads: cached.downloads || cached.descargas || [],
-            reproductor: cached.video || cached.reproductor || (cachedEmb[0] && cachedEmb[0].url) || null,
+            downloads: cachedEp.downloads || cachedEp.descargas || [],
+            reproductor: cachedEp.video || cachedEp.reproductor || (cachedEmb[0] && cachedEmb[0].url) || null,
             from: "supabase",
           });
         }
       }
     }
 
-    // 2) API externa del episodio (fusiona 1/2/3/4 → latino + sub)
+    // 2) API externa del episodio (fuente de la serie primero)
     const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
-    const resolvedSlug = slug || serie?.slug;
+    const resolvedSlug = slug || serie?.slug || (parseIdentidad(serie || { link }) || {}).slug;
+    const resolvedSource = resolverSourceId(
+      sourceId || serie?.source_id || (parseIdentidad(serie || { link }) || {}).sourceId || DEFAULT_SOURCE
+    );
     if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
-    const det = await obtenerEpisodio(sourceId, resolvedSlug, temporada, episodio, kind, serie);
-    let embeds = mapEmbeds(det.embeds || []);
-    // Unir con cache parcial
+    let det = null;
+    let embeds = [];
+    try {
+      det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
+      embeds = mapEmbeds(det.embeds || []);
+    } catch (apiErr) {
+      // Si había cache parcial o falla el Worker, no tumbar al usuario con 500
+      if (cachedEmb.length) {
+        return res.json({
+          season: temporada,
+          episode: episodio,
+          embeds: cachedEmb,
+          downloads: (cachedEp && (cachedEp.downloads || cachedEp.descargas)) || [],
+          reproductor: (cachedEp && (cachedEp.video || cachedEp.reproductor)) || cachedEmb[0].url,
+          from: "supabase-fallback",
+          warning: apiErr.message,
+        });
+      }
+      console.error("/api/capitulo", apiErr.message);
+      return res.status(502).json({
+        error: "No se pudo cargar el capítulo",
+        detalle: apiErr.message,
+        season: temporada,
+        episode: episodio,
+        embeds: [],
+      });
+    }
+
     if (cachedEmb.length) embeds = mergeEmbedLists(cachedEmb, embeds);
 
-    // 3) Guardar en Supabase (crear stub de serie si hace falta)
+    // 3) Guardar en Supabase para la próxima vez
     if (embeds.length) {
       if (!serie) {
         serie = {
-          link: link || `${API_BASE}/${sourceId}/${kind}/${resolvedSlug}`,
+          link: link || `${API_BASE}/${resolvedSource}/${kind}/${resolvedSlug}`,
           slug: resolvedSlug,
-          source_id: String(sourceId),
+          source_id: String(resolvedSource),
           tipo: kind === "anime" ? "Anime" : "Serie",
-          nombre: det.nombre || resolvedSlug,
+          nombre: (det && det.nombre) || resolvedSlug,
           episodios: [],
           tiene_player: true,
         };
       }
       try {
-        await guardarPlayersEpisodio(serie, temporada, episodio, embeds, det.reproductor);
+        await guardarPlayersEpisodio(serie, temporada, episodio, embeds, det && det.reproductor);
       } catch (saveErr) {
         console.warn("guardarPlayersEpisodio:", saveErr.message);
       }
@@ -2929,9 +3052,9 @@ app.get("/api/capitulo", async (req, res) => {
       season: temporada,
       episode: episodio,
       embeds,
-      downloads: det.downloads || det.descargas || [],
-      reproductor: det.reproductor || (embeds[0] && embeds[0].url) || null,
-      nombre: det.nombre,
+      downloads: (det && (det.downloads || det.descargas)) || [],
+      reproductor: (det && det.reproductor) || (embeds[0] && embeds[0].url) || null,
+      nombre: det && det.nombre,
       from: "api",
     });
   } catch (err) {
