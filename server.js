@@ -310,13 +310,23 @@ async function guardarEnSupabase(items) {
       return {
         link: item.link,
         nombre: (function () {
-          const n = limpiarTitulo(nombre || null);
-          const ne = limpiarTitulo(existente?.nombre || null);
-          // Nunca guardar slug como nombre
           const slug = item.slug || existente?.slug || "";
-          if (n && String(n).toLowerCase().replace(/\s+/g, "-") !== String(slug).toLowerCase()) return n;
-          if (ne && String(ne).toLowerCase().replace(/\s+/g, "-") !== String(slug).toLowerCase()) return ne;
-          return n || ne || null;
+          const best = elegirMejorTitulo(
+            {
+              titulo: nombre || item.nombre || item.titulo,
+              nombre: nombre || item.nombre,
+              titulo_tmdb: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo) || (existente && existente.tmdb && existente.tmdb.titulo),
+              titulo_original: item.titulo_original || existente?.titulo_original,
+              tmdb: item.tmdb || existente?.tmdb,
+              imdb: item.imdb || existente?.imdb,
+              slug,
+            },
+            slug
+          );
+          if (best && !pareceSlugTitulo(best, slug)) return best;
+          const ne = limpiarTitulo(existente?.nombre || null);
+          if (ne && !pareceSlugTitulo(ne, slug)) return ne;
+          return best || ne || null;
         })(),
         titulo_original: item.titulo_original || existente?.titulo_original || null,
         portada: item.portada || existente?.portada || null,
@@ -332,7 +342,14 @@ async function guardarEnSupabase(items) {
         })(),
         genero: item.genero || existente?.genero || null,
         generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
-        tipo: item.tipo || existente?.tipo || "Película",
+        tipo: (function () {
+          // Preferir Serie si cualquiera de las fuentes lo indica (evita Anime fantasma de animeav1)
+          const tNew = resolverTipoItem(item, item.source_id);
+          const tOld = existente ? resolverTipoItem(existente, existente.source_id) : null;
+          if (tNew === "Serie" || tOld === "Serie") return "Serie";
+          if (tNew === "Anime" && tOld === "Película") return "Anime";
+          return tNew || tOld || item.tipo || existente?.tipo || "Película";
+        })(),
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
         paises: item.paises || existente?.paises || [],
@@ -485,11 +502,148 @@ async function guardarEnSupabase(items) {
 
 // ---------- Helpers de mapeo API → formato frontend ----------
 function normalizarTipo(tipo) {
-  const t = String(tipo || "").toLowerCase();
-  if (t.includes("serie") || t === "tv" || t === "tvshows") return "Serie";
+  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (t.includes("dorama") || t.includes("serie") || t === "tv" || t === "tvshows" || t === "tvshow") return "Serie";
   if (t.includes("anime")) return "Anime";
   if (t.includes("cap") || t.includes("episod")) return "Capitulo";
   return "Película";
+}
+
+/** True si el texto parece un slug (our-sticky-love) y no un título legible */
+function pareceSlugTitulo(texto, slug) {
+  if (!texto) return true;
+  const t = String(texto).trim();
+  if (!t) return true;
+  const slugNorm = String(slug || "")
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, "");
+  const asSlug = t.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  if (slugNorm && (asSlug === slugNorm || t.toLowerCase() === slugNorm)) return true;
+  // Solo minúsculas/números/guiones, sin espacios → casi seguro slug
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(t) && !/\s/.test(t)) return true;
+  return false;
+}
+
+/**
+ * Elige el mejor título humano.
+ * Prioridad: titulo legible de API → titulo_tmdb → titulo_original → nombre limpio → slug humanizado.
+ * NUNCA devolver el slug crudo si hay alternativa.
+ */
+function elegirMejorTitulo(r, slug) {
+  r = r || {};
+  const candidatos = [
+    r.titulo,
+    r.title,
+    r.nombre,
+    r.titulo_tmdb,
+    r.titulo_original,
+    r.tmdb && r.tmdb.titulo,
+    r.imdb && (r.imdb.titulo || r.imdb.title),
+  ]
+    .map((x) => (x != null ? String(x).trim() : ""))
+    .filter(Boolean);
+
+  for (const c of candidatos) {
+    if (!pareceSlugTitulo(c, slug || r.slug)) {
+      return limpiarTitulo(c) || c;
+    }
+  }
+  // Último recurso: humanizar slug
+  const s = String(slug || r.slug || candidatos[0] || "").trim();
+  if (!s) return "Sin título";
+  if (pareceSlugTitulo(s, s)) {
+    return s
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  }
+  return limpiarTitulo(s) || s;
+}
+
+/**
+ * Resuelve tipo de forma fiable.
+ * - doramasflix (6) → siempre Serie
+ * - si el tipo de la API dice Serie/Dorama/TV → Serie (gana sobre animeav1 mal etiquetado)
+ * - anime solo si la fuente/tipo realmente apuntan a anime
+ */
+function resolverTipoItem(r, sourceIdHint) {
+  r = r || {};
+  const sid = String(
+    sourceIdHint != null
+      ? sourceIdHint
+      : resolverSourceId(r.source_id || r.fuente || r.source)
+  );
+  const tipoRaw = String(r.tipo || r.type || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const link = String(r.link || r.url_extract || r.url || "").toLowerCase();
+  const fuente = String(r.fuente || "").toLowerCase();
+
+  // Episodios ya vinculados a doramasflix → es Serie (corrige híbridos animeav1+dorama)
+  const eps = r.episodios || [];
+  const epSrc6 =
+    Array.isArray(eps) &&
+    eps.some((e) => {
+      const es = String(e && (e.source_id || e.fuente) || "");
+      const eu = String(e && (e.url_video || e.link || e.video) || "").toLowerCase();
+      return es === "6" || /doramasflix|\/6\/serie\//.test(eu);
+    });
+
+  // Fuentes de doramas / series live-action
+  if (
+    sid === "6" ||
+    fuente.includes("dorama") ||
+    /\/serie\//.test(link) ||
+    /doramasflix/.test(link) ||
+    epSrc6
+  ) {
+    return "Serie";
+  }
+  // API ya dice serie/dorama/tv → respetar
+  if (
+    tipoRaw.includes("dorama") ||
+    tipoRaw.includes("serie") ||
+    tipoRaw === "tv" ||
+    tipoRaw === "tvshow" ||
+    tipoRaw === "tvshows"
+  ) {
+    return "Serie";
+  }
+  // Ruta /anime/ o tipo anime o fuentes 4/5
+  if (
+    tipoRaw.includes("anime") ||
+    /\/anime\//.test(link) ||
+    sid === "4" ||
+    sid === "5" ||
+    fuente.includes("anime")
+  ) {
+    if (/\/serie\//.test(link) || /doramasflix/.test(link)) return "Serie";
+    return "Anime";
+  }
+  if (tipoRaw.includes("cap") || tipoRaw.includes("episod")) return "Capitulo";
+  if (tipoRaw.includes("pelicul") || tipoRaw.includes("movie") || tipoRaw.includes("film")) return "Película";
+  return normalizarTipo(r.tipo || r.type || "Pelicula");
+}
+
+/** ¿Este ítem debe listarse en la sección Anime? */
+function esItemAnimeValido(item) {
+  if (!item) return false;
+  const tipo = String(item.tipo || "").toLowerCase();
+  if (tipo !== "anime") return false;
+  const sid = String(item.source_id || resolverSourceId(item.fuente) || "");
+  const link = String(item.link || item.url_extract || "").toLowerCase();
+  // Nunca listar doramasflix / rutas /serie/ como anime
+  if (sid === "6") return false;
+  if (/doramasflix/.test(link) || /\/serie\//.test(link)) return false;
+  // Si el nombre sigue siendo slug y hay titulo_original distinto, suele ser basura de animeav1
+  const nombre = String(item.nombre || item.titulo || "");
+  const orig = String(item.titulo_original || (item.tmdb && item.tmdb.titulo) || "");
+  if (pareceSlugTitulo(nombre, item.slug) && orig && !pareceSlugTitulo(orig, item.slug)) {
+    // Permitir solo si source es claramente anime (4/5) Y no hay indicios de dorama en episodios
+    const eps = item.episodios || [];
+    const epSrc6 = Array.isArray(eps) && eps.some((e) => String(e.source_id || "") === "6");
+    if (epSrc6) return false;
+  }
+  return true;
 }
 
 function extraerAnio(titulo, year) {
@@ -1090,9 +1244,26 @@ function normalizeItemFromDB(row) {
     try { temporadas = JSON.parse(temporadas); } catch { temporadas = []; }
   }
   const reproductor = row.reproductor || (embeds[0] && embeds[0].url) || null;
+  const slug = row.slug || null;
+  const nombreFixed = elegirMejorTitulo(
+    {
+      titulo: row.nombre || row.titulo,
+      nombre: row.nombre,
+      titulo_tmdb: row.titulo_tmdb || (row.tmdb && row.tmdb.titulo),
+      titulo_original: row.titulo_original,
+      tmdb: row.tmdb,
+      imdb: row.imdb,
+      slug,
+    },
+    slug
+  );
+  const tipoFixed = resolverTipoItem(row, row.source_id);
   return {
     ...row,
-    nombre: limpiarTitulo(row.nombre || row.titulo || "Sin título"),
+    nombre: nombreFixed,
+    titulo: nombreFixed,
+    tipo: tipoFixed,
+    source_id: row.source_id != null ? String(row.source_id) : null,
     descripcion: limpiarTexto(row.descripcion || ""),
     genero: limpiarTexto(row.genero || "") || null,
     embeds,
@@ -1165,16 +1336,12 @@ function extraerMetaFuentes(r) {
 /** Resultado de listado / search → item ligero (API v2 con TMDB) */
 function mapListItem(r) {
   if (!r || typeof r !== "object") return null;
-  // Datos tal cual los manda la API Worker (no inventar ni mezclar)
-  const titulo = String(r.titulo || r.title || r.nombre || "").trim() || "Sin título";
-  const tipoRaw = String(r.tipo || r.type || "Pelicula");
-  const tipo = /anime/i.test(tipoRaw)
-    ? "Anime"
-    : /serie|tv/i.test(tipoRaw)
-      ? "Serie"
-      : "Película";
   const slug = r.slug ? String(r.slug) : null;
   const sourceId = resolverSourceId(r.source_id || r.fuente);
+  // Título legible (nunca slug crudo si hay TMDB/original)
+  const titulo = elegirMejorTitulo(r, slug);
+  // Tipo fiable: doramasflix → Serie; no confiar ciegamente en animeav1
+  const tipo = resolverTipoItem(r, sourceId);
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
@@ -1258,10 +1425,33 @@ function mapListItem(r) {
 
 /** Detalle de película / serie / capítulo → item completo */
 function mapDetail(data, fallback = {}) {
-  const titulo = String(data.titulo || data.title || data.nombre || fallback.nombre || fallback.titulo || "Sin título").trim();
-  const tipo = normalizarTipo(data.tipo || data.type || fallback.tipo);
-  const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
   const slug = data.slug || fallback.slug || null;
+  const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
+  const titulo = elegirMejorTitulo(
+    {
+      titulo: data.titulo || data.title || data.nombre || fallback.nombre || fallback.titulo,
+      title: data.title,
+      nombre: data.nombre || fallback.nombre,
+      titulo_tmdb: data.titulo_tmdb || (data.tmdb && data.tmdb.titulo) || (fallback.tmdb && fallback.tmdb.titulo),
+      titulo_original: data.titulo_original || fallback.titulo_original,
+      tmdb: data.tmdb || fallback.tmdb,
+      imdb: data.imdb || fallback.imdb,
+      slug,
+    },
+    slug
+  );
+  // Preferir tipo del payload; doramasflix /ruta serie siempre Serie
+  const tipo = resolverTipoItem(
+    {
+      tipo: data.tipo || data.type || fallback.tipo,
+      type: data.type,
+      source_id: sourceId,
+      fuente: data.fuente || fallback.fuente,
+      link: data.link || data.url_extract || fallback.link,
+      url_extract: data.url_extract || fallback.url_extract,
+    },
+    sourceId
+  );
   const embedsArr = mapEmbeds([
     ...(Array.isArray(data.reproductores) ? data.reproductores : []),
     ...(Array.isArray(data.embeds) ? data.embeds : []),
@@ -2603,14 +2793,17 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
 
     const locales = moviesDB.filter((m) => {
       if (!m || esDescartado(m)) return false;
+      // Re-evaluar tipo al filtrar (corrige basura antigua en Supabase)
+      const tipoOk = resolverTipoItem(m, m.source_id);
       if (tipoItem === "Serie") {
-        const t = String(m.tipo || "").toLowerCase();
-        return t === "serie" || t === "dorama" || t === "tv";
+        return tipoOk === "Serie";
       }
-      if (tipoItem === "Anime") return String(m.tipo || "").toLowerCase() === "anime";
+      if (tipoItem === "Anime") {
+        // Solo animes reales: no doramasflix ni mal etiquetados
+        return tipoOk === "Anime" && esItemAnimeValido({ ...m, tipo: tipoOk });
+      }
       {
-        const t = String(m.tipo || "").toLowerCase();
-        return t === "película" || t === "pelicula" || t === "movie" || !t;
+        return tipoOk === "Película";
       }
     });
 
