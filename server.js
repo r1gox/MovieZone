@@ -249,6 +249,15 @@ async function guardarEnSupabase(items) {
   if (!sb) return;
 
   const paraInsertarRaw = items
+    .map((item) => {
+      // Asegurar link para upsert
+      if (!item.link && item.url_extract) item.link = item.url_extract;
+      if (!item.link && item.slug && item.source_id) {
+        const k = /anime/i.test(item.tipo || "") ? "anime" : /serie/i.test(item.tipo || "") ? "serie" : "pelicula";
+        item.link = `${API_BASE}/${item.source_id}/${k}/${item.slug}`;
+      }
+      return item;
+    })
     .filter((item) => item.link && !discardedLinks.has(item.link) && !esDescartado(item))
     .map((item) => {
       let nombre = item.nombre || null;
@@ -300,7 +309,15 @@ async function guardarEnSupabase(items) {
       const descripcionFinal = elegirMejorDescripcion(item.descripcion, existente?.descripcion);
       return {
         link: item.link,
-        nombre: limpiarTitulo(nombre || existente?.nombre || null),
+        nombre: (function () {
+          const n = limpiarTitulo(nombre || null);
+          const ne = limpiarTitulo(existente?.nombre || null);
+          // Nunca guardar slug como nombre
+          const slug = item.slug || existente?.slug || "";
+          if (n && String(n).toLowerCase().replace(/\s+/g, "-") !== String(slug).toLowerCase()) return n;
+          if (ne && String(ne).toLowerCase().replace(/\s+/g, "-") !== String(slug).toLowerCase()) return ne;
+          return n || ne || null;
+        })(),
         titulo_original: item.titulo_original || existente?.titulo_original || null,
         portada: item.portada || existente?.portada || null,
         backdrop: item.backdrop || existente?.backdrop || null,
@@ -1122,7 +1139,10 @@ function mapDetail(data, fallback = {}) {
   const tipo = normalizarTipo(data.tipo || data.type || fallback.tipo);
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
   const slug = data.slug || fallback.slug || null;
-  const embedsArr = mapEmbeds(data.reproductores && data.reproductores.length ? data.reproductores : data.embeds);
+  const embedsArr = mapEmbeds([
+    ...(Array.isArray(data.reproductores) ? data.reproductores : []),
+    ...(Array.isArray(data.embeds) ? data.embeds : []),
+  ]);
   // Preferir stream_url HLS si el Worker lo trajo
   const reproductor = embedsArr[0]?.stream_url || embedsArr[0]?.url || data.reproductor || null;
 
@@ -1195,6 +1215,7 @@ function mapDetail(data, fallback = {}) {
     id: data.postId || fallback.postId || fallback.id || `${sourceId}-${slug || titulo}`,
     postId: data.postId || fallback.postId || null,
     nombre: titulo,
+    titulo: titulo,
     titulo_original: data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
     tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
@@ -1235,7 +1256,8 @@ function mapDetail(data, fallback = {}) {
     omdb: Object.keys(metaF.omdb).length ? metaF.omdb : null,
     paises: [],
     ultimo_episodio: data.ultimo_episodio || null,
-    link: data.link || fallback.link || null,
+    link: data.link || fallback.link || (slug ? (`${API_BASE}/${sourceId}/${tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula"}/${slug}`) : null),
+    url_extract: data.url_extract || data.link || fallback.link || null,
     source_id: sourceId,
     fuente: data.fuente || fallback.fuente || null,
     temporada_principal: data.temporada_principal || null,
@@ -1623,6 +1645,17 @@ async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
     let item = mapDetail(data, { ...fallback, slug, source_id: String(sourceId) });
     if (!item.link) item.link = data.link || `${API_BASE}/${sourceId}/${kind}/${slug}`;
     if (!item.slug) item.slug = slug;
+    // Garantizar players desde respuesta cruda si mapDetail falló en embeds
+    if ((!item.embeds || !item.embeds.length) && (data.reproductores || data.embeds)) {
+      item.embeds = mapEmbeds([
+        ...(Array.isArray(data.reproductores) ? data.reproductores : []),
+        ...(Array.isArray(data.embeds) ? data.embeds : []),
+      ]);
+      if (item.embeds.length) {
+        item.tiene_player = true;
+        item.reproductor = item.embeds[0].stream_url || item.embeds[0].url || item.reproductor;
+      }
+    }
     // Anime: rellenar stubs si total_episodios > lista parcial
     if (item.tipo === "Anime" || kind === "anime") {
       item = expandirEpisodiosAnime(item);
@@ -1632,6 +1665,73 @@ async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
     console.warn(`Detalle ${sourceId}/${kind}/${slug}:`, err.message);
     return null;
   }
+}
+
+
+/** La API manda en título/año/rating/géneros; nunca usar slug como nombre */
+function preferApiMeta(apiItem, cached) {
+  if (!apiItem) return cached || null;
+  if (!cached) {
+    if (apiItem.nombre && apiItem.slug &&
+        String(apiItem.nombre).toLowerCase().replace(/\s+/g, "-") === String(apiItem.slug).toLowerCase()) {
+      if (apiItem.titulo) apiItem.nombre = apiItem.titulo;
+    }
+    return apiItem;
+  }
+  const out = { ...cached, ...apiItem };
+  // Título: NUNCA slug
+  const tituloApi = apiItem.nombre || apiItem.titulo || null;
+  if (tituloApi && String(tituloApi).toLowerCase().replace(/\s+/g, "-") !== String(apiItem.slug || cached.slug || "").toLowerCase()) {
+    out.nombre = tituloApi;
+  } else if (tituloApi) {
+    out.nombre = tituloApi;
+  } else if (cached.nombre && String(cached.nombre).toLowerCase().replace(/\s+/g, "-") !== String(cached.slug || "").toLowerCase()) {
+    out.nombre = cached.nombre;
+  }
+  // Año / rating / géneros / imdb: API gana si trae valor
+  if (apiItem.year) out.year = apiItem.year;
+  if (apiItem.calificacion != null && apiItem.calificacion !== "") out.calificacion = apiItem.calificacion;
+  if (apiItem.rating != null && (out.calificacion == null || out.calificacion === "")) out.calificacion = apiItem.rating;
+  if (apiItem.genero) out.genero = apiItem.genero;
+  if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
+  if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
+  if (apiItem.tmdb_id) out.tmdb_id = apiItem.tmdb_id;
+  if (apiItem.imdb) out.imdb = apiItem.imdb;
+  if (apiItem.tmdb) out.tmdb = apiItem.tmdb;
+  if (apiItem.votos) out.votos = apiItem.votos;
+  if (apiItem.duracion) out.duracion = apiItem.duracion;
+  if (apiItem.duracion_texto) out.duracion_texto = apiItem.duracion_texto;
+  if (apiItem.certificacion) out.certificacion = apiItem.certificacion;
+  if (apiItem.titulo_original) out.titulo_original = apiItem.titulo_original;
+  if (apiItem.fecha_estreno) out.fecha_estreno = apiItem.fecha_estreno;
+  // Descripción: preferir español (elegirMejorDescripcion ya prioriza ES)
+  out.descripcion = elegirMejorDescripcion(apiItem.descripcion, cached.descripcion);
+  // Portada API si es válida
+  if (apiItem.portada && esPortadaValida(apiItem.portada)) out.portada = apiItem.portada;
+  // Players: el que tenga más
+  if (apiItem.embeds && apiItem.embeds.length) {
+    out.embeds = apiItem.embeds;
+    out.tiene_player = true;
+    out.reproductor = apiItem.reproductor || apiItem.embeds[0]?.stream_url || apiItem.embeds[0]?.url || out.reproductor;
+  }
+  // Si años distintos → NO mezclar meta de cache (obra distinta con mismo slug)
+  const yA = apiItem.year && String(apiItem.year).match(/(19|20)\d{2}/);
+  const yC = cached.year && String(cached.year).match(/(19|20)\d{2}/);
+  if (yA && yC && yA[0] !== yC[0]) {
+    out.year = yA[0];
+    out.calificacion = apiItem.calificacion ?? apiItem.rating ?? null;
+    out.genero = apiItem.genero || null;
+    out.generos = apiItem.generos || [];
+    out.imdb = apiItem.imdb || null;
+    out.tmdb = apiItem.tmdb || null;
+    out.imdb_id = apiItem.imdb_id || null;
+    out.votos = apiItem.votos || null;
+    out.duracion = apiItem.duracion || null;
+    out.duracion_texto = apiItem.duracion_texto || null;
+    out.certificacion = apiItem.certificacion || null;
+    out.descripcion = apiItem.descripcion || out.descripcion;
+  }
+  return out;
 }
 
 async function obtenerDetalle(params) {
@@ -1684,7 +1784,24 @@ async function obtenerDetalle(params) {
     cached.portada &&
     !String(cached.portada).includes("placeholder");
 
-  if (!force && cached && (tieneContenido && tieneDesc || yaFunciona)) {
+  // Cache solo si realmente hay players (película) o episodios (serie/anime)
+  const esSerieCache = esAnimeKind || /serie/i.test(String(cached?.tipo || ""));
+  const cacheTienePlayers =
+    !!cached &&
+    (itemTieneContenidoValido(cached) ||
+      (esSerieCache &&
+        ((cached.episodios && cached.episodios.length) ||
+          (cached.temporadas && cached.temporadas.length) ||
+          (cached.temporadas_raw && cached.temporadas_raw.length))));
+
+  // Si el nombre parece slug (la-captura), forzar refresco desde API
+  const nombreEsSlug =
+    cached &&
+    cached.nombre &&
+    cached.slug &&
+    String(cached.nombre).toLowerCase().replace(/\s+/g, "-") === String(cached.slug).toLowerCase();
+
+  if (!force && cached && cacheTienePlayers && (tieneDesc || yaFunciona) && !nombreEsSlug) {
     if (esAnimeKind) {
       try {
         const refreshed = await refreshAnimeMetaFromSource4(cached, id);
@@ -1695,6 +1812,7 @@ async function obtenerDetalle(params) {
     }
     return cached;
   }
+  // Si cache no tiene players o nombre=slug → seguir a la API
 
   // force con players OK: solo refrescar meta (descripcion/genero) de la fuente actual, no rehacer todo
   const soloMeta =
@@ -1887,16 +2005,19 @@ async function obtenerDetalle(params) {
   const sinContenido = !best.tiene_player;
   const esSerieOAnime = best.tipo === "Serie" || best.tipo === "Anime";
 
-  // NO descartar series/animes: los players suelen cargarse por episodio
-  // Solo descartar PELÍCULAS sin reproductor, o cualquier cosa sin portada Y sin contenido
+  // NO borrar de Supabase por falta temporal de players (evita perder fichas).
+  // Solo marcar flag para el front; se reintentará en el próximo force/detalle.
   if (!esSerieOAnime && sinContenido) {
-    if (best.link) await borrarDeSupabase(best.link);
-    if (best.slug) await borrarDeSupabasePorSlug(best.slug);
-    best._eliminado = true;
+    best._sin_players = true;
+    best = preferApiMeta(best, cached);
+    if (best.link && (best.descripcion || best.portada || best.calificacion)) {
+      try { await guardarEnSupabase([best]); } catch (_) {}
+    }
     return best;
   }
   if (sinPortada && sinContenido && !esSerieOAnime) {
-    if (best.link) await borrarDeSupabase(best.link);
+    best._sin_players = true;
+    best = preferApiMeta(best, cached);
     return best;
   }
 
@@ -1907,7 +2028,16 @@ async function obtenerDetalle(params) {
     } catch (_) {}
   }
 
-  // Series/animes: guardar aunque aún no tengan embeds (sí temporadas/episodios)
+  // API gana sobre caché vieja (2012 vs 2026, slug como título, etc.)
+  best = preferApiMeta(best, cached);
+
+  // Nunca dejar nombre = slug
+  if (best.nombre && best.slug &&
+      String(best.nombre).toLowerCase().replace(/\s+/g, "-") === String(best.slug).toLowerCase()) {
+    if (best.titulo) best.nombre = best.titulo;
+    else best.nombre = String(best.slug).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   await guardarEnSupabase([best]);
   return best;
 }

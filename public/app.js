@@ -1140,9 +1140,12 @@ const playerTitle = document.getElementById("player-title");
 async function abrirDetalle(item, autoPlay = false, force = false) {
     // Preferir título legible de la API (nunca mostrar slug como título)
     if (item) {
-        if (item.titulo && String(item.titulo).trim()) item.nombre = String(item.titulo).trim();
-        else if (item.nombre && /-/.test(item.nombre) && item.nombre === item.slug) {
-            item.nombre = String(item.nombre).replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+        // NUNCA mostrar slug como título
+        if (item.titulo && String(item.titulo).trim() && String(item.titulo).toLowerCase() !== String(item.slug || "").toLowerCase()) {
+            item.nombre = String(item.titulo).trim();
+        } else if (item.nombre && item.slug &&
+            String(item.nombre).toLowerCase().replace(/\s+/g, "-") === String(item.slug).toLowerCase()) {
+            item.nombre = String(item.slug).replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
         }
     }
     seleccionActual = item;
@@ -1196,7 +1199,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         (!item.temporadas_raw || !item.temporadas_raw.length) &&
         (!item.temporadas || !item.temporadas.length);
 
-    const necesitaEnriquecer = force || faltaDescripcion || faltaPlayers || faltaEpisodios;
+    const necesitaEnriquecer = force || faltaDescripcion || faltaPlayers || faltaEpisodios || !(item.embeds && item.embeds.length) && item.tipo !== "Serie" && item.tipo !== "Anime";
 
     if (necesitaEnriquecer && (item.postId || item.link || item.slug || item.url_extract)) {
         try {
@@ -1258,19 +1261,51 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     const fields = [
                         "nombre", "titulo", "titulo_original", "year", "calificacion", "rating",
                         "genero", "generos", "descripcion", "votos", "duracion", "duracion_texto",
-                        "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "portada", "backdrop"
+                        "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "portada", "backdrop",
+                        "embeds", "downloads", "reproductor", "episodios", "temporadas", "temporadas_raw",
+                        "tiene_player", "link", "url_extract", "slug", "source_id"
                     ];
                     fields.forEach(function (f) {
                         const v = item[f];
                         const empty = v == null || v === "" || (Array.isArray(v) && !v.length);
-                        if (empty && keep[f] != null && keep[f] !== "") item[f] = keep[f];
+                        if (empty && keep[f] != null && keep[f] !== "" && !(Array.isArray(keep[f]) && !keep[f].length)) {
+                            item[f] = keep[f];
+                        }
                     });
+                    // Players del detalle siempre ganan si traen algo
+                    if (Array.isArray(completo.embeds) && completo.embeds.length) {
+                        item.embeds = completo.embeds;
+                        item.tiene_player = true;
+                    }
+                    if (completo.reproductor) item.reproductor = completo.reproductor;
+                    if (Array.isArray(completo.downloads) && completo.downloads.length) {
+                        item.downloads = completo.downloads;
+                    }
                     if (completo.calificacion != null) item.calificacion = completo.calificacion;
                     if (completo.rating != null && (item.calificacion == null || item.calificacion === "")) {
                         item.calificacion = completo.rating;
                     }
+                    if (completo.year) item.year = completo.year;
+                    if (completo.genero) item.genero = completo.genero;
+                    if (completo.generos && completo.generos.length) item.generos = completo.generos;
+                    if (completo.imdb) item.imdb = completo.imdb;
+                    if (completo.votos) item.votos = completo.votos;
+                    if (completo.duracion) item.duracion = completo.duracion;
+                    if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
+                    if (completo.certificacion) item.certificacion = completo.certificacion;
                     if (completo.nombre || completo.titulo) {
-                        item.nombre = completo.nombre || completo.titulo;
+                        const t = completo.nombre || completo.titulo;
+                        if (!completo.slug || String(t).toLowerCase().replace(/\s+/g, "-") !== String(completo.slug).toLowerCase()) {
+                            item.nombre = t;
+                        }
+                    }
+                    // Si años conflictúan, confiar 100% en detalle API
+                    if (completo.year && item.year && String(completo.year).slice(0,4) !== String(item.year).slice(0,4)) {
+                        item.year = completo.year;
+                        if (completo.calificacion != null) item.calificacion = completo.calificacion;
+                        if (completo.genero) item.genero = completo.genero;
+                        if (completo.generos) item.generos = completo.generos;
+                        if (completo.imdb) item.imdb = completo.imdb;
                     }
                 }
                 const esSA2 = item.tipo === "Serie" || item.tipo === "Anime";
