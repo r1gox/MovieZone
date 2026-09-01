@@ -311,21 +311,28 @@ async function guardarEnSupabase(items) {
         link: item.link,
         nombre: (function () {
           const slug = item.slug || existente?.slug || "";
+          // 1) titulo español 2) titulo_original — nunca guardar original como nombre si hay titulo
           const best = elegirMejorTitulo(
             {
-              titulo: nombre || item.nombre || item.titulo,
-              nombre: nombre || item.nombre,
-              titulo_tmdb: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo) || (existente && existente.tmdb && existente.tmdb.titulo),
-              titulo_original: item.titulo_original || existente?.titulo_original,
+              titulo: item.titulo || nombre || null,
+              titulo_original: item.titulo_original || existente?.titulo_original || null,
+              titulo_tmdb: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo) || null,
+              nombre: nombre || item.nombre || existente?.nombre,
               tmdb: item.tmdb || existente?.tmdb,
               imdb: item.imdb || existente?.imdb,
               slug,
             },
             slug
           );
+          // Si existente ya tiene el titulo español, no reemplazar por original inglés
+          const ne = existente?.titulo || existente?.nombre || null;
+          if (ne && !pareceSlugTitulo(ne, slug) && item.titulo_original &&
+              String(ne).toLowerCase() !== String(item.titulo_original).toLowerCase() &&
+              (!item.titulo || pareceSlugTitulo(item.titulo, slug))) {
+            return limpiarTitulo(ne) || ne;
+          }
           if (best && !pareceSlugTitulo(best, slug)) return best;
-          const ne = limpiarTitulo(existente?.nombre || null);
-          if (ne && !pareceSlugTitulo(ne, slug)) return ne;
+          if (ne && !pareceSlugTitulo(ne, slug)) return limpiarTitulo(ne) || ne;
           return best || ne || null;
         })(),
         titulo_original: item.titulo_original || existente?.titulo_original || null,
@@ -541,28 +548,28 @@ function elegirMejorTitulo(r, slug) {
     if (val == null) return null;
     const s = String(val).trim();
     if (!s) return null;
-    // Rechazar si es el slug crudo (teach-you-a-lesson)
     if (pareceSlugTitulo(s, slugRef)) return null;
     return limpiarTitulo(s) || s;
   };
 
-  // 1) titulo de la fuente en español ("Así aprenderás", "Acaramelados")
-  const tFuente = usable(r.titulo);
-  if (tFuente) return tFuente;
+  // 1) titulo de la fuente en español ("Acaramelados") — SIEMPRE primero
+  const t1 = usable(r.titulo);
+  if (t1) return t1;
 
-  // 2) si titulo no sirve → titulo_tmdb
-  const tTmdb = usable(r.titulo_tmdb) || usable(r.tmdb && r.tmdb.titulo);
-  if (tTmdb) return tTmdb;
+  // 2) titulo_original (solo si no hay titulo)
+  const t2 = usable(r.titulo_original);
+  if (t2) return t2;
 
-  // 3) resto
-  const tExtra =
-    usable(r.titulo_original) ||
+  // 3) titulo_tmdb / otros
+  const t3 =
+    usable(r.titulo_tmdb) ||
+    usable(r.tmdb && r.tmdb.titulo) ||
     usable(r.title) ||
     usable(r.nombre) ||
     usable(r.imdb && (r.imdb.titulo || r.imdb.title));
-  if (tExtra) return tExtra;
+  if (t3) return t3;
 
-  // 4) humanizar slug solo si no hay nada más
+  // 4) humanizar slug
   const s = String(slugRef || r.titulo || r.nombre || "").trim();
   if (!s) return "Sin título";
   if (pareceSlugTitulo(s, slugRef || s)) {
@@ -1476,13 +1483,14 @@ function mapListItem(r) {
 function mapDetail(data, fallback = {}) {
   const slug = data.slug || fallback.slug || null;
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
+  // titulo (español) primero; titulo_original solo si no hay titulo
   const titulo = elegirMejorTitulo(
     {
-      titulo: data.titulo || data.title || data.nombre || fallback.nombre || fallback.titulo,
+      titulo: data.titulo || fallback.titulo || null,
+      titulo_original: data.titulo_original || fallback.titulo_original || null,
+      titulo_tmdb: data.titulo_tmdb || (data.tmdb && data.tmdb.titulo) || null,
       title: data.title,
       nombre: data.nombre || fallback.nombre,
-      titulo_tmdb: data.titulo_tmdb || (data.tmdb && data.tmdb.titulo) || (fallback.tmdb && fallback.tmdb.titulo),
-      titulo_original: data.titulo_original || fallback.titulo_original,
       tmdb: data.tmdb || fallback.tmdb,
       imdb: data.imdb || fallback.imdb,
       slug,
@@ -2121,15 +2129,38 @@ function preferApiMeta(apiItem, cached) {
     return apiItem;
   }
   const out = { ...cached, ...apiItem };
-  // Título: NUNCA slug
-  const tituloApi = apiItem.nombre || apiItem.titulo || null;
-  if (tituloApi && String(tituloApi).toLowerCase().replace(/\s+/g, "-") !== String(apiItem.slug || cached.slug || "").toLowerCase()) {
-    out.nombre = tituloApi;
-  } else if (tituloApi) {
-    out.nombre = tituloApi;
-  } else if (cached.nombre && String(cached.nombre).toLowerCase().replace(/\s+/g, "-") !== String(cached.slug || "").toLowerCase()) {
-    out.nombre = cached.nombre;
+  // Título: 1) titulo (español) 2) titulo_original — NUNCA pisar un titulo bueno con original/tmdb
+  const slugRef = apiItem.slug || cached.slug || null;
+  const best = elegirMejorTitulo(
+    {
+      // Priorizar titulo de la fuente española (búsqueda/doramasflix)
+      titulo: apiItem.titulo || cached.titulo || null,
+      titulo_original: apiItem.titulo_original || cached.titulo_original || null,
+      titulo_tmdb: apiItem.titulo_tmdb || cached.titulo_tmdb || null,
+      nombre: apiItem.nombre || cached.nombre || null,
+      title: apiItem.title,
+      tmdb: apiItem.tmdb || cached.tmdb,
+      imdb: apiItem.imdb || cached.imdb,
+      slug: slugRef,
+    },
+    slugRef
+  );
+  // Si el caché ya tiene un titulo legible distinto del original en inglés, conservarlo
+  const cachedTitulo = cached.titulo || null;
+  const cachedNombre = cached.nombre || null;
+  if (cachedTitulo && !pareceSlugTitulo(cachedTitulo, slugRef)) {
+    out.titulo = cachedTitulo;
+    out.nombre = cachedTitulo;
+  } else if (apiItem.titulo && !pareceSlugTitulo(apiItem.titulo, slugRef)) {
+    out.titulo = apiItem.titulo;
+    out.nombre = apiItem.titulo;
+  } else {
+    out.nombre = best;
+    out.titulo = apiItem.titulo || cached.titulo || best;
   }
+  // titulo_original se guarda aparte, NO como nombre visible
+  if (apiItem.titulo_original) out.titulo_original = apiItem.titulo_original;
+  else if (cached.titulo_original) out.titulo_original = cached.titulo_original;
   // Año / rating / géneros / imdb: API gana si trae valor
   if (apiItem.year) out.year = apiItem.year;
   if (apiItem.calificacion != null && apiItem.calificacion !== "") out.calificacion = apiItem.calificacion;
@@ -2277,14 +2308,24 @@ async function obtenerDetalle(params) {
       const base = cached ? { ...cached } : (candidate ? { ...candidate } : null);
       if (base || candidate) {
         const out = preferApiMeta(candidate || base, base);
-        // Conservar título legible (nunca slug)
-        const goodName = (cached && cached.nombre && cached.slug &&
-          String(cached.nombre).toLowerCase().replace(/\s+/g, "-") !== String(cached.slug).toLowerCase())
-          ? cached.nombre
-          : (out.nombre && out.slug && String(out.nombre).toLowerCase().replace(/\s+/g, "-") !== String(out.slug).toLowerCase()
-            ? out.nombre
-            : (out.titulo || cached?.nombre || out.nombre));
-        out.nombre = goodName;
+        // titulo español primero; no usar titulo_original como nombre visible
+        out.nombre = elegirMejorTitulo(
+          {
+            titulo: cached?.titulo || out.titulo || candidate?.titulo || null,
+            titulo_original: out.titulo_original || cached?.titulo_original || null,
+            titulo_tmdb: out.titulo_tmdb || candidate?.titulo_tmdb || null,
+            nombre: cached?.nombre || out.nombre,
+            slug: out.slug || cached?.slug,
+            tmdb: out.tmdb || cached?.tmdb,
+          },
+          out.slug || cached?.slug
+        );
+        if (cached?.titulo && !pareceSlugTitulo(cached.titulo, out.slug || cached.slug)) {
+          out.titulo = cached.titulo;
+          out.nombre = cached.titulo;
+        } else if (out.titulo && !pareceSlugTitulo(out.titulo, out.slug)) {
+          out.nombre = out.titulo;
+        }
         // Portada: no cambiar si ya hay una válida
         if (cached && esPortadaValida(cached.portada)) out.portada = cached.portada;
         // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
