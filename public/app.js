@@ -326,7 +326,20 @@ function tipoLabel(tipo) {
     return "Película";
 }
 
-/** Título UI: 1) titulo (español) 2) titulo_original. Nunca slug ni pisar con TMDB si hay titulo. */
+/** Score idioma: español > inglés ("Diario de una pasión" > "The Notebook") */
+function scoreTituloIdiomaUI(t) {
+    const s = String(t || "").trim();
+    if (!s) return -100;
+    let sc = 0;
+    if (/[áéíóúñü¿¡ÁÉÍÓÚÑÜ]/.test(s)) sc += 80;
+    const es = (s.match(/\b(el|la|los|las|de|del|un|una|por|con|para|así|diario|pasión|pasion|código|codigo|venganza|amor|noche|historia|casa|vida|aprenderás|aprenderas|acaramelados)\b/gi) || []).length;
+    const en = (s.match(/\b(the|of|and|a|an|in|on|for|to|with|from|notebook|love|code|revenge|sticky|lesson|teach|our|you|your|movie|film)\b/gi) || []).length;
+    sc += es * 22;
+    sc -= en * 28;
+    return sc;
+}
+
+/** Título UI: prioriza español. titulo → nombre → original → tmdb (inglés último). */
 function elegirTituloUI(item) {
     if (!item) return "Sin título";
     const slug = String(item.slug || "").toLowerCase();
@@ -339,20 +352,26 @@ function elegirTituloUI(item) {
         if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(s) && !/\s/.test(s)) return true;
         return false;
     };
-    // 1) titulo de la API (español: "Acaramelados")
-    if (item.titulo && !isSlug(item.titulo)) return String(item.titulo).trim();
-    // 2) titulo_original
-    if (item.titulo_original && !isSlug(item.titulo_original)) return String(item.titulo_original).trim();
-    // 3) nombre solo si no es el original inglés ya usado como reemplazo indebido
-    //    y no es slug
-    if (item.nombre && !isSlug(item.nombre)) {
-        // Si nombre === titulo_original y había titulo, no debería llegar aquí
-        return String(item.nombre).trim();
+    const cands = [
+        { v: item.titulo, pri: 100 },
+        { v: item.nombre, pri: 55 },
+        { v: item.titulo_original, pri: 40 },
+        { v: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo), pri: 20 },
+        { v: item.title, pri: 10 },
+    ]
+        .map((c) => ({ v: c.v ? String(c.v).trim() : "", pri: c.pri }))
+        .filter((c) => c.v && !isSlug(c.v));
+
+    if (cands.length) {
+        const maxEs = Math.max(...cands.map((c) => scoreTituloIdiomaUI(c.v)));
+        let pool = cands;
+        if (maxEs >= 20) {
+            pool = cands.filter((c) => scoreTituloIdiomaUI(c.v) >= 0 || c.pri >= 100);
+            if (!pool.length) pool = cands;
+        }
+        pool.sort((a, b) => (scoreTituloIdiomaUI(b.v) + b.pri) - (scoreTituloIdiomaUI(a.v) + a.pri));
+        return pool[0].v;
     }
-    // 4) tmdb último recurso
-    const tmdb = item.titulo_tmdb || (item.tmdb && item.tmdb.titulo);
-    if (tmdb && !isSlug(tmdb)) return String(tmdb).trim();
-    if (item.title && !isSlug(item.title)) return String(item.title).trim();
     if (slug) {
         return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
