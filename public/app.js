@@ -320,62 +320,9 @@ function escapeHtml(texto) {
 }
 
 function tipoLabel(tipo) {
-    const n = normalizarTipoUI(tipo);
-    if (n === "series") return "Serie";
-    if (n === "anime") return "Anime";
+    if (tipo === "Serie") return "Serie";
+    if (tipo === "Anime") return "Anime";
     return "Película";
-}
-
-/** Score idioma: español > inglés ("Diario de una pasión" > "The Notebook") */
-function scoreTituloIdiomaUI(t) {
-    const s = String(t || "").trim();
-    if (!s) return -100;
-    let sc = 0;
-    if (/[áéíóúñü¿¡ÁÉÍÓÚÑÜ]/.test(s)) sc += 80;
-    const es = (s.match(/\b(el|la|los|las|de|del|un|una|por|con|para|así|diario|pasión|pasion|código|codigo|venganza|amor|noche|historia|casa|vida|aprenderás|aprenderas|acaramelados)\b/gi) || []).length;
-    const en = (s.match(/\b(the|of|and|a|an|in|on|for|to|with|from|notebook|love|code|revenge|sticky|lesson|teach|our|you|your|movie|film)\b/gi) || []).length;
-    sc += es * 22;
-    sc -= en * 28;
-    return sc;
-}
-
-/** Título UI: prioriza español. titulo → nombre → original → tmdb (inglés último). */
-function elegirTituloUI(item) {
-    if (!item) return "Sin título";
-    const slug = String(item.slug || "").toLowerCase();
-    const isSlug = (t) => {
-        if (!t) return true;
-        const s = String(t).trim();
-        if (!s) return true;
-        const asSlug = s.toLowerCase().replace(/\s+/g, "-");
-        if (slug && (asSlug === slug || s.toLowerCase() === slug)) return true;
-        if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(s) && !/\s/.test(s)) return true;
-        return false;
-    };
-    const cands = [
-        { v: item.titulo, pri: 100 },
-        { v: item.nombre, pri: 55 },
-        { v: item.titulo_original, pri: 40 },
-        { v: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo), pri: 20 },
-        { v: item.title, pri: 10 },
-    ]
-        .map((c) => ({ v: c.v ? String(c.v).trim() : "", pri: c.pri }))
-        .filter((c) => c.v && !isSlug(c.v));
-
-    if (cands.length) {
-        const maxEs = Math.max(...cands.map((c) => scoreTituloIdiomaUI(c.v)));
-        let pool = cands;
-        if (maxEs >= 20) {
-            pool = cands.filter((c) => scoreTituloIdiomaUI(c.v) >= 0 || c.pri >= 100);
-            if (!pool.length) pool = cands;
-        }
-        pool.sort((a, b) => (scoreTituloIdiomaUI(b.v) + b.pri) - (scoreTituloIdiomaUI(a.v) + a.pri));
-        return pool[0].v;
-    }
-    if (slug) {
-        return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
-    }
-    return "Sin título";
 }
 
 const REPRODUCTORES_PERMITIDOS = [
@@ -818,20 +765,16 @@ function mostrarHome() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function normalizarTipoUI(tipo) {
-    const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes("anime")) return "anime";
-    if (t.includes("serie") || t.includes("dorama") || t === "tv" || t === "tvshow") return "series";
-    if (t.includes("pelicul") || t.includes("movie") || t.includes("film") || !t) return "movie";
-    return "movie";
-}
-
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
-    // Filtrar por tipo real del item (campo tipo de la API)
     if (gridTypeFilter !== "all") {
-        res = res.filter((i) => normalizarTipoUI(i.tipo) === gridTypeFilter);
+        const map = { movie: "Película", series: "Serie", anime: "Anime" };
+        const wanted = map[gridTypeFilter] || gridTypeFilter;
+        res = res.filter(i => {
+            const t = (i.tipo || "").toString();
+            return t === wanted || t.toLowerCase().includes(gridTypeFilter);
+        });
     }
 
     if (gridSort === "rating") {
@@ -861,11 +804,6 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     if (modo !== "search") {
         actualizarBotonOnline(false);
         busquedaEsLocal = true;
-    } else {
-        // Búsqueda: siempre mostrar TODOS los tipos según item.tipo de la API
-        // (no heredar el chip Anime/Series de la navegación anterior)
-        gridTypeFilter = "all";
-        busquedaEsLocal = false;
     }
 
     homeView.classList.add("hidden");
@@ -875,15 +813,8 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     document.getElementById("nav-item-home").classList.remove("active");
     document.getElementById("nav-item-favoritos")?.classList.toggle("active", modo === "favoritos");
 
-    // Chips de tipo:
-    // - búsqueda → solo "Todos" activo (resultados mezclados, filtrables después)
-    // - categoría → el chip de esa sección
-    document.querySelectorAll(".filter-chip").forEach((chip) => {
-        if (modo === "search" || modo === "favoritos") {
-            chip.classList.toggle("active", chip.dataset.type === "all");
-        } else {
-            chip.classList.toggle("active", chip.dataset.type === seccion);
-        }
+    document.querySelectorAll(".filter-chip").forEach(chip => {
+        chip.classList.toggle("active", chip.dataset.type === seccion || (chip.dataset.type === "all" && modo !== "categoria"));
     });
 
     if (modo === "search") {
@@ -1053,7 +984,7 @@ function crearMediaCard(item) {
     card.className = "media-card";
 
     const portada = item.portada || PLACEHOLDER;
-    const nombre = elegirTituloUI(item);
+    const nombre = item.nombre || item.titulo || "Sin título";
     const tipo = tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
     const rating = ratingInfo(item).label;
@@ -1139,7 +1070,7 @@ function renderCarousel(contenedorId, lista) {
 function pintarHero(item) {
     if (!item) return;
     heroType.textContent = tipoLabel(item.tipo).toUpperCase() + (item.tipo !== "Serie" && item.tipo !== "Anime" ? " RECOMENDADA" : "");
-    heroTitle.textContent = elegirTituloUI(item);
+    heroTitle.textContent = item.nombre || item.titulo || "Sin título";
     const heroR = ratingInfo(item);
     heroRating.textContent = heroR.label;
     heroRating.title = heroR.secondary ? heroR.label + " · " + heroR.secondary : heroR.label;
@@ -1285,15 +1216,43 @@ const playerIframe = document.getElementById("player-iframe");
 const playerTitle = document.getElementById("player-title");
 
 
-async function abrirDetalle(item, autoPlay = false, force = false) {
-    // titulo (español) → titulo_original. No reemplazar titulo con original.
-    if (item) {
-        if (!item.titulo && item.nombre && item.titulo_original &&
-            String(item.nombre).trim() === String(item.titulo_original).trim()) {
-            // nombre ya fue pisado con original: no hay titulo español recuperable aquí
+/** Fija título principal (ES/local) y original aparte; no invierte al actualizar */
+function fijarTitulosItem(item, preferido) {
+    if (!item) return item;
+    const slug = item.slug || "";
+    const esSlug = (t) => t && slug && String(t).toLowerCase().replace(/\s+/g, "-") === String(slug).toLowerCase();
+    const pareceEn = (t) => {
+        const s = String(t || "");
+        if (/[áéíóúñü¿¡]/i.test(s)) return false;
+        const en = (s.match(/\b(the|and|of|love|our|my|with|from|for)\b/gi) || []).length;
+        return en >= 1;
+    };
+    let principal = preferido || item.nombre || item.titulo || null;
+    if (esSlug(principal) || !principal) principal = item.titulo || item.nombre;
+    // Si el principal es inglés y hay otro nombre local, preferir el local
+    if (pareceEn(principal)) {
+        const alt = [preferido, item.nombre, item.titulo].find((t) => t && !esSlug(t) && !pareceEn(t));
+        if (alt) {
+            if (!item.titulo_original || item.titulo_original === alt) item.titulo_original = principal;
+            principal = alt;
         }
-        item.nombre = elegirTituloUI(item);
     }
+    // No usar titulo_original como principal
+    if (item.titulo_original && principal &&
+        String(principal).toLowerCase() === String(item.titulo_original).toLowerCase() &&
+        preferido && !pareceEn(preferido)) {
+        principal = preferido;
+    }
+    item.nombre = principal || item.nombre || "Sin título";
+    item.titulo = item.nombre;
+    if (item.titulo_original && String(item.titulo_original).toLowerCase() === String(item.nombre).toLowerCase()) {
+        item.titulo_original = null;
+    }
+    return item;
+}
+
+async function abrirDetalle(item, autoPlay = false, force = false) {
+    if (item) fijarTitulosItem(item, item.nombre || item.titulo);
     seleccionActual = item;
 
     detailsEmpty.classList.add("hidden");
@@ -1304,13 +1263,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     // Pintar lo que ya tenemos
     document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
-    document.getElementById("details-title").textContent = elegirTituloUI(item);
+    document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
-        originalEl.textContent = item.titulo_original;
+        originalEl.textContent = "Título original: " + item.titulo_original;
         originalEl.style.display = "block";
     } else {
+        originalEl.textContent = "";
         originalEl.style.display = "none";
     }
 
@@ -1456,18 +1416,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 const yOld = item.year && String(item.year).match(/(19|20)\d{2}/);
                 const yNew = completo.year && String(completo.year).match(/(19|20)\d{2}/);
                 if (yOld && yNew && yOld[0] !== yNew[0]) {
-                    // Años distintos: meta del detalle, pero título español se conserva si es mejor
-                    const tituloEsp = item.titulo || item.nombre;
-                    Object.assign(item, completo);
-                    if (tituloEsp && scoreTituloIdiomaUI(tituloEsp) >= scoreTituloIdiomaUI(item.titulo || item.nombre || "")) {
-                        item.titulo = tituloEsp;
+                    // Años distintos: confiar en detalle si trae título/nombre
+                    if (completo.nombre || completo.titulo) {
+                        Object.keys(item).forEach(function (k) { delete item[k]; });
+                        Object.assign(item, completo);
                     }
-                    item.nombre = elegirTituloUI(item);
-                    if (item.titulo) item.nombre = item.titulo;
                 } else {
                     const keep = Object.assign({}, item);
-                    // Guardar título español ANTES del merge (search suele traerlo bien)
-                    const tituloEspKeep = keep.titulo || keep.nombre || null;
                     Object.assign(item, completo);
                     // Restaurar campos que el detalle mandó vacíos
                     const fields = [
@@ -1505,40 +1460,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.duracion) item.duracion = completo.duracion;
                     if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
                     if (completo.certificacion) item.certificacion = completo.certificacion;
-
-                    // Meta secundaria (inglés) solo como original/tmdb — NUNCA como título visible
-                    if (completo.titulo_original) item.titulo_original = completo.titulo_original;
-                    if (completo.titulo_tmdb) item.titulo_tmdb = completo.titulo_tmdb;
-
-                    // Título visible: conservar español del search si el detalle trae inglés
-                    const candNuevo = completo.titulo || completo.nombre || null;
-                    const candViejo = tituloEspKeep;
-                    if (candViejo && candNuevo) {
-                        const sV = scoreTituloIdiomaUI(candViejo);
-                        const sN = scoreTituloIdiomaUI(candNuevo);
-                        // Si el viejo es más español (o igual prioridad campo fuente), conservar
-                        if (sV >= sN) {
-                            item.titulo = candViejo;
-                        } else {
-                            item.titulo = candNuevo;
-                        }
-                    } else if (candViejo) {
-                        item.titulo = candViejo;
-                    } else if (candNuevo) {
-                        item.titulo = candNuevo;
+                    // Título: conservar el local/ES del listado; original solo en titulo_original
+                    const nombreAntes = keep.nombre || keep.titulo || null;
+                    fijarTitulosItem(item, nombreAntes);
+                    if (completo.titulo_original && completo.titulo_original !== item.nombre) {
+                        item.titulo_original = completo.titulo_original;
                     }
-
-                    item.nombre = elegirTituloUI({
-                        titulo: item.titulo,
-                        titulo_original: item.titulo_original,
-                        titulo_tmdb: item.titulo_tmdb,
-                        nombre: item.titulo || item.nombre,
-                        slug: item.slug || completo.slug,
-                        tmdb: completo.tmdb || item.tmdb,
-                    });
-                    // Forzar UI al español elegido
-                    item.nombre = item.titulo || item.nombre;
-
+                    // Si años conflictúan, confiar 100% en detalle API
                     if (completo.year && item.year && String(completo.year).slice(0,4) !== String(item.year).slice(0,4)) {
                         item.year = completo.year;
                         if (completo.calificacion != null) item.calificacion = completo.calificacion;
@@ -1556,18 +1484,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
 
-                // Repintar metadatos (título español fijo; original debajo)
+                // Repintar metadatos (título principal fijo; original abajo)
+                fijarTitulosItem(item, item.nombre);
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
-                const tituloVisible = elegirTituloUI(item);
-                item.nombre = tituloVisible;
-                document.getElementById("details-title").textContent = tituloVisible;
+                document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 const origEl2 = document.getElementById("details-original-title");
                 if (origEl2) {
-                    const orig = item.titulo_original || item.titulo_tmdb || null;
-                    if (orig && String(orig).trim() !== String(tituloVisible).trim()) {
-                        origEl2.textContent = orig;
+                    if (item.titulo_original && item.titulo_original !== item.nombre) {
+                        origEl2.textContent = "Título original: " + item.titulo_original;
                         origEl2.style.display = "block";
                     } else {
+                        origEl2.textContent = "";
                         origEl2.style.display = "none";
                     }
                 }
@@ -2095,7 +2022,7 @@ function renderEpisodios(item, season = 1) {
             const epNum = episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index);
             const seasonNum = episodio.season || episodio.temporada || season || 1;
             document.getElementById("details-title").textContent =
-                `${elegirTituloUI(item)} - ${episodio.nombre || "Episodio " + epNum}`;
+                `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
 
             const expandirServidores = () => {
                 const sc = document.getElementById("servers-container");
@@ -2140,11 +2067,6 @@ function renderEpisodios(item, season = 1) {
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
-                // Link directo del episodio (guardado al listar) → no reconstruir
-                const epLink = episodio.url_extract || episodio.link || episodio.url_video || null;
-                if (epLink && String(epLink).includes("/")) {
-                    params.set("url_extract", String(epLink));
-                }
 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 35000);
