@@ -77,6 +77,66 @@ function resolverSourceId(val) {
   return map[s] || DEFAULT_SOURCE;
 }
 
+/**
+ * Identidad para pedir detalle a la API Worker:
+ * link tipo https://moviezone.tvjz.workers.dev/3/pelicula/la-captura
+ * → { source_id: "3", kind: "pelicula", slug: "la-captura" }
+ */
+function parseIdentidad(input) {
+  if (!input) return null;
+  // Acepta item completo o { link, slug, source_id, tipo }
+  const link = input.link || input.url_extract || input.url || null;
+  let slug = input.slug || null;
+  let source_id = input.source_id != null ? String(input.source_id) : null;
+  let tipo = input.tipo || input.type || null;
+  let kind = null;
+
+  if (link) {
+    const m = String(link).match(
+      /(?:workers\.dev|localhost(?::\d+)?)?\/(\d)\/(pelicula|serie|anime)\/([^\/\?\#]+)/i
+    ) || String(link).match(/\/(\d)\/(pelicula|serie|anime)\/([^\/\?\#]+)/i);
+    if (m) {
+      if (!source_id) source_id = m[1];
+      kind = m[2].toLowerCase();
+      if (!slug) {
+        try {
+          slug = decodeURIComponent(m[3]);
+        } catch (_) {
+          slug = m[3];
+        }
+      }
+    }
+  }
+
+  // source_id por nombre de fuente
+  if (!source_id && input.fuente) {
+    try {
+      source_id = String(resolverSourceId(input.fuente));
+    } catch (_) {}
+  }
+
+  if (!kind && tipo) {
+    const t = String(tipo).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes("anime")) kind = "anime";
+    else if (t.includes("serie") || t === "tv") kind = "serie";
+    else kind = "pelicula";
+  }
+  if (!kind) kind = "pelicula";
+
+  // source por defecto pelisplus
+  if (!source_id) source_id = "3";
+
+  if (!slug) return null;
+
+  return {
+    source_id: String(source_id),
+    kind,
+    slug: String(slug).replace(/\/+$/, ""),
+  };
+}
+
+
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 25000,

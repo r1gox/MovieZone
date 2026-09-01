@@ -1242,30 +1242,36 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         return { ...ep, embeds: prev.embeds || [], video: prev.video || prev.reproductor || null, downloads: prev.downloads || ep.downloads };
                     });
                 }
-                // Fusionar con cuidado: no mezclar meta de distinto año
+                // Fusionar: el detalle rellena huecos; NUNCA borrar meta buena con null
                 const yOld = item.year && String(item.year).match(/(19|20)\d{2}/);
                 const yNew = completo.year && String(completo.year).match(/(19|20)\d{2}/);
                 if (yOld && yNew && yOld[0] !== yNew[0]) {
-                    // Obra distinta: usar datos del detalle (API) como fuente de verdad
-                    Object.keys(item).forEach(function (k) { delete item[k]; });
-                    Object.assign(item, completo);
+                    // Años distintos: confiar en detalle si trae título/nombre
+                    if (completo.nombre || completo.titulo) {
+                        Object.keys(item).forEach(function (k) { delete item[k]; });
+                        Object.assign(item, completo);
+                    }
                 } else {
+                    const keep = Object.assign({}, item);
                     Object.assign(item, completo);
-                    // Si el detalle trae rating/imdb, asegurar que pisen valores viejos
+                    // Restaurar campos que el detalle mandó vacíos
+                    const fields = [
+                        "nombre", "titulo", "titulo_original", "year", "calificacion", "rating",
+                        "genero", "generos", "descripcion", "votos", "duracion", "duracion_texto",
+                        "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "portada", "backdrop"
+                    ];
+                    fields.forEach(function (f) {
+                        const v = item[f];
+                        const empty = v == null || v === "" || (Array.isArray(v) && !v.length);
+                        if (empty && keep[f] != null && keep[f] !== "") item[f] = keep[f];
+                    });
                     if (completo.calificacion != null) item.calificacion = completo.calificacion;
-                    if (completo.rating != null && item.calificacion == null) item.calificacion = completo.rating;
-                    if (completo.imdb) item.imdb = completo.imdb;
-                    if (completo.tmdb) item.tmdb = completo.tmdb;
-                    if (completo.year) item.year = completo.year;
-                    if (completo.titulo_original) item.titulo_original = completo.titulo_original;
-                    if (completo.generos && completo.generos.length) item.generos = completo.generos;
-                    if (completo.genero) item.genero = completo.genero;
-                    if (completo.votos) item.votos = completo.votos;
-                    if (completo.duracion) item.duracion = completo.duracion;
-                    if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
-                    if (completo.certificacion) item.certificacion = completo.certificacion;
-                    if (completo.imdb_id) item.imdb_id = completo.imdb_id;
-                    if (completo.tmdb_id) item.tmdb_id = completo.tmdb_id;
+                    if (completo.rating != null && (item.calificacion == null || item.calificacion === "")) {
+                        item.calificacion = completo.rating;
+                    }
+                    if (completo.nombre || completo.titulo) {
+                        item.nombre = completo.nombre || completo.titulo;
+                    }
                 }
                 const esSA2 = item.tipo === "Serie" || item.tipo === "Anime";
                 if (item.tiene_player || itemTieneVideo(item) ||
