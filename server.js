@@ -311,31 +311,28 @@ async function guardarEnSupabase(items) {
         link: item.link,
         nombre: (function () {
           const slug = item.slug || existente?.slug || "";
-          // 1) titulo español 2) titulo_original — nunca guardar original como nombre si hay titulo
-          const best = elegirMejorTitulo(
-            {
-              titulo: item.titulo || nombre || null,
-              titulo_original: item.titulo_original || existente?.titulo_original || null,
-              titulo_tmdb: item.titulo_tmdb || (item.tmdb && item.tmdb.titulo) || null,
-              nombre: nombre || item.nombre || existente?.nombre,
-              tmdb: item.tmdb || existente?.tmdb,
-              imdb: item.imdb || existente?.imdb,
-              slug,
-            },
-            slug
-          );
-          // Si existente ya tiene el titulo español, no reemplazar por original inglés
-          const ne = existente?.titulo || existente?.nombre || null;
-          if (ne && !pareceSlugTitulo(ne, slug) && item.titulo_original &&
-              String(ne).toLowerCase() !== String(item.titulo_original).toLowerCase() &&
-              (!item.titulo || pareceSlugTitulo(item.titulo, slug))) {
-            return limpiarTitulo(ne) || ne;
-          }
-          if (best && !pareceSlugTitulo(best, slug)) return best;
-          if (ne && !pareceSlugTitulo(ne, slug)) return limpiarTitulo(ne) || ne;
-          return best || ne || null;
+          return elegirTituloPrincipal({
+            nombre: nombre || item.nombre,
+            titulo: item.titulo,
+            titulo_original: item.titulo_original,
+            slug,
+            cachedNombre: existente?.nombre,
+          });
         })(),
-        titulo_original: item.titulo_original || existente?.titulo_original || null,
+        titulo_original: (function () {
+          const principal = elegirTituloPrincipal({
+            nombre: nombre || item.nombre,
+            titulo: item.titulo,
+            titulo_original: item.titulo_original,
+            slug: item.slug || existente?.slug,
+            cachedNombre: existente?.nombre,
+          });
+          return elegirTituloOriginal(
+            principal,
+            item.titulo_original || existente?.titulo_original,
+            [item.titulo, item.nombre]
+          );
+        })(),
         portada: item.portada || existente?.portada || null,
         backdrop: item.backdrop || existente?.backdrop || null,
         descripcion: descripcionFinal,
@@ -349,14 +346,7 @@ async function guardarEnSupabase(items) {
         })(),
         genero: item.genero || existente?.genero || null,
         generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
-        tipo: (function () {
-          // Preferir Serie si cualquiera de las fuentes lo indica (evita Anime fantasma de animeav1)
-          const tNew = resolverTipoItem(item, item.source_id);
-          const tOld = existente ? resolverTipoItem(existente, existente.source_id) : null;
-          if (tNew === "Serie" || tOld === "Serie") return "Serie";
-          if (tNew === "Anime" && tOld === "Película") return "Anime";
-          return tNew || tOld || item.tipo || existente?.tipo || "Película";
-        })(),
+        tipo: item.tipo || existente?.tipo || "Película",
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
         paises: item.paises || existente?.paises || [],
@@ -509,209 +499,11 @@ async function guardarEnSupabase(items) {
 
 // ---------- Helpers de mapeo API → formato frontend ----------
 function normalizarTipo(tipo) {
-  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (t.includes("dorama") || t.includes("serie") || t === "tv" || t === "tvshows" || t === "tvshow") return "Serie";
+  const t = String(tipo || "").toLowerCase();
+  if (t.includes("serie") || t === "tv" || t === "tvshows") return "Serie";
   if (t.includes("anime")) return "Anime";
   if (t.includes("cap") || t.includes("episod")) return "Capitulo";
   return "Película";
-}
-
-/** True si el texto parece un slug (our-sticky-love) y no un título legible */
-function pareceSlugTitulo(texto, slug) {
-  if (!texto) return true;
-  const t = String(texto).trim();
-  if (!t) return true;
-  const slugNorm = String(slug || "")
-    .toLowerCase()
-    .replace(/^\/+|\/+$/g, "");
-  const asSlug = t.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  if (slugNorm && (asSlug === slugNorm || t.toLowerCase() === slugNorm)) return true;
-  // Solo minúsculas/números/guiones, sin espacios → casi seguro slug
-  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(t) && !/\s/.test(t)) return true;
-  return false;
-}
-
-/**
- * Elige el mejor título humano.
- * Prioridad estricta:
- *   1) titulo (español de la fuente) — si no es slug
- *   2) titulo_original (si no es inglés peor que titulo)
- *   3) titulo_tmdb último (evitar inglés si hay español)
- *   4) title / nombre / tmdb.titulo / imdb
- *   5) humanizar slug solo como último recurso
- */
-/**
- * Puntuación de idioma del título: español gana sobre inglés.
- * "Diario de una pasión" >> "The Notebook"
- */
-function scoreTituloIdioma(t) {
-  const s = String(t || "").trim();
-  if (!s) return -100;
-  let sc = 0;
-  if (/[áéíóúñü¿¡ÁÉÍÓÚÑÜ]/.test(s)) sc += 80;
-  const es = (
-    s.match(
-      /\b(el|la|los|las|de|del|un|una|unos|unas|por|con|para|como|más|así|diario|pasión|pasion|código|codigo|venganza|amor|noche|días|dias|años|anos|historia|casa|vida|último|ultimo|última|ultima|señor|senor|señora|corazón|corazon|sangre|juego|guerra|mundo|tiempo|camino|sueño|sueño|sueños|aprenderás|aprenderas|acaramelados|película|pelicula|serie|temporada)\b/gi
-    ) || []
-  ).length;
-  const en = (
-    s.match(
-      /\b(the|of|and|a|an|in|on|for|to|with|from|notebook|love|code|revenge|sticky|lesson|teach|our|you|your|movie|film|episode|season|into|about|when|after)\b/gi
-    ) || []
-  ).length;
-  sc += es * 22;
-  sc -= en * 28;
-  return sc;
-}
-
-function elegirMejorTitulo(r, slug) {
-  r = r || {};
-  const slugRef = slug || r.slug || null;
-
-  const usable = (val) => {
-    if (val == null) return null;
-    const s = String(val).trim();
-    if (!s) return null;
-    if (pareceSlugTitulo(s, slugRef)) return null;
-    return limpiarTitulo(s) || s;
-  };
-
-  // Candidatos con prioridad de campo (titulo fuente primero)
-  const ranked = [
-    { v: usable(r.titulo), pri: 100 },
-    { v: usable(r.nombre), pri: 55 },
-    { v: usable(r.titulo_original), pri: 45 },
-    { v: usable(r.titulo_tmdb), pri: 25 },
-    { v: usable(r.tmdb && r.tmdb.titulo), pri: 20 },
-    { v: usable(r.imdb && (r.imdb.titulo || r.imdb.title)), pri: 15 },
-    { v: usable(r.title), pri: 10 },
-  ].filter((x) => x.v);
-
-  if (ranked.length) {
-    // Si hay alguno claramente en español, descartar los muy ingleses
-    const maxEs = Math.max(...ranked.map((x) => scoreTituloIdioma(x.v)));
-    let pool = ranked;
-    if (maxEs >= 20) {
-      pool = ranked.filter((x) => scoreTituloIdioma(x.v) >= 0 || x.pri >= 100);
-      if (!pool.length) pool = ranked;
-    }
-    pool.sort((a, b) => {
-      const sa = scoreTituloIdioma(a.v) + a.pri;
-      const sb = scoreTituloIdioma(b.v) + b.pri;
-      return sb - sa;
-    });
-    return pool[0].v;
-  }
-
-  // Humanizar slug
-  const s = String(slugRef || r.titulo || r.nombre || "").trim();
-  if (!s) return "Sin título";
-  if (pareceSlugTitulo(s, slugRef || s)) {
-    return s
-      .replace(/[-_]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/\b\w/g, (ch) => ch.toUpperCase());
-  }
-  return limpiarTitulo(s) || s;
-}
-
-/**
- * Resuelve tipo de forma fiable.
- * - doramasflix (6) → siempre Serie
- * - si el tipo de la API dice Serie/Dorama/TV → Serie (gana sobre animeav1 mal etiquetado)
- * - anime solo si la fuente/tipo realmente apuntan a anime
- */
-function resolverTipoItem(r, sourceIdHint) {
-  r = r || {};
-  const sid = String(
-    sourceIdHint != null
-      ? sourceIdHint
-      : resolverSourceId(r.source_id || r.fuente || r.source)
-  );
-  const tipoRaw = String(r.tipo || r.type || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  const link = String(r.link || r.url_extract || r.url || "").toLowerCase();
-  const fuente = String(r.fuente || "").toLowerCase();
-
-  const eps = Array.isArray(r.episodios) ? r.episodios : [];
-  const epEsSerie = eps.some((e) => {
-    if (!e) return false;
-    const es = String(e.source_id || e.fuente || "");
-    const eu = String(e.url_video || e.link || e.video || e.reproductor || "").toLowerCase();
-    if (es === "6") return true;
-    if (/doramasflix/.test(eu)) return true;
-    if (/\/\d+\/serie\//.test(eu)) return true;
-    if (/\/serie\//.test(eu)) return true;
-    return false;
-  });
-
-  // 1) TIPO de la API primero (Worker ya clasifica bien)
-  if (tipoRaw.includes("pelicul") || tipoRaw.includes("movie") || tipoRaw.includes("film")) {
-    return "Película";
-  }
-  if (
-    tipoRaw.includes("dorama") ||
-    tipoRaw.includes("serie") ||
-    tipoRaw === "tv" ||
-    tipoRaw === "tvshow" ||
-    tipoRaw === "tvshows"
-  ) {
-    return "Serie";
-  }
-  if (tipoRaw.includes("cap") || tipoRaw.includes("episod")) return "Capitulo";
-
-  // 2) Señales fuertes de serie/dorama (aunque DB diga Anime)
-  if (
-    sid === "6" ||
-    fuente.includes("dorama") ||
-    /\/serie\//.test(link) ||
-    /doramasflix/.test(link) ||
-    epEsSerie
-  ) {
-    return "Serie";
-  }
-
-  // 3) Anime solo si el TIPO lo dice, o fuente anime SIN contradicción de cine
-  if (tipoRaw.includes("anime")) {
-    return "Anime";
-  }
-  if (
-    (sid === "4" || sid === "5" || fuente.includes("anime") || /\/anime\//.test(link)) &&
-    !tipoRaw.includes("pelicul") &&
-    !tipoRaw.includes("serie")
-  ) {
-    return "Anime";
-  }
-
-  return normalizarTipo(r.tipo || r.type || "Pelicula");
-}
-
-/** ¿Este ítem debe listarse en la sección Anime? */
-function esItemAnimeValido(item) {
-  if (!item) return false;
-  const tipo = resolverTipoItem(item, item.source_id);
-  if (tipo !== "Anime") return false;
-
-  const sid = String(item.source_id || resolverSourceId(item.fuente) || "");
-  const link = String(item.link || item.url_extract || "").toLowerCase();
-  if (sid === "6") return false;
-  if (/doramasflix/.test(link) || /\/serie\//.test(link)) return false;
-
-  // Capítulos bajo /serie/ o fuente 6 → no es anime de catálogo
-  const eps = Array.isArray(item.episodios) ? item.episodios : [];
-  if (
-    eps.some((e) => {
-      const es = String((e && e.source_id) || "");
-      const eu = String((e && (e.url_video || e.link || e.video)) || "").toLowerCase();
-      return es === "6" || /\/serie\//.test(eu) || /doramasflix/.test(eu);
-    })
-  ) {
-    return false;
-  }
-  return true;
 }
 
 function extraerAnio(titulo, year) {
@@ -726,71 +518,80 @@ function extraerAnio(titulo, year) {
 function fixEncoding(text) {
   if (!text || typeof text !== "string") return text || "";
   let s = text;
-
-  const badCount = (t) => (String(t).match(/Ã.|Â.|â.|ð.|�|Ã|Â/g) || []).length;
-
-  // 1) latin1 → utf8 (puede hacer falta 1 o 2 pasadas si viene doble-mojibake)
-  for (let i = 0; i < 2; i++) {
-    if (!/Ã.|Â.|â.|ð.|Ã|Â/.test(s)) break;
+  // Detección rápida de mojibake típico
+  if (/Ã.|Â.|â.|ð./.test(s)) {
     try {
+      // latin1 bytes → utf8
       const fixed = Buffer.from(s, "latin1").toString("utf8");
-      if (badCount(fixed) < badCount(s) && !fixed.includes("\uFFFD")) {
+      // Solo aplicar si mejora (menos caracteres raros)
+      const bad = (t) => (t.match(/Ã.|Â.|â.|ð.|�/g) || []).length;
+      if (bad(fixed) < bad(s) && !fixed.includes("\uFFFD")) {
         s = fixed;
-      } else {
-        break;
       }
-    } catch (_) {
-      break;
-    }
+    } catch (_) {}
   }
-
-  // 2) Reemplazos manuales frecuentes si aún quedan restos
-  if (/Ã.|Â./.test(s)) {
-    const map = {
-      "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú",
-      "Ã±": "ñ", "Ã": "Á", "Ã‰": "É", "Ã": "Í", "Ã“": "Ó",
-      "Ãš": "Ú", "Ã‘": "Ñ", "Ã¼": "ü", "Ãœ": "Ü",
-      "Â¿": "¿", "Â¡": "¡", "Â": "",
-    };
-    for (const [k, v] of Object.entries(map)) {
-      if (s.includes(k)) s = s.split(k).join(v);
-    }
-  }
-
   return s
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&#(\d+);/g, (_, n) => {
-      try { return String.fromCharCode(Number(n)); } catch { return _; }
-    })
     .replace(/\s+/g, " ")
     .trim();
 }
 
-/** Aplica fixEncoding a todos los campos de texto de un resultado de API */
-function fixItemEncoding(r) {
-  if (!r || typeof r !== "object") return r;
-  const keys = [
-    "titulo", "title", "nombre", "titulo_original", "titulo_tmdb",
-    "descripcion", "genero", "sinopsis", "plot",
-  ];
-  for (const k of keys) {
-    if (typeof r[k] === "string" && r[k]) r[k] = fixEncoding(r[k]);
+/**
+ * Título principal = nombre local/español (Acaramelados).
+ * titulo_original = inglés u otro idioma (Our Sticky Love).
+ * Nunca promover el original inglés como nombre principal si ya hay uno local.
+ */
+function pareceTituloIngles(txt) {
+  const s = String(txt || "").trim();
+  if (!s || s.length < 2) return false;
+  if (/[áéíóúñü¿¡]/i.test(s)) return false;
+  const en = (s.match(/\b(the|and|of|love|our|my|his|her|with|from|for|a|an|to|in|on)\b/gi) || []).length;
+  const es = (s.match(/\b(el|la|los|las|de|del|un|una|con|por|para|mi|su|nuestro|nuestra)\b/gi) || []).length;
+  return en >= 1 && en > es;
+}
+
+function esSlugComoTitulo(titulo, slug) {
+  if (!titulo || !slug) return false;
+  return String(titulo).toLowerCase().replace(/\s+/g, "-") === String(slug).toLowerCase();
+}
+
+function elegirTituloPrincipal(opts) {
+  const {
+    nombre,
+    titulo,
+    titulo_original,
+    slug,
+    cachedNombre,
+  } = opts || {};
+  const cand = [
+    cachedNombre,
+    nombre,
+    titulo,
+  ].map((t) => limpiarTitulo(t)).filter((t) => t && !esSlugComoTitulo(t, slug));
+
+  // Preferir el que NO parece inglés (Acaramelados > Our Sticky Love)
+  for (const t of cand) {
+    if (!pareceTituloIngles(t)) return t;
   }
-  if (Array.isArray(r.generos)) {
-    r.generos = r.generos.map((g) => (typeof g === "string" ? fixEncoding(g) : g));
-  }
-  if (r.tmdb && typeof r.tmdb === "object" && r.tmdb.titulo) {
-    r.tmdb.titulo = fixEncoding(r.tmdb.titulo);
-  }
-  if (r.imdb && typeof r.imdb === "object") {
-    if (r.imdb.titulo) r.imdb.titulo = fixEncoding(r.imdb.titulo);
-    if (r.imdb.title) r.imdb.title = fixEncoding(r.imdb.title);
-  }
-  return r;
+  // Si todos parecen inglés, usar el primero legible
+  if (cand.length) return cand[0];
+  // Último recurso: no usar titulo_original como principal si hay cached
+  if (cachedNombre && !esSlugComoTitulo(cachedNombre, slug)) return limpiarTitulo(cachedNombre);
+  if (nombre && !esSlugComoTitulo(nombre, slug)) return limpiarTitulo(nombre);
+  if (titulo) return limpiarTitulo(titulo);
+  return "Sin título";
+}
+
+function elegirTituloOriginal(principal, original, fallbacks) {
+  const p = limpiarTitulo(principal);
+  const candidates = [original, ...(fallbacks || [])]
+    .map((t) => limpiarTitulo(t))
+    .filter((t) => t && t.toLowerCase() !== (p || "").toLowerCase());
+  return candidates[0] || null;
 }
 
 function limpiarTitulo(titulo) {
@@ -1188,36 +989,6 @@ function dedupeListItems(lista) {
 }
 
 /** Une listas de episodios por (season, episode); conserva embeds si ya existían */
-/** URL directa del Worker para un capítulo: /{src}/{kind}/{slug}/{T}/{E} */
-function urlExtractEpisodio(sourceId, kind, slug, season, episode) {
-  const sid = resolverSourceId(sourceId || DEFAULT_SOURCE);
-  const k = kind === "anime" || kind === "Anime" ? "anime" : "serie";
-  const s = String(slug || "").replace(/^\/+|\/+$/g, "");
-  if (!s) return null;
-  const t = Number(season) || 1;
-  const e = Number(episode) || 1;
-  return `${API_BASE}/${sid}/${k}/${s}/${t}/${e}`;
-}
-
-/** Asegura url_extract en cada episodio (para no reconstruir al pulsar) */
-function asegurarUrlExtractEpisodios(item) {
-  if (!item || !Array.isArray(item.episodios)) return item;
-  const sid = item.source_id || resolverSourceId(item.fuente) || DEFAULT_SOURCE;
-  const kind = item.tipo === "Anime" ? "anime" : "serie";
-  const slug = item.slug || (parseIdentidad(item) || {}).slug;
-  if (!slug) return item;
-  item.episodios = item.episodios.map((ep) => {
-    if (!ep) return ep;
-    const t = Number(ep.season || ep.temporada || 1) || 1;
-    const e = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
-    if (!e) return ep;
-    if (ep.url_extract && String(ep.url_extract).includes(`/${t}/${e}`)) return ep;
-    const ue = urlExtractEpisodio(ep.source_id || sid, kind, ep.slug_media || slug, t, e);
-    return { ...ep, url_extract: ue || ep.url_extract || null, link: ep.link || ue || null };
-  });
-  return item;
-}
-
 function mergeEpisodiosLists(a, b) {
   const map = new Map();
   const put = (ep) => {
@@ -1282,8 +1053,6 @@ function expandirEpisodiosAnime(item) {
           embeds: [],
           video: null,
           source_id: item.source_id,
-          url_extract: urlExtractEpisodio(item.source_id, item.tipo === "Anime" ? "anime" : "serie", item.slug, 1, n),
-          link: urlExtractEpisodio(item.source_id, item.tipo === "Anime" ? "anime" : "serie", item.slug, 1, n),
         }
       );
     }
@@ -1371,7 +1140,6 @@ function mergeItems(base, extra) {
 /** Normaliza fila de Supabase al formato del frontend */
 function normalizeItemFromDB(row) {
   if (!row) return null;
-  row = fixItemEncoding({ ...row });
   const embeds = mapEmbeds(row.embeds);
   const downloads = mapEmbeds(row.downloads); // same shape if objects
   let episodios = row.episodios || [];
@@ -1390,30 +1158,9 @@ function normalizeItemFromDB(row) {
     try { temporadas = JSON.parse(temporadas); } catch { temporadas = []; }
   }
   const reproductor = row.reproductor || (embeds[0] && embeds[0].url) || null;
-  const slug = row.slug || null;
-  const nombreFixed = elegirMejorTitulo(
-    {
-      titulo: row.nombre || row.titulo,
-      nombre: row.nombre,
-      titulo_tmdb: row.titulo_tmdb || (row.tmdb && row.tmdb.titulo),
-      titulo_original: row.titulo_original,
-      tmdb: row.tmdb,
-      imdb: row.imdb,
-      slug,
-    },
-    slug
-  );
-  const tipoFixed = resolverTipoItem(row, row.source_id);
-  const _tmp = { ...row, episodios, source_id: row.source_id, tipo: tipoFixed, slug: row.slug };
-  asegurarUrlExtractEpisodios(_tmp);
-  episodios = _tmp.episodios || episodios;
-
-    return {
+  return {
     ...row,
-    nombre: nombreFixed,
-    titulo: nombreFixed,
-    tipo: tipoFixed,
-    source_id: row.source_id != null ? String(row.source_id) : null,
+    nombre: limpiarTitulo(row.nombre || row.titulo || "Sin título"),
     descripcion: limpiarTexto(row.descripcion || ""),
     genero: limpiarTexto(row.genero || "") || null,
     embeds,
@@ -1486,36 +1233,26 @@ function extraerMetaFuentes(r) {
 /** Resultado de listado / search → item ligero (API v2 con TMDB) */
 function mapListItem(r) {
   if (!r || typeof r !== "object") return null;
-  r = fixItemEncoding({ ...r }); // CÃ³digo → Código (pelisplushd a veces manda mojibake)
+  // Datos tal cual los manda la API Worker (no inventar ni mezclar)
+  const titulo = elegirTituloPrincipal({
+    nombre: r.nombre || r.titulo || r.title,
+    titulo: r.titulo || r.title,
+    titulo_original: r.titulo_original || r.original_title,
+    slug: r.slug,
+  });
+  const tituloOrigList = elegirTituloOriginal(
+    titulo,
+    r.titulo_original || r.original_title,
+    [r.title, r.titulo]
+  );
+  const tipoRaw = String(r.tipo || r.type || "Pelicula");
+  const tipo = /anime/i.test(tipoRaw)
+    ? "Anime"
+    : /serie|tv/i.test(tipoRaw)
+      ? "Serie"
+      : "Película";
   const slug = r.slug ? String(r.slug) : null;
   const sourceId = resolverSourceId(r.source_id || r.fuente);
-  // Prioridad: r.titulo (español) → titulo_tmdb → resto. Nunca el slug.
-  const titulo = elegirMejorTitulo(
-    {
-      titulo: r.titulo, // "Así aprenderás"
-      titulo_tmdb: r.titulo_tmdb,
-      titulo_original: r.titulo_original,
-      title: r.title,
-      nombre: r.nombre,
-      tmdb: r.tmdb,
-      imdb: r.imdb,
-      slug,
-    },
-    slug
-  );
-  // doramasflix / rutas serie / caps en /serie/ → Serie (no Anime)
-  const tipo = resolverTipoItem(
-    {
-      tipo: r.tipo || r.type,
-      type: r.type,
-      source_id: sourceId,
-      fuente: r.fuente,
-      link: r.url_extract || r.link || r.url,
-      url_extract: r.url_extract,
-      episodios: r.episodios,
-    },
-    sourceId
-  );
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
@@ -1564,7 +1301,7 @@ function mapListItem(r) {
     imdb_id: r.imdb_id || (r.imdb && r.imdb.id) || null,
     nombre: titulo,
     titulo: titulo,
-    titulo_original: r.titulo_original || (r.tmdb && r.tmdb.titulo) || null,
+    titulo_original: tituloOrigList || r.titulo_original || null,
     slug,
     tipo,
     descripcion: r.descripcion || null,
@@ -1599,34 +1336,21 @@ function mapListItem(r) {
 
 /** Detalle de película / serie / capítulo → item completo */
 function mapDetail(data, fallback = {}) {
-  data = fixItemEncoding({ ...data });
-  const slug = data.slug || fallback.slug || null;
+  const tipo = normalizarTipo(data.tipo || data.type || fallback.tipo);
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
-  // titulo (español) primero; titulo_original solo si no hay titulo
-  const titulo = elegirMejorTitulo(
-    {
-      titulo: data.titulo || fallback.titulo || null,
-      titulo_original: data.titulo_original || fallback.titulo_original || null,
-      titulo_tmdb: data.titulo_tmdb || (data.tmdb && data.tmdb.titulo) || null,
-      title: data.title,
-      nombre: data.nombre || fallback.nombre,
-      tmdb: data.tmdb || fallback.tmdb,
-      imdb: data.imdb || fallback.imdb,
-      slug,
-    },
-    slug
-  );
-  // Preferir tipo del payload; doramasflix /ruta serie siempre Serie
-  const tipo = resolverTipoItem(
-    {
-      tipo: data.tipo || data.type || fallback.tipo,
-      type: data.type,
-      source_id: sourceId,
-      fuente: data.fuente || fallback.fuente,
-      link: data.link || data.url_extract || fallback.link,
-      url_extract: data.url_extract || fallback.url_extract,
-    },
-    sourceId
+  const slug = data.slug || fallback.slug || null;
+  // Principal = título local/ES; original = inglés u otro (nunca invertir)
+  const titulo = elegirTituloPrincipal({
+    nombre: data.nombre || data.titulo || data.title,
+    titulo: data.titulo || data.title,
+    titulo_original: data.titulo_original || data.original_title,
+    slug,
+    cachedNombre: fallback.nombre || fallback.titulo,
+  });
+  const tituloOriginal = elegirTituloOriginal(
+    titulo,
+    data.titulo_original || data.original_title,
+    [data.title, data.titulo, fallback.titulo_original].filter(Boolean)
   );
   const embedsArr = mapEmbeds([
     ...(Array.isArray(data.reproductores) ? data.reproductores : []),
@@ -1668,13 +1392,6 @@ function mapDetail(data, fallback = {}) {
         const seasonNum = Number(ep.temporada || temp.temporada || data.temporada_principal || 1) || 1;
         const epNum = Number(ep.episodio || ep.episode || 1) || 1;
         const epEmbeds = mapEmbeds(ep.reproductores || ep.embeds || []);
-        const ueEp = urlExtractEpisodio(
-          sourceId,
-          (data.tipo === "Anime" || String(data.tipo || "").toLowerCase() === "anime") ? "anime" : "serie",
-          ep.slug_media || temp.slug_media || slug,
-          seasonNum,
-          epNum
-        );
         episodios.push({
           id: `${slug}-t${seasonNum}-e${epNum}`,
           nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
@@ -1684,9 +1401,7 @@ function mapDetail(data, fallback = {}) {
           embeds: epEmbeds,
           downloads: ep.descargas || [],
           soloTrailer: false,
-          url_video: ep.url_video || ep.link || ueEp || null,
-          url_extract: ueEp,
-          link: ep.link || ueEp || null,
+          url_video: ep.url_video || ep.link || null,
           source_id: sourceId,
           slug_media: ep.slug_media || temp.slug_media || null,
           formato: ep.formato || temp.formato || data.formato || null,
@@ -1714,7 +1429,7 @@ function mapDetail(data, fallback = {}) {
     postId: data.postId || fallback.postId || null,
     nombre: titulo,
     titulo: titulo,
-    titulo_original: data.titulo_original || data.original_title || fallback.titulo_original || null,
+    titulo_original: tituloOriginal || data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
     tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
     formato: data.formato || fallback.formato || null,
@@ -2010,13 +1725,11 @@ function pickBestSearchItem(a, b) {
     if (it.descripcion && String(it.descripcion).length > 40) s += 10;
     if (it.tiene_player) s += 8;
     const t = String(it.tipo || "").toLowerCase();
-    // Preferir Serie/doramasflix sobre Anime mal etiquetado
-    if (t === "serie") s += 15;
-    else if (t === "anime") s += 5;
+    if (t === "anime") s += 15;
+    else if (t === "serie") s += 5;
     const sid = String(it.source_id || "");
-    if (sid === "6") s += 14; // doramasflix
-    else if (sid === "3") s += 10;
-    else if (sid === "4") s += 4;
+    if (sid === "4") s += 12;
+    else if (sid === "3") s += 6;
     else if (sid === "1") s += 2;
     return s;
   };
@@ -2032,27 +1745,18 @@ function pickBestSearchItem(a, b) {
   if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
     winner.total_episodios = loser.total_episodios;
   }
-  // Tipo: respetar Serie/Película de doramasflix/pelisplus; NO forzar Anime
-  const tipoW = resolverTipoItem(winner, winner.source_id);
-  const tipoL = resolverTipoItem(loser, loser.source_id);
-  if (tipoW === "Serie" || tipoL === "Serie") winner.tipo = "Serie";
-  else if (tipoW === "Película" || tipoL === "Película") {
-    // Solo Anime si AMBOS son anime
-    winner.tipo = (tipoW === "Anime" && tipoL === "Anime") ? "Anime" : (tipoW === "Película" ? "Película" : tipoL);
-  } else {
-    winner.tipo = tipoW || tipoL || "Película";
-  }
-  // Título: preferir el que NO sea slug (español de doramasflix gana)
-  const tituloW = elegirMejorTitulo(winner, winner.slug);
-  const tituloL = elegirMejorTitulo(loser, loser.slug);
-  if (tituloL && (!tituloW || pareceSlugTitulo(tituloW, winner.slug))) {
-    winner.nombre = tituloL;
-    winner.titulo = tituloL;
-  } else {
-    winner.nombre = tituloW || winner.nombre;
-    winner.titulo = winner.nombre;
-  }
+  // Si alguno es Anime, el resultado final es Anime (no Película/Serie errónea)
+  const tipos = [winner.tipo, loser.tipo].map((t) => String(t || ""));
+  if (tipos.some((t) => /anime/i.test(t))) winner.tipo = "Anime";
+  else if (tipos.some((t) => /serie/i.test(t))) winner.tipo = "Serie";
 
+  const nW = limpiarTitulo(winner.nombre || "");
+  const nL = limpiarTitulo(loser.nombre || "");
+  if (nL && (!nW || nL.length <= nW.length || /ver |online|gratis/i.test(String(winner.nombre || "")))) {
+    winner.nombre = nL;
+  } else {
+    winner.nombre = nW || winner.nombre;
+  }
   if (!winner.link && loser.link) winner.link = loser.link;
   if (!winner.slug && loser.slug) winner.slug = loser.slug;
   const alts = new Set(
@@ -2108,33 +1812,13 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     await ensureMoviesDB().catch(() => {});
   } catch (_) {}
   lista = lista.map((item) => {
-    // Preferir match por link o (slug + misma fuente); evitar mezclar con clone Anime de animeav1
     const local =
       moviesDB.find(
-        (m) => item.link && m.link === item.link
-      ) ||
-      moviesDB.find(
         (m) =>
-          item.slug &&
-          m.slug === item.slug &&
-          String(m.source_id || "") === String(item.source_id || "")
-      ) ||
-      null;
-    // Conservar titulo español de la API antes de resolver nombre visible
-    const tituloApi = item.titulo || null;
-    // Tipo SIEMPRE del resultado online (Worker). No heredar "Anime" de Supabase.
-    item.tipo = resolverTipoItem(item, item.source_id);
-    item.nombre = elegirMejorTitulo(
-      { ...item, titulo: tituloApi || item.titulo },
-      item.slug
-    );
-    // No pisar titulo API con nombre si era bueno
-    if (tituloApi && !pareceSlugTitulo(tituloApi, item.slug)) {
-      item.titulo = tituloApi;
-      item.nombre = elegirMejorTitulo({ ...item, titulo: tituloApi }, item.slug);
-    } else {
-      item.titulo = item.nombre;
-    }
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug && String(m.source_id || "") === String(item.source_id || "")) ||
+          (item.slug && m.slug === item.slug)
+      ) || null;
     if (!local || esDescartado(local)) return item;
     if (local.tiene_player || itemTieneContenidoValido(local)) {
       item.tiene_player = true;
@@ -2265,41 +1949,31 @@ function preferApiMeta(apiItem, cached) {
         String(apiItem.nombre).toLowerCase().replace(/\s+/g, "-") === String(apiItem.slug).toLowerCase()) {
       if (apiItem.titulo) apiItem.nombre = apiItem.titulo;
     }
+    // Asegurar que el principal no sea el original inglés
+    apiItem.nombre = elegirTituloPrincipal({
+      nombre: apiItem.nombre,
+      titulo: apiItem.titulo,
+      titulo_original: apiItem.titulo_original,
+      slug: apiItem.slug,
+    });
+    apiItem.titulo = apiItem.nombre;
     return apiItem;
   }
   const out = { ...cached, ...apiItem };
-  // Título: 1) titulo (español) 2) titulo_original — NUNCA pisar un titulo bueno con original/tmdb
-  const slugRef = apiItem.slug || cached.slug || null;
-  const best = elegirMejorTitulo(
-    {
-      // Priorizar titulo de la fuente española (búsqueda/doramasflix)
-      titulo: apiItem.titulo || cached.titulo || null,
-      titulo_original: apiItem.titulo_original || cached.titulo_original || null,
-      titulo_tmdb: apiItem.titulo_tmdb || cached.titulo_tmdb || null,
-      nombre: apiItem.nombre || cached.nombre || null,
-      title: apiItem.title,
-      tmdb: apiItem.tmdb || cached.tmdb,
-      imdb: apiItem.imdb || cached.imdb,
-      slug: slugRef,
-    },
-    slugRef
+  // Título principal fijo: preferir el local/ES ya conocido; no pisar con original inglés
+  out.nombre = elegirTituloPrincipal({
+    nombre: apiItem.nombre,
+    titulo: apiItem.titulo,
+    titulo_original: apiItem.titulo_original || cached.titulo_original,
+    slug: apiItem.slug || cached.slug,
+    cachedNombre: cached.nombre,
+  });
+  out.titulo = out.nombre;
+  out.titulo_original = elegirTituloOriginal(
+    out.nombre,
+    apiItem.titulo_original || cached.titulo_original,
+    [apiItem.titulo, apiItem.nombre, cached.titulo_original]
   );
-  // Si el caché ya tiene un titulo legible distinto del original en inglés, conservarlo
-  const cachedTitulo = cached.titulo || null;
-  const cachedNombre = cached.nombre || null;
-  if (cachedTitulo && !pareceSlugTitulo(cachedTitulo, slugRef)) {
-    out.titulo = cachedTitulo;
-    out.nombre = cachedTitulo;
-  } else if (apiItem.titulo && !pareceSlugTitulo(apiItem.titulo, slugRef)) {
-    out.titulo = apiItem.titulo;
-    out.nombre = apiItem.titulo;
-  } else {
-    out.nombre = best;
-    out.titulo = apiItem.titulo || cached.titulo || best;
-  }
-  // titulo_original se guarda aparte, NO como nombre visible
-  if (apiItem.titulo_original) out.titulo_original = apiItem.titulo_original;
-  else if (cached.titulo_original) out.titulo_original = cached.titulo_original;
   // Año / rating / géneros / imdb: API gana si trae valor
   if (apiItem.year) out.year = apiItem.year;
   if (apiItem.calificacion != null && apiItem.calificacion !== "") out.calificacion = apiItem.calificacion;
@@ -2447,24 +2121,14 @@ async function obtenerDetalle(params) {
       const base = cached ? { ...cached } : (candidate ? { ...candidate } : null);
       if (base || candidate) {
         const out = preferApiMeta(candidate || base, base);
-        // titulo español primero; no usar titulo_original como nombre visible
-        out.nombre = elegirMejorTitulo(
-          {
-            titulo: cached?.titulo || out.titulo || candidate?.titulo || null,
-            titulo_original: out.titulo_original || cached?.titulo_original || null,
-            titulo_tmdb: out.titulo_tmdb || candidate?.titulo_tmdb || null,
-            nombre: cached?.nombre || out.nombre,
-            slug: out.slug || cached?.slug,
-            tmdb: out.tmdb || cached?.tmdb,
-          },
-          out.slug || cached?.slug
-        );
-        if (cached?.titulo && !pareceSlugTitulo(cached.titulo, out.slug || cached.slug)) {
-          out.titulo = cached.titulo;
-          out.nombre = cached.titulo;
-        } else if (out.titulo && !pareceSlugTitulo(out.titulo, out.slug)) {
-          out.nombre = out.titulo;
-        }
+        // Conservar título legible (nunca slug)
+        const goodName = (cached && cached.nombre && cached.slug &&
+          String(cached.nombre).toLowerCase().replace(/\s+/g, "-") !== String(cached.slug).toLowerCase())
+          ? cached.nombre
+          : (out.nombre && out.slug && String(out.nombre).toLowerCase().replace(/\s+/g, "-") !== String(out.slug).toLowerCase()
+            ? out.nombre
+            : (out.titulo || cached?.nombre || out.nombre));
+        out.nombre = goodName;
         // Portada: no cambiar si ya hay una válida
         if (cached && esPortadaValida(cached.portada)) out.portada = cached.portada;
         // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
@@ -2535,19 +2199,15 @@ async function obtenerDetalle(params) {
     itemTieneContenidoValido(cached) &&
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
-  // Anime: fuentes 4/5. Película/Serie: NUNCA 4/5 (animeav1 contamina slugs live-action
-  // como "diario-de-una-pasion-2004" → tipo Anime y revuelve secciones).
-  const kindNow = String(id.kind || "").toLowerCase();
-  const esPeliculaKind = kindNow === "pelicula" || /pel[ií]cula|movie/i.test(String(tipo || cached?.tipo || ""));
-  let sourcesToTry;
-  if (esAnimeKind) {
-    sourcesToTry = ["4", "5", "3"];
-  } else if (esPeliculaKind) {
-    // Solo fuentes de cine; respetar source_id de la búsqueda (lamovie=1, etc.)
-    sourcesToTry = [resolverSourceId(id.source_id), "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
-  } else {
-    // Serie / dorama
-    sourcesToTry = [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
+  // Anime: SIEMPRE empezar por fuente 4; también probar slug sin año
+  // (wistoria-wand-and-sword-2024 en src2 = 10eps/1temp; sin año en src4 = 24eps/2temps)
+  // Anime: animeav1 → animedbs; Serie/dorama: fuente pedida + doramasflix + pelisplus
+  const sourcesToTry = esAnimeKind
+    ? ["4", "5"]
+    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i);
+  const ordenFuentes = esAnimeKind ? ["4", "3", "1", "2"] : ["3", "1", "2", "4"];
+  for (const s of ordenFuentes) {
+    if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
   const fuentes = soloMeta && !esAnimeKind ? sourcesToTry.slice(0, 1) : sourcesToTry;
 
@@ -2729,8 +2389,7 @@ async function obtenerDetalle(params) {
     best._sin_players = true;
     best = preferApiMeta(best, cached);
     if (best.link && (best.descripcion || best.portada || best.calificacion)) {
-      try { asegurarUrlExtractEpisodios(best);
-  await guardarEnSupabase([best]); } catch (_) {}
+      try { await guardarEnSupabase([best]); } catch (_) {}
     }
     return best;
   }
@@ -2757,7 +2416,6 @@ async function obtenerDetalle(params) {
     else best.nombre = String(best.slug).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  asegurarUrlExtractEpisodios(best);
   await guardarEnSupabase([best]);
   return best;
 }
@@ -3046,28 +2704,16 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
     const data = await obtenerEstrenos(tipoApi, 48);
     let apiItems = Array.isArray(data.resultados) ? data.resultados : [];
 
-    // Slugs que ya existen como Serie real (doramasflix, etc.) → no listar como Anime
-    const slugsSerie = new Set(
-      moviesDB
-        .filter((m) => m && !esDescartado(m) && resolverTipoItem(m, m.source_id) === "Serie")
-        .map((m) => String(m.slug || "").toLowerCase())
-        .filter(Boolean)
-    );
-
     const locales = moviesDB.filter((m) => {
       if (!m || esDescartado(m)) return false;
-      // Re-evaluar tipo al filtrar (corrige basura antigua en Supabase)
-      const tipoOk = resolverTipoItem(m, m.source_id);
       if (tipoItem === "Serie") {
-        return tipoOk === "Serie";
+        const t = String(m.tipo || "").toLowerCase();
+        return t === "serie" || t === "dorama" || t === "tv";
       }
-      if (tipoItem === "Anime") {
-        const slug = String(m.slug || "").toLowerCase();
-        if (slug && slugsSerie.has(slug)) return false; // mismo título ya es Serie
-        return tipoOk === "Anime" && esItemAnimeValido({ ...m, tipo: tipoOk });
-      }
+      if (tipoItem === "Anime") return String(m.tipo || "").toLowerCase() === "anime";
       {
-        return tipoOk === "Película";
+        const t = String(m.tipo || "").toLowerCase();
+        return t === "película" || t === "pelicula" || t === "movie" || !t;
       }
     });
 
@@ -3463,12 +3109,10 @@ app.get("/api/capitulo", async (req, res) => {
     const sourceId = req.query.source_id || DEFAULT_SOURCE;
     const slug = req.query.slug;
     const link = req.query.link || null;
-    // url_extract del episodio (guardado al listar) → no reconstruir desde cero
-    const epUrlExtract = req.query.url_extract || req.query.ep_url || null;
     const tipo = req.query.tipo || "Serie";
     const temporada = parseInt(req.query.temporada || req.query.season) || 1;
     const episodio = parseInt(req.query.episodio || req.query.episode) || 1;
-    if (!slug && !link && !epUrlExtract) return res.status(400).json({ error: "Falta slug, link o url_extract" });
+    if (!slug && !link) return res.status(400).json({ error: "Falta slug o link" });
 
     // 1) Supabase / memoria: ¿ya tenemos este capítulo con players?
     let serie = null;
@@ -3512,42 +3156,19 @@ app.get("/api/capitulo", async (req, res) => {
       }
     }
 
-    // 2) API externa del episodio
+    // 2) API externa del episodio (fuente de la serie primero)
     const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
     const resolvedSlug = slug || serie?.slug || (parseIdentidad(serie || { link }) || {}).slug;
     const resolvedSource = resolverSourceId(
       sourceId || serie?.source_id || (parseIdentidad(serie || { link }) || {}).sourceId || DEFAULT_SOURCE
     );
+    if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
     let det = null;
     let embeds = [];
     try {
-      // Atajo: url_extract del episodio ya guardado al listar (entrada directa al Worker)
-      if (epUrlExtract && String(epUrlExtract).includes(API_BASE.replace(/\/$/, ""))) {
-        try {
-          const pathOnly = String(epUrlExtract).replace(API_BASE.replace(/\/$/, ""), "").replace(/^\/?/, "/");
-          const dataEp = await apiGet(pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly);
-          if (dataEp && dataEp.success !== false) {
-            det = mapDetail(dataEp, {
-              slug: resolvedSlug,
-              source_id: resolvedSource,
-              tipo: kind === "anime" ? "Anime" : "Serie",
-            });
-            embeds = mapEmbeds(
-              (dataEp.reproductores && dataEp.reproductores.length)
-                ? dataEp.reproductores
-                : (dataEp.embeds || det.embeds || [])
-            );
-          }
-        } catch (eDirect) {
-          console.warn("capitulo url_extract:", eDirect.message);
-        }
-      }
-      if (!embeds.length) {
-        if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
-        det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
-        embeds = mapEmbeds(det.embeds || []);
-      }
+      det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
+      embeds = mapEmbeds(det.embeds || []);
     } catch (apiErr) {
       // Si había cache parcial o falla el Worker, no tumbar al usuario con 500
       if (cachedEmb.length) {
