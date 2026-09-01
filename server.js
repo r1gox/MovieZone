@@ -1409,20 +1409,28 @@ function mapDetail(data, fallback = {}) {
         const seasonNum = Number(ep.temporada || temp.temporada || data.temporada_principal || 1) || 1;
         const epNum = Number(ep.episodio || ep.episode || 1) || 1;
         const epEmbeds = mapEmbeds(ep.reproductores || ep.embeds || []);
-        episodios.push({
-          id: `${slug}-t${seasonNum}-e${epNum}`,
-          nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
-          season: seasonNum,
-          episode: epNum,
-          video: epEmbeds[0]?.stream_url || epEmbeds[0]?.url || ep.reproductor || null,
-          embeds: epEmbeds,
-          downloads: ep.descargas || [],
-          soloTrailer: false,
-          url_video: ep.url_video || ep.link || null,
-          source_id: sourceId,
-          slug_media: ep.slug_media || temp.slug_media || null,
-          formato: ep.formato || temp.formato || data.formato || null,
-        });
+        episodios.push(
+          asegurarUrlCapitulo(
+            {
+              id: `${slug}-t${seasonNum}-e${epNum}`,
+              nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
+              season: seasonNum,
+              episode: epNum,
+              video: epEmbeds[0]?.stream_url || epEmbeds[0]?.url || ep.reproductor || null,
+              embeds: epEmbeds,
+              downloads: ep.descargas || [],
+              soloTrailer: false,
+              url_video: ep.url_video || ep.link || null,
+              source_id: sourceId,
+              slug_media: ep.slug_media || temp.slug_media || slug || null,
+              formato: ep.formato || temp.formato || data.formato || null,
+              url_capitulo:
+                ep.url_capitulo ||
+                urlCapituloWorker(sourceId, tipo === "Anime" ? "anime" : "serie", slug, seasonNum, epNum),
+            },
+            { source_id: sourceId, tipo, slug }
+          )
+        );
       }
     }
   }
@@ -2734,10 +2742,47 @@ function mismoEpisodio(ep, season, episode) {
   return s === Number(season) && e === Number(episode);
 }
 
+/** Link directo del capítulo en el Worker: /{source}/{serie|anime}/{slug}/{temp}/{ep} */
+function urlCapituloWorker(sourceId, kind, slug, season, episode) {
+  const sid = resolverSourceId(sourceId || DEFAULT_SOURCE);
+  const k = kind === "anime" || kind === "Anime" ? "anime" : "serie";
+  const s = String(slug || "").replace(/^\/+|\/+$/g, "");
+  if (!s) return null;
+  const t = Number(season) || 1;
+  const e = Number(episode) || 1;
+  return `${API_BASE}/${sid}/${k}/${s}/${t}/${e}`;
+}
+
+function asegurarUrlCapitulo(ep, meta) {
+  if (!ep) return ep;
+  const season = Number(ep.season || ep.temporada || 1) || 1;
+  const episode = Number(ep.episode || ep.episodio || 0) || 0;
+  if (!episode) return ep;
+  const sid = ep.source_id || meta?.source_id || DEFAULT_SOURCE;
+  const kind =
+    meta?.tipo === "Anime" || meta?.kind === "anime" || /anime/i.test(String(meta?.tipo || ""))
+      ? "anime"
+      : "serie";
+  const slug = ep.slug_media || meta?.slug || null;
+  if (!ep.url_capitulo && slug) {
+    ep.url_capitulo = urlCapituloWorker(sid, kind, slug, season, episode);
+  }
+  if (!ep.source_id) ep.source_id = String(resolverSourceId(sid));
+  return ep;
+}
+
 /** Guarda players de un episodio dentro del registro de la serie en Supabase */
 async function guardarPlayersEpisodio(serieItem, season, episode, embeds, reproductor) {
   if (!serieItem || !serieItem.link) return;
   const eps = Array.isArray(serieItem.episodios) ? [...serieItem.episodios] : [];
+  const kind = serieItem.tipo === "Anime" ? "anime" : "serie";
+  const urlCap = urlCapituloWorker(
+    serieItem.source_id,
+    kind,
+    serieItem.slug,
+    season,
+    episode
+  );
   let found = false;
   for (let i = 0; i < eps.length; i++) {
     if (mismoEpisodio(eps[i], season, episode)) {
@@ -2748,6 +2793,8 @@ async function guardarPlayersEpisodio(serieItem, season, episode, embeds, reprod
         embeds: embeds || [],
         video: reproductor || (embeds && embeds[0] && embeds[0].url) || null,
         reproductor: reproductor || null,
+        url_capitulo: eps[i].url_capitulo || urlCap,
+        source_id: eps[i].source_id || serieItem.source_id,
       };
       found = true;
       break;
@@ -2760,6 +2807,8 @@ async function guardarPlayersEpisodio(serieItem, season, episode, embeds, reprod
       nombre: `T${season}E${String(episode).padStart(2, "0")}`,
       embeds: embeds || [],
       video: reproductor || null,
+      url_capitulo: urlCap,
+      source_id: serieItem.source_id,
     });
   }
   const updated = {
@@ -3147,18 +3196,34 @@ app.get("/api/episodios", async (req, res) => {
         for (const ep of eps) {
           const k = `${Number(ep.season) || season}-${Number(ep.episode || ep.episodio) || 0}`;
           const prev = byKey.get(k);
+          let mergedEp;
           if (prev && (prev.embeds?.length || prev.video || prev.reproductor)) {
-            byKey.set(k, {
+            mergedEp = {
               ...ep,
               embeds: prev.embeds,
               video: prev.video || prev.reproductor,
               reproductor: prev.reproductor || prev.video,
-            });
+              url_capitulo: prev.url_capitulo || ep.url_capitulo,
+            };
           } else {
-            byKey.set(k, { ...ep, season: Number(ep.season) || season });
+            mergedEp = { ...ep, season: Number(ep.season) || season };
           }
+          byKey.set(
+            k,
+            asegurarUrlCapitulo(mergedEp, {
+              source_id: item.source_id || id.sourceId || source_id,
+              tipo: item.tipo,
+              slug: item.slug || id.slug || slug,
+            })
+          );
         }
-        item.episodios = Array.from(byKey.values()).sort((a, b) => {
+        item.episodios = Array.from(byKey.values()).map((ep) =>
+          asegurarUrlCapitulo(ep, {
+            source_id: item.source_id || id.sourceId || source_id,
+            tipo: item.tipo,
+            slug: item.slug || id.slug || slug,
+          })
+        ).sort((a, b) => {
           const sa = Number(a.season) || 1;
           const sb = Number(b.season) || 1;
           if (sa !== sb) return sa - sb;
@@ -3247,7 +3312,7 @@ app.get("/api/capitulo", async (req, res) => {
       }
     }
 
-    // 2) API externa del episodio (fuente de la serie primero)
+    // 2) API externa del episodio (link guardado en el episodio o reconstruido)
     const kind = (tipo === "Anime" || serie?.tipo === "Anime") ? "anime" : "serie";
     const resolvedSlug = slug || serie?.slug || (parseIdentidad(serie || { link }) || {}).slug;
     const resolvedSource = resolverSourceId(
@@ -3255,11 +3320,44 @@ app.get("/api/capitulo", async (req, res) => {
     );
     if (!resolvedSlug) return res.status(400).json({ error: "Falta slug" });
 
+    // Preferir url_capitulo ya guardada en el listado (ej. .../6/serie/our-sticky-love/1/1)
+    let epStub =
+      (serie &&
+        Array.isArray(serie.episodios) &&
+        serie.episodios.find((e) => mismoEpisodio(e, temporada, episodio))) ||
+      null;
+    const urlCap =
+      (req.query.url_capitulo && String(req.query.url_capitulo)) ||
+      (epStub && epStub.url_capitulo) ||
+      urlCapituloWorker(resolvedSource, kind, resolvedSlug, temporada, episodio);
+
     let det = null;
     let embeds = [];
     try {
-      det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
-      embeds = mapEmbeds(det.embeds || []);
+      // 2a) Llamada directa al link del capítulo si lo tenemos
+      if (urlCap && String(urlCap).includes(API_BASE.replace(/https?:\/\//, "").split("/")[0] || "workers.dev")) {
+        try {
+          const pathOnly = String(urlCap).replace(API_BASE, "").replace(/^https?:\/\/[^/]+/, "");
+          const dataCap = await apiGet(pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`);
+          if (dataCap && dataCap.success !== false) {
+            det = mapDetail(dataCap, {
+              slug: resolvedSlug,
+              source_id: resolvedSource,
+              tipo: kind === "anime" ? "Anime" : "Serie",
+            });
+            embeds = mapEmbeds(
+              (dataCap.reproductores && dataCap.reproductores.length)
+                ? dataCap.reproductores
+                : (dataCap.embeds || det.embeds || [])
+            );
+          }
+        } catch (_) {}
+      }
+      // 2b) Fallback: obtenerEpisodio (varias fuentes)
+      if (!embeds.length) {
+        det = await obtenerEpisodio(resolvedSource, resolvedSlug, temporada, episodio, kind, serie);
+        embeds = mapEmbeds(det.embeds || []);
+      }
     } catch (apiErr) {
       // Si había cache parcial o falla el Worker, no tumbar al usuario con 500
       if (cachedEmb.length) {
