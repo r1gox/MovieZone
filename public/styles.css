@@ -2895,3 +2895,31 @@ body.player-open .btn-close-modal {
   font-size: 0.7rem;
   padding: 0.22rem 0.65rem;
 }
+
+
+/* Rating más compacto en tarjetas y detalle */
+.rating-badge {
+  font-size: 0.68rem !important;
+  padding: 0.18rem 0.45rem !important;
+  gap: 0.15rem !important;
+  max-width: 92%;
+}
+.rating-badge ion-icon {
+  font-size: 0.72rem !important;
+}
+.rating-badge .rating-main {
+  font-size: 0.68rem !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.details-type-rating {
+  font-size: 0.65rem !important;
+  padding: 0.14rem 0.45rem !important;
+}
+.details-type-rating ion-icon {
+  font-size: 0.7rem !important;
+}
+.details-meta-info .media-type-badge {
+  font-size: 0.68rem !important;
+  padding: 0.18rem 0.55rem !important;
+}

@@ -366,6 +366,8 @@ async function guardarEnSupabase(items) {
         postId: item.postId || existente?.postId || null,
         slug: item.slug || existente?.slug || null,
         source_id: item.source_id || existente?.source_id || null,
+        // @ts-ignore optional col
+        ...(item.imdb_id || existente?.imdb_id ? {} : {}),
         tiene_player: tieneNuevo || !!(existente && (existente.tiene_player || itemTieneContenidoValido(existente))),
       };
     });
@@ -409,6 +411,7 @@ async function guardarEnSupabase(items) {
       slug,
       source_id: source_id != null ? String(source_id) : null,
       tiene_player: !!tiene_player,
+      ...(row.imdb_id ? { imdb_id: row.imdb_id } : {}),
     };
   }
 
@@ -861,9 +864,42 @@ function colapsarTemporadasAnimeAv1(lista) {
 }
 
 function dedupeListItems(lista) {
-  // Sin deduplicación: los datos vienen de la API (ya fusionados allí).
-  // Devolver la lista tal cual para no mezclar obras (ej. La captura 2012 vs 2026).
-  return Array.isArray(lista) ? lista.slice() : [];
+  // Deduplicar catálogo API + Supabase: misma obra no dos veces
+  if (!Array.isArray(lista) || !lista.length) return [];
+  const byKey = new Map();
+
+  function keyOf(item) {
+    if (!item) return null;
+    if (item.link) return "link:" + String(item.link).replace(/\/+$/, "").toLowerCase();
+    const slug = String(item.slug || "").toLowerCase().trim();
+    const year = (String(item.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
+    if (slug) return "slug:" + slug + ":y:" + year;
+    const t = normalizeTitleKey(item.nombre || item.titulo || "");
+    const tipo = String(item.tipo || "").toLowerCase();
+    if (t) return "t:" + tipo + ":" + t + ":y:" + year;
+    return null;
+  }
+
+  function better(a, b) {
+    // Preferir el que tiene players / más datos
+    const sa = (a.tiene_player ? 20 : 0) + (itemTieneContenidoValido(a) ? 15 : 0) +
+      (a.embeds && a.embeds.length ? 10 : 0) + (a.descripcion && String(a.descripcion).length > 40 ? 5 : 0) +
+      (a.calificacion != null ? 2 : 0) + (a.portada ? 1 : 0) + scoreItem(a);
+    const sb = (b.tiene_player ? 20 : 0) + (itemTieneContenidoValido(b) ? 15 : 0) +
+      (b.embeds && b.embeds.length ? 10 : 0) + (b.descripcion && String(b.descripcion).length > 40 ? 5 : 0) +
+      (b.calificacion != null ? 2 : 0) + (b.portada ? 1 : 0) + scoreItem(b);
+    return sa >= sb ? a : b;
+  }
+
+  for (const item of lista) {
+    if (!item) continue;
+    const k = keyOf(item);
+    if (!k) continue;
+    const prev = byKey.get(k);
+    if (!prev) byKey.set(k, item);
+    else byKey.set(k, better(prev, item));
+  }
+  return Array.from(byKey.values());
 }
 
 /** Une listas de episodios por (season, episode); conserva embeds si ya existían */
