@@ -2464,23 +2464,104 @@ app.get("/api/estrenos", async (req, res) => {
   }
 });
 
-/** Catálogo paginado: estrenos API + items guardados en Supabase de ese tipo */
+/** Catálogo: listado API como base; Supabase solo ENRIQUECE (no duplica filas) */
 function catalogoPaginado(tipoApi, tipoItem, page, limit) {
   return (async () => {
+    await ensureMoviesDB().catch(() => {});
     const data = await obtenerEstrenos(tipoApi, 48);
-    let apiItems = data.resultados || [];
+    let apiItems = Array.isArray(data.resultados) ? data.resultados : [];
 
-    // Items de Supabase del mismo tipo (ya cargados con players / datos)
     const locales = moviesDB.filter((m) => {
+      if (!m || esDescartado(m)) return false;
       if (tipoItem === "Serie") return m.tipo === "Serie";
       if (tipoItem === "Anime") return m.tipo === "Anime";
       return m.tipo === "Película" || !m.tipo;
     });
 
-    // Fusionar y deduplicar; preferir los que tienen más datos / player
-    let all = filtrarDescartados(dedupeListItems([...apiItems, ...locales]));
+    function matchLocal(item) {
+      if (!item) return null;
+      const slug = String(item.slug || "").toLowerCase();
+      const link = String(item.link || item.url_extract || "").replace(/\/+$/, "").toLowerCase();
+      return (
+        locales.find((m) => link && String(m.link || "").replace(/\/+$/, "").toLowerCase() === link) ||
+        locales.find((m) => slug && String(m.slug || "").toLowerCase() === slug) ||
+        locales.find((m) => {
+          const sameTitle =
+            normalizeTitleKey(m.nombre || "") === normalizeTitleKey(item.nombre || item.titulo || "");
+          if (!sameTitle) return false;
+          const y1 = String(m.year || "").match(/(19|20)\d{2}/);
+          const y2 = String(item.year || "").match(/(19|20)\d{2}/);
+          if (y1 && y2) return y1[0] === y2[0];
+          return true;
+        }) ||
+        null
+      );
+    }
+
+    // 1) Una fila por ítem de la API; si ya está en Supabase → Disponible + rating de DB
+    const usedLocal = new Set();
+    const merged = [];
+    for (const item of apiItems) {
+      if (!item) continue;
+      const local = matchLocal(item);
+      if (local) {
+        usedLocal.add(local.link || local.slug || local.nombre);
+        const row = { ...item };
+        // Datos cargados (usuario ya abrió el detalle)
+        if (local.tiene_player || itemTieneContenidoValido(local)) {
+          row.tiene_player = true;
+          if (local.embeds?.length) row.embeds = local.embeds;
+          if (local.reproductor) row.reproductor = local.reproductor;
+          if (local.calificacion != null) row.calificacion = local.calificacion;
+          if (local.imdb_id) row.imdb_id = local.imdb_id;
+          if (local.imdb) row.imdb = local.imdb;
+          if (local.votos) row.votos = local.votos;
+          if (local.descripcion) row.descripcion = local.descripcion;
+          if (local.genero) row.genero = local.genero;
+          if (local.generos?.length) row.generos = local.generos;
+          if (local.year) row.year = local.year;
+          if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
+            row.nombre = local.nombre;
+          }
+          if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
+          if (local.duracion) row.duracion = local.duracion;
+          if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
+          if (local.certificacion) row.certificacion = local.certificacion;
+          if (local.titulo_original) row.titulo_original = local.titulo_original;
+        } else {
+          // En DB pero sin players → sigue "Sin servidores"
+          row.tiene_player = false;
+        }
+        merged.push(row);
+      } else {
+        // Aún no cargado por el usuario
+        merged.push({
+          ...item,
+          tiene_player: false,
+          embeds: [],
+          // Sin rating hasta que se cargue en detalle y se guarde en Supabase
+          calificacion: null,
+          rating: null,
+          imdb: null,
+          imdb_id: null,
+        });
+      }
+    }
+
+    // 2) Ítems solo en Supabase (cargados) que no salieron en el listado API de estrenos
+    for (const local of locales) {
+      const key = local.link || local.slug || local.nombre;
+      if (!key || usedLocal.has(key)) continue;
+      if (!(local.tiene_player || itemTieneContenidoValido(local))) continue;
+      // Evitar duplicar por slug ya presente
+      const slug = String(local.slug || "").toLowerCase();
+      if (slug && merged.some((m) => String(m.slug || "").toLowerCase() === slug)) continue;
+      merged.push(normalizeItemFromDB(local) || local);
+    }
+
+    let all = filtrarDescartados(merged);
+    // Orden: disponibles primero, luego el resto
     all.sort((a, b) => {
-      // Disponible primero, luego score
       const av = a.tiene_player ? 1 : 0;
       const bv = b.tiene_player ? 1 : 0;
       if (bv !== av) return bv - av;

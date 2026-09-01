@@ -53,12 +53,17 @@ function ratingInfo(item) {
 }
 
 function ratingBadgeHtml(item) {
+    // Solo mostrar rating si ya fue cargado (Disponible / tiene_player)
+    // "Sin servidores" = aún no cargado → estrella vacía
+    const cargado = item && (item.tiene_player === true || (item.embeds && item.embeds.length > 0) || !!item.reproductor);
+    if (!cargado) {
+        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> —</div>';
+    }
     const r = ratingInfo(item);
     if (!r.value) {
         return '<div class="rating-badge rating-empty"><ion-icon name="star-outline"></ion-icon> —</div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-    // Solo una fuente: IMDb preferido (ratingInfo ya lo elige)
     return (
         '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + '">' +
         '<ion-icon name="star"></ion-icon> ' +
