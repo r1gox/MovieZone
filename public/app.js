@@ -78,7 +78,7 @@ function rellenarMetaDetalle(item) {
         const orig = item.titulo_original || (item.tmdb && item.tmdb.titulo) || null;
         const mainTitle = String(item.nombre || item.titulo || "").trim().toLowerCase();
         if (orig && String(orig).trim() && String(orig).trim().toLowerCase() !== mainTitle) {
-            originalEl.textContent = "Título original: " + String(orig).trim();
+            originalEl.textContent = String(orig).trim();
             originalEl.style.display = "block";
         } else {
             originalEl.textContent = "";
@@ -1267,7 +1267,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
-        originalEl.textContent = "Título original: " + item.titulo_original;
+        originalEl.textContent = item.titulo_original;
         originalEl.style.display = "block";
     } else {
         originalEl.textContent = "";
@@ -1507,7 +1507,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 const origEl2 = document.getElementById("details-original-title");
                 if (origEl2) {
                     if (item.titulo_original && item.titulo_original !== item.nombre) {
-                        origEl2.textContent = "Título original: " + item.titulo_original;
+                        origEl2.textContent = item.titulo_original;
                         origEl2.style.display = "block";
                     } else {
                         origEl2.textContent = "";
