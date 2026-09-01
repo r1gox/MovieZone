@@ -346,7 +346,21 @@ async function guardarEnSupabase(items) {
         })(),
         genero: item.genero || existente?.genero || null,
         generos: (item.generos && item.generos.length) ? item.generos : (existente?.generos || null),
-        tipo: item.tipo || existente?.tipo || "Película",
+        tipo: (function () {
+          // Respetar tipo de la API; no subir Serie a Anime al guardar
+          const nuevo = normalizarTipo(item.tipo || "");
+          const viejo = normalizarTipo(existente?.tipo || "");
+          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") {
+            // Si ya estaba como Serie y llega Anime sin ser explícito de fuente animeav1, conservar Serie
+            if (viejo === "Serie" && nuevo === "Anime") {
+              const sid = String(item.source_id || "");
+              const fuente = String(item.fuente || "").toLowerCase();
+              if (sid !== "4" && fuente !== "animeav1") return "Serie";
+            }
+            return nuevo;
+          }
+          return viejo || "Película";
+        })(),
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
         paises: item.paises || existente?.paises || [],
@@ -499,10 +513,11 @@ async function guardarEnSupabase(items) {
 
 // ---------- Helpers de mapeo API → formato frontend ----------
 function normalizarTipo(tipo) {
-  const t = String(tipo || "").toLowerCase();
-  if (t.includes("serie") || t === "tv" || t === "tvshows") return "Serie";
+  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   if (t.includes("anime")) return "Anime";
+  if (t.includes("serie") || t.includes("dorama") || t === "tv" || t === "tvshows") return "Serie";
   if (t.includes("cap") || t.includes("episod")) return "Capitulo";
+  if (t.includes("pelicul") || t.includes("movie")) return "Película";
   return "Película";
 }
 
@@ -1676,7 +1691,8 @@ function normalizeWorkKey(slug, titulo, tipo) {
     .trim();
 
   const esPeli = /pelicul/.test(tipoKey);
-  const esSerieOAnime = /anime|serie/.test(tipoKey);
+  const esAnime = /anime/.test(tipoKey);
+  const esSerie = /serie|dorama|tv/.test(tipoKey) && !esAnime;
 
   if (esPeli) {
     let base = t;
@@ -1691,9 +1707,11 @@ function normalizeWorkKey(slug, titulo, tipo) {
     return `peli:${base}:${year || ""}`;
   }
 
-  if (esSerieOAnime) {
-    if (/one.?piece/.test(s + t) && year === "2023" && /serie/.test(tipoKey)) {
-      return `show:one-piece-live:2023`;
+  // Serie y Anime NO comparten clave → no se mezclan ni se reetiquetan
+  if (esSerie || esAnime) {
+    const bucket = esAnime ? "anime" : "serie";
+    if (/one.?piece/.test(s + t) && year === "2023" && esSerie) {
+      return `${bucket}:one-piece-live:2023`;
     }
     if (esSpinoffOFilmSlug(s, t)) {
       let filmId = s.replace(/^one-piece-/, "").replace(/-/g, " ").trim();
@@ -1702,7 +1720,7 @@ function normalizeWorkKey(slug, titulo, tipo) {
       return `film:${filmId || s}`;
     }
     const core = s.replace(/-/g, " ").trim() || t;
-    return `show:${core}`;
+    return `${bucket}:${core}`;
   }
 
   if (s) return `slug:${s}:${year || ""}`;
@@ -1745,10 +1763,13 @@ function pickBestSearchItem(a, b) {
   if ((!winner.total_episodios || winner.total_episodios < (loser.total_episodios || 0)) && loser.total_episodios) {
     winner.total_episodios = loser.total_episodios;
   }
-  // Si alguno es Anime, el resultado final es Anime (no Película/Serie errónea)
-  const tipos = [winner.tipo, loser.tipo].map((t) => String(t || ""));
-  if (tipos.some((t) => /anime/i.test(t))) winner.tipo = "Anime";
-  else if (tipos.some((t) => /serie/i.test(t))) winner.tipo = "Serie";
+  // Respetar el tipo del ganador; NUNCA convertir Serie → Anime
+  const tw = String(winner.tipo || "");
+  const tl = String(loser.tipo || "");
+  if (/serie|dorama/i.test(tw)) winner.tipo = "Serie";
+  else if (/anime/i.test(tw)) winner.tipo = "Anime";
+  else if (/serie|dorama/i.test(tl) && !/anime/i.test(tw)) winner.tipo = "Serie";
+  else if (/anime/i.test(tl) && !/serie|dorama/i.test(tw)) winner.tipo = "Anime";
 
   const nW = limpiarTitulo(winner.nombre || "");
   const nL = limpiarTitulo(loser.nombre || "");
