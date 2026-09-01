@@ -320,9 +320,40 @@ function escapeHtml(texto) {
 }
 
 function tipoLabel(tipo) {
-    if (tipo === "Serie") return "Serie";
-    if (tipo === "Anime") return "Anime";
+    const n = normalizarTipoUI(tipo);
+    if (n === "series") return "Serie";
+    if (n === "anime") return "Anime";
     return "Película";
+}
+
+/** Título para UI: prioriza titulo (español de la fuente), luego titulo_tmdb. Nunca el slug. */
+function elegirTituloUI(item) {
+    if (!item) return "Sin título";
+    const slug = String(item.slug || "").toLowerCase();
+    const isSlug = (t) => {
+        if (!t) return true;
+        const s = String(t).trim();
+        if (!s) return true;
+        const asSlug = s.toLowerCase().replace(/\s+/g, "-");
+        if (slug && (asSlug === slug || s.toLowerCase() === slug)) return true;
+        if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(s) && !/\s/.test(s)) return true;
+        return false;
+    };
+    const candidates = [
+        item.titulo,           // español: "Así aprenderás"
+        item.titulo_tmdb,      // fallback
+        item.tmdb && item.tmdb.titulo,
+        item.nombre,
+        item.title,
+        item.titulo_original,
+    ];
+    for (const c of candidates) {
+        if (c && !isSlug(c)) return String(c).trim();
+    }
+    if (slug) {
+        return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+    }
+    return "Sin título";
 }
 
 const REPRODUCTORES_PERMITIDOS = [
@@ -765,16 +796,20 @@ function mostrarHome() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function normalizarTipoUI(tipo) {
+    const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes("anime")) return "anime";
+    if (t.includes("serie") || t.includes("dorama") || t === "tv" || t === "tvshow") return "series";
+    if (t.includes("pelicul") || t.includes("movie") || t.includes("film") || !t) return "movie";
+    return "movie";
+}
+
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
+    // Filtrar por tipo real del item (campo tipo de la API)
     if (gridTypeFilter !== "all") {
-        const map = { movie: "Película", series: "Serie", anime: "Anime" };
-        const wanted = map[gridTypeFilter] || gridTypeFilter;
-        res = res.filter(i => {
-            const t = (i.tipo || "").toString();
-            return t === wanted || t.toLowerCase().includes(gridTypeFilter);
-        });
+        res = res.filter((i) => normalizarTipoUI(i.tipo) === gridTypeFilter);
     }
 
     if (gridSort === "rating") {
@@ -804,6 +839,11 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     if (modo !== "search") {
         actualizarBotonOnline(false);
         busquedaEsLocal = true;
+    } else {
+        // Búsqueda: siempre mostrar TODOS los tipos según item.tipo de la API
+        // (no heredar el chip Anime/Series de la navegación anterior)
+        gridTypeFilter = "all";
+        busquedaEsLocal = false;
     }
 
     homeView.classList.add("hidden");
@@ -813,8 +853,15 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     document.getElementById("nav-item-home").classList.remove("active");
     document.getElementById("nav-item-favoritos")?.classList.toggle("active", modo === "favoritos");
 
-    document.querySelectorAll(".filter-chip").forEach(chip => {
-        chip.classList.toggle("active", chip.dataset.type === seccion || (chip.dataset.type === "all" && modo !== "categoria"));
+    // Chips de tipo:
+    // - búsqueda → solo "Todos" activo (resultados mezclados, filtrables después)
+    // - categoría → el chip de esa sección
+    document.querySelectorAll(".filter-chip").forEach((chip) => {
+        if (modo === "search" || modo === "favoritos") {
+            chip.classList.toggle("active", chip.dataset.type === "all");
+        } else {
+            chip.classList.toggle("active", chip.dataset.type === seccion);
+        }
     });
 
     if (modo === "search") {
@@ -984,7 +1031,7 @@ function crearMediaCard(item) {
     card.className = "media-card";
 
     const portada = item.portada || PLACEHOLDER;
-    const nombre = item.nombre || item.titulo || "Sin título";
+    const nombre = elegirTituloUI(item);
     const tipo = tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
     const rating = ratingInfo(item).label;
@@ -1070,7 +1117,7 @@ function renderCarousel(contenedorId, lista) {
 function pintarHero(item) {
     if (!item) return;
     heroType.textContent = tipoLabel(item.tipo).toUpperCase() + (item.tipo !== "Serie" && item.tipo !== "Anime" ? " RECOMENDADA" : "");
-    heroTitle.textContent = item.nombre || item.titulo || "Sin título";
+    heroTitle.textContent = elegirTituloUI(item);
     const heroR = ratingInfo(item);
     heroRating.textContent = heroR.label;
     heroRating.title = heroR.secondary ? heroR.label + " · " + heroR.secondary : heroR.label;
@@ -1217,15 +1264,9 @@ const playerTitle = document.getElementById("player-title");
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
-    // Preferir título legible de la API (nunca mostrar slug como título)
+    // titulo (español) → titulo_tmdb → resto. Nunca slug.
     if (item) {
-        // NUNCA mostrar slug como título
-        if (item.titulo && String(item.titulo).trim() && String(item.titulo).toLowerCase() !== String(item.slug || "").toLowerCase()) {
-            item.nombre = String(item.titulo).trim();
-        } else if (item.nombre && item.slug &&
-            String(item.nombre).toLowerCase().replace(/\s+/g, "-") === String(item.slug).toLowerCase()) {
-            item.nombre = String(item.slug).replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-        }
+        item.nombre = elegirTituloUI(item);
     }
     seleccionActual = item;
 
@@ -1237,7 +1278,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     // Pintar lo que ya tenemos
     document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
-    document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
+    document.getElementById("details-title").textContent = elegirTituloUI(item);
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
@@ -1393,6 +1434,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.nombre || completo.titulo) {
                         Object.keys(item).forEach(function (k) { delete item[k]; });
                         Object.assign(item, completo);
+                        item.nombre = elegirTituloUI(item);
                     }
                 } else {
                     const keep = Object.assign({}, item);
@@ -1433,12 +1475,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.duracion) item.duracion = completo.duracion;
                     if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
                     if (completo.certificacion) item.certificacion = completo.certificacion;
-                    if (completo.nombre || completo.titulo) {
-                        const t = completo.nombre || completo.titulo;
-                        if (!completo.slug || String(t).toLowerCase().replace(/\s+/g, "-") !== String(completo.slug).toLowerCase()) {
-                            item.nombre = t;
-                        }
-                    }
+                    // Conservar titulo español del API si viene
+                    if (completo.titulo) item.titulo = completo.titulo;
+                    if (completo.titulo_tmdb) item.titulo_tmdb = completo.titulo_tmdb;
+                    if (completo.titulo_original) item.titulo_original = completo.titulo_original;
+                    // titulo → titulo_tmdb (elegirTituloUI)
+                    item.nombre = elegirTituloUI({ ...item, ...completo, titulo: completo.titulo || item.titulo });
+
                     // Si años conflictúan, confiar 100% en detalle API
                     if (completo.year && item.year && String(completo.year).slice(0,4) !== String(item.year).slice(0,4)) {
                         item.year = completo.year;
@@ -1459,7 +1502,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
                 // Repintar metadatos
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
-                document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
+                document.getElementById("details-title").textContent = elegirTituloUI(item);
                 document.getElementById("details-year").textContent = item.year || "—";
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
@@ -1984,7 +2027,7 @@ function renderEpisodios(item, season = 1) {
             const epNum = episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index);
             const seasonNum = episodio.season || episodio.temporada || season || 1;
             document.getElementById("details-title").textContent =
-                `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
+                `${elegirTituloUI(item)} - ${episodio.nombre || "Episodio " + epNum}`;
 
             const expandirServidores = () => {
                 const sc = document.getElementById("servers-container");
