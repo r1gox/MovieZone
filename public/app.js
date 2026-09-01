@@ -2140,6 +2140,11 @@ function renderEpisodios(item, season = 1) {
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
+                // Link directo del episodio (guardado al listar) → no reconstruir
+                const epLink = episodio.url_extract || episodio.link || episodio.url_video || null;
+                if (epLink && String(epLink).includes("/")) {
+                    params.set("url_extract", String(epLink));
+                }
 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 35000);
