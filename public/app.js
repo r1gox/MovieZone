@@ -1456,14 +1456,18 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 const yOld = item.year && String(item.year).match(/(19|20)\d{2}/);
                 const yNew = completo.year && String(completo.year).match(/(19|20)\d{2}/);
                 if (yOld && yNew && yOld[0] !== yNew[0]) {
-                    // Años distintos: confiar en detalle si trae título/nombre
-                    if (completo.nombre || completo.titulo) {
-                        Object.keys(item).forEach(function (k) { delete item[k]; });
-                        Object.assign(item, completo);
-                        item.nombre = elegirTituloUI(item);
+                    // Años distintos: meta del detalle, pero título español se conserva si es mejor
+                    const tituloEsp = item.titulo || item.nombre;
+                    Object.assign(item, completo);
+                    if (tituloEsp && scoreTituloIdiomaUI(tituloEsp) >= scoreTituloIdiomaUI(item.titulo || item.nombre || "")) {
+                        item.titulo = tituloEsp;
                     }
+                    item.nombre = elegirTituloUI(item);
+                    if (item.titulo) item.nombre = item.titulo;
                 } else {
                     const keep = Object.assign({}, item);
+                    // Guardar título español ANTES del merge (search suele traerlo bien)
+                    const tituloEspKeep = keep.titulo || keep.nombre || null;
                     Object.assign(item, completo);
                     // Restaurar campos que el detalle mandó vacíos
                     const fields = [
@@ -1501,23 +1505,40 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.duracion) item.duracion = completo.duracion;
                     if (completo.duracion_texto) item.duracion_texto = completo.duracion_texto;
                     if (completo.certificacion) item.certificacion = completo.certificacion;
-                    // titulo español se conserva; original/tmdb solo como meta
-                    if (completo.titulo && String(completo.titulo).trim()) {
-                        item.titulo = completo.titulo;
-                    }
+
+                    // Meta secundaria (inglés) solo como original/tmdb — NUNCA como título visible
                     if (completo.titulo_original) item.titulo_original = completo.titulo_original;
                     if (completo.titulo_tmdb) item.titulo_tmdb = completo.titulo_tmdb;
-                    // nombre visible = titulo → titulo_original (nunca al revés)
+
+                    // Título visible: conservar español del search si el detalle trae inglés
+                    const candNuevo = completo.titulo || completo.nombre || null;
+                    const candViejo = tituloEspKeep;
+                    if (candViejo && candNuevo) {
+                        const sV = scoreTituloIdiomaUI(candViejo);
+                        const sN = scoreTituloIdiomaUI(candNuevo);
+                        // Si el viejo es más español (o igual prioridad campo fuente), conservar
+                        if (sV >= sN) {
+                            item.titulo = candViejo;
+                        } else {
+                            item.titulo = candNuevo;
+                        }
+                    } else if (candViejo) {
+                        item.titulo = candViejo;
+                    } else if (candNuevo) {
+                        item.titulo = candNuevo;
+                    }
+
                     item.nombre = elegirTituloUI({
-                        titulo: item.titulo || completo.titulo,
-                        titulo_original: item.titulo_original || completo.titulo_original,
-                        titulo_tmdb: item.titulo_tmdb || completo.titulo_tmdb,
-                        nombre: item.nombre,
+                        titulo: item.titulo,
+                        titulo_original: item.titulo_original,
+                        titulo_tmdb: item.titulo_tmdb,
+                        nombre: item.titulo || item.nombre,
                         slug: item.slug || completo.slug,
                         tmdb: completo.tmdb || item.tmdb,
                     });
+                    // Forzar UI al español elegido
+                    item.nombre = item.titulo || item.nombre;
 
-                    // Si años conflictúan, confiar 100% en detalle API
                     if (completo.year && item.year && String(completo.year).slice(0,4) !== String(item.year).slice(0,4)) {
                         item.year = completo.year;
                         if (completo.calificacion != null) item.calificacion = completo.calificacion;
@@ -1535,9 +1556,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
 
-                // Repintar metadatos
+                // Repintar metadatos (título español fijo; original debajo)
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
-                document.getElementById("details-title").textContent = elegirTituloUI(item);
+                const tituloVisible = elegirTituloUI(item);
+                item.nombre = tituloVisible;
+                document.getElementById("details-title").textContent = tituloVisible;
+                const origEl2 = document.getElementById("details-original-title");
+                if (origEl2) {
+                    const orig = item.titulo_original || item.titulo_tmdb || null;
+                    if (orig && String(orig).trim() !== String(tituloVisible).trim()) {
+                        origEl2.textContent = orig;
+                        origEl2.style.display = "block";
+                    } else {
+                        origEl2.style.display = "none";
+                    }
+                }
                 document.getElementById("details-year").textContent = item.year || "—";
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
