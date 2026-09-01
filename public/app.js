@@ -53,17 +53,13 @@ function ratingInfo(item) {
 }
 
 function ratingBadgeHtml(item) {
-    // Solo mostrar rating si ya fue cargado (Disponible / tiene_player)
-    // "Sin servidores" = aún no cargado → estrella vacía
-    const cargado = item && (item.tiene_player === true || (item.embeds && item.embeds.length > 0) || !!item.reproductor);
-    if (!cargado) {
-        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> —</div>';
-    }
+    // Mostrar rating si hay calificación (API/IMDb); si no, estrella vacía
     const r = ratingInfo(item);
     if (!r.value) {
-        return '<div class="rating-badge rating-empty"><ion-icon name="star-outline"></ion-icon> —</div>';
+        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> —</div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
+    // En tarjetas estrechas (carrusel) el CSS reduce el tamaño; el label puede ser "IMDb 6.7"
     return (
         '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + '">' +
         '<ion-icon name="star"></ion-icon> ' +
@@ -1012,6 +1008,14 @@ function renderCarousel(contenedorId, lista) {
     lista.forEach(item => {
         const card = crearMediaCard(item);
         card.classList.add("carousel-card");
+        // Textos más cortos en el carrusel de inicio (tarjetas estrechas)
+        const badge = card.querySelector(".availability-badge");
+        if (badge) {
+            const ok = badge.classList.contains("available");
+            badge.innerHTML = ok
+                ? '<span class="dot"></span> Disponible'
+                : '<span class="dot"></span> Sin servers';
+        }
         el.appendChild(card);
     });
 }
