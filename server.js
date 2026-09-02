@@ -594,7 +594,14 @@ function pareceTituloIngles(txt) {
 
 function esSlugComoTitulo(titulo, slug) {
   if (!titulo || !slug) return false;
-  return String(titulo).toLowerCase().replace(/\s+/g, "-") === String(slug).toLowerCase();
+  const t = String(titulo).trim();
+  const s = String(slug).trim();
+  // Un título real casi siempre tiene mayúsculas (Title Case: "Found Encontrados").
+  // Solo es "basura" cuando el título viene TODO en minúsculas (slug sin formatear,
+  // ej. "our-sticky-love" usado tal cual como nombre). Si tiene alguna mayúscula,
+  // es un título válido aunque su versión slugificada coincida con el slug real.
+  if (t !== t.toLowerCase()) return false;
+  return t.replace(/\s+/g, "-") === s.toLowerCase();
 }
 
 function elegirTituloPrincipal(opts) {
@@ -2362,7 +2369,7 @@ async function obtenerDetalle(params) {
       if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
       // Título = slug → basura (ej. animeav1 con our-sticky-love)
       const nomCand = String(candidate.nombre || candidate.titulo || "");
-      if (candidate.slug && nomCand.toLowerCase().replace(/\s+/g, "-") === String(candidate.slug).toLowerCase()) {
+      if (candidate.slug && esSlugComoTitulo(nomCand, candidate.slug)) {
         if (cached?.nombre && !esSlugComoTitulo(cached.nombre, cached.slug)) {
           candidate.nombre = cached.nombre;
           candidate.titulo = cached.nombre;
