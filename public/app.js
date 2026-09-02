@@ -1411,6 +1411,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (Array.isArray(completo.downloads) && completo.downloads.length) {
                         item.downloads = completo.downloads;
                     }
+                    if (completo.total_episodios || completo.totalEpisodios) {
+                        const tNew = parseInt(completo.total_episodios || completo.totalEpisodios, 10) || 0;
+                        const tOld = parseInt(item.total_episodios || item.totalEpisodios, 10) || 0;
+                        item.total_episodios = Math.max(tNew, tOld) || tNew || tOld || null;
+                    }
+                    if (Array.isArray(completo.rangos_episodios) && completo.rangos_episodios.length) {
+                        const maxH = (arr) => (arr || []).reduce((m, r) => Math.max(m, Number(r.hasta) || 0), 0);
+                        if (!item.rangos_episodios || maxH(completo.rangos_episodios) >= maxH(item.rangos_episodios)) {
+                            item.rangos_episodios = completo.rangos_episodios;
+                        }
+                    }
                     if (Array.isArray(completo.episodios) && completo.episodios.length) {
                         item.episodios = completo.episodios;
                     }
@@ -1767,17 +1778,29 @@ function construirRangosEpisodios(total, step = 50) {
     return out;
 }
 
-/** Normaliza rangos del API a bloques de 50 (si vienen de 100, se parten) */
+/** Normaliza rangos del API a bloques de 50. Siempre cubre hasta total_episodios. */
 function normalizarRangosEpisodios(item) {
     const total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
         || (Array.isArray(item.episodios) ? item.episodios.length : 0);
     if (total <= 50) return [];
     const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
-    // Si la API ya trae pasos ≤ 50, usarlos
-    if (api.length > 1) {
-        const step0 = Number(api[0].hasta) - Number(api[0].desde) + 1;
-        if (step0 > 0 && step0 <= 50) return api;
+    let maxHasta = 0;
+    for (let i = 0; i < api.length; i++) {
+        maxHasta = Math.max(maxHasta, Number(api[i].hasta) || 0);
     }
+    // Si los rangos de la API no cubren el total (ej. solo hasta 326 de 1176) → reconstruir
+    if (api.length > 1 && maxHasta >= total - 2) {
+        const step0 = Number(api[0].hasta) - Number(api[0].desde) + 1;
+        if (step0 > 0 && step0 <= 50) {
+            // Asegurar labels limpios
+            return api.map(function (r) {
+                const d = Number(r.desde) || 1;
+                const h = Number(r.hasta) || d;
+                return { desde: d, hasta: h, label: r.label || (d + "–" + h) };
+            });
+        }
+    }
+    // Reconstruir bloques de 50 hasta el total real (One Piece 1176, etc.)
     return construirRangosEpisodios(total, 50);
 }
 

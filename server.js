@@ -1157,10 +1157,15 @@ function mergeItems(base, extra) {
     } else if (k === "total_temporadas") {
       out[k] = Math.max(Number(cur) || 0, Number(v) || 0) || cur || v;
     } else if (k === "rangos_episodios") {
-      // preferir el set de rangos que cubra más episodios (animeav1 actualizado)
+      // preferir el set que llegue más lejos (One Piece 1176 vs parcial 326)
+      const maxHasta = (arr) =>
+        (arr || []).reduce((m, r) => Math.max(m, Number(r.hasta) || 0), 0);
       const sumR = (arr) =>
         (arr || []).reduce((s, r) => s + (Number(r.hasta || 0) - Number(r.desde || 0) + 1), 0);
-      if (Array.isArray(v) && v.length && (!Array.isArray(cur) || sumR(v) >= sumR(cur))) out[k] = v;
+      if (Array.isArray(v) && v.length) {
+        if (!Array.isArray(cur) || !cur.length) out[k] = v;
+        else if (maxHasta(v) > maxHasta(cur) || (maxHasta(v) === maxHasta(cur) && sumR(v) >= sumR(cur))) out[k] = v;
+      }
     } else if (k === "descripcion") {
       out[k] = elegirMejorDescripcion(cur, v);
     } else if (k === "calificacion" && Number(v) > 0 && !Number(cur)) {
@@ -1586,8 +1591,12 @@ async function apiGet(path) {
 // ---------- Lógica de negocio ----------
 async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   // tipo: peliculas | series | animes
+  // Anime → AnimeAV1 en emisión (/4/animes/emision); resto → PelisPlus estrenos
   await ensureMoviesDB(); // datos frescos de Supabase (Disponible, etc.)
-  const path = `/${DEFAULT_SOURCE}/${tipo}/estrenos`;
+  const path =
+    tipo === "animes"
+      ? `/4/animes/emision`
+      : `/${DEFAULT_SOURCE}/${tipo}/estrenos`;
   try {
     const data = await apiGet(path);
     let lista = (data.results || data.resultados || []).map(mapListItem).filter(Boolean).slice(0, limit);
