@@ -1269,7 +1269,7 @@ function mapListItem(r) {
       ? "Serie"
       : "Película";
   const slug = r.slug ? String(r.slug) : null;
-  const sourceId = resolverSourceId(r.source_id || r.fuente);
+  const sourceId = resolverSourceId(r.source_id || r.source || r.fuente);
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
@@ -1305,6 +1305,7 @@ function mapListItem(r) {
 
   const portada =
     r.portada ||
+    r.image ||
     (r.imdb && r.imdb.portada) ||
     (r.tmdb && r.tmdb.portada) ||
     r.portada_imdb ||
@@ -1342,7 +1343,7 @@ function mapListItem(r) {
     link,
     url_extract: r.url_extract || link,
     source_id: sourceId,
-    fuente: r.fuente || null,
+    fuente: r.source || r.fuente || null,
     tiene_player: false,
     embeds: [],
     downloads: [],
@@ -1823,18 +1824,26 @@ async function buscarOnline(termino, page = 1, limit = 48) {
   const qRaw = String(termino || "").trim();
   if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
 
+  function extraerLista(data) {
+    if (!data) return [];
+    if (Array.isArray(data.results)) return data.results;
+    if (Array.isArray(data.resultados)) return data.resultados;
+    if (Array.isArray(data)) return data;
+    return [];
+  }
+
   let raw = [];
   try {
-    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}`);
-    raw = Array.isArray(data?.resultados) ? data.resultados : [];
+    // limit alto para no truncar animes (Worker default 40)
+    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+    raw = extraerLista(data);
   } catch (err) {
     console.warn("search:", err.message);
   }
-  // Si vacío, una sola fuente de respaldo
   if (!raw.length) {
     try {
-      const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3`);
-      raw = Array.isArray(dataS?.resultados) ? dataS.resultados : [];
+      const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`);
+      raw = extraerLista(dataS);
     } catch (_) {}
   }
 
@@ -1842,11 +1851,12 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     .map((r) => {
       try {
         return mapListItem(r);
-      } catch (_) {
+      } catch (eMap) {
+        console.warn("mapListItem:", eMap.message);
         return null;
       }
     })
-    .filter((item) => item && (item.slug || item.link || item.url_extract));
+    .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre));
 
   // Marcar Disponible si ya está en Supabase/memoria con players (sin pisar meta API)
   try {

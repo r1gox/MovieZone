@@ -860,13 +860,24 @@ async function fetchSeccion(seccion, page, limit = LIMIT) {
 let busquedaEsLocal = false;
 
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
-    const data = await searchCatalog(termino, source, page, limit);
+    // Nunca forzar local: el buscador usa la API Worker
+    const src = source === "local" ? "local" : "online";
+    let data;
+    try {
+        data = await searchCatalog(termino, src, page, limit);
+    } catch (e) {
+        // Fallback directo al backend si el módulo falla
+        const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
+        const res = await fetch("/api/buscar?" + q.toString(), { cache: "no-store" });
+        data = await res.json();
+    }
+    const lista = data.resultados || data.results || [];
     return {
-        resultados: data.resultados || [],
-        total: data.total ?? 0,
+        resultados: lista,
+        total: data.total ?? data.count ?? lista.length,
         page: data.page ?? page,
         limit: data.limit ?? limit,
-        source: data.source || source
+        source: data.source || src
     };
 }
 
