@@ -178,20 +178,22 @@ function rellenarMetaDetalle(item) {
         else votosWrap.classList.add("hidden");
     }
 
-    // Estado: En emisión / Finalizado (series, anime, doramas)
+    // Estado: En emisión / Finalizado (series, anime; también si la API trae estado)
     const statusEl = document.getElementById("details-status");
     const statusWrap = document.getElementById("details-status-wrap");
     let statusLabel = null;
     const tipoLow = String(item.tipo || "").toLowerCase();
     const esSerieTipo = /serie|anime|dorama|tv/.test(tipoLow);
-    if (esSerieTipo) {
-        if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
-            statusLabel = "Finalizado";
-        } else if (item.en_emision === true || /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))) {
-            statusLabel = "En emisión";
-        } else if (item.estado) {
-            statusLabel = String(item.estado);
-        }
+    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
+        statusLabel = "Finalizado";
+    } else if (item.en_emision === true || /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))) {
+        statusLabel = "En emisión";
+    } else if (item.estado) {
+        statusLabel = String(item.estado);
+    }
+    // En películas solo mostrar si hay estado claro; en series/anime siempre si hay dato
+    if (!esSerieTipo && statusLabel && statusLabel !== "Finalizado" && statusLabel !== "En emisión") {
+        // películas raramente tienen "en emisión"; mantener si viene de API
     }
     if (statusEl) statusEl.textContent = statusLabel || "—";
     if (statusWrap) {
@@ -199,16 +201,17 @@ function rellenarMetaDetalle(item) {
         else statusWrap.classList.add("hidden");
     }
 
-    // Fecha de estreno (películas y series)
+    // Fecha de estreno (películas, series y anime)
     const releaseEl = document.getElementById("details-release");
     const releaseWrap = document.getElementById("details-release-wrap");
     let releaseLabel = null;
     if (item.fecha_estreno) {
         const f = String(item.fecha_estreno).slice(0, 10);
-        // Preferir formato legible YYYY-MM-DD o solo año
         if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
             const [yy, mm, dd] = f.split("-");
             releaseLabel = dd + "/" + mm + "/" + yy;
+        } else if (/^\d{4}$/.test(f)) {
+            releaseLabel = f;
         } else {
             releaseLabel = f;
         }
