@@ -418,6 +418,7 @@ async function guardarEnSupabase(items) {
 
   // Campos seguros (evita fallo si la tabla no tiene columnas nuevas)
   function rowSafe(row) {
+    // SOLO columnas reales de public.movies — NUNCA imdb/tmdb/omdb como objeto
     const out = {
       link: row.link,
       nombre: row.nombre,
@@ -425,44 +426,53 @@ async function guardarEnSupabase(items) {
       portada: row.portada || null,
       backdrop: row.backdrop || null,
       descripcion: row.descripcion || null,
-      year: row.year || null,
+      year: row.year != null ? String(row.year) : null,
       genero: row.genero || null,
+      generos: Array.isArray(row.generos) ? row.generos : (row.genero ? String(row.genero).split(",").map((g) => g.trim()).filter(Boolean) : []),
       tipo: row.tipo || null,
-      idiomas: row.idiomas || [],
-      calidad: row.calidad || [],
-      paises: row.paises || [],
-      calificacion: row.calificacion != null ? row.calificacion : null,
+      idiomas: Array.isArray(row.idiomas) ? row.idiomas : [],
+      calidad: Array.isArray(row.calidad) ? row.calidad : [],
+      paises: Array.isArray(row.paises) ? row.paises : [],
+      calificacion: row.calificacion != null ? Number(row.calificacion) : (row.rating != null ? Number(row.rating) : null),
       calificacion_comunidad: row.calificacion_comunidad || null,
-      votos: row.votos || null,
+      votos: row.votos != null ? String(row.votos) : null,
       fecha_estreno: row.fecha_estreno || null,
       estado: row.estado || null,
       en_emision: row.en_emision != null ? !!row.en_emision : null,
       finalizado: row.finalizado != null ? !!row.finalizado : null,
-      duracion: row.duracion != null ? row.duracion : null,
+      duracion: row.duracion != null ? Number(row.duracion) : null,
+      duracion_texto: row.duracion_texto || null,
       certificacion: row.certificacion || null,
       ultimo_episodio: row.ultimo_episodio || null,
       reproductor: row.reproductor || null,
-      embeds: row.embeds || [],
-      downloads: row.downloads || [],
+      embeds: Array.isArray(row.embeds) ? row.embeds : [],
+      downloads: Array.isArray(row.downloads) ? row.downloads : [],
       solo_trailer: !!row.solo_trailer,
-      episodios: row.episodios || [],
-      temporadas: row.temporadas || [],
-      postId: row.postId || null,
+      episodios: Array.isArray(row.episodios) ? row.episodios : [],
+      temporadas: Array.isArray(row.temporadas) ? row.temporadas : [],
+      postId: row.postId != null ? String(row.postId) : null,
       slug: row.slug || null,
       source_id: row.source_id != null ? String(row.source_id) : null,
+      imdb_id: row.imdb_id || (row.imdb && row.imdb.id) || null,
+      tmdb_id: row.tmdb_id != null ? String(row.tmdb_id) : (row.tmdb && row.tmdb.id != null ? String(row.tmdb.id) : null),
+      rating_source: row.rating_source || (row.imdb_id || (row.imdb && row.imdb.id) ? "imdb" : (row.tmdb_id ? "tmdb" : null)),
       tiene_player: !!row.tiene_player,
+      updated_at: new Date().toISOString(),
     };
-    // Columnas opcionales (si no existen en Supabase el upsert puede fallar → reintento mínimo)
-    if (row.imdb_id) out.imdb_id = row.imdb_id;
-    if (row.tmdb_id) out.tmdb_id = String(row.tmdb_id);
-    if (row.duracion_texto) out.duracion_texto = row.duracion_texto;
-    if (row.generos) out.generos = row.generos;
-    if (row.imdb) out.imdb = row.imdb;
-    if (row.tmdb) out.tmdb = row.tmdb;
+    // Limpiar undefined / NaN
+    Object.keys(out).forEach((k) => {
+      if (out[k] === undefined) delete out[k];
+      if (typeof out[k] === "number" && Number.isNaN(out[k])) out[k] = null;
+    });
     return out;
   }
 
-  const safeRows = paraInsertar.map(rowSafe);
+  const FORBIDDEN_COLS = new Set(["imdb", "tmdb", "omdb", "rating", "success", "alternativas", "temporadas_raw", "temporadas_tmdb", "nombre_display"]);
+  const safeRows = paraInsertar.map(rowSafe).map((r) => {
+    const clean = { ...r };
+    FORBIDDEN_COLS.forEach((k) => { delete clean[k]; });
+    return clean;
+  });
 
   try {
     let { error } = await sb.from("movies").upsert(safeRows, { onConflict: "link" });
@@ -476,16 +486,27 @@ async function guardarEnSupabase(items) {
         descripcion: r.descripcion,
         year: r.year,
         genero: r.genero,
+        generos: r.generos,
         tipo: r.tipo,
         calificacion: r.calificacion,
+        votos: r.votos,
         embeds: r.embeds,
         downloads: r.downloads,
         episodios: r.episodios,
         temporadas: r.temporadas,
         slug: r.slug,
         source_id: r.source_id,
+        imdb_id: r.imdb_id,
+        tmdb_id: r.tmdb_id,
+        rating_source: r.rating_source,
+        duracion: r.duracion,
+        duracion_texto: r.duracion_texto,
+        certificacion: r.certificacion,
+        fecha_estreno: r.fecha_estreno,
+        titulo_original: r.titulo_original,
         tiene_player: r.tiene_player,
         reproductor: r.reproductor,
+        updated_at: r.updated_at || new Date().toISOString(),
       }));
       const r2 = await sb.from("movies").upsert(minimal, { onConflict: "link" });
       if (r2.error) throw r2.error;
