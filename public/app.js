@@ -35,11 +35,16 @@ function ratingInfo(item) {
     const main = mainRaw != null ? Number(mainRaw) : null;
     const hasImdbId = !!(item.imdb_id || (item.imdb && item.imdb.id));
 
+    // Si la API ya dice rating_source, respetarlo
+    const srcApi = (item.rating_source || "").toLowerCase();
     let primary;
-    if (imdbR != null && imdbR > 0) primary = { label: "IMDb " + imdbR.toFixed(1), value: imdbR, source: "imdb" };
+    if (srcApi === "imdb" && main != null && !isNaN(main) && main > 0) {
+      primary = { label: "IMDb " + main.toFixed(1), value: main, source: "imdb" };
+    } else if (srcApi === "tmdb" && main != null && !isNaN(main) && main > 0) {
+      primary = { label: "TMDB " + main.toFixed(1), value: main, source: "tmdb" };
+    } else if (imdbR != null && imdbR > 0) primary = { label: "IMDb " + imdbR.toFixed(1), value: imdbR, source: "imdb" };
     else if (omdbR != null && omdbR > 0) primary = { label: "IMDb " + omdbR.toFixed(1), value: omdbR, source: "omdb" };
     else if (hasImdbId && main != null && !isNaN(main) && main > 0) {
-      // calificacion viene de IMDb aunque no esté anidado en item.imdb
       primary = { label: "IMDb " + main.toFixed(1), value: main, source: "imdb" };
     }
     else if (tmdbR != null && tmdbR > 0) primary = { label: "TMDB " + tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };

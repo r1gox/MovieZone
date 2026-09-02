@@ -1403,9 +1403,15 @@ function mapDetail(data, fallback = {}) {
     temporadas_raw = data.temporadas;
     temporadas = data.temporadas.map((t) => Number(t.temporada || t.season || t)).filter(Boolean);
     for (const temp of data.temporadas) {
-      const eps = temp.episodios || temp.episodes || [];
+      // API nueva: episodios = número, lista = array de caps
+      // API vieja: episodios = array
+      let eps = [];
+      if (Array.isArray(temp.lista)) eps = temp.lista;
+      else if (Array.isArray(temp.episodios)) eps = temp.episodios;
+      else if (Array.isArray(temp.episodes)) eps = temp.episodes;
+      else if (Array.isArray(temp.caps)) eps = temp.caps;
       for (const ep of eps) {
-        // temporada real de la API (ej. One Punch Man 3 → T3, no forzar 1)
+        if (!ep || typeof ep !== "object") continue;
         const seasonNum = Number(ep.temporada || temp.temporada || data.temporada_principal || 1) || 1;
         const epNum = Number(ep.episodio || ep.episode || 1) || 1;
         const epEmbeds = mapEmbeds(ep.reproductores || ep.embeds || []);
@@ -1418,14 +1424,16 @@ function mapDetail(data, fallback = {}) {
               episode: epNum,
               video: epEmbeds[0]?.stream_url || epEmbeds[0]?.url || ep.reproductor || null,
               embeds: epEmbeds,
-              downloads: ep.descargas || [],
+              downloads: ep.descargas || ep.downloads || [],
               soloTrailer: false,
               url_video: ep.url_video || ep.link || null,
               source_id: sourceId,
               slug_media: ep.slug_media || temp.slug_media || slug || null,
               formato: ep.formato || temp.formato || data.formato || null,
+              episode_id: ep.episode_id || null,
               url_capitulo:
                 ep.url_capitulo ||
+                ep.link ||
                 urlCapituloWorker(sourceId, tipo === "Anime" ? "anime" : "serie", slug, seasonNum, epNum),
             },
             { source_id: sourceId, tipo, slug }
@@ -1481,6 +1489,8 @@ function mapDetail(data, fallback = {}) {
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
     calificacion,
+    rating: calificacion,
+    rating_source: data.rating_source || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
     tmdb_id: data.tmdb_id || metaF.tmdb.id || fallback.tmdb_id || null,
     imdb_id: data.imdb_id || metaF.imdb.id || fallback.imdb_id || null,
     calificacion_comunidad: null,
@@ -1532,7 +1542,7 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   const path = `/${DEFAULT_SOURCE}/${tipo}/estrenos`;
   try {
     const data = await apiGet(path);
-    let lista = (data.resultados || []).map(mapListItem).slice(0, limit);
+    let lista = (data.results || data.resultados || []).map(mapListItem).filter(Boolean).slice(0, limit);
     // Enriquecer con datos ya guardados (tiene_player, descripción, rating…)
     lista = lista.map((item) => {
       const local = moviesDB.find(
