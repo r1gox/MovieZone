@@ -1175,11 +1175,37 @@ function normalizeItemFromDB(row) {
     try { temporadas = JSON.parse(temporadas); } catch { temporadas = []; }
   }
   const reproductor = row.reproductor || (embeds[0] && embeds[0].url) || null;
+  const calificacion = row.calificacion != null ? Number(row.calificacion) : null;
+  const imdb_id = row.imdb_id || null;
+  const tmdb_id = row.tmdb_id || null;
+  const rating_source = row.rating_source || (imdb_id && calificacion ? "imdb" : (tmdb_id && calificacion ? "tmdb" : null));
+
+  // Reconstruir objetos ligeros para la UI (badge IMDb / TMDB)
+  let imdb = null;
+  if (imdb_id || (rating_source === "imdb" && calificacion != null)) {
+    imdb = { id: imdb_id || undefined };
+    if (rating_source === "imdb" && calificacion != null && calificacion > 0) imdb.rating = calificacion;
+    if (row.votos && rating_source === "imdb") imdb.votos = row.votos;
+  }
+  let tmdb = null;
+  if (tmdb_id || (rating_source === "tmdb" && calificacion != null)) {
+    tmdb = { id: tmdb_id || undefined };
+    if (rating_source === "tmdb" && calificacion != null && calificacion > 0) tmdb.rating = calificacion;
+  }
+
   return {
     ...row,
     nombre: limpiarTitulo(row.nombre || row.titulo || "Sin título"),
+    titulo: limpiarTitulo(row.nombre || row.titulo || "Sin título"),
     descripcion: limpiarTexto(row.descripcion || ""),
     genero: limpiarTexto(row.genero || "") || null,
+    calificacion: calificacion != null && !Number.isNaN(calificacion) ? calificacion : null,
+    rating: calificacion != null && !Number.isNaN(calificacion) ? calificacion : null,
+    rating_source,
+    imdb_id,
+    tmdb_id,
+    imdb,
+    tmdb,
     embeds,
     downloads: Array.isArray(row.downloads) ? row.downloads : [],
     episodios,
