@@ -1000,7 +1000,11 @@ observer.observe(scrollSentinel);
 // ======================================================
 
 /** Si la portada de una tarjeta falla, pedir el detalle (que sí la resuelve bien) y usarla */
+let __reparacionesPortadaActivas = 0;
+const MAX_REPARACIONES_PORTADA_PARALELAS = 10;
 async function repararPortadaDesdeDetalle(item, imgEl) {
+    if (__reparacionesPortadaActivas >= MAX_REPARACIONES_PORTADA_PARALELAS) return;
+    __reparacionesPortadaActivas++;
     try {
         const params = new URLSearchParams();
         if (item.slug) params.set("slug", item.slug);
@@ -1018,6 +1022,8 @@ async function repararPortadaDesdeDetalle(item, imgEl) {
         }
     } catch (err) {
         // Silencioso: se queda con el placeholder genérico si tampoco hay portada en detalle
+    } finally {
+        __reparacionesPortadaActivas--;
     }
 }
 
