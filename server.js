@@ -25,7 +25,7 @@ app.use(
 
 const limiterGeneral = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 180,
+  max: 400,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas peticiones. Espera un momento." },
@@ -37,7 +37,8 @@ const limiterBusqueda = rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas búsquedas. Espera un momento." },
 });
-app.use(limiterGeneral);
+// Solo limitar la API (home, CSS, JS e imágenes quedan libres del contador)
+app.use("/api", limiterGeneral);
 
 // No crashear si faltan env en el arranque (Vercel cold start / misconfig)
 let supabase = null;
