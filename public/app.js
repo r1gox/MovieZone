@@ -48,8 +48,8 @@ function ratingInfo(item) {
       primary = { label: "IMDb " + main.toFixed(1), value: main, source: "imdb" };
     }
     else if (tmdbR != null && tmdbR > 0) primary = { label: "TMDB " + tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
-    else if (main != null && !isNaN(main) && main > 0) primary = { label: main.toFixed(1), value: main, source: "fuente" };
-    else primary = { label: "—", value: null, source: null };
+    else if (main != null && !isNaN(main) && main > 0) primary = { label: "Fun " + main.toFixed(1), value: main, source: "fuente" };
+    else primary = { label: "0", value: null, source: null };
 
     let secondary = null;
     if (primary.source === "imdb" && tmdbR != null && tmdbR > 0) secondary = "TMDB " + tmdbR.toFixed(1);
@@ -61,7 +61,7 @@ function ratingBadgeHtml(item) {
     // Mostrar rating si hay calificación (API/IMDb); si no, estrella vacía
     const r = ratingInfo(item);
     if (!r.value) {
-        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> —</div>';
+        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> 0</div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
     // En tarjetas estrechas (carrusel) el CSS reduce el tamaño; el label puede ser "IMDb 6.7"
@@ -102,7 +102,7 @@ function rellenarMetaDetalle(item) {
     const ratingEl = document.getElementById("details-rating");
     const ratingWrap = document.getElementById("details-rating-wrap") || (ratingEl && ratingEl.closest(".meta-item"));
     if (ratingEl) {
-        ratingEl.textContent = ri.value != null ? ri.label : "—";
+        ratingEl.textContent = ri.value != null ? ri.label : "0";
         ratingEl.title = (ri.source === "imdb" || ri.source === "omdb")
             ? "Calificación IMDb"
             : (ri.source === "tmdb" ? "Calificación TMDB" : "");
@@ -123,7 +123,7 @@ function rellenarMetaDetalle(item) {
             if (ri.source) typeRating.classList.add("rating-src-" + ri.source);
         } else {
             typeRating.classList.add("hidden");
-            typeRatingText.textContent = "—";
+            typeRatingText.textContent = "0";
         }
     }
 
@@ -998,6 +998,29 @@ observer.observe(scrollSentinel);
 // ======================================================
 // RENDER: TARJETAS (media-card)
 // ======================================================
+
+/** Si la portada de una tarjeta falla, pedir el detalle (que sí la resuelve bien) y usarla */
+async function repararPortadaDesdeDetalle(item, imgEl) {
+    try {
+        const params = new URLSearchParams();
+        if (item.slug) params.set("slug", item.slug);
+        if (item.source_id) params.set("source_id", item.source_id);
+        if (item.tipo) params.set("tipo", item.tipo);
+        if (item.link) params.set("link", item.link);
+        if (![...params.keys()].length) return;
+
+        const res = await fetch(`/api/detalle?${params.toString()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const completo = await res.json();
+        if (completo && completo.portada && !String(completo.portada).includes("placeholder")) {
+            imgEl.src = completo.portada;
+            imgEl.dataset.failed = "0";
+        }
+    } catch (err) {
+        // Silencioso: se queda con el placeholder genérico si tampoco hay portada en detalle
+    }
+}
+
 function crearMediaCard(item) {
     const card = document.createElement("div");
     card.className = "media-card";
@@ -1039,6 +1062,9 @@ function crearMediaCard(item) {
         e.target.dataset.failed = "1";
         e.target.src = PLACEHOLDER;
         e.target.style.opacity = "1";
+        // La portada de listado a veces falla aunque la de detalle sí funciona:
+        // intentar reparar trayendo la portada real desde /api/detalle.
+        repararPortadaDesdeDetalle(item, e.target);
     });
     // Si no hay portada real, no forzar carga de URL vacía
     if (!item.portada) {

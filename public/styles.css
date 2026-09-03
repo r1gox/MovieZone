@@ -2724,6 +2724,10 @@ body.player-open .btn-close-modal {
   background: linear-gradient(135deg, rgba(245, 197, 24, 0.95), rgba(230, 180, 20, 0.9));
   color: #111;
 }
+.rating-badge.rating-src-fuente {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.95), rgba(0, 140, 180, 0.9));
+  color: #fff;
+}
 .rating-badge.rating-empty {
   opacity: 0.55;
 }
@@ -2887,8 +2891,9 @@ body.player-open .btn-close-modal {
   color: #01b4e4;
 }
 .details-type-rating.rating-src-fuente {
-  color: #e4e4e7;
-  border-color: rgba(255,255,255,0.18);
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.2), rgba(1, 180, 228, 0.08));
+  border-color: rgba(1, 180, 228, 0.4);
+  color: #01b4e4;
 }
 /* Badge de tipo un poco más compacto para equilibrar */
 .details-meta-info .media-type-badge {
