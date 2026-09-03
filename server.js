@@ -2972,31 +2972,30 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         if (local.slug) usedLocal.add("slug:" + String(local.slug).toLowerCase());
         if (item.slug) usedLocal.add("slug:" + String(item.slug).toLowerCase());
         const row = { ...item };
-        // Datos cargados (usuario ya abrió el detalle)
-        if (local.tiene_player || itemTieneContenidoValido(local)) {
-          row.tiene_player = true;
-          if (local.embeds?.length) row.embeds = local.embeds;
-          if (local.reproductor) row.reproductor = local.reproductor;
-          if (local.calificacion != null) row.calificacion = local.calificacion;
-          if (local.imdb_id) row.imdb_id = local.imdb_id;
-          if (local.imdb) row.imdb = local.imdb;
-          if (local.votos) row.votos = local.votos;
-          if (local.descripcion) row.descripcion = local.descripcion;
-          if (local.genero) row.genero = local.genero;
-          if (local.generos?.length) row.generos = local.generos;
-          if (local.year) row.year = local.year;
-          if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
-            row.nombre = local.nombre;
-          }
-          if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
-          if (local.duracion) row.duracion = local.duracion;
-          if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
-          if (local.certificacion) row.certificacion = local.certificacion;
-          if (local.titulo_original) row.titulo_original = local.titulo_original;
-        } else {
-          // En DB pero sin players → sigue "Sin servidores"
-          row.tiene_player = false;
+        // "Disponible" depende solo de si hay reproductor real.
+        // La metadata enriquecida (portada IMDb/TMDB, sinopsis, rating...) se
+        // aplica igual aunque todavía no haya players, para que el listado
+        // muestre la misma portada que ya se ve en el detalle.
+        const tieneContenido = local.tiene_player || itemTieneContenidoValido(local);
+        row.tiene_player = !!tieneContenido;
+        if (local.embeds?.length) row.embeds = local.embeds;
+        if (local.reproductor) row.reproductor = local.reproductor;
+        if (local.calificacion != null) row.calificacion = local.calificacion;
+        if (local.imdb_id) row.imdb_id = local.imdb_id;
+        if (local.imdb) row.imdb = local.imdb;
+        if (local.votos) row.votos = local.votos;
+        if (local.descripcion) row.descripcion = local.descripcion;
+        if (local.genero) row.genero = local.genero;
+        if (local.generos?.length) row.generos = local.generos;
+        if (local.year) row.year = local.year;
+        if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
+          row.nombre = local.nombre;
         }
+        if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
+        if (local.duracion) row.duracion = local.duracion;
+        if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
+        if (local.certificacion) row.certificacion = local.certificacion;
+        if (local.titulo_original) row.titulo_original = local.titulo_original;
         merged.push(row);
       } else {
         // Aún no abierto en detalle: mostrar meta IMDb de la API, sin marcar Disponible
