@@ -855,9 +855,9 @@ function esPortadaValida(url) {
 function elegirPortada(a, b, sourcePreferido) {
   const candidatos = [a, b].filter(esPortadaValida);
   if (!candidatos.length) return a || b || null;
-  // Calidad: w500/original TMDB, posters HD pelisplus, thumbs HD lamovie
   const score = (u) => {
     let s = 0;
+    if (/media-amazon\.com|imdb\.com/i.test(u)) s += 45;
     if (/image\.tmdb\.org/i.test(u)) {
       s += 50;
       if (/\/original\//i.test(u)) s += 15;
@@ -2259,8 +2259,10 @@ async function obtenerDetalle(params) {
             ? out.nombre
             : (out.titulo || cached?.nombre || out.nombre));
         out.nombre = goodName;
-        // Portada: no cambiar si ya hay una válida
-        if (cached && esPortadaValida(cached.portada)) out.portada = cached.portada;
+        // Portada: comparar caché vs. la fresca del detalle, no quedarse a ciegas con la vieja
+        if (cached && esPortadaValida(cached.portada)) {
+          out.portada = elegirPortada(cached.portada, candidate?.portada, out.source_id);
+        }
         // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
         if (cached?.year) out.year = cached.year;
         if (cached?.calificacion != null) out.calificacion = cached.calificacion;
