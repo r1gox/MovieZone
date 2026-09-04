@@ -25,7 +25,7 @@ app.use(
 
 const limiterGeneral = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 180,
+  max: 400,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas peticiones. Espera un momento." },
@@ -37,7 +37,8 @@ const limiterBusqueda = rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas búsquedas. Espera un momento." },
 });
-app.use(limiterGeneral);
+// Solo limitar la API (home, CSS, JS e imágenes quedan libres del contador)
+app.use("/api", limiterGeneral);
 
 // No crashear si faltan env en el arranque (Vercel cold start / misconfig)
 let supabase = null;
@@ -444,26 +445,11 @@ async function guardarEnSupabase(items) {
       duracion_texto: row.duracion_texto || null,
       certificacion: row.certificacion || null,
       ultimo_episodio: row.ultimo_episodio || null,
-      // NO guardar reproductores/embeds en Supabase (solo meta)
-      reproductor: null,
-      embeds: [],
-      downloads: [],
+      reproductor: row.reproductor || null,
+      embeds: Array.isArray(row.embeds) ? row.embeds : [],
+      downloads: Array.isArray(row.downloads) ? row.downloads : [],
       solo_trailer: !!row.solo_trailer,
-      episodios: Array.isArray(row.episodios)
-        ? row.episodios.map(function (ep) {
-            return {
-              season: ep.season || ep.temporada || 1,
-              episode: ep.episode || ep.episodio || 0,
-              temporada: ep.temporada || ep.season || 1,
-              episodio: ep.episodio || ep.episode || 0,
-              nombre: ep.nombre || ep.titulo || null,
-              titulo: ep.titulo || ep.nombre || null,
-              embeds: [],
-              video: null,
-              reproductor: null,
-            };
-          })
-        : [],
+      episodios: Array.isArray(row.episodios) ? row.episodios : [],
       temporadas: Array.isArray(row.temporadas) ? row.temporadas : [],
       postId: row.postId != null ? String(row.postId) : null,
       slug: row.slug || null,
@@ -505,9 +491,9 @@ async function guardarEnSupabase(items) {
         tipo: r.tipo,
         calificacion: r.calificacion,
         votos: r.votos,
-        embeds: [],
-        downloads: [],
-        episodios: [],
+        embeds: r.embeds,
+        downloads: r.downloads,
+        episodios: r.episodios,
         temporadas: r.temporadas,
         slug: r.slug,
         source_id: r.source_id,
@@ -520,7 +506,7 @@ async function guardarEnSupabase(items) {
         fecha_estreno: r.fecha_estreno,
         titulo_original: r.titulo_original,
         tiene_player: r.tiene_player,
-        reproductor: null,
+        reproductor: r.reproductor,
         updated_at: r.updated_at || new Date().toISOString(),
       }));
       const r2 = await sb.from("movies").upsert(minimal, { onConflict: "link" });
@@ -609,7 +595,14 @@ function pareceTituloIngles(txt) {
 
 function esSlugComoTitulo(titulo, slug) {
   if (!titulo || !slug) return false;
-  return String(titulo).toLowerCase().replace(/\s+/g, "-") === String(slug).toLowerCase();
+  const t = String(titulo).trim();
+  const s = String(slug).trim();
+  // Un título real casi siempre tiene mayúsculas (Title Case: "Found Encontrados").
+  // Solo es "basura" cuando el título viene TODO en minúsculas (slug sin formatear,
+  // ej. "our-sticky-love" usado tal cual como nombre). Si tiene alguna mayúscula,
+  // es un título válido aunque su versión slugificada coincida con el slug real.
+  if (t !== t.toLowerCase()) return false;
+  return t.replace(/\s+/g, "-") === s.toLowerCase();
 }
 
 function elegirTituloPrincipal(opts) {
@@ -862,9 +855,9 @@ function esPortadaValida(url) {
 function elegirPortada(a, b, sourcePreferido) {
   const candidatos = [a, b].filter(esPortadaValida);
   if (!candidatos.length) return a || b || null;
-  // Calidad: w500/original TMDB, posters HD pelisplus, thumbs HD lamovie
   const score = (u) => {
     let s = 0;
+    if (/media-amazon\.com|imdb\.com/i.test(u)) s += 45;
     if (/image\.tmdb\.org/i.test(u)) {
       s += 50;
       if (/\/original\//i.test(u)) s += 15;
@@ -2266,8 +2259,10 @@ async function obtenerDetalle(params) {
             ? out.nombre
             : (out.titulo || cached?.nombre || out.nombre));
         out.nombre = goodName;
-        // Portada: no cambiar si ya hay una válida
-        if (cached && esPortadaValida(cached.portada)) out.portada = cached.portada;
+        // Portada: comparar caché vs. la fresca del detalle, no quedarse a ciegas con la vieja
+        if (cached && esPortadaValida(cached.portada)) {
+          out.portada = elegirPortada(cached.portada, candidate?.portada, out.source_id);
+        }
         // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
         if (cached?.year) out.year = cached.year;
         if (cached?.calificacion != null) out.calificacion = cached.calificacion;
@@ -2377,7 +2372,7 @@ async function obtenerDetalle(params) {
       if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
       // Título = slug → basura (ej. animeav1 con our-sticky-love)
       const nomCand = String(candidate.nombre || candidate.titulo || "");
-      if (candidate.slug && nomCand.toLowerCase().replace(/\s+/g, "-") === String(candidate.slug).toLowerCase()) {
+      if (candidate.slug && esSlugComoTitulo(nomCand, candidate.slug)) {
         if (cached?.nombre && !esSlugComoTitulo(cached.nombre, cached.slug)) {
           candidate.nombre = cached.nombre;
           candidate.titulo = cached.nombre;
@@ -2979,31 +2974,30 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         if (local.slug) usedLocal.add("slug:" + String(local.slug).toLowerCase());
         if (item.slug) usedLocal.add("slug:" + String(item.slug).toLowerCase());
         const row = { ...item };
-        // Datos cargados (usuario ya abrió el detalle)
-        if (local.tiene_player || itemTieneContenidoValido(local)) {
-          row.tiene_player = true;
-          if (local.embeds?.length) row.embeds = local.embeds;
-          if (local.reproductor) row.reproductor = local.reproductor;
-          if (local.calificacion != null) row.calificacion = local.calificacion;
-          if (local.imdb_id) row.imdb_id = local.imdb_id;
-          if (local.imdb) row.imdb = local.imdb;
-          if (local.votos) row.votos = local.votos;
-          if (local.descripcion) row.descripcion = local.descripcion;
-          if (local.genero) row.genero = local.genero;
-          if (local.generos?.length) row.generos = local.generos;
-          if (local.year) row.year = local.year;
-          if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
-            row.nombre = local.nombre;
-          }
-          if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
-          if (local.duracion) row.duracion = local.duracion;
-          if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
-          if (local.certificacion) row.certificacion = local.certificacion;
-          if (local.titulo_original) row.titulo_original = local.titulo_original;
-        } else {
-          // En DB pero sin players → sigue "Sin servidores"
-          row.tiene_player = false;
+        // "Disponible" depende solo de si hay reproductor real.
+        // La metadata enriquecida (portada IMDb/TMDB, sinopsis, rating...) se
+        // aplica igual aunque todavía no haya players, para que el listado
+        // muestre la misma portada que ya se ve en el detalle.
+        const tieneContenido = local.tiene_player || itemTieneContenidoValido(local);
+        row.tiene_player = !!tieneContenido;
+        if (local.embeds?.length) row.embeds = local.embeds;
+        if (local.reproductor) row.reproductor = local.reproductor;
+        if (local.calificacion != null) row.calificacion = local.calificacion;
+        if (local.imdb_id) row.imdb_id = local.imdb_id;
+        if (local.imdb) row.imdb = local.imdb;
+        if (local.votos) row.votos = local.votos;
+        if (local.descripcion) row.descripcion = local.descripcion;
+        if (local.genero) row.genero = local.genero;
+        if (local.generos?.length) row.generos = local.generos;
+        if (local.year) row.year = local.year;
+        if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
+          row.nombre = local.nombre;
         }
+        if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
+        if (local.duracion) row.duracion = local.duracion;
+        if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
+        if (local.certificacion) row.certificacion = local.certificacion;
+        if (local.titulo_original) row.titulo_original = local.titulo_original;
         merged.push(row);
       } else {
         // Aún no abierto en detalle: mostrar meta IMDb de la API, sin marcar Disponible
