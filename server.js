@@ -3518,7 +3518,7 @@ app.get("/api/capitulo", async (req, res) => {
 // ============================================================
 // TV Zone (cable + países) — no altera flujo de películas
 // ============================================================
-const TV_API = (process.env.TV_API || "https://tv-zone-api.TU-SUBDOMINIO.workers.dev").replace(/\/$/, "");
+const TV_API = (process.env.TV_API || "https://tv-zone-api.tvjz.workers.dev/").replace(/\/$/, "");
 
 app.get("/api/tv/cable", async (req, res) => {
   try {
