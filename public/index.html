@@ -135,9 +135,54 @@
           </div>
         </div>
       </div>
+          <!-- TV en vivo (entrada desde Inicio, no toca bottom nav) -->
+      <div class="carousel-row" id="row-tv-vivo">
+        <h2>TV en vivo</h2>
+        <div class="tv-home-entry">
+          <button type="button" class="tv-entry-card" id="btn-tv-cable">
+            <ion-icon name="tv-outline"></ion-icon>
+            <span>Cable</span>
+            <small>ChannelsTV</small>
+          </button>
+          <button type="button" class="tv-entry-card" id="btn-tv-paises">
+            <ion-icon name="globe-outline"></ion-icon>
+            <span>Por país</span>
+            <small>México, España…</small>
+          </button>
+        </div>
+      </div>
     </section>
   </main>
 
+  <!-- Vista TV (Cable / País) -->
+  <section class="view-container hidden" id="tv-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="tv-btn-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Volver
+      </button>
+      <h2 id="tv-view-title">TV en vivo</h2>
+    </div>
+
+    <div class="tv-tabs">
+      <button type="button" class="tv-tab active" data-tv-tab="cable" id="tv-tab-cable">Cable</button>
+      <button type="button" class="tv-tab" data-tv-tab="paises" id="tv-tab-paises">Por país</button>
+    </div>
+
+    <div id="tv-panel-cable" class="tv-panel">
+      <div class="tv-grupos" id="tv-grupos-cable"></div>
+      <div class="tv-canales-grid" id="tv-canales-cable">
+        <div class="tv-loading">Cargando canales…</div>
+      </div>
+    </div>
+
+    <div id="tv-panel-paises" class="tv-panel hidden">
+      <div class="tv-paises-chips" id="tv-paises-chips"></div>
+      <div class="tv-canales-grid" id="tv-canales-pais">
+        <div class="tv-hint">Elige un país</div>
+      </div>
+    </div>
+  </section>
+  
   <section class="view-container grid-section hidden" id="grid-view">
     <div class="filter-toolbar" id="filter-toolbar">
       <div class="filter-group">
