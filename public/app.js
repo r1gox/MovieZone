@@ -527,6 +527,213 @@ function idiomaDeEmbed(e) {
 
 let _idiomaPlayerActivo = "lat"; // preferir latino
 
+// ============================================================
+// Autoplay capítulos (Serie/Anime)
+// ============================================================
+let _epPlayCtx = null; // { item, season, episode, episodio }
+let _autoplayEp = localStorage.getItem("mz_autoplay_ep") !== "0"; // default ON
+
+function scoreIdiomaEmbed(e) {
+  const t = `${e?.idioma || ""} ${e?.lang || ""} ${e?.language || ""} ${e?.server || ""} ${e?.name || ""}`.toLowerCase();
+  if (/latino|castellano|español|espanol|\bdub\b|audio lat/.test(t)) return 0;
+  if (/sub|subtit|subtitulado/.test(t)) return 1;
+  if (/english|ingles|inglés|\beng\b/.test(t)) return 2;
+  return 3; // desconocido
+}
+
+function ordenarEmbedsAuto(embeds) {
+  return (embeds || [])
+    .filter((e) => e && (e.url || e.stream_url) && !esEmbedInvalido(e.url))
+    .slice()
+    .sort((a, b) => {
+      const ia = scoreIdiomaEmbed(a) - scoreIdiomaEmbed(b);
+      if (ia !== 0) return ia;
+      const ra = rankFuenteNoAds(a.url || "") ;
+      const rb = rankFuenteNoAds(b.url || "");
+      return ra - rb;
+    });
+}
+
+function actualizarBotonesEpPlayer() {
+  const btnNext = document.getElementById("btn-next-ep");
+  const btnAuto = document.getElementById("btn-autoplay-ep");
+  if (btnAuto) {
+    btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+    btnAuto.classList.toggle("off", !_autoplayEp);
+  }
+  if (!btnNext) return;
+  const next = _epPlayCtx ? obtenerSiguienteEpisodioCtx(_epPlayCtx) : null;
+  btnNext.classList.toggle("hidden", !next);
+}
+
+function obtenerSiguienteEpisodioCtx(ctx) {
+  if (!ctx || !ctx.item || !Array.isArray(ctx.item.episodios)) return null;
+  const eps = ctx.item.episodios.slice().sort((a, b) => {
+    const sa = Number(a.season || a.temporada || 1);
+    const sb = Number(b.season || b.temporada || 1);
+    if (sa !== sb) return sa - sb;
+    const ea = Number(a.episode || a.episodio || a.episode_number || 0);
+    const eb = Number(b.episode || b.episodio || b.episode_number || 0);
+    return ea - eb;
+  });
+  const curS = Number(ctx.season || 1);
+  const curE = Number(ctx.episode || 0);
+  for (let i = 0; i < eps.length; i++) {
+    const s = Number(eps[i].season || eps[i].temporada || 1);
+    const e = Number(eps[i].episode || eps[i].episodio || eps[i].episode_number || 0);
+    if (s === curS && e === curE && i + 1 < eps.length) {
+      return eps[i + 1];
+    }
+  }
+  // fallback: siguiente por número en misma temporada
+  const same = eps.filter((x) => Number(x.season || x.temporada || 1) === curS);
+  const nxt = same.find((x) => Number(x.episode || x.episodio || x.episode_number || 0) > curE);
+  return nxt || null;
+}
+
+async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
+  let validos = embedsValidosDe(episodio);
+  if (validos.length || (episodio.video && !esEmbedInvalido(episodio.video))) {
+    return { embeds: validos.length ? validos : (episodio.embeds || []), video: episodio.video };
+  }
+  const params = new URLSearchParams();
+  params.set("temporada", String(seasonNum));
+  params.set("episodio", String(epNum));
+  if (item.postId) params.set("postId", item.postId);
+  if (item.link) params.set("link", item.link);
+  if (item.slug) params.set("slug", item.slug);
+  if (item.source_id) params.set("source_id", item.source_id);
+  if (item.tipo) params.set("tipo", item.tipo);
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), 45000);
+  try {
+    const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store", signal: controller.signal });
+    const data = await res.json();
+    if (data && data.embeds) episodio.embeds = data.embeds;
+    if (data && data.reproductores) episodio.embeds = data.reproductores;
+    if (data && data.video) episodio.video = data.video;
+    if (data && data.downloads) episodio.downloads = data.downloads;
+    validos = embedsValidosDe(episodio);
+    return { embeds: validos.length ? validos : (episodio.embeds || []), video: episodio.video };
+  } finally {
+    clearTimeout(to);
+  }
+}
+
+/** Prueba servidores en orden: Latino → Sub → EN → otro; resolve primero */
+async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
+  const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+  let embeds = ordenarEmbedsAuto(pack.embeds || []);
+
+  // Insertar candidato NO ADS al frente si aplica
+  const conNoAds = insertarNoAdsEnLista(embeds);
+  embeds = ordenarEmbedsAuto(conNoAds);
+
+  _epPlayCtx = {
+    item,
+    season: Number(seasonNum) || 1,
+    episode: Number(epNum) || 0,
+    episodio,
+  };
+  actualizarBotonesEpPlayer();
+
+  document.getElementById("details-title").textContent =
+    `${item.nombre || item.titulo || ""} - ${episodio.nombre || ("Episodio " + epNum)}`;
+
+  // Probar uno por uno
+  for (const emb of embeds) {
+    try {
+      // Preferir resolve (NO ADS / hosts conocidos)
+      if (emb.noAds || rankFuenteNoAds(emb.url || "") < 99) {
+        const embedTry = emb.noAds ? emb : (elegirEmbedNoAds([emb]) || emb);
+        if (embedTry && (embedTry.noAds || embedTry.stream_url || streamUrlParaNoAds(embedTry.url))) {
+          const playUrl = await resolverPlayUrlNoAds(embedTry.noAds ? embedTry : {
+            ...embedTry,
+            stream_url: embedTry.stream_url || streamUrlParaNoAds(embedTry.url),
+            noAds: true,
+          });
+          await reproducirHlsNoAds(playUrl, {
+            ...item,
+            nombre: `${item.nombre || item.titulo || ""} · E${epNum}`,
+          });
+          engancharEndedAutoplay();
+          return true;
+        }
+      }
+      // Fallback iframe
+      await reproducir(emb, {
+        ...item,
+        nombre: `${item.nombre || item.titulo || ""} · E${epNum}`,
+      });
+      engancharEndedAutoplay();
+      return true;
+    } catch (err) {
+      console.warn("Auto cap falló servidor", emb?.url, err);
+    }
+  }
+
+  // último recurso: video directo del episodio
+  if (pack.video && !esEmbedInvalido(pack.video)) {
+    await reproducir({ url: pack.video, server: "Directo" }, item);
+    engancharEndedAutoplay();
+    return true;
+  }
+
+  alert("No se encontró un servidor funcional para este episodio.");
+  return false;
+}
+
+function engancharEndedAutoplay() {
+  const vid = document.getElementById("player-video");
+  if (!vid || vid.dataset.mzEndedBound === "1") return;
+  vid.dataset.mzEndedBound = "1";
+  vid.addEventListener("ended", () => {
+    if (!_autoplayEp) return;
+    irSiguienteEpisodio(true);
+  });
+}
+
+async function irSiguienteEpisodio(fromAuto) {
+  if (!_epPlayCtx) return;
+  const next = obtenerSiguienteEpisodioCtx(_epPlayCtx);
+  if (!next) {
+    if (!fromAuto) alert("No hay más episodios en la lista cargada.");
+    return;
+  }
+  const item = _epPlayCtx.item;
+  const seasonNum = Number(next.season || next.temporada || _epPlayCtx.season || 1);
+  const epNum = Number(next.episode || next.episodio || next.episode_number || 0);
+  const playerTitle = document.getElementById("player-title");
+  if (playerTitle) playerTitle.textContent = `Cargando E${epNum}...`;
+
+  // marcar botón activo si existe
+  try {
+    document.querySelectorAll(".episode-btn").forEach((b) => {
+      b.classList.toggle("active", String(b.textContent).trim() === String(epNum));
+    });
+  } catch (_) {}
+
+  await reproducirCapituloAuto(item, next, seasonNum, epNum);
+}
+
+function initAutoplayEpUi() {
+  const btnNext = document.getElementById("btn-next-ep");
+  const btnAuto = document.getElementById("btn-autoplay-ep");
+  if (btnNext) {
+    btnNext.addEventListener("click", () => irSiguienteEpisodio(false));
+  }
+  if (btnAuto) {
+    btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+    btnAuto.classList.toggle("off", !_autoplayEp);
+    btnAuto.addEventListener("click", () => {
+      _autoplayEp = !_autoplayEp;
+      localStorage.setItem("mz_autoplay_ep", _autoplayEp ? "1" : "0");
+      btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+      btnAuto.classList.toggle("off", !_autoplayEp);
+    });
+  }
+}
+
 function esIdiomaLatinoEmbed(e) {
     const t = `${e?.lang || ""} ${e?.idioma || ""} ${e?.language || ""}`.toLowerCase();
     return /latino|castellano|español|\bdub\b|audio lat/.test(t);
@@ -2020,6 +2227,8 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
     document.body.classList.remove("player-open");
+    _epPlayCtx = null;
+    actualizarBotonesEpPlayer();
     // Al cerrar el player vuelve a mostrarse el botón de cerrar detalle (CSS body.player-open)
     cargarContinuarViendo();
 });
@@ -2497,6 +2706,8 @@ function renderEpisodios(item, season = 1) {
                 renderServidoresYDescargas(yaValidos.length ? yaValidos : (episodio.embeds || []), episodio.downloads || [], episodio.video, item, { expandido: true });
                 expandirServidores();
                 btn.style.opacity = "1";
+                // Auto: Latino → Sub → resolve primero (sin elegir servidor a mano)
+                await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 return;
             }
 
@@ -2589,6 +2800,8 @@ function renderEpisodios(item, season = 1) {
                         { expandido: true }
                     );
                     expandirServidores();
+                    // Auto-reproducir sin elegir servidor
+                    await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 }
             } catch (err) {
                 console.error("capitulo:", err);
@@ -3363,6 +3576,7 @@ function actualizarPaginacion() {
 initWakeupNotice();
 cargarHome();
 initTvUi();
+initAutoplayEpUi();
 
 // ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------
 (function reportarVisita() {
