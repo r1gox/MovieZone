@@ -1005,7 +1005,9 @@ function abrirPanelPlayerTv() {
 }
 
 function tvPlayUrl(url) {
-  return "/api/tv/proxy?url=" + encodeURIComponent(url);
+  // Proxy en Cloudflare (Vercel no puede traer los .ts del IPTV)
+  const TV_PROXY = "https://tv-zone-api.tvjz.workers.dev/proxy";
+  return TV_PROXY + "?url=" + encodeURIComponent(url);
 }
 
 function reproducirCanalTv(canal) {
