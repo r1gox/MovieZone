@@ -2928,3 +2928,120 @@ body.player-open .btn-close-modal {
   font-size: 0.68rem !important;
   padding: 0.18rem 0.55rem !important;
 }
+
+
+/* ===== TV en vivo ===== */
+.tv-home-entry {
+  display: flex;
+  gap: 12px;
+  padding: 4px 2px 12px;
+  overflow-x: auto;
+}
+.tv-entry-card {
+  min-width: 140px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.tv-entry-card ion-icon { font-size: 28px; color: #a78bfa; }
+.tv-entry-card span { font-weight: 700; font-size: 15px; }
+.tv-entry-card small { opacity: .65; font-size: 12px; }
+.tv-entry-card:hover { background: rgba(167,139,250,.15); }
+
+#tv-view {
+  padding: 88px 16px 90px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.tv-view-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.tv-back-btn {
+  border: none;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.tv-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tv-tab {
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: rgba(255,255,255,.7);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tv-tab.active {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
+}
+.tv-grupos, .tv-paises-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tv-chip {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tv-chip.active { background: #7c3aed; border-color: #7c3aed; }
+.tv-canales-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.tv-canal-card {
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05);
+  border-radius: 12px;
+  padding: 12px 10px;
+  cursor: pointer;
+  text-align: center;
+  color: #fff;
+}
+.tv-canal-card img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #111;
+  margin-bottom: 8px;
+}
+.tv-canal-card .tv-canal-nombre {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.tv-loading, .tv-hint {
+  grid-column: 1 / -1;
+  opacity: .6;
+  padding: 24px;
+  text-align: center;
+}
