@@ -993,14 +993,7 @@ function renderTvCanales(container, lista) {
   });
 }
 
-function abrirPanelPlayerTv() {
-  const panel = document.getElementById("details-panel");
-  if (panel) panel.classList.remove("hidden");
-  if (typeof videoContainer !== "undefined" && videoContainer) {
-    videoContainer.classList.remove("hidden");
-  }
-  document.body.classList.add("player-open");
-}
+
 
 function abrirPanelPlayerTv() {
   const panel = document.getElementById("details-panel");
