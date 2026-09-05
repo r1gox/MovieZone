@@ -3754,6 +3754,10 @@ function sendIndex(res) {
 }
 
 app.get(["/peliculas", "/series", "/animes"], (_req, res) => sendIndex(res));
+app.get(
+  ["/:tipo(serie|pelicula|anime)/:slug", "/:tipo(serie|pelicula|anime)/:slug/:season/:episode"],
+  (_req, res) => sendIndex(res)
+);
 app.get("/", (_req, res) => sendIndex(res));
 
 // ---------- Arranque ----------
