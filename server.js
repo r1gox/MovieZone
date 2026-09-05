@@ -3522,7 +3522,11 @@ const TV_API = (process.env.TV_API || "https://tv-zone-api.tvjz.workers.dev/").r
 
 app.get("/api/tv/cable", async (req, res) => {
   try {
-    const r = await fetch(`${TV_API}/tv/cable`);
+    // alive=1: tu propio tv-zone-api ya sabe filtrar canales caidos
+    // (con cache de 6hs), pero antes no se estaba usando -> se mostraban
+    // los 538 canales del m3u aunque varios esten muertos (tipico de
+    // paneles IPTV por IP:puerto, se caen o rotan seguido).
+    const r = await fetch(`${TV_API}/tv/cable?alive=1`);
     const data = await r.json();
     res.json(data);
   } catch (err) {
