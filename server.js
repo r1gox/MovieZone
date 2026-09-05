@@ -3515,6 +3515,46 @@ app.get("/api/capitulo", async (req, res) => {
   }
 });
 
+// ============================================================
+// TV Zone (cable + países) — no altera flujo de películas
+// ============================================================
+const TV_API = (process.env.TV_API || "https://tv-zone-api.TU-SUBDOMINIO.workers.dev").replace(/\/$/, "");
+
+app.get("/api/tv/cable", async (req, res) => {
+  try {
+    const r = await fetch(`${TV_API}/tv/cable`);
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    console.error("/api/tv/cable", err.message);
+    res.status(500).json({ success: false, error: err.message || "Error TV cable" });
+  }
+});
+
+app.get("/api/tv/countries", async (req, res) => {
+  try {
+    const r = await fetch(`${TV_API}/tv/countries`);
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    console.error("/api/tv/countries", err.message);
+    res.status(500).json({ success: false, error: err.message || "Error TV countries" });
+  }
+});
+
+app.get("/api/tv/countries/:code", async (req, res) => {
+  try {
+    const code = String(req.params.code || "").toLowerCase();
+    const r = await fetch(`${TV_API}/tv/countries/${encodeURIComponent(code)}`);
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    console.error("/api/tv/countries/:code", err.message);
+    res.status(500).json({ success: false, error: err.message || "Error TV país" });
+  }
+});
+
+
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
