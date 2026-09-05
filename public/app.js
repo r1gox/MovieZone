@@ -993,26 +993,34 @@ function abrirPanelPlayerTv() {
   document.body.classList.add("player-open");
 }
 
+function abrirPanelPlayerTv() {
+  const panel = document.getElementById("details-panel");
+  if (panel) panel.classList.remove("hidden");
+  if (typeof videoContainer !== "undefined" && videoContainer) {
+    videoContainer.classList.remove("hidden");
+  }
+  document.body.classList.add("player-open");
+}
+
+function tvPlayUrl(url) {
+  return "/api/tv/proxy?url=" + encodeURIComponent(url);
+}
+
 function reproducirCanalTv(canal) {
   if (!canal || !canal.url) return;
-
-  // Evitar doble clic / spam
   if (window.__tvPlayingLock) return;
   window.__tvPlayingLock = true;
-  setTimeout(() => { window.__tvPlayingLock = false; }, 800);
+  setTimeout(() => { window.__tvPlayingLock = false; }, 1000);
 
   try {
     abrirPanelPlayerTv();
-
-    // Limpiar player anterior (usa el mismo sistema que películas)
     if (typeof destruirHls === "function") destruirHls();
 
     const vid = typeof ensurePlayerVideoEl === "function" ? ensurePlayerVideoEl() : null;
     const titleEl = document.getElementById("player-title");
-    if (titleEl) titleEl.textContent = canal.nombre || "TV en vivo";
+    if (titleEl) titleEl.textContent = "Cargando: " + (canal.nombre || "TV");
 
     if (!vid) {
-      // último recurso
       window.open(canal.url, "_blank");
       return;
     }
@@ -1022,69 +1030,73 @@ function reproducirCanalTv(canal) {
       playerIframe.src = "about:blank";
     }
     vid.classList.remove("hidden");
+    if (typeof mostrarBotonFullscreen === "function") mostrarBotonFullscreen(true);
 
-    if (typeof mostrarBotonFullscreen === "function") {
-      mostrarBotonFullscreen(true);
-    }
+    const playUrl = tvPlayUrl(canal.url);
 
-    const playUrl = canal.url;
+    const start = () => {
+      if (window.Hls && window.Hls.isSupported()) {
+        try {
+          if (typeof _hlsInstance !== "undefined" && _hlsInstance) {
+            _hlsInstance.destroy();
+          }
+        } catch (_) {}
 
-    // Safari nativo
-    if (vid.canPlayType("application/vnd.apple.mpegurl") && !(window.Hls && window.Hls.isSupported())) {
-      vid.src = playUrl;
-      vid.play().catch(() => {});
-      scrollPlayerTv();
-      return;
-    }
+        const hls = new window.Hls({
+          enableWorker: true,
+          maxErrorRetry: 3,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 3,
+          fragLoadingMaxRetry: 3,
+        });
+        try { _hlsInstance = hls; } catch (_) { window.__tvHls = hls; }
 
-    if (window.Hls && window.Hls.isSupported()) {
-      // instancia global del proyecto
-      if (typeof _hlsInstance !== "undefined" && _hlsInstance) {
-        try { _hlsInstance.destroy(); } catch (e) {}
+        hls.on(window.Hls.Events.ERROR, function (_e, data) {
+          if (!data || !data.fatal) return;
+          console.warn("TV HLS fatal", data);
+          if (titleEl) titleEl.textContent = (canal.nombre || "Canal") + " — no disponible";
+          try { hls.destroy(); } catch (_) {}
+        });
+
+        hls.loadSource(playUrl);
+        hls.attachMedia(vid);
+        hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+          if (titleEl) titleEl.textContent = canal.nombre || "TV en vivo";
+          const p = vid.play();
+          if (p && p.catch) p.catch(() => {});
+        });
+      } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
+        vid.src = playUrl;
+        if (titleEl) titleEl.textContent = canal.nombre || "TV en vivo";
+        vid.play().catch(() => {});
+      } else {
+        if (titleEl) titleEl.textContent = "Este navegador no soporta HLS";
       }
 
-      const hls = new window.Hls({
-        enableWorker: true,
-        maxErrorRetry: 2,
-        manifestLoadingMaxRetry: 2,
-        levelLoadingMaxRetry: 2,
-        fragLoadingMaxRetry: 2,
-      });
-
-      // guardar en la variable del proyecto si existe
-      try { _hlsInstance = hls; } catch (e) { window.__tvHls = hls; }
-
-      let failed = false;
-      hls.on(window.Hls.Events.ERROR, function (_event, data) {
-        if (!data || !data.fatal || failed) return;
-        failed = true;
-        try { hls.destroy(); } catch (e) {}
-        if (titleEl) {
-          titleEl.textContent = (canal.nombre || "Canal") + " — no disponible";
+      requestAnimationFrame(() => {
+        const box = document.getElementById("video-player-container");
+        if (box) {
+          try { box.scrollIntoView({ behavior: "smooth", block: "center" }); }
+          catch (_) { box.scrollIntoView(true); }
         }
-        // no alert spam: solo mensaje en título
-        console.warn("TV stream error", data.type, data.details);
       });
+    };
 
-      hls.loadSource(playUrl);
-      hls.attachMedia(vid);
-      hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
-        const p = vid.play();
-        if (p && p.catch) p.catch(() => {});
-      });
-
-      scrollPlayerTv();
-      return;
+    if (window.Hls) {
+      start();
+    } else {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js";
+      s.onload = start;
+      s.onerror = () => {
+        if (titleEl) titleEl.textContent = "No se pudo cargar hls.js";
+      };
+      document.head.appendChild(s);
     }
-
-    // Fallback sin HLS
-    vid.src = playUrl;
-    vid.play().catch(() => {});
-    scrollPlayerTv();
   } catch (err) {
     console.error("reproducirCanalTv", err);
     const titleEl = document.getElementById("player-title");
-    if (titleEl) titleEl.textContent = "Error al reproducir canal";
+    if (titleEl) titleEl.textContent = "Error al reproducir";
   }
 }
 
