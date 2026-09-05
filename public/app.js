@@ -773,6 +773,268 @@ function mostrarHome() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+// ============================================================
+// TV en vivo (Cable + País) — no altera películas/series/anime
+// ============================================================
+const TV_FAMOSOS = [
+  "las estrellas", "canal 5", "canal5", "azteca uno", "azteca 7", "azteca",
+  "imagen", "foro tv", "espn", "fox sports", "tudn", "cnn", "discovery",
+  "cartoon network", "disney", "nickelodeon", "hbo", "warner", "sony",
+  "history", "national geographic", "mtv", "tlc", "paramount", "star channel",
+  "televisa", "milenio", "adn40", "canal once", "once", "a&e", "amc"
+];
+
+function scoreCanalFamoso(nombre) {
+  const n = String(nombre || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let score = 0;
+  for (let i = 0; i < TV_FAMOSOS.length; i++) {
+    if (n.includes(TV_FAMOSOS[i])) {
+      score += (TV_FAMOSOS.length - i) * 10;
+    }
+  }
+  // bonus si el nombre es corto y exacto
+  if (score > 0 && n.length < 25) score += 5;
+  return score;
+}
+
+function ordenarCanalesFamososPrimero(lista) {
+  return (lista || []).slice().sort((a, b) => {
+    const sb = scoreCanalFamoso(b.nombre);
+    const sa = scoreCanalFamoso(a.nombre);
+    if (sb !== sa) return sb - sa;
+    return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es");
+  });
+}
+
+function ocultarVistasPrincipales() {
+  const home = document.getElementById("home-view");
+  const grid = document.getElementById("grid-view");
+  const tv = document.getElementById("tv-view");
+  if (home) home.classList.add("hidden");
+  if (grid) grid.classList.add("hidden");
+  if (tv) tv.classList.add("hidden");
+}
+
+function abrirTvView(tab) {
+  ocultarVistasPrincipales();
+  const tv = document.getElementById("tv-view");
+  if (tv) tv.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  setTvTab(tab || "cable");
+}
+
+function cerrarTvView() {
+  const tv = document.getElementById("tv-view");
+  if (tv) tv.classList.add("hidden");
+  if (typeof mostrarHome === "function") mostrarHome();
+}
+
+function setTvTab(tab) {
+  const cablePanel = document.getElementById("tv-panel-cable");
+  const paisPanel = document.getElementById("tv-panel-paises");
+  document.querySelectorAll(".tv-tab").forEach((el) => {
+    el.classList.toggle("active", el.getAttribute("data-tv-tab") === tab);
+  });
+  if (tab === "cable") {
+    if (cablePanel) cablePanel.classList.remove("hidden");
+    if (paisPanel) paisPanel.classList.add("hidden");
+    cargarTvCable();
+  } else {
+    if (paisPanel) paisPanel.classList.remove("hidden");
+    if (cablePanel) cablePanel.classList.add("hidden");
+    cargarTvPaises();
+  }
+}
+
+async function cargarTvCable() {
+  const box = document.getElementById("tv-canales-cable");
+  const gruposEl = document.getElementById("tv-grupos-cable");
+  if (!box) return;
+  box.innerHTML = '<div class="tv-loading">Cargando canales…</div>';
+  try {
+    const r = await fetch("/api/tv/cable");
+    const data = await r.json();
+    if (!data || !data.success) throw new Error((data && data.error) || "Error");
+    window.__tvCable = data.canales || [];
+    window.__tvCableGrupos = data.grupos || [];
+
+    if (gruposEl) {
+      gruposEl.innerHTML =
+        '<button type="button" class="tv-chip active" data-grupo="">Todos</button>' +
+        window.__tvCableGrupos
+          .map(
+            (g) =>
+              `<button type="button" class="tv-chip" data-grupo="${escapeHtml(g)}">${escapeHtml(g)}</button>`
+          )
+          .join("");
+      gruposEl.querySelectorAll(".tv-chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          gruposEl.querySelectorAll(".tv-chip").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          renderTvCanales(
+            box,
+            filtrarGrupo(window.__tvCable, btn.getAttribute("data-grupo") || "")
+          );
+        });
+      });
+    }
+
+    renderTvCanales(box, window.__tvCable);
+  } catch (e) {
+    box.innerHTML = `<div class="tv-loading">No se pudo cargar cable: ${escapeHtml(e.message || e)}</div>`;
+  }
+}
+
+function filtrarGrupo(lista, grupo) {
+  if (!grupo) return lista || [];
+  const g = grupo.toLowerCase();
+  return (lista || []).filter((c) => String(c.grupo || "").toLowerCase() === g);
+}
+
+async function cargarTvPaises() {
+  const chips = document.getElementById("tv-paises-chips");
+  const box = document.getElementById("tv-canales-pais");
+  if (!chips || !box) return;
+
+  if (!window.__tvCountries) {
+    chips.innerHTML = '<div class="tv-loading">Cargando países…</div>';
+    try {
+      const r = await fetch("/api/tv/countries");
+      const data = await r.json();
+      window.__tvCountries = (data && data.countries) || [];
+    } catch (e) {
+      chips.innerHTML = `<div class="tv-loading">Error países</div>`;
+      return;
+    }
+  }
+
+  // Priorizar LATAM / ES / US al frente
+  const priority = ["mx", "es", "ar", "co", "cl", "pe", "us", "ve", "ec"];
+  const countries = window.__tvCountries.slice().sort((a, b) => {
+    const ia = priority.indexOf(a.code);
+    const ib = priority.indexOf(b.code);
+    if (ia === -1 && ib === -1) return String(a.name).localeCompare(String(b.name));
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  chips.innerHTML = countries
+    .map(
+      (c) =>
+        `<button type="button" class="tv-chip" data-code="${escapeHtml(c.code)}">${escapeHtml(
+          (c.name || c.code).toString()
+        )}</button>`
+    )
+    .join("");
+
+  chips.querySelectorAll(".tv-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      chips.querySelectorAll(".tv-chip").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      cargarTvPais(btn.getAttribute("data-code"));
+    });
+  });
+
+  // Auto México si existe
+  const mx = chips.querySelector('.tv-chip[data-code="mx"]');
+  if (mx) mx.click();
+  else box.innerHTML = '<div class="tv-hint">Elige un país</div>';
+}
+
+async function cargarTvPais(code) {
+  const box = document.getElementById("tv-canales-pais");
+  if (!box) return;
+  box.innerHTML = '<div class="tv-loading">Cargando canales…</div>';
+  try {
+    const r = await fetch("/api/tv/countries/" + encodeURIComponent(code));
+    const data = await r.json();
+    if (!data || !data.success) throw new Error((data && data.error) || "Error");
+    renderTvCanales(box, data.canales || []);
+  } catch (e) {
+    box.innerHTML = `<div class="tv-loading">Error: ${escapeHtml(e.message || e)}</div>`;
+  }
+}
+
+function renderTvCanales(container, lista) {
+  const ordered = ordenarCanalesFamososPrimero(lista);
+  if (!ordered.length) {
+    container.innerHTML = '<div class="tv-hint">Sin canales</div>';
+    return;
+  }
+  container.innerHTML = ordered
+    .map((c, i) => {
+      const logo = c.logo
+        ? `<img src="${escapeHtml(c.logo)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : `<ion-icon name="tv-outline" style="font-size:40px;opacity:.5"></ion-icon>`;
+      return `<button type="button" class="tv-canal-card" data-idx="${i}">
+        ${logo}
+        <div class="tv-canal-nombre">${escapeHtml(c.nombre || "Canal")}</div>
+      </button>`;
+    })
+    .join("");
+
+  container.querySelectorAll(".tv-canal-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.getAttribute("data-idx"));
+      const canal = ordered[idx];
+      if (canal && canal.url) reproducirCanalTv(canal);
+    });
+  });
+}
+
+function reproducirCanalTv(canal) {
+  // Reutiliza el player HLS que ya tengas si existe
+  if (typeof reproducirHlsNoAds === "function") {
+    reproducirHlsNoAds(canal.url, {
+      titulo: canal.nombre || "TV en vivo",
+      title: canal.nombre || "TV en vivo",
+    });
+    return;
+  }
+  // Fallback: iframe / video simple
+  const iframe = document.getElementById("player-iframe");
+  const title = document.getElementById("player-title");
+  if (title) title.textContent = canal.nombre || "TV en vivo";
+  if (iframe) {
+    // Si tu player espera embed, mejor abrir en video nativo:
+    iframe.src = "";
+  }
+  if (typeof ensurePlayerVideoEl === "function") {
+    const video = ensurePlayerVideoEl();
+    if (video) {
+      if (window.Hls && window.Hls.isSupported()) {
+        if (window.__tvHls) {
+          try { window.__tvHls.destroy(); } catch (e) {}
+        }
+        window.__tvHls = new window.Hls();
+        window.__tvHls.loadSource(canal.url);
+        window.__tvHls.attachMedia(video);
+      } else {
+        video.src = canal.url;
+      }
+      video.play().catch(() => {});
+    }
+  } else {
+    window.open(canal.url, "_blank");
+  }
+}
+
+function initTvUi() {
+  const btnCable = document.getElementById("btn-tv-cable");
+  const btnPaises = document.getElementById("btn-tv-paises");
+  const back = document.getElementById("tv-btn-back");
+  const tabCable = document.getElementById("tv-tab-cable");
+  const tabPaises = document.getElementById("tv-tab-paises");
+
+  if (btnCable) btnCable.addEventListener("click", () => abrirTvView("cable"));
+  if (btnPaises) btnPaises.addEventListener("click", () => abrirTvView("paises"));
+  if (back) back.addEventListener("click", cerrarTvView);
+  if (tabCable) tabCable.addEventListener("click", () => setTvTab("cable"));
+  if (tabPaises) tabPaises.addEventListener("click", () => setTvTab("paises"));
+}
+
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
@@ -2996,6 +3258,7 @@ function actualizarPaginacion() {
 
 initWakeupNotice();
 cargarHome();
+initTvUi();
 
 // ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------
 (function reportarVisita() {
