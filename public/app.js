@@ -767,9 +767,18 @@ function mostrarHome() {
     vistaActual = "home";
     homeView.classList.remove("hidden");
     gridView.classList.add("hidden");
+
+    // Cerrar vista TV al volver a Inicio
+    const tv = document.getElementById("tv-view");
+    if (tv) tv.classList.add("hidden");
+
+    // Cerrar player TV si quedó abierto
+    document.body.classList.remove("player-open");
+
     document.querySelectorAll(".filter-tab, .filter-chip").forEach(el => el.classList.remove("active"));
-    document.getElementById("nav-item-home").classList.add("active");
-    actualizarBotonOnline(false);   // ← ocultar “Buscar online”
+    const navHome = document.getElementById("nav-item-home");
+    if (navHome) navHome.classList.add("active");
+    actualizarBotonOnline(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
