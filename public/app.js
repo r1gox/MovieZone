@@ -2248,11 +2248,44 @@ document.getElementById("btn-favorito").addEventListener("click", () => {
     actualizarBotonFavorito();
 });
 
+// ---------- Links cortos compartibles: /serie/slug ----------
+function tipoPathFromItem(item) {
+    if (!item) return "pelicula";
+    const t = String(item.tipo || "").toLowerCase();
+    if (t.includes("anime")) return "anime";
+    if (t.includes("serie") || t.includes("dorama") || t === "tv") return "serie";
+    return "pelicula";
+}
+
+function slugFromItem(item) {
+    if (!item) return null;
+    if (item.slug) return String(item.slug).replace(/^\/+|\/+$/g, "");
+    const link = item.link || item.url_extract || item.url || "";
+    const m = String(link).match(/\/(?:serie|pelicula|anime|doramas?|media)\/([^\/\?#]+)/i)
+        || String(link).match(/\/[1-6]\/(?:serie|pelicula|anime)\/([^\/\?#]+)/i);
+    if (m) {
+        try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+    }
+    return null;
+}
+
+function buildSharePath(item) {
+    const slug = slugFromItem(item);
+    if (!slug) return null;
+    return "/" + tipoPathFromItem(item) + "/" + encodeURIComponent(slug).replace(/%2F/gi, "");
+}
+
 document.getElementById("btn-share")?.addEventListener("click", async () => {
     if (!seleccionActual) return;
-    const link = seleccionActual.link || seleccionActual.id || seleccionActual.postId;
-    if (!link) return;
-    const url = `${location.origin}/?link=${encodeURIComponent(String(link))}`;
+    const pathShare = buildSharePath(seleccionActual);
+    let url;
+    if (pathShare) {
+        url = location.origin + pathShare;
+    } else {
+        const link = seleccionActual.link || seleccionActual.id || seleccionActual.postId;
+        if (!link) return;
+        url = `${location.origin}/?link=${encodeURIComponent(String(link))}`;
+    }
     try {
         await navigator.clipboard.writeText(url);
         const btn = document.getElementById("btn-share");
@@ -3627,17 +3660,38 @@ initAutoplayEpUi();
 
 
 
-// ---------- Deep link /?id=... o /?link=... ----------
+// ---------- Deep link: /serie/slug  |  /?id=  |  /?link= ----------
 (async function handleDeepLink() {
-    const p = new URLSearchParams(location.search);
-    const id = p.get("id");
-    const link = p.get("link");
-    if (!id && !link) return;
     try {
+        const pathM = location.pathname.match(
+            /^\/(serie|pelicula|anime)\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+        );
+        if (pathM) {
+            const tipoPath = pathM[1].toLowerCase();
+            let slug = pathM[2];
+            try { slug = decodeURIComponent(slug); } catch (_) {}
+            const tipo =
+                tipoPath === "anime" ? "Anime" :
+                tipoPath === "serie" ? "Serie" : "Pelicula";
+            const q = new URLSearchParams();
+            q.set("slug", slug);
+            q.set("tipo", tipo);
+            const res = await fetch("/api/detalle?" + q.toString());
+            const item = await res.json();
+            if (item && (item.nombre || item.titulo || item.link || item.slug)) {
+                await abrirDetalle(item);
+            }
+            return;
+        }
+
+        const p = new URLSearchParams(location.search);
+        const id = p.get("id");
+        const link = p.get("link");
+        if (!id && !link) return;
         const q = id ? `id=${encodeURIComponent(id)}` : `link=${encodeURIComponent(link)}`;
         const res = await fetch(`/api/detalle?${q}`);
         const item = await res.json();
-        if (item && (item.nombre || item.link)) abrirDetalle(item);
+        if (item && (item.nombre || item.link || item.slug)) abrirDetalle(item);
     } catch (e) { console.warn("Deep link:", e); }
 })();
 
