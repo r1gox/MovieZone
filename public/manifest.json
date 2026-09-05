@@ -5,12 +5,19 @@
   "display": "standalone",
   "background_color": "#0a0611",
   "theme_color": "#0a0611",
+  "description": "MovieZone — Películas, series y anime.",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3163/3163478.png",
+      "src": "/icons/moviezone-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
