@@ -984,41 +984,120 @@ function renderTvCanales(container, lista) {
   });
 }
 
+function abrirPanelPlayerTv() {
+  const panel = document.getElementById("details-panel");
+  if (panel) panel.classList.remove("hidden");
+  if (typeof videoContainer !== "undefined" && videoContainer) {
+    videoContainer.classList.remove("hidden");
+  }
+  document.body.classList.add("player-open");
+}
+
 function reproducirCanalTv(canal) {
-  // Reutiliza el player HLS que ya tengas si existe
-  if (typeof reproducirHlsNoAds === "function") {
-    reproducirHlsNoAds(canal.url, {
-      titulo: canal.nombre || "TV en vivo",
-      title: canal.nombre || "TV en vivo",
-    });
-    return;
-  }
-  // Fallback: iframe / video simple
-  const iframe = document.getElementById("player-iframe");
-  const title = document.getElementById("player-title");
-  if (title) title.textContent = canal.nombre || "TV en vivo";
-  if (iframe) {
-    // Si tu player espera embed, mejor abrir en video nativo:
-    iframe.src = "";
-  }
-  if (typeof ensurePlayerVideoEl === "function") {
-    const video = ensurePlayerVideoEl();
-    if (video) {
-      if (window.Hls && window.Hls.isSupported()) {
-        if (window.__tvHls) {
-          try { window.__tvHls.destroy(); } catch (e) {}
-        }
-        window.__tvHls = new window.Hls();
-        window.__tvHls.loadSource(canal.url);
-        window.__tvHls.attachMedia(video);
-      } else {
-        video.src = canal.url;
-      }
-      video.play().catch(() => {});
+  if (!canal || !canal.url) return;
+
+  // Evitar doble clic / spam
+  if (window.__tvPlayingLock) return;
+  window.__tvPlayingLock = true;
+  setTimeout(() => { window.__tvPlayingLock = false; }, 800);
+
+  try {
+    abrirPanelPlayerTv();
+
+    // Limpiar player anterior (usa el mismo sistema que películas)
+    if (typeof destruirHls === "function") destruirHls();
+
+    const vid = typeof ensurePlayerVideoEl === "function" ? ensurePlayerVideoEl() : null;
+    const titleEl = document.getElementById("player-title");
+    if (titleEl) titleEl.textContent = canal.nombre || "TV en vivo";
+
+    if (!vid) {
+      // último recurso
+      window.open(canal.url, "_blank");
+      return;
     }
-  } else {
-    window.open(canal.url, "_blank");
+
+    if (typeof playerIframe !== "undefined" && playerIframe) {
+      playerIframe.classList.add("hidden");
+      playerIframe.src = "about:blank";
+    }
+    vid.classList.remove("hidden");
+
+    if (typeof mostrarBotonFullscreen === "function") {
+      mostrarBotonFullscreen(true);
+    }
+
+    const playUrl = canal.url;
+
+    // Safari nativo
+    if (vid.canPlayType("application/vnd.apple.mpegurl") && !(window.Hls && window.Hls.isSupported())) {
+      vid.src = playUrl;
+      vid.play().catch(() => {});
+      scrollPlayerTv();
+      return;
+    }
+
+    if (window.Hls && window.Hls.isSupported()) {
+      // instancia global del proyecto
+      if (typeof _hlsInstance !== "undefined" && _hlsInstance) {
+        try { _hlsInstance.destroy(); } catch (e) {}
+      }
+
+      const hls = new window.Hls({
+        enableWorker: true,
+        maxErrorRetry: 2,
+        manifestLoadingMaxRetry: 2,
+        levelLoadingMaxRetry: 2,
+        fragLoadingMaxRetry: 2,
+      });
+
+      // guardar en la variable del proyecto si existe
+      try { _hlsInstance = hls; } catch (e) { window.__tvHls = hls; }
+
+      let failed = false;
+      hls.on(window.Hls.Events.ERROR, function (_event, data) {
+        if (!data || !data.fatal || failed) return;
+        failed = true;
+        try { hls.destroy(); } catch (e) {}
+        if (titleEl) {
+          titleEl.textContent = (canal.nombre || "Canal") + " — no disponible";
+        }
+        // no alert spam: solo mensaje en título
+        console.warn("TV stream error", data.type, data.details);
+      });
+
+      hls.loadSource(playUrl);
+      hls.attachMedia(vid);
+      hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+        const p = vid.play();
+        if (p && p.catch) p.catch(() => {});
+      });
+
+      scrollPlayerTv();
+      return;
+    }
+
+    // Fallback sin HLS
+    vid.src = playUrl;
+    vid.play().catch(() => {});
+    scrollPlayerTv();
+  } catch (err) {
+    console.error("reproducirCanalTv", err);
+    const titleEl = document.getElementById("player-title");
+    if (titleEl) titleEl.textContent = "Error al reproducir canal";
   }
+}
+
+function scrollPlayerTv() {
+  requestAnimationFrame(() => {
+    const box = document.getElementById("video-player-container");
+    if (!box) return;
+    try {
+      box.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {
+      box.scrollIntoView(true);
+    }
+  });
 }
 
 function initTvUi() {
