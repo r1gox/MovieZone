@@ -3045,3 +3045,26 @@ body.player-open .btn-close-modal {
   padding: 24px;
   text-align: center;
 }
+
+
+/* Autoplay / Siguiente episodio */
+.btn-next-ep,
+.btn-autoplay-ep {
+  border: 1px solid rgba(255,255,255,.2);
+  background: rgba(124,58,237,.35);
+  color: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 6px;
+}
+.btn-autoplay-ep.off {
+  background: rgba(255,255,255,.08);
+  opacity: .75;
+}
+.btn-next-ep.hidden,
+.btn-autoplay-ep.hidden {
+  display: none !important;
+}
