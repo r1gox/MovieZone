@@ -3554,6 +3554,97 @@ app.get("/api/tv/countries/:code", async (req, res) => {
   }
 });
 
+// Proxy HLS para TV (evita mixed content HTTP en sitio HTTPS)
+app.get("/api/tv/proxy", async (req, res) => {
+  try {
+    let target = req.query.url || "";
+    try {
+      target = decodeURIComponent(String(target));
+    } catch (_) {}
+    if (!/^https?:\/\//i.test(target)) {
+      return res.status(400).json({ success: false, error: "url inválida" });
+    }
+
+    const upstream = await fetch(target, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        Accept: "*/*",
+      },
+      redirect: "follow",
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).send("upstream error");
+    }
+
+    const ct = (upstream.headers.get("content-type") || "").toLowerCase();
+    const isPlaylist =
+      ct.includes("mpegurl") ||
+      ct.includes("m3u") ||
+      /\.m3u8?(?:\?|$)/i.test(target);
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "no-store");
+
+    if (isPlaylist) {
+      let body = await upstream.text();
+      if (!body.includes("#EXT")) {
+        res.setHeader("Content-Type", ct || "application/octet-stream");
+        return res.send(body);
+      }
+
+      const base = target.replace(/[^\/?#]+(\?.*)?$/, "");
+      let origin = "";
+      try {
+        origin = new URL(target).origin;
+      } catch (_) {}
+
+      const lines = body.split(/\r?\n/).map((line) => {
+        const t = line.trim();
+        if (!t || t.startsWith("#")) {
+          if (/URI="/i.test(line)) {
+            return line.replace(/URI="([^"]+)"/gi, (_, uri) => {
+              let abs = uri;
+              if (uri.startsWith("//")) abs = "https:" + uri;
+              else if (uri.startsWith("/")) abs = origin + uri;
+              else if (!/^https?:\/\//i.test(uri)) {
+                try {
+                  abs = new URL(uri, base).href;
+                } catch (_) {
+                  abs = base + uri;
+                }
+              }
+              return `URI="/api/tv/proxy?url=${encodeURIComponent(abs)}"`;
+            });
+          }
+          return line;
+        }
+        let abs = t;
+        if (t.startsWith("//")) abs = "https:" + t;
+        else if (t.startsWith("/")) abs = origin + t;
+        else if (!/^https?:\/\//i.test(t)) {
+          try {
+            abs = new URL(t, base).href;
+          } catch (_) {
+            abs = base + t;
+          }
+        }
+        return `/api/tv/proxy?url=${encodeURIComponent(abs)}`;
+      });
+
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
+      return res.send(lines.join("\n"));
+    }
+
+    res.setHeader("Content-Type", ct || "application/octet-stream");
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    return res.send(buf);
+  } catch (err) {
+    console.error("/api/tv/proxy", err.message);
+    res.status(502).json({ success: false, error: err.message || "proxy error" });
+  }
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({
