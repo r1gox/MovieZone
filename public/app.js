@@ -967,7 +967,12 @@ async function cargarTvPais(code) {
 }
 
 function renderTvCanales(container, lista) {
-  const ordered = ordenarCanalesFamososPrimero(lista);
+  // Solo canales que sí se pueden ver en el navegador (https / proxy_ok)
+  const reproducibles = (lista || []).filter(function (c) {
+    var u = c.play_url || c.url || "";
+    return c.proxy_ok === true || /^https:\/\//i.test(u);
+  });
+  const ordered = ordenarCanalesFamososPrimero(reproducibles); 
   if (!ordered.length) {
     container.innerHTML = '<div class="tv-hint">Sin canales</div>';
     return;
@@ -1004,10 +1009,14 @@ function abrirPanelPlayerTv() {
   document.body.classList.add("player-open");
 }
 
-function tvPlayUrl(url) {
-  // Proxy en Cloudflare (Vercel no puede traer los .ts del IPTV)
-  const TV_PROXY = "https://tv-zone-api.tvjz.workers.dev/proxy";
-  return TV_PROXY + "?url=" + encodeURIComponent(url);
+function tvPlayUrl(canal) {
+  // La API ya trae play_url lista (con proxy si proxy_ok)
+  if (canal && typeof canal === "object") {
+    if (canal.play_url) return canal.play_url;
+    if (canal.url) return canal.url;
+  }
+  if (typeof canal === "string") return canal;
+  return "";
 }
 
 function reproducirCanalTv(canal) {
@@ -1036,7 +1045,7 @@ function reproducirCanalTv(canal) {
     vid.classList.remove("hidden");
     if (typeof mostrarBotonFullscreen === "function") mostrarBotonFullscreen(true);
 
-    const playUrl = tvPlayUrl(canal.url);
+    const playUrl = tvPlayUrl(canal);
 
     const start = () => {
       if (window.Hls && window.Hls.isSupported()) {
