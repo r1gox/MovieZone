@@ -169,9 +169,6 @@ function initProfilesUi() {
 
 function badgesHtml(item) {
   const bits = [];
-  const year = parseInt(item.year, 10) || 0;
-  const yNow = new Date().getFullYear();
-  if (year >= yNow) bits.push(`<span class="mz-badge mz-badge-new">Nuevo</span>`);
   if (/emisi|airing|en curso|ongoing/i.test(String(item.estado || ""))) {
     bits.push(`<span class="mz-badge mz-badge-air">En emisión</span>`);
   }
