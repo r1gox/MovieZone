@@ -3037,7 +3037,8 @@ function renderEpisodios(item, season = 1) {
         episodesContainer.appendChild(bar);
     }
 
-    let lista = Array.isArray(item.episodios) ? item.episodios.slice() : [];
+    let lista = ordenarEpisodiosParaUI(item, Array.isArray(item.episodios) ? item.episodios : []);
+  
     // Filtrar por rango activo si aplica
     if (rango && lista.length) {
         lista = lista.filter((ep, idx) => {
@@ -3062,7 +3063,7 @@ function renderEpisodios(item, season = 1) {
         episodesContainer.appendChild(msg);
         return;
     }
-
+    checkNuevoCapitulo(item);
     // #episodes-container ya tiene class episodes-grid (no anidar otro)
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
@@ -3245,7 +3246,6 @@ async function reproducir(embed, item) {
             videoContainer.scrollIntoView(true);
         }
     });
-    checkNuevoCapitulo(item);
 }
 
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, opts) {
