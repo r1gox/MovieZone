@@ -1416,6 +1416,15 @@ function mapListItem(r) {
     url_extract: r.url_extract || link,
     source_id: sourceId,
     fuente: r.source || r.fuente || null,
+    estado: r.estado || r.status || null,
+    en_emision: r.en_emision != null
+      ? !!r.en_emision
+      : (/emisi|airing|ongoing|en curso|returning/i.test(String(r.estado || r.status || ""))
+          ? true
+          : (/final|ended|complet|conclu/i.test(String(r.estado || r.status || "")) ? false : null)),
+    finalizado: r.finalizado != null
+      ? !!r.finalizado
+      : (/final|ended|complet|conclu/i.test(String(r.estado || r.status || "")) ? true : null),
     tiene_player: false,
     embeds: [],
     downloads: [],
@@ -1620,7 +1629,18 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   try {
     const data = await apiGet(path);
     let lista = (data.results || data.resultados || []).map(mapListItem).filter(Boolean).slice(0, limit);
-    // Enriquecer con datos ya guardados (tiene_player, descripción, rating…)
+    // Anime desde /emision → marcar en emisión
+    if (tipo === "animes") {
+      lista = lista.map((item) => {
+        if (!item) return item;
+        if (item.en_emision == null && item.finalizado !== true) {
+          item.en_emision = true;
+          item.estado = item.estado || "En emisión";
+        }
+        return item;
+      });
+    }
+    // Enriquecer con datos ya guardados
     lista = lista.map((item) => {
       const local = moviesDB.find(
         (m) =>
@@ -1641,6 +1661,9 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
           portada: item.portada || local.portada,
           downloads: local.downloads,
           episodios: local.episodios,
+          estado: local.estado || item.estado,
+          en_emision: local.en_emision != null ? local.en_emision : item.en_emision,
+          finalizado: local.finalizado != null ? local.finalizado : item.finalizado,
         });
       }
       return item;
@@ -2998,6 +3021,9 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         if (local.imdb_id) row.imdb_id = local.imdb_id;
         if (local.imdb) row.imdb = local.imdb;
         if (local.votos) row.votos = local.votos;
+        if (local.estado) row.estado = local.estado;
+        if (local.en_emision != null) row.en_emision = !!local.en_emision;
+        if (local.finalizado != null) row.finalizado = !!local.finalizado;
         if (local.descripcion) row.descripcion = local.descripcion;
         if (local.genero) row.genero = local.genero;
         if (local.generos?.length) row.generos = local.generos;
