@@ -442,9 +442,20 @@
       <button type="button" id="mz-btn-create" class="mz-btn-primary">Crear perfil</button>
     </div>
     <form id="mz-create-form" class="mz-create-form hidden">
-      <input type="text" id="mz-create-name" maxlength="18" placeholder="Nombre del perfil" required />
+      <h2 class="mz-create-title">Agregar perfil</h2>
+      <p class="mz-create-hint">Agrega un perfil para otra persona que ve MovieZone.</p>
+      <div class="mz-create-body">
+        <div class="mz-create-avatar-preview" id="mz-create-preview">?</div>
+        <div class="mz-create-fields">
+          <input type="text" id="mz-create-name" maxlength="18" placeholder="Nombre" required autocomplete="off" />
+          <label class="mz-kids-check">
+            <input type="checkbox" id="mz-create-kids" />
+            <span>Perfil para niños</span>
+          </label>
+        </div>
+      </div>
       <div class="mz-create-row">
-        <button type="submit" class="mz-btn-primary">Guardar</button>
+        <button type="submit" class="mz-btn-primary">Continuar</button>
         <button type="button" id="mz-create-cancel" class="mz-btn-ghost">Cancelar</button>
       </div>
     </form>
