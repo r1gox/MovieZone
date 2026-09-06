@@ -2185,6 +2185,21 @@ function preferApiMeta(apiItem, cached) {
   return out;
 }
 
+/** true si el item se sincronizó hoy (UTC) */
+function fueSincronizadoHoy(item) {
+  if (!item) return false;
+  const ts = item.episodios_synced_at || item.meta_synced_at || item.updated_at || item.synced_at;
+  if (!ts) return false;
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  );
+}
+
 async function obtenerDetalle(params) {
   const { link, postId, source_id, slug, tipo } = params;
   const force = params.force === "1" || params.force === true;
@@ -2252,7 +2267,37 @@ async function obtenerDetalle(params) {
     cached.slug &&
     String(cached.nombre).toLowerCase().replace(/\s+/g, "-") === String(cached.slug).toLowerCase();
 
-  if (!force && cached && cacheTienePlayers && (tieneDesc || yaFunciona) && !nombreEsSlug) {
+  // Lista incompleta (ej. solo 1 temporada de 3) → ir a la API
+  const epsCache = Array.isArray(cached?.episodios) ? cached.episodios.length : 0;
+  const totalEpsCache = Number(cached?.total_episodios) || 0;
+  const tempsCache = Array.isArray(cached?.temporadas) ? cached.temporadas.length : 0;
+  const totalTempsCache = Number(cached?.total_temporadas) || 0;
+  const seasonsInEps = cached?.episodios
+    ? new Set(
+        cached.episodios.map((e) => Number(e.season || e.temporada || 1) || 1)
+      ).size
+    : 0;
+  const listaIncompleta =
+    esSerieCache &&
+    (
+      (totalTempsCache > 1 && tempsCache > 0 && tempsCache < totalTempsCache) ||
+      (totalEpsCache > 0 && epsCache > 0 && epsCache < Math.floor(totalEpsCache * 0.85)) ||
+      (seasonsInEps <= 1 && (totalTempsCache > 1 || totalEpsCache > 12))
+    );
+
+  // Serie/anime: si YA se actualizó hoy → usar caché; si NO → ir a la API
+  const syncHoy = fueSincronizadoHoy(cached);
+  const debeRefrescarSerie = esSerieCache && !syncHoy && !force;
+
+  if (
+    !force &&
+    cached &&
+    cacheTienePlayers &&
+    (tieneDesc || yaFunciona) &&
+    !nombreEsSlug &&
+    !listaIncompleta &&
+    !debeRefrescarSerie
+  ) {
     if (esAnimeKind) {
       try {
         const refreshed = await refreshAnimeMetaFromSource4(cached, id);
@@ -2263,8 +2308,7 @@ async function obtenerDetalle(params) {
     }
     return cached;
   }
-  // Si cache no tiene players o nombre=slug → seguir a la API
-
+  // force | lista incompleta | serie/anime sin sync hoy → seguir a la API
   // force = botón "Actualizar": detectar episodios/temporadas nuevas + meta; conservar players
   if (force && id && id.slug) {
     try {
@@ -2530,6 +2574,11 @@ async function obtenerDetalle(params) {
   }
   // Preferir español de la API sobre inglés cacheado (aunque el inglés sea más largo)
   best.descripcion = elegirMejorDescripcion(best.descripcion, cached?.descripcion);
+  // Serie/anime: marcar que hoy ya se sincronizó (para no repetir en el día)
+  if (/serie|anime/i.test(String(best.tipo || ""))) {
+    best.episodios_synced_at = new Date().toISOString();
+    best.updated_at = best.episodios_synced_at;
+  }
   best.descripcion = limpiarDescripcion(best.descripcion, best.nombre);
   // Portada final: siempre alineada a la fuente de los reproductores
   best.portada = elegirPortada(best.portada, cached?.portada, best.source_id);
