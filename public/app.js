@@ -61,11 +61,11 @@ function showProfileGate(mode) {
   if (form) form.classList.add("hidden");
 
   const profiles = getProfiles();
-  if (title) title.textContent = profiles.length ? "¿Quién eres?" : "Bienvenido a MovieZone";
+  if (title) title.textContent = "¿Quién está viendo?";
   if (sub) {
     sub.textContent = profiles.length
-      ? "Elige un perfil para continuar"
-      : "Crea un perfil o entra como invitado";
+      ? "Selecciona un perfil para continuar"
+      : "Crea un perfil para personalizar tu experiencia";
   }
 
   if (listEl) {
@@ -74,10 +74,20 @@ function showProfileGate(mode) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "mz-profile-card";
-      btn.innerHTML = `<div class="av" style="background:${p.color || "#7c3aed"}">${(p.nombre || "?")[0].toUpperCase()}</div><span>${p.nombre}</span>`;
+      const letter = (p.nombre || "?")[0].toUpperCase();
+      const kids = p.tipo === "kids" ? '<span class="mz-kids-tag">Niños</span>' : "";
+      btn.innerHTML = `<div class="av" style="background:${p.color || "#7c3aed"}">${letter}</div><span class="mz-profile-label">${p.nombre || "Perfil"}</span>${kids}`;
       btn.onclick = () => setActiveProfile(p.id);
       listEl.appendChild(btn);
     });
+    if (profiles.length < 5) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "mz-profile-card mz-profile-add";
+      add.innerHTML = `<div class="av av-add"><ion-icon name="add-outline"></ion-icon></div><span class="mz-profile-label">Agregar perfil</span>`;
+      add.onclick = () => document.getElementById("mz-btn-create")?.click();
+      listEl.appendChild(add);
+    }
   }
 }
 
@@ -142,12 +152,29 @@ function initProfilesUi() {
   }
   if (btnCreate) {
     btnCreate.onclick = () => {
-      if (form) form.classList.remove("hidden");
+      if (form) {
+        form.classList.remove("hidden");
+        form.classList.add("mz-create-open");
+      }
+      document.getElementById("mz-profile-list")?.classList.add("mz-dimmed");
       document.getElementById("mz-create-name")?.focus();
+      const prev = document.getElementById("mz-create-preview");
+      const inp = document.getElementById("mz-create-name");
+      if (inp && prev && !inp._mzBound) {
+        inp._mzBound = true;
+        inp.addEventListener("input", () => {
+          const v = (inp.value || "?").trim();
+          prev.textContent = (v[0] || "?").toUpperCase();
+        });
+      }
     };
   }
   if (cancel) {
-    cancel.onclick = () => form?.classList.add("hidden");
+    cancel.onclick = () => {
+      form?.classList.add("hidden");
+      form?.classList.remove("mz-create-open");
+      document.getElementById("mz-profile-list")?.classList.remove("mz-dimmed");
+    };
   }
   if (form) {
     form.onsubmit = (e) => {
@@ -155,9 +182,10 @@ function initProfilesUi() {
       const input = document.getElementById("mz-create-name");
       const nombre = (input?.value || "").trim().slice(0, 18);
       if (!nombre) return;
+      const kids = !!document.getElementById("mz-create-kids")?.checked;
       const list = getProfiles();
-      const color = PROFILE_COLORS[list.length % PROFILE_COLORS.length];
-      const neu = { id: uid(), nombre, tipo: "adult", color };
+      const color = kids ? "#22c55e" : PROFILE_COLORS[list.length % PROFILE_COLORS.length];
+      const neu = { id: uid(), nombre, tipo: kids ? "kids" : "adult", color };
       list.push(neu);
       saveProfiles(list);
       setActiveProfile(neu.id);
@@ -169,7 +197,10 @@ function initProfilesUi() {
 
 function badgesHtml(item) {
   const bits = [];
-  if (/emisi|airing|en curso|ongoing/i.test(String(item.estado || ""))) {
+  const airing =
+    item.en_emision === true ||
+    (item.finalizado !== true && /emisi|airing|en curso|ongoing|returning/i.test(String(item.estado || "")));
+  if (airing) {
     bits.push(`<span class="mz-badge mz-badge-air">En emisión</span>`);
   }
   if (item._trendingRank && item._trendingRank <= 10) {
