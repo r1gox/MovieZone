@@ -433,5 +433,26 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 <script type="module" src="/app.js"></script>
 <script src="/mobile-menu.js"></script>
+
+<!-- Pantalla perfiles -->
+<div id="mz-profile-gate" class="mz-profile-gate hidden" aria-hidden="true">
+  <div class="mz-profile-gate-card">
+    <h1 id="mz-gate-title">¿Quién eres?</h1>
+    <p id="mz-gate-sub">Elige un perfil o crea uno nuevo</p>
+    <div id="mz-profile-list" class="mz-profile-list"></div>
+    <div class="mz-profile-actions">
+      <button type="button" id="mz-btn-guest" class="mz-btn-ghost">Entrar como invitado</button>
+      <button type="button" id="mz-btn-create" class="mz-btn-primary">Crear perfil</button>
+    </div>
+    <form id="mz-create-form" class="mz-create-form hidden">
+      <input type="text" id="mz-create-name" maxlength="18" placeholder="Nombre del perfil" required />
+      <div class="mz-create-row">
+        <button type="submit" class="mz-btn-primary">Guardar</button>
+        <button type="button" id="mz-create-cancel" class="mz-btn-ghost">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+  
 </body>
 </html>
