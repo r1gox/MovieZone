@@ -33,9 +33,22 @@ function getActiveProfile() {
   return list.find((p) => p.id === id) || list[0] || null;
 }
 function setActiveProfile(id) {
+  if (!id) return;
   localStorage.setItem(MZ_ACTIVE_PROFILE, id);
   localStorage.setItem(MZ_ONBOARDED, "1");
-  location.reload();
+  try { hideProfileGate(); } catch (_) {}
+  // Evitar que el formulario quede abierto y el gate reaparezca
+  try {
+    const form = document.getElementById("mz-create-form");
+    if (form) {
+      form.classList.add("hidden");
+      form.classList.remove("mz-create-open");
+      form.reset?.();
+    }
+    document.getElementById("mz-profile-list")?.classList.remove("mz-dimmed");
+  } catch (_) {}
+  // Recarga limpia para aplicar pk() de favoritos/lista del perfil
+  location.replace(location.pathname + location.search + location.hash);
 }
 function pk(key) {
   const p = getActiveProfile();
@@ -105,9 +118,17 @@ function ensureProfileAccess() {
   const onboarded = localStorage.getItem(MZ_ONBOARDED) === "1";
 
   // Primera visita o sin perfil activo → gate
-  if (!profiles.length || !active || !onboarded) {
+  if (!profiles.length) {
     showProfileGate("first");
     return false;
+  }
+  if (!active) {
+    // Hay perfiles pero ninguno activo → elegir, no forzar crear
+    showProfileGate("pick");
+    return false;
+  }
+  if (!onboarded) {
+    localStorage.setItem(MZ_ONBOARDED, "1");
   }
   return true;
 }
@@ -188,6 +209,11 @@ function initProfilesUi() {
       const neu = { id: uid(), nombre, tipo: kids ? "kids" : "adult", color };
       list.push(neu);
       saveProfiles(list);
+      // Confirmar que el perfil quedó guardado antes de activar
+      const ok = getProfiles().some((p) => p.id === neu.id);
+      if (!ok) {
+        saveProfiles(list);
+      }
       setActiveProfile(neu.id);
     };
   }
