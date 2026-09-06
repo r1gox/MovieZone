@@ -7,6 +7,318 @@ import { getCatalog, searchCatalog } from './js/data/catalogo.js';
 
 const LIMIT = 48;
 
+// ======================================================
+// PERFILES · HOME PREMIUM · BADGES · NOTIFY · ORDEN EPS
+// ======================================================
+const MZ_PROFILES_KEY = "mz_profiles_v1";
+const MZ_ACTIVE_PROFILE = "mz_active_profile";
+
+function defaultProfiles() {
+  return [
+    { id: "me", nombre: "Yo", tipo: "adult", color: "#7c3aed" },
+    { id: "kids", nombre: "Kids", tipo: "kids", color: "#22c55e" },
+    { id: "guest", nombre: "Invitado", tipo: "guest", color: "#64748b" },
+  ];
+}
+function getProfiles() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MZ_PROFILES_KEY) || "null");
+    if (Array.isArray(raw) && raw.length) return raw;
+  } catch (_) {}
+  const d = defaultProfiles();
+  localStorage.setItem(MZ_PROFILES_KEY, JSON.stringify(d));
+  return d;
+}
+function getActiveProfile() {
+  const id = localStorage.getItem(MZ_ACTIVE_PROFILE) || "me";
+  return getProfiles().find((p) => p.id === id) || getProfiles()[0];
+}
+function setActiveProfile(id) {
+  localStorage.setItem(MZ_ACTIVE_PROFILE, id);
+  location.reload();
+}
+function pk(key) {
+  return `mz_${getActiveProfile().id}_${key}`;
+}
+
+function initProfilesUi() {
+  const chip = document.getElementById("mz-profile-chip");
+  const nameEl = document.getElementById("mz-profile-name");
+  if (!chip) return;
+  const p = getActiveProfile();
+  if (nameEl) nameEl.textContent = p.nombre || "Yo";
+  chip.style.borderColor = p.color || "#7c3aed";
+  chip.onclick = () => {
+    const lista = getProfiles();
+    const msg = lista.map((x, i) => `${i + 1}) ${x.nombre}`).join("\n");
+    const pick = prompt(`Perfil activo: ${p.nombre}\n\n${msg}\n\nEscribe 1, 2 o 3:`);
+    const n = parseInt(pick, 10);
+    if (n >= 1 && n <= lista.length) setActiveProfile(lista[n - 1].id);
+  };
+}
+
+function badgesHtml(item) {
+  const bits = [];
+  const year = parseInt(item.year, 10) || 0;
+  const yNow = new Date().getFullYear();
+  if (year >= yNow) bits.push(`<span class="mz-badge mz-badge-new">Nuevo</span>`);
+  if (/emisi|airing|en curso|ongoing/i.test(String(item.estado || ""))) {
+    bits.push(`<span class="mz-badge mz-badge-air">En emisión</span>`);
+  }
+  if (item._trendingRank && item._trendingRank <= 10) {
+    bits.push(`<span class="mz-badge mz-badge-top">Top ${item._trendingRank}</span>`);
+  }
+  if (/4k|2160|uhd/i.test(String(item.calidad || item.quality || ""))) {
+    bits.push(`<span class="mz-badge mz-badge-4k">4K</span>`);
+  }
+  if (!bits.length) return "";
+  return `<div class="mz-badges">${bits.join("")}</div>`;
+}
+
+function obtenerMiLista() {
+  try { return JSON.parse(localStorage.getItem(pk("mi_lista")) || "[]"); }
+  catch { return []; }
+}
+function guardarMiLista(lista) {
+  localStorage.setItem(pk("mi_lista"), JSON.stringify(lista || []));
+}
+function toggleMiLista(item) {
+  let lista = obtenerMiLista();
+  const i = lista.findIndex((x) => x.link === item.link);
+  if (i >= 0) lista.splice(i, 1);
+  else lista.unshift(item);
+  guardarMiLista(lista);
+  return i < 0;
+}
+function cargarMiLista() {
+  const row = document.getElementById("row-mi-lista");
+  const cont = document.getElementById("carousel-mi-lista");
+  if (!row || !cont) return;
+  const lista = obtenerMiLista().slice(0, 12);
+  if (!lista.length) { row.classList.add("hidden"); return; }
+  row.classList.remove("hidden");
+  cont.innerHTML = "";
+  lista.forEach((item) => cont.appendChild(crearMediaCard(item)));
+}
+
+function porqueViste(ultimo, catalogo) {
+  if (!ultimo || !Array.isArray(catalogo)) return [];
+  const gens = (ultimo.generos || (ultimo.genero ? String(ultimo.genero).split(",") : []))
+    .map((g) => String(g).toLowerCase().trim()).filter(Boolean);
+  const tipo = ultimo.tipo;
+  return catalogo
+    .filter((x) => x && x.link && x.link !== ultimo.link && (!tipo || x.tipo === tipo))
+    .map((x) => {
+      const g2 = (x.generos || (x.genero ? String(x.genero).split(",") : []))
+        .map((g) => String(g).toLowerCase().trim());
+      const score = gens.filter((g) => g2.includes(g)).length;
+      return { x, score };
+    })
+    .filter((t) => t.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map((t) => t.x);
+}
+
+function cargarPorqueViste() {
+  const row = document.getElementById("row-porque");
+  const cont = document.getElementById("carousel-porque");
+  const titulo = document.getElementById("titulo-porque");
+  if (!row || !cont) return;
+  const prog = typeof obtenerProgreso === "function" ? obtenerProgreso() : {};
+  const ultimo = Object.values(prog || {})
+    .filter((x) => x && x.link)
+    .sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+  if (!ultimo) { row.classList.add("hidden"); return; }
+  const pool = []
+    .concat(window.__mzLastPelis || [])
+    .concat(window.__mzLastSeries || [])
+    .concat(window.__mzLastAnime || []);
+  const lista = porqueViste(ultimo, pool);
+  if (!lista.length) { row.classList.add("hidden"); return; }
+  if (titulo) titulo.textContent = `Porque viste ${ultimo.nombre || ultimo.titulo || "esto"}`;
+  row.classList.remove("hidden");
+  cont.innerHTML = "";
+  lista.forEach((item) => cont.appendChild(crearMediaCard(item)));
+}
+
+function filtrarMood(items, moodId) {
+  const list = (items || []).filter(Boolean);
+  if (moodId === "maraton") {
+    return list.filter((i) => /comedia|acción|accion|aventura|anime/i.test(
+      `${i.genero || ""} ${(i.generos || []).join(" ")} ${i.tipo || ""}`
+    )).slice(0, 12);
+  }
+  if (moodId === "terror") {
+    return list.filter((i) => /terror|horror|suspenso|thriller/i.test(
+      `${i.genero || ""} ${(i.generos || []).join(" ")}`
+    )).slice(0, 12);
+  }
+  return list.slice(0, 12);
+}
+
+function cargarMoodsHome(peliculas, series, anime) {
+  window.__mzLastPelis = peliculas || [];
+  window.__mzLastSeries = series || [];
+  window.__mzLastAnime = anime || [];
+  const pool = [].concat(peliculas || [], series || [], anime || []);
+  const map = [
+    ["row-mood-maraton", "carousel-mood-maraton", "maraton"],
+    ["row-mood-terror", "carousel-mood-terror", "terror"],
+  ];
+  map.forEach(([rowId, carId, mood]) => {
+    const row = document.getElementById(rowId);
+    const cont = document.getElementById(carId);
+    if (!row || !cont) return;
+    const lista = filtrarMood(pool, mood);
+    if (!lista.length) { row.classList.add("hidden"); return; }
+    row.classList.remove("hidden");
+    cont.innerHTML = "";
+    lista.forEach((item) => cont.appendChild(crearMediaCard(item)));
+  });
+}
+
+// --- Orden Airing / Absolute ---
+let _epOrderMode = "airing";
+function getEpOrderMode() {
+  try { return localStorage.getItem(pk("ep_order")) || "airing"; }
+  catch { return "airing"; }
+}
+function setEpOrderMode(mode) {
+  _epOrderMode = mode === "absolute" ? "absolute" : "airing";
+  localStorage.setItem(pk("ep_order"), _epOrderMode);
+  document.querySelectorAll(".mz-ep-order-btn").forEach((b) => {
+    b.classList.toggle("active", b.getAttribute("data-order") === _epOrderMode);
+  });
+}
+function ordenarEpisodiosParaUI(item, lista) {
+  const eps = (lista || []).slice();
+  const mode = getEpOrderMode();
+  const forceAbs = (parseInt(item?.total_episodios || item?.totalEpisodios || 0, 10) || 0) > 50;
+  if (mode === "absolute" || forceAbs) {
+    return eps.sort((a, b) =>
+      Number(a.episode || a.episodio || a.episode_number || 0) -
+      Number(b.episode || b.episodio || b.episode_number || 0)
+    );
+  }
+  return eps.sort((a, b) => {
+    const sa = Number(a.season || a.temporada || 1);
+    const sb = Number(b.season || b.temporada || 1);
+    if (sa !== sb) return sa - sb;
+    return Number(a.episode || a.episodio || a.episode_number || 0) -
+           Number(b.episode || b.episodio || b.episode_number || 0);
+  });
+}
+function initEpOrderUi(item) {
+  const wrap = document.getElementById("mz-ep-order");
+  if (!wrap) return;
+  _epOrderMode = getEpOrderMode();
+  wrap.querySelectorAll(".mz-ep-order-btn").forEach((b) => {
+    b.classList.toggle("active", b.getAttribute("data-order") === _epOrderMode);
+    b.onclick = () => {
+      setEpOrderMode(b.getAttribute("data-order"));
+      const season = item?._seasonActiva || 1;
+      if (item) renderEpisodios(item, season);
+    };
+  });
+}
+
+// --- Notificar nuevo capítulo ---
+function obtenerNotifyMap() {
+  try { return JSON.parse(localStorage.getItem(pk("notify_series")) || "{}"); }
+  catch { return {}; }
+}
+function guardarNotifyMap(map) {
+  localStorage.setItem(pk("notify_series"), JSON.stringify(map || {}));
+}
+function notifyKey(item) {
+  return String(item.slug || item.link || item.nombre || "").slice(0, 180);
+}
+function esNotifyActivo(item) {
+  const k = notifyKey(item);
+  return !!(obtenerNotifyMap()[k]);
+}
+function toggleNotifySerie(item) {
+  const map = obtenerNotifyMap();
+  const k = notifyKey(item);
+  if (map[k]) delete map[k];
+  else {
+    map[k] = {
+      titulo: item.nombre || item.titulo || k,
+      lastEp: 0,
+      updated: Date.now(),
+    };
+  }
+  guardarNotifyMap(map);
+  actualizarBotonNotify(item);
+  return !!map[k];
+}
+function actualizarBotonNotify(item) {
+  const btn = document.getElementById("btn-notify-ep");
+  const icon = document.getElementById("btn-notify-ep-icon");
+  if (!btn) return;
+  const on = item && esNotifyActivo(item);
+  btn.classList.toggle("active", !!on);
+  if (icon) icon.setAttribute("name", on ? "notifications" : "notifications-outline");
+}
+function maxEpDeItem(item) {
+  const eps = item?.episodios || [];
+  let m = 0;
+  eps.forEach((e) => {
+    const n = Number(e.episode || e.episodio || e.episode_number || 0);
+    if (n > m) m = n;
+  });
+  return m;
+}
+function checkNuevoCapitulo(item) {
+  if (!item || !esNotifyActivo(item)) return;
+  const map = obtenerNotifyMap();
+  const k = notifyKey(item);
+  const entry = map[k];
+  if (!entry) return;
+  const maxEp = maxEpDeItem(item);
+  if (maxEp > (entry.lastEp || 0)) {
+    const prev = entry.lastEp || 0;
+    entry.lastEp = maxEp;
+    entry.updated = Date.now();
+    map[k] = entry;
+    guardarNotifyMap(map);
+    if (prev > 0) {
+      const msg = `Nuevo capítulo: ${entry.titulo} · E${maxEp}`;
+      try {
+        if (Notification.permission === "granted") new Notification("MovieZone", { body: msg });
+        else alert(msg);
+      } catch (_) {
+        alert(msg);
+      }
+    } else {
+      entry.lastEp = maxEp;
+      guardarNotifyMap(map);
+    }
+  }
+}
+function initNotifyBtn() {
+  const btn = document.getElementById("btn-notify-ep");
+  if (!btn || btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+  btn.addEventListener("click", async () => {
+    if (!seleccionActual) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      try { await Notification.requestPermission(); } catch (_) {}
+    }
+    const on = toggleNotifySerie(seleccionActual);
+    if (on) {
+      const map = obtenerNotifyMap();
+      const k = notifyKey(seleccionActual);
+      if (map[k]) {
+        map[k].lastEp = maxEpDeItem(seleccionActual);
+        guardarNotifyMap(map);
+      }
+    }
+  });
+}
+
+
 // Estado de paginación
 let gridTotalItems = 0;
 let gridTotalPages = 1;
@@ -294,11 +606,11 @@ let heroTimer = null;
 // FAVORITOS (localStorage)
 // ======================================================
 function obtenerFavoritos() {
-    try { return JSON.parse(localStorage.getItem("moviezone_favoritos") || "[]"); }
+    try { return JSON.parse(localStorage.getItem(pk("favoritos")) || "[]"); }
     catch { return []; }
 }
 function guardarFavoritos(lista) {
-    localStorage.setItem("moviezone_favoritos", JSON.stringify(lista));
+    localStorage.setItem(pk("favoritos"), JSON.stringify(lista || []));
 }
 function esFavorito(link) {
     return obtenerFavoritos().some(f => f.link === link);
@@ -705,7 +1017,9 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
     return true;
   }
 
-  alert("No se encontró un servidor funcional para este episodio.");
+  // Fallback silencioso (sin alert)
+  const t = document.getElementById("player-title");
+  if (t) t.textContent = "Sin mirror estable — prueba otro cap o más tarde";
   return false;
 }
 
@@ -1654,6 +1968,7 @@ function crearMediaCard(item) {
 
     card.innerHTML = `
         <div class="poster-wrapper">
+            ${badgesHtml(item)}
             <img class="poster-img" src="${escapeHtml(portada)}" alt="${escapeHtml(nombre)}" loading="lazy">
             <div class="poster-overlay"><ion-icon name="play-circle" class="overlay-icon"></ion-icon></div>
             ${ratingBadgeHtml(item)}
@@ -1815,6 +2130,14 @@ async function cargarHome() {
         renderCarousel("carousel-anime", anime);
         cargarContinuarViendo();
         cargarRecienAnadidos();
+        cargarMiLista();
+        cargarPorqueViste();
+        // peliculas, series, anime = variables que ya armas en cargarHome
+        cargarMoodsHome(
+          typeof peliculas !== "undefined" ? peliculas : [],
+          typeof series !== "undefined" ? series : [],
+          typeof anime !== "undefined" ? anime : []
+        );
 
         // Hero ("Película recomendada") también con estrenos
         iniciarHero(peliculas.length ? peliculas : series);
@@ -2627,6 +2950,9 @@ function episodioNumero(ep, index) {
 function renderEpisodios(item, season = 1) {
     const episodesContainer = document.getElementById("episodes-container");
     episodesContainer.innerHTML = "";
+    item._seasonActiva = season;
+    initEpOrderUi(item);
+    actualizarBotonNotify(item);
 
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
         || (Array.isArray(item.episodios) ? item.episodios.length : 0);
@@ -2919,6 +3245,7 @@ async function reproducir(embed, item) {
             videoContainer.scrollIntoView(true);
         }
     });
+    checkNuevoCapitulo(item);
 }
 
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, opts) {
@@ -3641,6 +3968,8 @@ function actualizarPaginacion() {
 // ======================================================
 
 initWakeupNotice();
+initProfilesUi();
+initNotifyBtn();
 cargarHome();
 initTvUi();
 initAutoplayEpUi();
@@ -3738,7 +4067,7 @@ function claveProgreso(item) {
 }
 
 function obtenerProgreso() {
-    try { return JSON.parse(localStorage.getItem("moviezone_progress") || "{}"); }
+    try { return JSON.parse(localStorage.getItem(pk("progreso")) || "{}"); }
     catch { return {}; }
 }
 
@@ -3857,5 +4186,6 @@ async function cargarRecienAnadidos() {
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWor
+    ker.register("/sw.js").catch(() => {});
 }

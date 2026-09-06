@@ -76,7 +76,9 @@
           </div>
         </form>
       </div>
-
+      <div class="mz-profile-chip" id="mz-profile-chip" title="Cambiar perfil">
+        <span id="mz-profile-name">Yo</span>
+      </div>
       <div class="api-status-badge online" id="status-badge">
         <span class="status-dot"></span>
         <span class="status-text">Online</span>
@@ -150,6 +152,25 @@
       <div class="carousel-row hidden" id="row-continuar">
         <h2>Continuar viendo</h2>
         <div class="carousel-container" id="carousel-continuar"></div>
+      </div>
+      <div class="carousel-row hidden" id="row-mi-lista">
+        <h2>Mi lista</h2>
+        <div class="carousel-container" id="carousel-mi-lista"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-porque">
+        <h2 id="titulo-porque">Porque viste</h2>
+        <div class="carousel-container" id="carousel-porque"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-mood-maraton">
+        <h2>Para maratón</h2>
+        <div class="carousel-container" id="carousel-mood-maraton"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-mood-terror">
+        <h2>Noche de terror</h2>
+        <div class="carousel-container" id="carousel-mood-terror"></div>
       </div>
 
       <div class="carousel-row">
@@ -323,6 +344,9 @@
                   <button class="btn-icon" id="btn-favorito" title="Agregar a favoritos">
                     <ion-icon name="heart-outline" id="btn-favorito-icon"></ion-icon>
                   </button>
+                  <button class="btn-icon" id="btn-notify-ep" title="Notificar nuevos capítulos">
+                    <ion-icon name="notifications-outline" id="btn-notify-ep-icon"></ion-icon>
+                  </button>
                 </div>
               </div>
       <!-- aquí sigue el título, año, rating, etc. -->
@@ -371,6 +395,10 @@
 
           <div class="details-section hidden" id="seasons-section">
             <h4>Temporadas y Capítulos</h4>
+            <div class="mz-ep-order" id="mz-ep-order">
+              <button type="button" class="mz-ep-order-btn active" data-order="airing">Airing</button>
+              <button type="button" class="mz-ep-order-btn" data-order="absolute">Absolute</button>
+            </div>
             <div class="seasons-tabs" id="seasons-tabs-container"></div>
             <div class="episodes-grid" id="episodes-container"></div>
           </div>
