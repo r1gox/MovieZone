@@ -3047,19 +3047,7 @@ body.player-open .btn-close-modal {
 }
 
 
-/* Autoplay / Siguiente episodio */
-.btn-next-ep,
-.btn-autoplay-ep {
-  border: 1px solid rgba(255,255,255,.2);
-  background: rgba(124,58,237,.35);
-  color: #fff;
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-left: 6px;
-}
+
 .btn-autoplay-ep.off {
   background: rgba(255,255,255,.08);
   opacity: .75;
@@ -3067,4 +3055,140 @@ body.player-open .btn-close-modal {
 .btn-next-ep.hidden,
 .btn-autoplay-ep.hidden {
   display: none !important;
+}
+
+
+
+/* ===== Controles episodio (Auto + Siguiente) ===== */
+.mz-ep-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  z-index: 100050; /* por encima del video y del fullscreen */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none; /* solo los botones reciben clic */
+}
+
+.mz-ep-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(12, 10, 20, 0.72);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.mz-ep-btn:hover {
+  transform: translateY(-1px) scale(1.03);
+  background: rgba(124, 58, 237, 0.85);
+  border-color: rgba(167, 139, 250, 0.55);
+}
+
+.mz-ep-btn:active {
+  transform: scale(0.98);
+}
+
+.mz-ep-btn ion-icon {
+  font-size: 16px;
+}
+
+/* Auto: pastilla discreta arriba del "Siguiente" */
+.mz-ep-auto {
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.95;
+  background: rgba(20, 16, 32, 0.75);
+}
+
+.mz-ep-auto .mz-ep-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+}
+
+.mz-ep-auto.off {
+  opacity: 0.7;
+  background: rgba(30, 30, 36, 0.7);
+}
+
+.mz-ep-auto.off .mz-ep-dot {
+  background: #64748b;
+  box-shadow: none;
+}
+
+/* Siguiente: más grande, lugar estratégico (esquina inferior derecha) */
+.mz-ep-next {
+  padding: 12px 18px;
+  font-size: 14px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(91, 33, 182, 0.95));
+  border-color: rgba(196, 181, 253, 0.35);
+}
+
+.mz-ep-next.hidden {
+  display: none !important;
+}
+
+/* En fullscreen: mismos controles, un poco más separados del borde */
+.video-player-container.is-fullscreen .mz-ep-controls {
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 100060;
+}
+
+.video-player-container.is-fullscreen .player-header {
+  z-index: 100055;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent);
+  pointer-events: none;
+}
+
+.video-player-container.is-fullscreen .player-header button {
+  pointer-events: auto;
+}
+
+/* Header siempre por encima del video */
+.video-player-container .player-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100040;
+  pointer-events: none;
+}
+
+.video-player-container .player-header button {
+  pointer-events: auto;
+}
+
+/* Móvil */
+@media (max-width: 768px) {
+  .mz-ep-controls {
+    right: 10px;
+    bottom: 14px;
+    gap: 8px;
+  }
+  .mz-ep-next {
+    padding: 11px 15px;
+    font-size: 13px;
+  }
+  .mz-ep-auto {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
 }
