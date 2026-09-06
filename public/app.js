@@ -558,7 +558,9 @@ function actualizarBotonesEpPlayer() {
   const btnNext = document.getElementById("btn-next-ep");
   const btnAuto = document.getElementById("btn-autoplay-ep");
   if (btnAuto) {
-    btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+    const t = document.getElementById("btn-autoplay-ep-text");
+    if (t) t.textContent = _autoplayEp ? "Auto" : "Auto off";
+    else btnAuto.textContent = _autoplayEp ? "Auto" : "Auto off";
     btnAuto.classList.toggle("off", !_autoplayEp);
   }
   if (!btnNext) return;
@@ -723,12 +725,15 @@ function initAutoplayEpUi() {
     btnNext.addEventListener("click", () => irSiguienteEpisodio(false));
   }
   if (btnAuto) {
-    btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+    const t = document.getElementById("btn-autoplay-ep-text");
+    if (t) t.textContent = _autoplayEp ? "Auto" : "Auto off";
+    else btnAuto.textContent = _autoplayEp ? "Auto" : "Auto off";
     btnAuto.classList.toggle("off", !_autoplayEp);
     btnAuto.addEventListener("click", () => {
       _autoplayEp = !_autoplayEp;
       localStorage.setItem("mz_autoplay_ep", _autoplayEp ? "1" : "0");
-      btnAuto.textContent = _autoplayEp ? "Auto ON" : "Auto OFF";
+      if (t) t.textContent = _autoplayEp ? "Auto" : "Auto off";
+      else btnAuto.textContent = _autoplayEp ? "Auto" : "Auto off";
       btnAuto.classList.toggle("off", !_autoplayEp);
     });
   }
