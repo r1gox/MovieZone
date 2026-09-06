@@ -2152,8 +2152,12 @@ function renderCarousel(contenedorId, lista) {
 // ======================================================
 function pintarHero(item) {
     if (!item) return;
-    heroType.textContent = tipoLabel(item.tipo).toUpperCase() + (item.tipo !== "Serie" && item.tipo !== "Anime" ? " RECOMENDADA" : "");
+
+    // Solo tipo, sin "RECOMENDADA"
+    heroType.textContent = tipoLabel(item.tipo).toUpperCase();
+
     heroTitle.textContent = item.nombre || item.titulo || "Sin título";
+
     const heroR = ratingInfo(item);
     heroRating.textContent = heroR.label;
     heroRating.title = heroR.secondary ? heroR.label + " · " + heroR.secondary : heroR.label;
@@ -2161,10 +2165,40 @@ function pintarHero(item) {
         heroRating.parentElement.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente");
         if (heroR.source) heroRating.parentElement.classList.add("rating-src-" + heroR.source);
     }
+
     heroYear.textContent = item.year || "-";
+
+    // Estado en series / anime
+    const statusEl = document.getElementById("hero-status");
+    if (statusEl) {
+        const t = String(item.tipo || "").toLowerCase();
+        const esSerie = /serie|anime/.test(t);
+        let label = "";
+        if (esSerie) {
+            if (item.en_emision === true || /emisi|airing|ongoing|en curso/i.test(String(item.estado || ""))) {
+                label = "En emisión";
+            } else if (item.finalizado === true || /final|conclu|ended|finished/i.test(String(item.estado || ""))) {
+                label = "Finalizado";
+            } else if (item.estado) {
+                label = String(item.estado);
+            }
+        }
+        if (label) {
+            statusEl.textContent = label;
+            statusEl.classList.remove("hidden", "is-air", "is-end");
+            if (/emisi/i.test(label)) statusEl.classList.add("is-air");
+            else if (/final/i.test(label)) statusEl.classList.add("is-end");
+            statusEl.classList.remove("hidden");
+        } else {
+            statusEl.textContent = "";
+            statusEl.classList.add("hidden");
+        }
+    }
+
     heroSynopsis.textContent = item.descripcion || "";
     if (item.backdrop || item.portada) {
-        document.getElementById("hero-banner").style.backgroundImage = `url('${item.backdrop || item.portada}')`;
+        document.getElementById("hero-banner").style.backgroundImage =
+            `url('${item.backdrop || item.portada}')`;
     }
 }
 
