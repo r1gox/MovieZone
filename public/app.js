@@ -2744,6 +2744,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
         document.getElementById("seasons-section").classList.remove("hidden");
         renderTemporadas(item);
+        // Proveedores alternos (Doramasflix primero)
+        cargarProveedoresAlternos(item).then(() => renderProveedorSwitcher(item)).catch(() => {});
     } else {
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
         if (autoPlay) {
@@ -2877,6 +2879,212 @@ document.getElementById("btn-refresh-servers")?.addEventListener("click", async 
     }
 });
 
+
+// ---------- Proveedores (Doramasflix / PelisPlus) ----------
+function nombreProveedor(sid, fuente) {
+    const s = String(sid || fuente || "").toLowerCase();
+    if (s === "6" || s.includes("dorama")) return "Doramasflix";
+    if (s === "3" || s.includes("pelis")) return "PelisPlus";
+    if (s === "4" || s.includes("anime")) return "AnimeAV1";
+    if (s === "1" || s.includes("lamovie")) return "LaMovie";
+    if (s === "2" || s.includes("hack")) return "Hackstore";
+    return fuente || ("Fuente " + (sid || "?"));
+}
+
+function ordenPrioridadProveedor(sid, tipo) {
+    const s = String(sid || "");
+    const t = String(tipo || "");
+    if (/serie/i.test(t)) {
+        if (s === "6") return 0; // Doramasflix primero
+        if (s === "3") return 1;
+        return 5;
+    }
+    if (/anime/i.test(t)) {
+        if (s === "4") return 0;
+        return 5;
+    }
+    if (s === "3") return 0;
+    return 5;
+}
+
+/** Busca la misma serie/anime en otras fuentes y las guarda en item._proveedores */
+async function cargarProveedoresAlternos(item) {
+    if (!item || (item.tipo !== "Serie" && item.tipo !== "Anime")) return [];
+    if (Array.isArray(item._proveedores) && item._proveedores.length) return item._proveedores;
+
+    const q = (item.nombre || item.titulo || "").replace(/\s*\(\d{4}\)\s*$/, "").trim();
+    if (!q || q.length < 2) return [];
+
+    const actualSid = String(item.source_id || resolverSidLocal(item) || "");
+    const lista = [];
+
+    // Actual siempre primero (reordenamos después)
+    lista.push({
+        source_id: actualSid || "6",
+        slug: item.slug,
+        link: item.link || item.url_extract,
+        nombre: nombreProveedor(actualSid, item.fuente),
+        activo: true,
+    });
+
+    try {
+        const res = await fetch("/api/buscar?q=" + encodeURIComponent(q), { cache: "no-store" });
+        const data = await res.json();
+        const results = data.resultados || data.results || [];
+        for (const r of results) {
+            if (!r) continue;
+            const tipo = String(r.tipo || r.type || "");
+            if (item.tipo === "Serie" && !/serie/i.test(tipo)) continue;
+            if (item.tipo === "Anime" && !/anime/i.test(tipo)) continue;
+            const sid = String(r.source_id || r.fuente || "");
+            const slug = r.slug || "";
+            if (!slug) continue;
+            // Evitar duplicar mismo source+slug
+            if (lista.some((p) => p.source_id === sid && p.slug === slug)) continue;
+            lista.push({
+                source_id: sid,
+                slug,
+                link: r.link || r.url_extract || r.url,
+                nombre: nombreProveedor(sid, r.fuente || r.source),
+                activo: false,
+            });
+        }
+    } catch (e) {
+        console.warn("proveedores alternos:", e);
+    }
+
+    // Series: Doramasflix (6) primero, luego PelisPlus (3)
+    lista.sort((a, b) => {
+        const pa = ordenPrioridadProveedor(a.source_id, item.tipo);
+        const pb = ordenPrioridadProveedor(b.source_id, item.tipo);
+        if (pa !== pb) return pa - pb;
+        return String(a.nombre).localeCompare(String(b.nombre));
+    });
+
+    // Marcar activo según item actual
+    lista.forEach((p) => {
+        p.activo =
+            String(p.source_id) === actualSid &&
+            (!item.slug || p.slug === item.slug);
+        if (!p.activo && item.slug && p.slug === item.slug && String(p.source_id) === actualSid) {
+            p.activo = true;
+        }
+    });
+    if (!lista.some((p) => p.activo) && lista.length) {
+        // Match solo por source_id
+        const bySid = lista.find((p) => String(p.source_id) === actualSid);
+        if (bySid) bySid.activo = true;
+        else lista[0].activo = true;
+    }
+
+    item._proveedores = lista;
+    return lista;
+}
+
+function resolverSidLocal(item) {
+    const l = String(item.link || item.url_extract || "");
+    const m = l.match(/\/([1-6])\/(?:serie|anime|pelicula)\//i);
+    if (m) return m[1];
+    return item.source_id || "";
+}
+
+function renderProveedorSwitcher(item) {
+    const box = document.getElementById("mz-provider-switch");
+    if (!box) return;
+    const list = item._proveedores || [];
+    if (list.length < 2) {
+        box.classList.add("hidden");
+        box.innerHTML = "";
+        return;
+    }
+    box.classList.remove("hidden");
+    box.innerHTML =
+        `<span class="mz-prov-label">Proveedor</span>` +
+        list
+            .map((p) => {
+                const act = p.activo ? " active" : "";
+                return `<button type="button" class="mz-prov-btn${act}" data-sid="${escapeHtml(String(p.source_id))}" data-slug="${escapeHtml(String(p.slug || ""))}">${escapeHtml(p.nombre)}</button>`;
+            })
+            .join("");
+
+    box.querySelectorAll(".mz-prov-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const sid = btn.getAttribute("data-sid");
+            const slug = btn.getAttribute("data-slug");
+            if (!sid || !slug) return;
+            if (String(item.source_id) === sid && item.slug === slug) return;
+            await cambiarProveedor(item, { source_id: sid, slug });
+        });
+    });
+}
+
+async function cambiarProveedor(item, alt) {
+    const box = document.getElementById("mz-provider-switch");
+    const episodesContainer = document.getElementById("episodes-container");
+    if (box) {
+        box.querySelectorAll(".mz-prov-btn").forEach((b) => {
+            b.disabled = true;
+            b.style.opacity = "0.6";
+        });
+    }
+    if (episodesContainer) {
+        episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cambiando a ${nombreProveedor(alt.source_id)}…</p></div>`;
+    }
+    try {
+        const params = new URLSearchParams();
+        params.set("slug", alt.slug);
+        params.set("source_id", String(alt.source_id));
+        params.set("tipo", item.tipo || "Serie");
+        if (alt.link) params.set("link", alt.link);
+        const res = await fetch("/api/detalle?" + params.toString(), { cache: "no-store" });
+        const data = await res.json();
+        if (!data || data.error) throw new Error(data?.error || "No se pudo cargar");
+
+        // Conservar nombre principal en español si el otro trae peor título
+        const keepNombre = item.nombre;
+        const keepOrig = item.titulo_original;
+        Object.assign(item, data);
+        if (keepNombre && (!item.nombre || item.nombre.length < 2)) item.nombre = keepNombre;
+        if (keepOrig && !item.titulo_original) item.titulo_original = keepOrig;
+        item.source_id = String(alt.source_id);
+        item.slug = alt.slug;
+        if (data.link) item.link = data.link;
+
+        // Re-marcar proveedores
+        if (Array.isArray(item._proveedores)) {
+            item._proveedores.forEach((p) => {
+                p.activo = String(p.source_id) === String(alt.source_id) && p.slug === alt.slug;
+            });
+            // Reordenar: doramasflix primero
+            item._proveedores.sort(
+                (a, b) => ordenPrioridadProveedor(a.source_id, item.tipo) - ordenPrioridadProveedor(b.source_id, item.tipo)
+            );
+        }
+
+        seleccionActual = item;
+        document.getElementById("details-title").textContent = item.nombre || item.titulo || "";
+        if (item.portada) document.getElementById("details-poster").src = item.portada;
+
+        document.getElementById("seasons-section")?.classList.remove("hidden");
+        renderProveedorSwitcher(item);
+        renderTemporadas(item);
+    } catch (e) {
+        console.error(e);
+        if (episodesContainer) {
+            episodesContainer.innerHTML = `<p style="color:var(--text-muted)">No se pudo cambiar de proveedor.</p>`;
+        }
+        alert("No se pudo cargar ese proveedor. Prueba Actualizar o el otro título en búsqueda.");
+    } finally {
+        if (box) {
+            box.querySelectorAll(".mz-prov-btn").forEach((b) => {
+                b.disabled = false;
+                b.style.opacity = "";
+            });
+        }
+    }
+}
+
+
 // ---------- Temporadas y episodios ----------
 function buildEpisodiosQuery(item, season) {
     const params = new URLSearchParams();
@@ -2917,7 +3125,10 @@ function normalizarListaTemporadas(item) {
             num = parseInt(s, 10) || (i + 1);
         } else if (s && typeof s === "object") {
             num = parseInt(s.temporada || s.season_number || s.season || (i + 1), 10) || (i + 1);
-            episodios = Array.isArray(s.episodios) ? s.episodios : null;
+            if (Array.isArray(s.lista) && s.lista.length) episodios = s.lista;
+            else if (Array.isArray(s.episodios)) episodios = s.episodios;
+            else if (Array.isArray(s.episodes)) episodios = s.episodes;
+            else episodios = null;
         } else {
             num = i + 1;
         }
@@ -2925,6 +3136,15 @@ function normalizarListaTemporadas(item) {
         seen.add(num);
         out.push({ num, episodios, fromTmdb: false });
     });
+    if (Array.isArray(item.episodios) && item.episodios.length) {
+        item.episodios.forEach((ep) => {
+            const n = parseInt(ep.season || ep.temporada || 1, 10) || 1;
+            if (n < 1 || seen.has(n)) return;
+            seen.add(n);
+            out.push({ num: n, episodios: null, fromTmdb: false });
+        });
+        out.sort((a, b) => a.num - b.num);
+    }
 
     // 2) TMDB solo para completar 1–2 temporadas reales (Wistoria T2), nunca 20 arcs
     const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
@@ -3244,7 +3464,11 @@ function renderEpisodios(item, season = 1) {
     }
 
     let lista = ordenarEpisodiosParaUI(item, Array.isArray(item.episodios) ? item.episodios : []);
-  
+    const seasonNum = Number(season) || 1;
+    if (lista.length) {
+        const filtrados = lista.filter((ep) => Number(ep.season || ep.temporada || 1) === seasonNum);
+        if (filtrados.length) lista = filtrados;
+    }
     // Filtrar por rango activo si aplica
     if (rango && lista.length) {
         lista = lista.filter((ep, idx) => {
