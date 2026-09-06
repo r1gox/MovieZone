@@ -2746,6 +2746,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         renderTemporadas(item);
         // Proveedores alternos (Doramasflix primero)
         cargarProveedoresAlternos(item).then(() => renderProveedorSwitcher(item)).catch(() => {});
+        // Anime largo: si el total parece cortado, refrescar meta (eps nuevos)
+        if (item.tipo === "Anime" && item.slug) {
+            refrescarTotalAnimeSiHaceFalta(item).catch(() => {});
+        }
     } else {
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
         if (autoPlay) {
@@ -2916,15 +2920,17 @@ async function cargarProveedoresAlternos(item) {
     if (!q || q.length < 2) return [];
 
     const actualSid = String(item.source_id || resolverSidLocal(item) || "");
-    const lista = [];
+    const tituloBase = normalizarTituloProveedor(q);
 
-    // Actual siempre primero (reordenamos después)
-    lista.push({
+    // Un solo slot por source_id (evita 15× AnimeAV1)
+    const bySid = new Map();
+    bySid.set(actualSid || "?", {
         source_id: actualSid || "6",
         slug: item.slug,
         link: item.link || item.url_extract,
         nombre: nombreProveedor(actualSid, item.fuente),
         activo: true,
+        score: 100,
     });
 
     try {
@@ -2936,49 +2942,86 @@ async function cargarProveedoresAlternos(item) {
             const tipo = String(r.tipo || r.type || "");
             if (item.tipo === "Serie" && !/serie/i.test(tipo)) continue;
             if (item.tipo === "Anime" && !/anime/i.test(tipo)) continue;
-            const sid = String(r.source_id || r.fuente || "");
+
+            const sid = String(r.source_id || resolverSidFromResult(r) || "");
             const slug = r.slug || "";
-            if (!slug) continue;
-            // Evitar duplicar mismo source+slug
-            if (lista.some((p) => p.source_id === sid && p.slug === slug)) continue;
-            lista.push({
+            if (!sid || !slug) continue;
+
+            const tituloR = normalizarTituloProveedor(r.nombre || r.titulo || r.title || slug);
+            const score = scoreTituloProveedor(tituloBase, tituloR);
+            // Debe parecer el mismo título (no "One Piece Film", "One Piece OVA", etc. sueltos)
+            if (score < 55) continue;
+
+            const prev = bySid.get(sid);
+            const cand = {
                 source_id: sid,
                 slug,
                 link: r.link || r.url_extract || r.url,
                 nombre: nombreProveedor(sid, r.fuente || r.source),
                 activo: false,
-            });
+                score,
+            };
+            // Mismo source: quedarse con el mejor match de título
+            if (!prev || score > (prev.score || 0)) {
+                bySid.set(sid, cand);
+            }
         }
     } catch (e) {
         console.warn("proveedores alternos:", e);
     }
 
-    // Series: Doramasflix (6) primero, luego PelisPlus (3)
+    let lista = Array.from(bySid.values());
+
+    // Series: solo tiene sentido 6 vs 3 (y similares). Anime: 4 vs otras.
+    // Si tras dedupe solo hay 1 source, no mostrar switcher.
     lista.sort((a, b) => {
         const pa = ordenPrioridadProveedor(a.source_id, item.tipo);
         const pb = ordenPrioridadProveedor(b.source_id, item.tipo);
         if (pa !== pb) return pa - pb;
-        return String(a.nombre).localeCompare(String(b.nombre));
+        return (b.score || 0) - (a.score || 0);
     });
 
-    // Marcar activo según item actual
     lista.forEach((p) => {
-        p.activo =
-            String(p.source_id) === actualSid &&
-            (!item.slug || p.slug === item.slug);
-        if (!p.activo && item.slug && p.slug === item.slug && String(p.source_id) === actualSid) {
-            p.activo = true;
-        }
+        p.activo = String(p.source_id) === actualSid && (!item.slug || p.slug === item.slug);
     });
     if (!lista.some((p) => p.activo) && lista.length) {
-        // Match solo por source_id
-        const bySid = lista.find((p) => String(p.source_id) === actualSid);
-        if (bySid) bySid.activo = true;
+        const byS = lista.find((p) => String(p.source_id) === actualSid);
+        if (byS) byS.activo = true;
         else lista[0].activo = true;
     }
 
     item._proveedores = lista;
     return lista;
+}
+
+function normalizarTituloProveedor(t) {
+    return String(t || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\b(the|el|la|los|las|serie|season|temporada|anime|ova|movie|pelicula)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function scoreTituloProveedor(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 100;
+    if (a.includes(b) || b.includes(a)) return 85;
+    const ta = a.split(" ").filter(Boolean);
+    const tb = new Set(b.split(" ").filter(Boolean));
+    if (!ta.length) return 0;
+    let hit = 0;
+    for (const w of ta) if (tb.has(w)) hit++;
+    return Math.round((hit / ta.length) * 100);
+}
+
+function resolverSidFromResult(r) {
+    const u = String(r.url || r.link || r.url_extract || "");
+    const m = u.match(/\/([1-6])\/(?:serie|anime|pelicula)\//i);
+    if (m) return m[1];
+    return r.source_id || "";
 }
 
 function resolverSidLocal(item) {
@@ -3202,20 +3245,74 @@ function construirRangosEpisodios(total, step = 50) {
 }
 
 /** Normaliza rangos del API a bloques de 50. Siempre cubre hasta total_episodios. */
+
+async function refrescarTotalAnimeSiHaceFalta(item) {
+    if (!item || item.tipo !== "Anime" || item._totalRefrescado) return;
+    const total = totalEpisodiosReal(item);
+    // Si no hay total o es típico "atascado" bajo, pedir force una vez
+    if (total > 0 && total !== 403 && total !== 326 && total !== 1000) {
+        // Igual refrescar si lleva tiempo sin sync (opcional: siempre en anime > 50)
+        if (total < 50) return;
+    }
+    item._totalRefrescado = true;
+    try {
+        const params = new URLSearchParams();
+        if (item.slug) params.set("slug", item.slug);
+        params.set("source_id", String(item.source_id || "4"));
+        params.set("tipo", "Anime");
+        params.set("force", "1");
+        if (item.link) params.set("link", item.link);
+        const res = await fetch("/api/detalle?" + params.toString(), { cache: "no-store" });
+        const data = await res.json();
+        if (!data || data.error) return;
+        const tNew = totalEpisodiosReal(data);
+        const tOld = totalEpisodiosReal(item);
+        if (tNew > tOld) {
+            item.total_episodios = tNew;
+            item.totalEpisodios = tNew;
+            if (data.rangos_episodios) item.rangos_episodios = data.rangos_episodios;
+            if (data.episodio_hasta) item.episodio_hasta = data.episodio_hasta;
+            if (data.episodios && data.episodios.length > (item.episodios || []).length) {
+                item.episodios = data.episodios;
+            }
+            // Re-pintar pestañas de rangos
+            if (document.getElementById("seasons-section") && !document.getElementById("seasons-section").classList.contains("hidden")) {
+                renderTemporadas(item);
+            }
+        }
+    } catch (_) {}
+}
+
+function totalEpisodiosReal(item) {
+    let total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
+    const hasta = parseInt(item.episodio_hasta || item.episode_hasta || 0, 10) || 0;
+    if (hasta > total) total = hasta;
+    const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
+    for (let i = 0; i < api.length; i++) {
+        const h = Number(api[i].hasta) || 0;
+        if (h > total) total = h;
+    }
+    if (Array.isArray(item.episodios)) {
+        for (const ep of item.episodios) {
+            const n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
+            if (n > total) total = n;
+        }
+    }
+    return total;
+}
+
 function normalizarRangosEpisodios(item) {
-    const total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
-        || (Array.isArray(item.episodios) ? item.episodios.length : 0);
+    const total = totalEpisodiosReal(item);
     if (total <= 50) return [];
     const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
     let maxHasta = 0;
     for (let i = 0; i < api.length; i++) {
         maxHasta = Math.max(maxHasta, Number(api[i].hasta) || 0);
     }
-    // Si los rangos de la API no cubren el total (ej. solo hasta 326 de 1176) → reconstruir
-    if (api.length > 1 && maxHasta >= total - 2) {
+    // Solo confiar en rangos API si cubren el total REAL (no un total viejo de 403)
+    if (api.length > 1 && maxHasta >= total - 2 && maxHasta >= total * 0.95) {
         const step0 = Number(api[0].hasta) - Number(api[0].desde) + 1;
         if (step0 > 0 && step0 <= 50) {
-            // Asegurar labels limpios
             return api.map(function (r) {
                 const d = Number(r.desde) || 1;
                 const h = Number(r.hasta) || d;
@@ -3223,7 +3320,7 @@ function normalizarRangosEpisodios(item) {
             });
         }
     }
-    // Reconstruir bloques de 50 hasta el total real (One Piece 1176, etc.)
+    // Reconstruir bloques de 50 hasta el total real
     return construirRangosEpisodios(total, 50);
 }
 
