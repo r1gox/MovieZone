@@ -3576,3 +3576,100 @@ body.player-open .btn-close-modal {
   background: rgba(148, 163, 184, 0.15);
   border-color: rgba(148, 163, 184, 0.35);
 }
+
+.details-meta-info .media-type-badge {
+  font-size: 0.68rem !important;
+  padding: 0.18rem 0.55rem !important;
+}
+.details-type-rating {
+  font-size: 0.68rem !important;
+  padding: 0.14rem 0.45rem !important;
+}
+.details-type-rating ion-icon {
+  font-size: 0.7rem !important;
+}
+
+/* Fila inferior: Disponible (izq) + En emisión (der) */
+.poster-bottom-row {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.availability-badge {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  backdrop-filter: blur(6px);
+  line-height: 1.2;
+  max-width: 55%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.availability-badge .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.availability-badge.available {
+  background: rgba(16, 185, 129, 0.85);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+}
+.availability-badge.available .dot {
+  background: #34d399;
+  box-shadow: 0 0 4px #34d399;
+}
+.availability-badge.unavailable {
+  background: rgba(239, 68, 68, 0.85);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+.availability-badge.unavailable .dot {
+  background: #f87171;
+}
+
+.airing-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #6ee7b7;
+  background: rgba(5, 2, 9, 0.75);
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Tipo e IMDb mismo tamaño arriba */
+.type-badge {
+  font-size: 9px !important;
+  padding: 3px 7px !important;
+}
+.rating-badge {
+  font-size: 9px !important;
+  padding: 3px 7px !important;
+}
+.rating-badge ion-icon {
+  font-size: 10px !important;
+}
+.rating-badge .rating-main {
+  font-size: 9px !important;
+}
