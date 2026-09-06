@@ -282,15 +282,19 @@ async function guardarEnSupabase(items) {
         tieneNuevo && item.embeds?.length
           ? item.embeds
           : (existente?.embeds?.length ? existente.embeds : item.embeds || []);
-      // Fusionar episodios: no pisar players ya guardados con stubs vacíos del listado/API
-      let episodiosFinal = item.episodios?.length ? item.episodios : (existente?.episodios || []);
-      if (item.episodios?.length && existente?.episodios?.length) {
+      // Unión de episodios: NUNCA perder temporadas/caps al guardar (stubs sin player también)
+      let episodiosFinal = mergeEpisodiosLists(
+        Array.isArray(existente?.episodios) ? existente.episodios : [],
+        Array.isArray(item.episodios) ? item.episodios : []
+      );
+      // Conservar players ya resueltos
+      if (episodiosFinal.length && existente?.episodios?.length) {
         const byKey = new Map();
         for (const ep of existente.episodios) {
           const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
           byKey.set(k, ep);
         }
-        episodiosFinal = item.episodios.map((ep) => {
+        episodiosFinal = episodiosFinal.map((ep) => {
           const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
           const prev = byKey.get(k);
           if (!prev) return ep;
@@ -303,17 +307,11 @@ async function guardarEnSupabase(items) {
               video: prev.video || prev.reproductor || ep.video || null,
               reproductor: prev.reproductor || prev.video || ep.reproductor || null,
               downloads: (ep.downloads && ep.downloads.length) ? ep.downloads : (prev.downloads || []),
+              url_capitulo: ep.url_capitulo || prev.url_capitulo || null,
             };
           }
           return ep;
         });
-        const seen = new Set(episodiosFinal.map((ep) => `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`));
-        for (const ep of existente.episodios) {
-          const k = `${Number(ep.season) || 1}-${Number(ep.episode || ep.episodio) || 0}`;
-          if (!seen.has(k) && (ep.embeds?.length || ep.video || ep.reproductor)) {
-            episodiosFinal.push(ep);
-          }
-        }
       }
       const descripcionFinal = elegirMejorDescripcion(item.descripcion, existente?.descripcion);
       return {
@@ -396,7 +394,13 @@ async function guardarEnSupabase(items) {
         downloads: (item.downloads && item.downloads.length) ? item.downloads : (existente?.downloads || []),
         solo_trailer: !!(item.soloTrailer || existente?.soloTrailer),
         episodios: episodiosFinal,
-        temporadas: (item.temporadas && item.temporadas.length) ? item.temporadas : (existente?.temporadas || []),
+        temporadas: (function () {
+          const a = Array.isArray(item.temporadas) ? item.temporadas : [];
+          const b = Array.isArray(existente?.temporadas) ? existente.temporadas : [];
+          if (a.length >= b.length && a.length) return a;
+          if (b.length) return b;
+          return a;
+        })(),
         postId: item.postId || existente?.postId || null,
         slug: item.slug || existente?.slug || null,
         source_id: item.source_id || existente?.source_id || null,
@@ -2282,7 +2286,7 @@ async function obtenerDetalle(params) {
     (
       (totalTempsCache > 1 && tempsCache > 0 && tempsCache < totalTempsCache) ||
       (totalEpsCache > 0 && epsCache > 0 && epsCache < Math.floor(totalEpsCache * 0.85)) ||
-      (seasonsInEps <= 1 && (totalTempsCache > 1 || totalEpsCache > 12))
+      (seasonsInEps <= 1 && epsCache > 0 && epsCache <= 14)
     );
 
   // Serie/anime: si YA se actualizó hoy → usar caché; si NO → ir a la API
@@ -2535,6 +2539,9 @@ async function obtenerDetalle(params) {
   if (cached && Array.isArray(cached.episodios) && cached.episodios.length) {
     if (!best.episodios || !best.episodios.length) {
       best.episodios = cached.episodios;
+    } else if (best.episodios.length < cached.episodios.length) {
+      // No dejar que una respuesta más corta pise la lista completa
+      best.episodios = mergeEpisodiosLists(cached.episodios, best.episodios);
     } else {
       // Preservar embeds/video de episodios ya cacheados (API suele devolver stubs sin players)
       const byKey = new Map();
