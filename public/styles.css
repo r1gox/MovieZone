@@ -3192,3 +3192,34 @@ body.player-open .btn-close-modal {
     font-size: 10px;
   }
 }
+
+/* Centrar "Cargando episodios..." dentro de la grid de capítulos */
+#episodes-container.episodes-grid .loading-state,
+.episodes-grid > .loading-state {
+  grid-column: 1 / -1;   /* ocupa todo el ancho de la grid */
+  width: 100%;
+  min-height: 100px;
+  margin: 0 auto;
+  padding: 28px 16px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+#episodes-container.episodes-grid .loading-state p,
+.episodes-grid > .loading-state p {
+  margin: 0;
+  text-align: center;
+  width: 100%;
+}
+
+/* Mensajes vacíos / error también centrados */
+#episodes-container.episodes-grid > p {
+  grid-column: 1 / -1;
+  text-align: center;
+  width: 100%;
+  padding: 16px;
+}
