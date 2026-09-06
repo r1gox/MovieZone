@@ -2073,16 +2073,24 @@ function crearMediaCard(item) {
         ? `${item.episodios.length} episodios`
         : [item.year, generoCorto || tipo].filter(Boolean).join(" · ");
 
+    const esSerie = /serie|anime/i.test(String(item.tipo || ""));
+    const enEmision = esSerie && (
+      item.en_emision === true ||
+      /emisi|airing|ongoing|en curso/i.test(String(item.estado || ""))
+    );
+
     card.innerHTML = `
         <div class="poster-wrapper">
-            ${badgesHtml(item)}
             <img class="poster-img" src="${escapeHtml(portada)}" alt="${escapeHtml(nombre)}" loading="lazy">
             <div class="poster-overlay"><ion-icon name="play-circle" class="overlay-icon"></ion-icon></div>
             ${ratingBadgeHtml(item)}
             <span class="type-badge">${escapeHtml(tipo)}</span>
-            <span class="availability-badge ${tieneVideo ? "available" : "unavailable"}">
-                <span class="dot"></span> ${tieneVideo ? "▶ Disponible" : "Sin servidores"}
-            </span>
+            <div class="poster-bottom-row">
+              <span class="availability-badge ${tieneVideo ? "available" : "unavailable"}">
+                <span class="dot"></span> ${tieneVideo ? "Disponible" : "Sin servers"}
+              </span>
+              ${enEmision ? `<span class="airing-badge">En emisión</span>` : ""}
+            </div>
         </div>
         <div class="media-info">
             <h3>${escapeHtml(nombre)}</h3>
