@@ -269,14 +269,9 @@
 
     <div class="details-content">
       <div class="video-player-container hidden" id="video-player-container">
+
         <div class="player-header">
           <span id="player-title">Reproduciendo...</span>
-          <button type="button" class="btn-autoplay-ep" id="btn-autoplay-ep" title="Reproducción automática">
-            Auto ON
-          </button>
-          <button type="button" class="btn-next-ep hidden" id="btn-next-ep" title="Siguiente episodio">
-            Siguiente ▶
-          </button>
           <button class="btn-fs-player hidden" id="btn-fs-player" title="Pantalla completa" type="button">
             <ion-icon name="expand-outline" id="btn-fs-player-icon"></ion-icon>
           </button>
@@ -284,7 +279,21 @@
             <ion-icon name="close-outline"></ion-icon>
           </button>
         </div>
+
+        <!-- Controles episodio: visibles también en fullscreen -->
+        <div class="mz-ep-controls" id="mz-ep-controls">
+          <button type="button" class="mz-ep-btn mz-ep-auto" id="btn-autoplay-ep" title="Reproducción automática">
+            <span class="mz-ep-dot"></span>
+            <span id="btn-autoplay-ep-text">Auto</span>
+          </button>
+          <button type="button" class="mz-ep-btn mz-ep-next hidden" id="btn-next-ep" title="Siguiente episodio">
+            Siguiente
+            <ion-icon name="play-forward"></ion-icon>
+          </button>
+        </div>
+
         <div class="player-iframe-wrapper">
+
           <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
         </div>
       </div>
