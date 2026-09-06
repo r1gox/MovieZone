@@ -3309,3 +3309,202 @@ body.player-open .btn-close-modal {
     transition: none !important;
   }
 }
+
+
+
+/* ===== Perfiles + nav (responsive) ===== */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.api-status-badge {
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 120px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 58, 237, 0.6);
+  background: rgba(124, 58, 237, 0.2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.mz-profile-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #7c3aed;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+#mz-profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  #mz-profile-name { display: none; }
+  .mz-profile-chip { max-width: 40px; padding: 4px; }
+  .api-status-badge .status-text { display: none; }
+}
+
+/* Gate / elegir perfil */
+.mz-profile-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: radial-gradient(ellipse at top, #1a0b2e 0%, #050209 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.mz-profile-gate.hidden { display: none !important; }
+
+.mz-profile-gate-card {
+  width: min(520px, 100%);
+  text-align: center;
+}
+.mz-profile-gate-card h1 {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  margin-bottom: 8px;
+}
+.mz-profile-gate-card p {
+  color: #a09cb0;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.mz-profile-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.mz-profile-card {
+  width: 100px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #fff;
+}
+.mz-profile-card .av {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 800;
+  border: 3px solid transparent;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.mz-profile-card:hover .av,
+.mz-profile-card:focus .av {
+  transform: scale(1.06);
+  border-color: #fff;
+}
+.mz-profile-card span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mz-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.mz-btn-primary, .mz-btn-ghost {
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.mz-btn-primary {
+  background: #7c3aed;
+  color: #fff;
+}
+.mz-btn-ghost {
+  background: transparent;
+  border-color: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+.mz-create-form {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.mz-create-form.hidden { display: none !important; }
+.mz-create-form input {
+  width: min(280px, 100%);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+}
+.mz-create-row { display: flex; gap: 8px; }
+
+/* Maratón / carousels mood — no aplastar */
+#row-mood-maraton .carousel-container,
+#row-mood-terror .carousel-container,
+.carousel-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 4% 16px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+#row-mood-maraton .media-card,
+#row-mood-terror .media-card,
+.carousel-container .media-card,
+.carousel-container .carousel-card {
+  flex: 0 0 auto;
+  width: min(42vw, 150px);
+  max-width: 160px;
+  scroll-snap-align: start;
+}
+@media (min-width: 768px) {
+  #row-mood-maraton .media-card,
+  #row-mood-terror .media-card,
+  .carousel-container .media-card {
+    width: 160px;
+  }
+}
+@media (max-width: 380px) {
+  #row-mood-maraton .media-card,
+  #row-mood-terror .media-card {
+    width: 38vw;
+  }
+}
