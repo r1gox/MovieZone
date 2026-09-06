@@ -3368,112 +3368,249 @@ body.player-open .btn-close-modal {
   .mz-profile-chip { max-width: 40px; padding: 4px; }
   .api-status-badge .status-text { display: none; }
 }
-
-/* Gate / elegir perfil */
+/* Gate / elegir perfil — estilo Netflix */
 .mz-profile-gate {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: radial-gradient(ellipse at top, #1a0b2e 0%, #050209 60%);
+  background: #141414;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px 16px;
+  overflow-y: auto;
 }
 .mz-profile-gate.hidden { display: none !important; }
 
 .mz-profile-gate-card {
-  width: min(520px, 100%);
+  width: min(900px, 100%);
   text-align: center;
+  padding: 20px 12px 40px;
 }
 .mz-profile-gate-card h1 {
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  margin-bottom: 8px;
+  font-size: clamp(1.75rem, 5vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin: 0 0 12px;
+  color: #fff;
 }
 .mz-profile-gate-card p {
-  color: #a09cb0;
-  margin-bottom: 24px;
-  font-size: 14px;
+  color: #808080;
+  margin: 0 0 36px;
+  font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+  font-weight: 400;
 }
 
 .mz-profile-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 28px 32px;
   justify-content: center;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  margin-bottom: 36px;
+  transition: opacity 0.25s ease;
+}
+.mz-profile-list.mz-dimmed {
+  opacity: 0.25;
+  pointer-events: none;
 }
 
 .mz-profile-card {
-  width: 100px;
+  width: 120px;
   cursor: pointer;
   border: none;
   background: transparent;
+  color: #808080;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+.mz-profile-card:hover,
+.mz-profile-card:focus {
   color: #fff;
 }
 .mz-profile-card .av {
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
-  margin: 0 auto 8px;
+  width: 110px;
+  height: 110px;
+  border-radius: 6px;
+  margin: 0 auto 12px;
   display: grid;
   place-items: center;
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 48px;
+  font-weight: 600;
   border: 3px solid transparent;
-  transition: transform 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  color: #fff;
 }
 .mz-profile-card:hover .av,
 .mz-profile-card:focus .av {
-  transform: scale(1.06);
   border-color: #fff;
+  transform: scale(1.04);
 }
-.mz-profile-card span {
-  font-size: 13px;
-  font-weight: 600;
+.mz-profile-card .av-add {
+  background: transparent !important;
+  border: 3px solid #808080;
+  color: #808080;
+  font-size: 52px;
+}
+.mz-profile-card.mz-profile-add:hover .av-add {
+  border-color: #fff;
+  color: #fff;
+}
+.mz-profile-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 120px;
+  margin: 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mz-kids-tag {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #46d369;
+  border: 1px solid rgba(70, 211, 105, 0.5);
+  padding: 2px 6px;
+  border-radius: 2px;
 }
 
 .mz-profile-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
+  margin-top: 8px;
 }
-.mz-btn-primary, .mz-btn-ghost {
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-weight: 700;
-  font-size: 13px;
+.mz-btn-primary,
+.mz-btn-ghost {
+  min-width: 140px;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
   cursor: pointer;
-  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 .mz-btn-primary {
-  background: #7c3aed;
+  background: #e50914;
+  border: 1px solid #e50914;
   color: #fff;
+}
+.mz-btn-primary:hover {
+  background: #f40612;
+  border-color: #f40612;
 }
 .mz-btn-ghost {
   background: transparent;
-  border-color: rgba(255,255,255,0.2);
+  border: 1px solid #808080;
+  color: #808080;
+}
+.mz-btn-ghost:hover {
+  border-color: #fff;
   color: #fff;
 }
 
+/* Crear perfil — panel tipo Netflix */
 .mz-create-form {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: left;
+  background: transparent;
+  padding: 28px 0 0;
+  border-top: 1px solid #333;
 }
 .mz-create-form.hidden { display: none !important; }
-.mz-create-form input {
-  width: min(280px, 100%);
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(0,0,0,0.4);
+.mz-create-title {
+  font-size: 1.6rem;
+  font-weight: 500;
+  margin: 0 0 8px;
   color: #fff;
+  text-align: left;
 }
-.mz-create-row { display: flex; gap: 8px; }
+.mz-create-hint {
+  color: #808080;
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+.mz-create-body {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.mz-create-avatar-preview {
+  width: 100px;
+  height: 100px;
+  border-radius: 6px;
+  background: #7c3aed;
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.mz-create-fields {
+  flex: 1;
+  min-width: 0;
+}
+.mz-create-form input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: none;
+  border-radius: 2px;
+  background: #666;
+  color: #fff;
+  outline: none;
+}
+.mz-create-form input[type="text"]::placeholder {
+  color: #bbb;
+}
+.mz-create-form input[type="text"]:focus {
+  background: #757575;
+}
+.mz-kids-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.mz-kids-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #e50914;
+}
+.mz-create-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .mz-profile-card { width: 88px; }
+  .mz-profile-card .av {
+    width: 80px;
+    height: 80px;
+    font-size: 34px;
+  }
+  .mz-profile-label { font-size: 12px; max-width: 88px; }
+  .mz-create-body { flex-direction: column; text-align: center; }
+  .mz-create-title, .mz-create-hint { text-align: center; }
+  .mz-kids-check { justify-content: center; }
+}
 
 /* Maratón / carousels mood — no aplastar */
 #row-mood-maraton .carousel-container,
