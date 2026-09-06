@@ -12,49 +12,159 @@ const LIMIT = 48;
 // ======================================================
 const MZ_PROFILES_KEY = "mz_profiles_v1";
 const MZ_ACTIVE_PROFILE = "mz_active_profile";
+const MZ_ONBOARDED = "mz_onboarded_v1";
 
 function defaultProfiles() {
-  return [
-    { id: "me", nombre: "Yo", tipo: "adult", color: "#7c3aed" },
-    { id: "kids", nombre: "Kids", tipo: "kids", color: "#22c55e" },
-    { id: "guest", nombre: "Invitado", tipo: "guest", color: "#64748b" },
-  ];
+  return [];
 }
 function getProfiles() {
   try {
     const raw = JSON.parse(localStorage.getItem(MZ_PROFILES_KEY) || "null");
-    if (Array.isArray(raw) && raw.length) return raw;
+    if (Array.isArray(raw)) return raw;
   } catch (_) {}
-  const d = defaultProfiles();
-  localStorage.setItem(MZ_PROFILES_KEY, JSON.stringify(d));
-  return d;
+  return [];
+}
+function saveProfiles(list) {
+  localStorage.setItem(MZ_PROFILES_KEY, JSON.stringify(list));
 }
 function getActiveProfile() {
-  const id = localStorage.getItem(MZ_ACTIVE_PROFILE) || "me";
-  return getProfiles().find((p) => p.id === id) || getProfiles()[0];
+  const list = getProfiles();
+  const id = localStorage.getItem(MZ_ACTIVE_PROFILE);
+  return list.find((p) => p.id === id) || list[0] || null;
 }
 function setActiveProfile(id) {
   localStorage.setItem(MZ_ACTIVE_PROFILE, id);
+  localStorage.setItem(MZ_ONBOARDED, "1");
   location.reload();
 }
 function pk(key) {
-  return `mz_${getActiveProfile().id}_${key}`;
+  const p = getActiveProfile();
+  return `mz_${p ? p.id : "guest"}_${key}`;
+}
+function uid() {
+  return "p_" + Math.random().toString(36).slice(2, 9);
+}
+const PROFILE_COLORS = ["#7c3aed", "#22c55e", "#e50914", "#0ea5e9", "#f59e0b", "#ec4899"];
+
+function showProfileGate(mode) {
+  // mode: "pick" | "first"
+  const gate = document.getElementById("mz-profile-gate");
+  if (!gate) return;
+  gate.classList.remove("hidden");
+  gate.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
+  const title = document.getElementById("mz-gate-title");
+  const sub = document.getElementById("mz-gate-sub");
+  const listEl = document.getElementById("mz-profile-list");
+  const form = document.getElementById("mz-create-form");
+  if (form) form.classList.add("hidden");
+
+  const profiles = getProfiles();
+  if (title) title.textContent = profiles.length ? "¿Quién eres?" : "Bienvenido a MovieZone";
+  if (sub) {
+    sub.textContent = profiles.length
+      ? "Elige un perfil para continuar"
+      : "Crea un perfil o entra como invitado";
+  }
+
+  if (listEl) {
+    listEl.innerHTML = "";
+    profiles.forEach((p) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mz-profile-card";
+      btn.innerHTML = `<div class="av" style="background:${p.color || "#7c3aed"}">${(p.nombre || "?")[0].toUpperCase()}</div><span>${p.nombre}</span>`;
+      btn.onclick = () => setActiveProfile(p.id);
+      listEl.appendChild(btn);
+    });
+  }
+}
+
+function hideProfileGate() {
+  const gate = document.getElementById("mz-profile-gate");
+  if (!gate) return;
+  gate.classList.add("hidden");
+  gate.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function ensureProfileAccess() {
+  const profiles = getProfiles();
+  const active = getActiveProfile();
+  const onboarded = localStorage.getItem(MZ_ONBOARDED) === "1";
+
+  // Primera visita o sin perfil activo → gate
+  if (!profiles.length || !active || !onboarded) {
+    showProfileGate("first");
+    return false;
+  }
+  return true;
 }
 
 function initProfilesUi() {
   const chip = document.getElementById("mz-profile-chip");
   const nameEl = document.getElementById("mz-profile-name");
-  if (!chip) return;
+  const avEl = document.getElementById("mz-profile-avatar");
+
+  const ok = ensureProfileAccess();
   const p = getActiveProfile();
-  if (nameEl) nameEl.textContent = p.nombre || "Yo";
-  chip.style.borderColor = p.color || "#7c3aed";
-  chip.onclick = () => {
-    const lista = getProfiles();
-    const msg = lista.map((x, i) => `${i + 1}) ${x.nombre}`).join("\n");
-    const pick = prompt(`Perfil activo: ${p.nombre}\n\n${msg}\n\nEscribe 1, 2 o 3:`);
-    const n = parseInt(pick, 10);
-    if (n >= 1 && n <= lista.length) setActiveProfile(lista[n - 1].id);
-  };
+
+  if (p) {
+    if (nameEl) nameEl.textContent = p.nombre || "Perfil";
+    if (avEl) {
+      avEl.textContent = (p.nombre || "?")[0].toUpperCase();
+      avEl.style.background = p.color || "#7c3aed";
+    }
+    if (chip) chip.style.borderColor = p.color || "#7c3aed";
+  }
+
+  if (chip) {
+    chip.onclick = () => showProfileGate("pick");
+  }
+
+  const btnGuest = document.getElementById("mz-btn-guest");
+  const btnCreate = document.getElementById("mz-btn-create");
+  const form = document.getElementById("mz-create-form");
+  const cancel = document.getElementById("mz-create-cancel");
+
+  if (btnGuest) {
+    btnGuest.onclick = () => {
+      let list = getProfiles();
+      let guest = list.find((x) => x.tipo === "guest");
+      if (!guest) {
+        guest = { id: "guest", nombre: "Invitado", tipo: "guest", color: "#64748b" };
+        list = list.concat([guest]);
+        saveProfiles(list);
+      }
+      setActiveProfile(guest.id);
+    };
+  }
+  if (btnCreate) {
+    btnCreate.onclick = () => {
+      if (form) form.classList.remove("hidden");
+      document.getElementById("mz-create-name")?.focus();
+    };
+  }
+  if (cancel) {
+    cancel.onclick = () => form?.classList.add("hidden");
+  }
+  if (form) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const input = document.getElementById("mz-create-name");
+      const nombre = (input?.value || "").trim().slice(0, 18);
+      if (!nombre) return;
+      const list = getProfiles();
+      const color = PROFILE_COLORS[list.length % PROFILE_COLORS.length];
+      const neu = { id: uid(), nombre, tipo: "adult", color };
+      list.push(neu);
+      saveProfiles(list);
+      setActiveProfile(neu.id);
+    };
+  }
+
+  return ok;
 }
 
 function badgesHtml(item) {
