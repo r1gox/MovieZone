@@ -554,17 +554,41 @@ function ordenarEmbedsAuto(embeds) {
     });
 }
 
+function esSerieOAnimeItem(item) {
+  const t = String(item?.tipo || "").toLowerCase();
+  return t === "serie" || t === "anime" || /serie|anime|dorama/.test(t);
+}
+
 function actualizarBotonesEpPlayer() {
+  const wrap = document.getElementById("mz-ep-controls");
   const btnNext = document.getElementById("btn-next-ep");
   const btnAuto = document.getElementById("btn-autoplay-ep");
+
+  // Solo series/anime Y con capítulo activo
+  const activo =
+    _epPlayCtx &&
+    _epPlayCtx.item &&
+    esSerieOAnimeItem(_epPlayCtx.item);
+
+  if (wrap) {
+    wrap.classList.toggle("hidden", !activo);
+    wrap.style.display = activo ? "" : "none";
+  }
+
+  if (!activo) {
+    if (btnNext) btnNext.classList.add("hidden");
+    return;
+  }
+
   if (btnAuto) {
     const t = document.getElementById("btn-autoplay-ep-text");
     if (t) t.textContent = _autoplayEp ? "Auto" : "Auto off";
     else btnAuto.textContent = _autoplayEp ? "Auto" : "Auto off";
     btnAuto.classList.toggle("off", !_autoplayEp);
   }
+
   if (!btnNext) return;
-  const next = _epPlayCtx ? obtenerSiguienteEpisodioCtx(_epPlayCtx) : null;
+  const next = obtenerSiguienteEpisodioCtx(_epPlayCtx);
   btnNext.classList.toggle("hidden", !next);
 }
 
@@ -719,6 +743,11 @@ async function irSiguienteEpisodio(fromAuto) {
 }
 
 function initAutoplayEpUi() {
+  const wrap = document.getElementById("mz-ep-controls");
+  if (wrap) {
+    wrap.classList.add("hidden");
+    wrap.style.display = "none";
+  }
   const btnNext = document.getElementById("btn-next-ep");
   const btnAuto = document.getElementById("btn-autoplay-ep");
   if (btnNext) {
