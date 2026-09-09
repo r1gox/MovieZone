@@ -1844,6 +1844,287 @@ function scrollPlayerTv() {
   });
 }
 
+// =====================================================
+// Fútbol — agenda diaria (Worker /7/agenda)
+// =====================================================
+const FUTBOL_AGENDA_URL = (typeof WORKER_STREAM !== "undefined" ? WORKER_STREAM : "https://moviezone.tvjz.workers.dev") + "/7/agenda";
+
+const FUTBOL_LIGA_META = {
+  CHA: { label: "UCL", color: "#1e3a8a" },
+  LIB: { label: "LIB", color: "#b45309" },
+  SUD: { label: "SUD", color: "#047857" },
+  ENG: { label: "ENG", color: "#6d28d9" },
+  AR:  { label: "ARG", color: "#0369a1" },
+  ARA: { label: "ARA", color: "#0f766e" },
+  COL: { label: "COL", color: "#b91c1c" },
+  USA: { label: "USA", color: "#1d4ed8" },
+  POR: { label: "POR", color: "#15803d" },
+  FUT: { label: "FUT", color: "#7c3aed" }
+};
+
+function futbolHoyKey() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function futbolMatchKey(item) {
+  return futbolHoyKey() + "_" + String(item.titulo || "").toLowerCase().replace(/\s+/g, "_").slice(0, 80);
+}
+
+/** Espectadores simulados estables por partido (sin backend) */
+function futbolViewers(item) {
+  const s = String(item.titulo || "") + "|" + (item.hora || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return 180 + (h % 7800);
+}
+
+function futbolParseHora(hhmm) {
+  if (!hhmm) return null;
+  const m = String(hhmm).match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function futbolEsEnVivo(item) {
+  const mins = futbolParseHora(item.hora);
+  if (mins == null) return false;
+  const now = new Date();
+  const nowM = now.getHours() * 60 + now.getMinutes();
+  // ventana: 10 min antes → 2h después
+  let d = nowM - mins;
+  if (d < -12 * 60) d += 24 * 60;
+  if (d > 12 * 60) d -= 24 * 60;
+  return d >= -10 && d <= 120;
+}
+
+function futbolLigaMeta(code) {
+  return FUTBOL_LIGA_META[code] || { label: code || "FUT", color: "#4c1d95" };
+}
+
+function showFutbolView() {
+  document.getElementById("home-view")?.classList.add("hidden");
+  document.getElementById("tv-view")?.classList.add("hidden");
+  document.getElementById("futbol-partido-view")?.classList.add("hidden");
+  document.getElementById("grid-view")?.classList.add("hidden");
+  const fv = document.getElementById("futbol-view");
+  if (fv) fv.classList.remove("hidden");
+  cargarFutbolAgenda();
+}
+
+function hideFutbolViews() {
+  document.getElementById("futbol-view")?.classList.add("hidden");
+  document.getElementById("futbol-partido-view")?.classList.add("hidden");
+}
+
+async function cargarFutbolAgenda() {
+  const lista = document.getElementById("futbol-lista");
+  const fechaEl = document.getElementById("futbol-fecha-texto");
+  if (!lista) return;
+  lista.innerHTML = '<div class="tv-loading">Cargando partidos…</div>';
+
+  try {
+    const r = await fetch(FUTBOL_AGENDA_URL, { cache: "no-store" });
+    const data = await r.json();
+    const items = Array.isArray(data.items) ? data.items.slice() : [];
+
+    if (fechaEl) {
+      fechaEl.textContent = data.fecha_texto || ("Agenda · " + futbolHoyKey());
+    }
+
+    // Orden por hora (usa hora, no hora_fuente)
+    items.sort(function (a, b) {
+      const ma = futbolParseHora(a.hora);
+      const mb = futbolParseHora(b.hora);
+      if (ma == null && mb == null) return 0;
+      if (ma == null) return 1;
+      if (mb == null) return -1;
+      return ma - mb;
+    });
+
+    // En vivo primero
+    items.sort(function (a, b) {
+      return (futbolEsEnVivo(b) ? 1 : 0) - (futbolEsEnVivo(a) ? 1 : 0);
+    });
+
+    window.__futbolAgenda = items;
+
+    if (!items.length) {
+      lista.innerHTML = '<div class="tv-hint">No hay partidos hoy</div>';
+      return;
+    }
+
+    lista.innerHTML = items.map(function (it, idx) {
+      const meta = futbolLigaMeta(it.liga);
+      const vivo = futbolEsEnVivo(it);
+      const views = futbolViewers(it);
+      return (
+        '<button type="button" class="futbol-card' + (vivo ? " en-vivo" : "") + '" data-fidx="' + idx + '">' +
+          '<div class="futbol-liga-ico" style="background:' + meta.color + '">' + meta.label + "</div>" +
+          '<div class="futbol-card-body">' +
+            '<p class="futbol-card-titulo">' + escapeHtml(it.titulo || "Partido") + "</p>" +
+            '<div class="futbol-card-sub">' +
+              (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
+              "<span>👁 " + views.toLocaleString("es-MX") + " viendo</span>" +
+              (it.reproductores && it.reproductores.length
+                ? "<span>· " + it.reproductores.length + " servers</span>"
+                : "") +
+            "</div>" +
+          "</div>" +
+          '<div class="futbol-hora">' + escapeHtml(it.hora || "--:--") + "</div>" +
+        "</button>"
+      );
+    }).join("");
+
+    lista.querySelectorAll(".futbol-card").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const i = parseInt(btn.getAttribute("data-fidx"), 10);
+        const item = window.__futbolAgenda && window.__futbolAgenda[i];
+        if (item) abrirFutbolPartido(item);
+      });
+    });
+  } catch (e) {
+    lista.innerHTML = '<div class="tv-hint">No se pudo cargar la agenda</div>';
+  }
+}
+
+function abrirFutbolPartido(item) {
+  document.getElementById("futbol-view")?.classList.add("hidden");
+  const pv = document.getElementById("futbol-partido-view");
+  if (pv) pv.classList.remove("hidden");
+
+  window.__futbolPartidoActual = item;
+
+  const t = document.getElementById("futbol-partido-titulo");
+  if (t) t.textContent = item.titulo || "Partido";
+
+  const meta = document.getElementById("futbol-partido-meta");
+  if (meta) {
+    const vivo = futbolEsEnVivo(item);
+    meta.innerHTML =
+      (item.hora ? "<strong>" + escapeHtml(item.hora) + "</strong> · " : "") +
+      (vivo ? '<span class="futbol-badge-vivo">En vivo</span> · ' : "") +
+      "👁 " + futbolViewers(item).toLocaleString("es-MX") + " viendo";
+  }
+
+  const box = document.getElementById("futbol-reproductores");
+  const reps = Array.isArray(item.reproductores) ? item.reproductores : [];
+  if (!box) return;
+  if (!reps.length) {
+    box.innerHTML = '<div class="tv-hint">Sin reproductores</div>';
+  } else {
+    box.innerHTML = reps.map(function (r, i) {
+      const name = r.servidor || r.nombre || ("Server " + (i + 1));
+      const cal = r.calidad ? " · " + r.calidad : "";
+      const ico = String(name).slice(0, 3).toUpperCase();
+      return (
+        '<button type="button" class="futbol-rep-btn" data-ri="' + i + '">' +
+          '<span class="futbol-rep-ico">' + escapeHtml(ico) + "</span>" +
+          "<span><strong>" + escapeHtml(name) + "</strong>" + escapeHtml(cal) + "</span>" +
+        "</button>"
+      );
+    }).join("");
+
+    box.querySelectorAll(".futbol-rep-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const ri = parseInt(btn.getAttribute("data-ri"), 10);
+        const rep = reps[ri];
+        if (!rep || !rep.url) return;
+        // Abrir embed / stream
+        window.open(rep.url, "_blank", "noopener,noreferrer");
+      });
+    });
+  }
+
+  futbolChatRender();
+}
+
+function futbolChatStorageKey() {
+  const it = window.__futbolPartidoActual;
+  if (!it) return null;
+  return "mz_fl_chat_" + futbolMatchKey(it);
+}
+
+function futbolChatLoad() {
+  try {
+    const k = futbolChatStorageKey();
+    if (!k) return [];
+    // Limpiar chats de otros días
+    const prefix = "mz_fl_chat_" + futbolHoyKey();
+    Object.keys(localStorage).forEach(function (key) {
+      if (key.indexOf("mz_fl_chat_") === 0 && key.indexOf(prefix) !== 0) {
+        try { localStorage.removeItem(key); } catch (_) {}
+      }
+    });
+    const raw = localStorage.getItem(k);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function futbolChatSave(msgs) {
+  try {
+    const k = futbolChatStorageKey();
+    if (!k) return;
+    localStorage.setItem(k, JSON.stringify(msgs.slice(-80)));
+  } catch (_) {}
+}
+
+function futbolChatRender() {
+  const el = document.getElementById("futbol-chat-msgs");
+  if (!el) return;
+  const msgs = futbolChatLoad();
+  if (!msgs.length) {
+    el.innerHTML = '<div class="tv-hint">Sé el primero en comentar</div>';
+    return;
+  }
+  el.innerHTML = msgs.map(function (m) {
+    return (
+      '<div class="futbol-chat-line"><strong>' +
+      escapeHtml(m.user || "Anon") +
+      ":</strong> " +
+      escapeHtml(m.text || "") +
+      "</div>"
+    );
+  }).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+function initFutbolUI() {
+  document.getElementById("btn-tv-futbol")?.addEventListener("click", function () {
+    showFutbolView();
+  });
+  document.getElementById("futbol-btn-back")?.addEventListener("click", function () {
+    hideFutbolViews();
+    document.getElementById("home-view")?.classList.remove("hidden");
+  });
+  document.getElementById("futbol-partido-back")?.addEventListener("click", function () {
+    document.getElementById("futbol-partido-view")?.classList.add("hidden");
+    document.getElementById("futbol-view")?.classList.remove("hidden");
+  });
+  document.getElementById("futbol-chat-form")?.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    const input = document.getElementById("futbol-chat-input");
+    const text = (input && input.value || "").trim();
+    if (!text) return;
+    const p = typeof getActiveProfile === "function" ? getActiveProfile() : null;
+    const user = (p && p.nombre) || "Usuario";
+    const msgs = futbolChatLoad();
+    msgs.push({ user: user, text: text, ts: Date.now() });
+    futbolChatSave(msgs);
+    if (input) input.value = "";
+    futbolChatRender();
+  });
+}
+
+// Llamar al iniciar la app (junto al resto de listeners de TV)
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initFutbolUI);
+} else {
+  initFutbolUI();
+}
+
 function initTvUi() {
   const btnCable = document.getElementById("btn-tv-cable");
   const btnPaises = document.getElementById("btn-tv-paises");
