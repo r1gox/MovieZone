@@ -4082,3 +4082,46 @@ body.player-open .btn-close-modal {
   font-size: 0.68rem;
   color: #fff;
 }
+
+.futbol-logos {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 72px;
+}
+.futbol-logos img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+}
+.futbol-logo-ph {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+}
+.futbol-vs {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  font-weight: 700;
+}
+.futbol-badge-pronto {
+  background: #f59e0b;
+  color: #111;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+.futbol-card.pronto {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.futbol-detalle-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.futbol-tz { opacity: 0.65; font-size: 0.8rem; }
