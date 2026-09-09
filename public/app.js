@@ -1909,9 +1909,7 @@ function futbolEsEnVivo(item) {
   return d >= -10 && d <= 120;
 }
 
-function futbolLigaMeta(code) {
-  return FUTBOL_LIGA_META[code] || { label: code || "FUT", color: "#4c1d95" };
-}
+
 
 function showFutbolView() {
   document.getElementById("home-view")?.classList.add("hidden");
