@@ -263,15 +263,29 @@
       <h2 id="futbol-partido-titulo">Partido</h2>
     </div>
     <div class="futbol-partido-meta" id="futbol-partido-meta"></div>
+
+    <!-- Player premium -->
+    <div class="futbol-player-wrap" id="futbol-player-wrap">
+      <div class="futbol-player-placeholder" id="futbol-player-placeholder">
+        <ion-icon name="play-circle-outline"></ion-icon>
+        <span>Elige un servidor para ver</span>
+      </div>
+      <iframe id="futbol-player-iframe" class="futbol-player-iframe hidden" allowfullscreen allow="encrypted-media; autoplay" referrerpolicy="no-referrer"></iframe>
+    </div>
+
     <h3 class="futbol-sub">Reproductores</h3>
     <div id="futbol-reproductores" class="futbol-reproductores"></div>
-    <h3 class="futbol-sub">Chat del partido <small>(solo hoy)</small></h3>
-    <div id="futbol-chat" class="futbol-chat">
-      <div id="futbol-chat-msgs" class="futbol-chat-msgs"></div>
-      <form id="futbol-chat-form" class="futbol-chat-form">
-        <input type="text" id="futbol-chat-input" maxlength="200" placeholder="Escribe un mensaje…" autocomplete="off" />
-        <button type="submit">Enviar</button>
-      </form>
+
+    <!-- Chat solo al reproducir -->
+    <div id="futbol-chat-block" class="hidden">
+      <h3 class="futbol-sub">Chat del partido <small>(solo hoy)</small></h3>
+      <div id="futbol-chat" class="futbol-chat">
+        <div id="futbol-chat-msgs" class="futbol-chat-msgs"></div>
+        <form id="futbol-chat-form" class="futbol-chat-form">
+          <input type="text" id="futbol-chat-input" maxlength="200" placeholder="Escribe un mensaje…" autocomplete="off" />
+          <button type="submit">Enviar</button>
+        </form>
+      </div>
     </div>
   </section>
   
