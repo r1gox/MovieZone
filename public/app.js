@@ -2031,17 +2031,17 @@ async function cargarFutbolAgenda() {
             '">' +
             escapeHtml(ligaTxt) +
             "</span>" +
-            (it.deporte_icono ? " " + escapeHtml(it.deporte_icono) : "") +
+            (it.deporte_icono
+             ? '<span class="futbol-deporte-ico">' + escapeHtml(it.deporte_icono) + "</span>"
+             : "") +
             "</div>" +
             '<p class="futbol-card-titulo">' +
             escapeHtml(it.titulo || subEquipos) +
             "</p>" +
-            '<div class="futbol-card-sub">' +
-            (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
-            (pronto ? '<span class="futbol-badge-pronto">Pronto</span>' : "") +
-            "<span>" +
-            (it.reproductores || []).length +
-            " servidores</span>" +
+            '<div class="futbol-card-sub">' + 
+        (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
+        (pronto ? '<span class="futbol-badge-pronto">Pronto</span>' : "") + 
+        '<span class="futbol-serv-count">' + (it.reproductores || []).length + " servidores</span>" +
             "</div>" +
           "</div>" +
           '<div class="futbol-hora">' +
