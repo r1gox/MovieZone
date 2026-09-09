@@ -1847,18 +1847,15 @@ function scrollPlayerTv() {
 // =====================================================
 // Fútbol — agenda diaria (Worker /7/agenda)
 // =====================================================
-const FUTBOL_AGENDA_URL = (typeof WORKER_STREAM !== "undefined" ? WORKER_STREAM : "https://moviezone.tvjz.workers.dev") + "/7/agenda";
+const FUTBOL_AGENDA_URL = (typeof WORKER_STREAM !== "undefined" ? WORKER_STREAM : "https://moviezone.tvjz.workers.dev") + "/8/agenda";
 
 const FUTBOL_LIGA_META = {
   CHA: { label: "Champions League", short: "UCL", color: "#1e3a8a" },
   LIB: { label: "Copa Libertadores", short: "LIB", color: "#b45309" },
   SUD: { label: "Copa Sudamericana", short: "SUD", color: "#047857" },
   ENG: { label: "Premier League", short: "ENG", color: "#6d28d9" },
+  FIFA: { label: "FIFA", short: "FIFA", color: "#0ea5e9" },
   AR:  { label: "Liga Argentina", short: "ARG", color: "#0369a1" },
-  ARA: { label: "Liga Árabe", short: "ARA", color: "#0f766e" },
-  COL: { label: "Liga Colombia", short: "COL", color: "#b91c1c" },
-  USA: { label: "MLS / USA", short: "USA", color: "#1d4ed8" },
-  POR: { label: "Liga Portugal", short: "POR", color: "#15803d" },
   FUT: { label: "Fútbol", short: "FUT", color: "#7c3aed" }
 };
 
@@ -1931,6 +1928,31 @@ function hideFutbolViews() {
   document.getElementById("futbol-partido-view")?.classList.add("hidden");
 }
 
+function futbolLigaMeta(code, ligaNombre) {
+  const base = FUTBOL_LIGA_META[code] || null;
+  if (base) return base;
+  const label = ligaNombre || code || "Fútbol";
+  const short = String(code || label).slice(0, 4).toUpperCase();
+  return { label: label, short: short, color: "#4c1d95" };
+}
+
+function futbolCardLogos(it) {
+  // StreamXHD: home_logo / away_logo
+  const home = it.home_logo || it.homeLogo || null;
+  const away = it.away_logo || it.awayLogo || null;
+  if (home || away) {
+    return (
+      '<div class="futbol-logos">' +
+        (home ? '<img src="' + escapeHtml(home) + '" alt="" loading="lazy" />' : '<span class="futbol-logo-ph"></span>') +
+        '<span class="futbol-vs">vs</span>' +
+        (away ? '<img src="' + escapeHtml(away) + '" alt="" loading="lazy" />' : '<span class="futbol-logo-ph"></span>') +
+      "</div>"
+    );
+  }
+  const meta = futbolLigaMeta(it.liga, it.liga_nombre);
+  return '<div class="futbol-liga-ico" style="background:' + meta.color + '">' + escapeHtml(meta.short) + "</div>";
+}
+
 async function cargarFutbolAgenda() {
   const lista = document.getElementById("futbol-lista");
   const fechaEl = document.getElementById("futbol-fecha-texto");
@@ -1990,21 +2012,43 @@ async function cargarFutbolAgenda() {
     }
 
     lista.innerHTML = limpios.map(function (it, idx) {
-      const meta = futbolLigaMeta(it.liga);
-      const vivo = futbolEsEnVivo(it);
+      const meta = futbolLigaMeta(it.liga, it.liga_nombre);
+      const vivo = it.status === "en_vivo" || futbolEsEnVivo(it);
+      const pronto = it.status === "pronto";
+      const ligaTxt = it.liga_nombre || meta.label;
+      const subEquipos =
+        it.home_team && it.away_team
+          ? escapeHtml(it.home_team + " vs " + it.away_team)
+          : escapeHtml(it.titulo || "");
+
       return (
-        '<button type="button" class="futbol-card' + (vivo ? " en-vivo" : "") + '" data-fidx="' + idx + '">' +
-          '<div class="futbol-liga-ico" style="background:' + meta.color + '">' + meta.short + "</div>" +
+        '<button type="button" class="futbol-card' +
+        (vivo ? " en-vivo" : "") +
+        (pronto ? " pronto" : "") +
+        '" data-fidx="' + idx + '">' +
+          futbolCardLogos(it) +
           '<div class="futbol-card-body">' +
-            '<div class="futbol-liga-row"><span class="futbol-liga-pill" style="background:' + meta.color + '">' +
-              escapeHtml(meta.label) + "</span></div>" +
-            '<p class="futbol-card-titulo">' + escapeHtml(it.titulo) + "</p>" +
+            '<div class="futbol-liga-row"><span class="futbol-liga-pill" style="background:' +
+            meta.color +
+            '">' +
+            escapeHtml(ligaTxt) +
+            "</span>" +
+            (it.deporte_icono ? " " + escapeHtml(it.deporte_icono) : "") +
+            "</div>" +
+            '<p class="futbol-card-titulo">' +
+            escapeHtml(it.titulo || subEquipos) +
+            "</p>" +
             '<div class="futbol-card-sub">' +
-              (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
-              "<span>" + (it.reproductores || []).length + " servidores</span>" +
+            (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
+            (pronto ? '<span class="futbol-badge-pronto">Pronto</span>' : "") +
+            "<span>" +
+            (it.reproductores || []).length +
+            " servidores</span>" +
             "</div>" +
           "</div>" +
-          '<div class="futbol-hora">' + escapeHtml(it.hora || "--:--") + "</div>" +
+          '<div class="futbol-hora">' +
+          escapeHtml(it.hora || "--:--") +
+          "</div>" +
         "</button>"
       );
     }).join("");
@@ -2029,13 +2073,25 @@ function abrirFutbolPartido(item) {
   const t = document.getElementById("futbol-partido-titulo");
   if (t) t.textContent = item.titulo || "Partido";
 
-  const metaL = futbolLigaMeta(item.liga);
+  const metaL = futbolLigaMeta(item.liga, item.liga_nombre);
   const meta = document.getElementById("futbol-partido-meta");
   if (meta) {
+    const vivo = item.status === "en_vivo" || futbolEsEnVivo(item);
+    const pronto = item.status === "pronto";
     meta.innerHTML =
-      '<span class="futbol-liga-pill" style="background:' + metaL.color + '">' + escapeHtml(metaL.label) + "</span> · " +
+      '<div class="futbol-detalle-top">' +
+      futbolCardLogos(item) +
+      "<div>" +
+      '<span class="futbol-liga-pill" style="background:' +
+      metaL.color +
+      '">' +
+      escapeHtml(item.liga_nombre || metaL.label) +
+      "</span> " +
       (item.hora ? "<strong>" + escapeHtml(item.hora) + "</strong> " : "") +
-      (futbolEsEnVivo(item) ? '<span class="futbol-badge-vivo">En vivo</span>' : "");
+      (vivo ? '<span class="futbol-badge-vivo">En vivo</span>' : "") +
+      (pronto ? '<span class="futbol-badge-pronto">Pronto</span>' : "") +
+      (item.timezone ? '<span class="futbol-tz"> · ' + escapeHtml(item.timezone) + "</span>" : "") +
+      "</div></div>";
   }
 
   // Reset player
