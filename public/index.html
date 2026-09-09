@@ -255,6 +255,40 @@
       </div>
     </div>
   </section>
+    <!-- Vista Fútbol — agenda del día -->
+  <section class="view-container hidden" id="futbol-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="futbol-btn-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Volver
+      </button>
+      <h2 id="futbol-view-title">Fútbol en vivo</h2>
+    </div>
+    <p class="futbol-fecha" id="futbol-fecha-texto"></p>
+    <div id="futbol-lista" class="futbol-lista">
+      <div class="tv-loading">Cargando partidos…</div>
+    </div>
+  </section>
+
+  <!-- Detalle partido: reproductores + chat temporal -->
+  <section class="view-container hidden" id="futbol-partido-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="futbol-partido-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Agenda
+      </button>
+      <h2 id="futbol-partido-titulo">Partido</h2>
+    </div>
+    <div class="futbol-partido-meta" id="futbol-partido-meta"></div>
+    <h3 class="futbol-sub">Reproductores</h3>
+    <div id="futbol-reproductores" class="futbol-reproductores"></div>
+    <h3 class="futbol-sub">Chat del partido <small>(solo hoy)</small></h3>
+    <div id="futbol-chat" class="futbol-chat">
+      <div id="futbol-chat-msgs" class="futbol-chat-msgs"></div>
+      <form id="futbol-chat-form" class="futbol-chat-form">
+        <input type="text" id="futbol-chat-input" maxlength="200" placeholder="Escribe un mensaje…" autocomplete="off" />
+        <button type="submit">Enviar</button>
+      </form>
+    </div>
+  </section>
   
   <section class="view-container grid-section hidden" id="grid-view">
     <div class="filter-toolbar" id="filter-toolbar">
