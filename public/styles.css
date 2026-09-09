@@ -4327,3 +4327,78 @@ body.player-open .btn-close-modal {
   min-width: 48px;
   flex-shrink: 0;
 }
+
+
+.futbol-player-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.25rem 1rem 1.25rem;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: 56.25vw; /* respaldo si aspect-ratio falla */
+  border-radius: 16px;
+  overflow: hidden; /* recorta lo que se salga */
+  background: #000;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.futbol-player-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #c4b5fd;
+  pointer-events: none;
+}
+
+.futbol-player-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
+  object-fit: contain;
+}
+
+.futbol-player-iframe.hidden {
+  display: none !important;
+}
+
+/* Teléfono */
+@media (max-width: 768px) {
+  .futbol-player-wrap {
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+    border-radius: 12px;
+    aspect-ratio: 16 / 9;
+    /* evita que crezca más que la pantalla */
+    max-height: min(56.25vw, 42vh);
+  }
+
+  #futbol-partido-view {
+    overflow-x: hidden;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .futbol-partido-meta,
+  .futbol-reproductores,
+  .futbol-sub,
+  #futbol-chat-block {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
