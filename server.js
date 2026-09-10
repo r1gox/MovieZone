@@ -58,9 +58,9 @@ const PORT = process.env.PORT || 3000;
 const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.dev").replace(/\/$/, "");
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
 // Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=animedbs 6=doramasflix
+// Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=jkanime 6=doramasflix
 const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
 
-/** Normaliza nombre de fuente o id numérico → "1"…"6" */
 function resolverSourceId(val) {
   if (val == null || val === "") return DEFAULT_SOURCE;
   const s = String(val).toLowerCase().trim();
@@ -71,7 +71,9 @@ function resolverSourceId(val) {
     pelisplushd: "3",
     pelisplus: "3",
     animeav1: "4",
-    animedbs: "5",
+    jkanime: "5",
+    jk: "5",
+    animedbs: "5", // legacy → jkanime
     doramasflix: "6",
     doramaflix: "6",
   };
@@ -964,7 +966,9 @@ function scoreItem(item) {
   const esAnime = /anime/i.test(String(item.tipo || ""));
   // En animes: priorizar animeav1 (4) > pelisplus (3) > lamovie (1) > hackstore (2)
   if (esAnime) {
-    if (sid === "4" || sid === "animeav1") s += 25;
+      // En animes: jkanime (5) > animeav1 (4) > ...
+    if (sid === "5" || sid === "jkanime") s += 30;
+    if (sid === "4" || sid === "animeav1") s += 20;
     else if (sid === "3" || sid === "pelisplushd") s += 12;
     else if (sid === "1" || sid === "lamovie") s += 6;
     else if (sid === "2" || sid === "hackstore") s += 2;
@@ -2416,9 +2420,9 @@ async function obtenerDetalle(params) {
 
   // Anime → solo fuentes de anime (4). Serie/dorama → NUNCA fuente 4 (animeav1 inventa Anime con el mismo slug)
   const sourcesToTry = esAnimeKind
-    ? ["4"]
-    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4" && v !== "5");
-  const ordenFuentes = esAnimeKind ? ["4"] : ["6", "3", "1", "2"];
+    ? [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i)
+    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4");
+  const ordenFuentes = esAnimeKind ? ["5", "4"] : ["6", "3", "1", "2"];
   for (const s of ordenFuentes) {
     if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
   }
@@ -2637,14 +2641,14 @@ async function obtenerDetalle(params) {
   // Anime: totales / rangos; preferir fuente 4
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
-    best._prefer_source_anime = "4";
+    best._prefer_source_anime = "5";
     const nEps = Number(best.total_episodios) || 0;
     const tieneRangos = Array.isArray(best.rangos_episodios) && best.rangos_episodios.length > 1;
     // One Piece: muchos eps → forzar 1 temporada (el front usa rangos 1–50…)
     if (nEps > 50 || tieneRangos) {
       best.temporadas = [1];
       best.total_temporadas = 1;
-      best.source_id = "4";
+      best.source_id = "5";
       if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
     } else {
       const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
