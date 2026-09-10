@@ -3271,26 +3271,32 @@ document.getElementById("btn-refresh-servers")?.addEventListener("click", async 
 
 
 // ---------- Proveedores (Doramasflix / PelisPlus) ----------
-function nombreProveedor(sid, fuente) {
+// ---------- Proveedores (botones 1, 2, 3…) ----------
+function nombreProveedor(sid, fuente, index) {
+    // Si hay índice en la lista de proveedores → "1", "2", "3"
+    if (index != null && index >= 0) return String(index + 1);
     const s = String(sid || fuente || "").toLowerCase();
-    if (s === "6" || s.includes("dorama")) return "Doramasflix";
-    if (s === "3" || s.includes("pelis")) return "PelisPlus";
-    if (s === "4" || s.includes("anime")) return "AnimeAV1";
-    if (s === "1" || s.includes("lamovie")) return "LaMovie";
-    if (s === "2" || s.includes("hack")) return "Hackstore";
-    return fuente || ("Fuente " + (sid || "?"));
+    if (s === "5" || s.includes("jkanime") || s === "jk") return "JK";
+    if (s === "4" || s.includes("animeav1")) return "AV1";
+    if (s === "6" || s.includes("dorama")) return "1";
+    if (s === "3" || s.includes("pelis")) return "2";
+    if (s === "2" || s.includes("hack")) return "3";
+    if (s === "1" || s.includes("lamovie")) return "4";
+    return String(sid || "?");
 }
 
 function ordenPrioridadProveedor(sid, tipo) {
     const s = String(sid || "");
     const t = String(tipo || "");
-    if (/serie/i.test(t)) {
-        if (s === "6") return 0; // Doramasflix primero
-        if (s === "3") return 1;
+    if (/anime/i.test(t)) {
+        if (s === "5") return 0; // jkanime primero
+        if (s === "4") return 1; // animeav1 respaldo
         return 5;
     }
-    if (/anime/i.test(t)) {
-        if (s === "4") return 0;
+    if (/serie/i.test(t)) {
+        if (s === "6") return 0;
+        if (s === "3") return 1;
+        if (s === "2") return 2;
         return 5;
     }
     if (s === "3") return 0;
@@ -3428,22 +3434,23 @@ function renderProveedorSwitcher(item) {
     }
     box.classList.remove("hidden");
     box.innerHTML =
-        `<span class="mz-prov-label">Proveedor</span>` +
+        `<span class="mz-prov-label">Fuente</span>` +
         list
-            .map((p) => {
+            .map((p, i) => {
                 const act = p.activo ? " active" : "";
-                return `<button type="button" class="mz-prov-btn${act}" data-sid="${escapeHtml(String(p.source_id))}" data-slug="${escapeHtml(String(p.slug || ""))}">${escapeHtml(p.nombre)}</button>`;
+                const label = String(i + 1); // 1, 2, 3…
+                const sid = p.source_id || "";
+                const slug = p.slug || "";
+                return `<button type="button" class="mz-prov-btn${act}" data-sid="${sid}" data-slug="${slug}" title="Fuente ${label}">${label}</button>`;
             })
             .join("");
 
     box.querySelectorAll(".mz-prov-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+        btn.onclick = async () => {
             const sid = btn.getAttribute("data-sid");
             const slug = btn.getAttribute("data-slug");
-            if (!sid || !slug) return;
-            if (String(item.source_id) === sid && item.slug === slug) return;
             await cambiarProveedor(item, { source_id: sid, slug });
-        });
+        };
     });
 }
 
@@ -3457,7 +3464,9 @@ async function cambiarProveedor(item, alt) {
         });
     }
     if (episodesContainer) {
-        episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cambiando a ${nombreProveedor(alt.source_id)}…</p></div>`;
+      //  episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cambiando a ${nombreProveedor(alt.source_id)}…</p></div>`;
+      // antes: Cambiando a ${nombreProveedor(alt.source_id)}…
+      episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cambiando fuente…</p></div>`;
     }
     try {
         const params = new URLSearchParams();
@@ -4032,9 +4041,9 @@ function renderEpisodios(item, season = 1) {
                 params.set("temporada", String(seasonNum));
                 params.set("episodio", String(epNum));
                 if (item.slug) params.set("slug", item.slug);
-                // Anime → fuente 4 (animeav1) prioritaria para players
+                // Anime → fuente 5 (jkanime) prioritaria; 4 = respaldo
                 const sidCap = (item.tipo === "Anime")
-                    ? (item._prefer_source_anime || "4")
+                    ? (item.source_id || item._prefer_source_anime || "5")
                     : (item.source_id || "");
                 if (sidCap) params.set("source_id", String(sidCap));
                 else if (item.source_id) params.set("source_id", item.source_id);
