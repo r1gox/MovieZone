@@ -2535,11 +2535,7 @@ function crearMediaCard(item) {
             ${ratingBadgeHtml(item)}
             <span class="type-badge">${escapeHtml(tipo)}</span>
             <div class="poster-bottom-row">
-              ${enEmision
-                ? `<span class="availability-badge available airing-badge"><span class="dot"></span> En emisión</span>`
-                : (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))
-                    ? `<span class="availability-badge unavailable"><span class="dot"></span> Finalizado</span>`
-                    : "")}
+              ${enEmision ? `<span class="airing-badge">En emisión</span>` : ""}
             </div>
         </div>
         <div class="media-info">
