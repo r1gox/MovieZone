@@ -3506,9 +3506,9 @@ function renderProveedorSwitcher(item) {
         list
             .map((p, i) => {
                 const act = p.activo ? " active" : "";
-                const label = String(i + 1); // 1, 2, 3…
                 const sid = p.source_id || "";
                 const slug = p.slug || "";
+                const label = nombreProveedor(sid, p.fuente) || p.nombre || String(i + 1);
                 return `<button type="button" class="mz-prov-btn${act}" data-sid="${sid}" data-slug="${slug}" title="Fuente ${label}">${label}</button>`;
             })
             .join("");
@@ -3649,8 +3649,20 @@ function normalizarListaTemporadas(item) {
             seen.add(n);
             out.push({ num: n, episodios: null, fromTmdb: false });
         });
-        out.sort((a, b) => a.num - b.num);
+      
+      out.sort((a, b) => a.num - b.num);
     }
+
+    // Anime: no inventar temporadas con TMDB
+    const esAnime = /anime/i.test(String(item.tipo || ""));
+    if (esAnime) {
+        out.sort((a, b) => a.num - b.num);
+        if (out.length <= 1) {
+            return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
+        }
+        return out;
+    }
+
 
     // 2) TMDB solo para completar 1–2 temporadas reales (Wistoria T2), nunca 20 arcs
     const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
