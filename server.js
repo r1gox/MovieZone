@@ -1625,6 +1625,73 @@ async function apiGet(path) {
   return data;
 }
 
+const PELIS_CATALOG_PAGES = 761; // worker /3/peliculas
+
+/**
+ * Sección Películas:
+ *  page 1 → estrenos (/3/peliculas/estrenos)
+ *  page 2..761 → /3/peliculas?page=N
+ * Sin mezclar búsquedas de Supabase.
+ */
+async function obtenerPeliculasSeccion(page = 1, limit = 24) {
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(48, Math.max(12, parseInt(limit, 10) || 24));
+  await ensureMoviesDB().catch(() => {});
+
+  try {
+    let data;
+    if (page === 1) {
+      data = await apiGet(`/${DEFAULT_SOURCE}/peliculas/estrenos`);
+    } else {
+      data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
+    }
+
+    let lista = (data.results || data.resultados || [])
+      .map(mapListItem)
+      .filter(Boolean)
+      .slice(0, limit);
+
+    lista = lista.map((item) => {
+      const local = moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug)
+      );
+      if (!local) return item;
+      return mergeItems(item, {
+        tiene_player: local.tiene_player,
+        descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
+        calificacion: local.calificacion || item.calificacion,
+        portada: item.portada || local.portada,
+      });
+    });
+
+    lista = filtrarDescartados(lista);
+
+    return {
+      resultados: lista,
+      page,
+      limit,
+      total: PELIS_CATALOG_PAGES * limit,
+      totalPages: PELIS_CATALOG_PAGES,
+      pages: PELIS_CATALOG_PAGES,
+      fuente: data.fuente || "pelisplushd",
+      modo: page === 1 ? "estrenos" : "catalogo",
+    };
+  } catch (err) {
+    console.error("obtenerPeliculasSeccion:", err.message);
+    return {
+      resultados: [],
+      page,
+      limit,
+      total: 0,
+      totalPages: PELIS_CATALOG_PAGES,
+      pages: PELIS_CATALOG_PAGES,
+      error: err.message,
+    };
+  }
+}
+
 // ---------- Lógica de negocio ----------
 async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
   // tipo: peliculas | series | animes
@@ -3242,7 +3309,8 @@ app.get("/api/catalogo", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    const data = await catalogoPaginado("peliculas", "Película", page, limit);
+    // Sección Películas → paginación worker (estrenos + page 2..761)
+    const data = await obtenerPeliculasSeccion(page, limit);
     res.json(data);
   } catch (err) {
     console.error("/api/catalogo", err.message);
