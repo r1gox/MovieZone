@@ -2573,6 +2573,68 @@ function renderGridItems(lista, limpiar) {
     });
 }
 
+function ensurePelisPaginationUI() {
+  const row = document.getElementById("carousel-movies")?.closest(".carousel-row");
+  if (!row) return;
+  let bar = document.getElementById("pelis-pagination");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "pelis-pagination";
+    bar.className = "pelis-pagination";
+    bar.innerHTML =
+      '<button type="button" id="pelis-prev" class="pelis-page-btn">Anterior</button>' +
+      '<span id="pelis-page-info" class="pelis-page-info"></span>' +
+      '<button type="button" id="pelis-next" class="pelis-page-btn">Siguiente</button>';
+    row.appendChild(bar);
+    document.getElementById("pelis-prev")?.addEventListener("click", () => cargarPaginaPeliculas(-1));
+    document.getElementById("pelis-next")?.addEventListener("click", () => cargarPaginaPeliculas(1));
+  }
+  actualizarPelisPaginationUI();
+}
+
+function actualizarPelisPaginationUI() {
+  const info = document.getElementById("pelis-page-info");
+  const prev = document.getElementById("pelis-prev");
+  const next = document.getElementById("pelis-next");
+  const page = window.__mzPelisPage || 1;
+  const pages = window.__mzPelisPages || 761;
+  // UI: 1 = estrenos; 2..761 = catálogo worker page 2..761
+  if (info) info.textContent = page === 1 ? "Estrenos" : `Página ${page} / ${pages}`;
+  if (prev) prev.disabled = page <= 1 || !!window.__mzPelisLoading;
+  if (next) next.disabled = page >= pages || !!window.__mzPelisLoading;
+}
+
+async function cargarPaginaPeliculas(delta) {
+  if (window.__mzPelisLoading) return;
+  const page = (window.__mzPelisPage || 1) + delta;
+  const pages = window.__mzPelisPages || 761;
+  if (page < 1 || page > pages) return;
+
+  window.__mzPelisLoading = true;
+  actualizarPelisPaginationUI();
+
+  try {
+    if (page === 1) {
+      // Estrenos
+      const res = await fetch("/api/estrenos?tipo=peliculas&limit=24", { cache: "no-store" });
+      const data = await res.json();
+      window.__mzPelisItems = data.resultados || [];
+    } else {
+      // Catálogo worker: page 2..761
+      const res = await fetch("/api/peliculas?page=" + page + "&limit=24", { cache: "no-store" });
+      const data = await res.json();
+      window.__mzPelisItems = data.resultados || [];
+      if (data.pages) window.__mzPelisPages = data.pages;
+    }
+    window.__mzPelisPage = page;
+    renderCarousel("carousel-movies", window.__mzPelisItems);
+  } catch (e) {
+    console.warn("paginacion peliculas", e);
+  } finally {
+    window.__mzPelisLoading = false;
+    actualizarPelisPaginationUI();
+  }
+}
 function renderCarousel(contenedorId, lista) {
     const el = document.getElementById(contenedorId);
     el.innerHTML = "";
@@ -2716,8 +2778,16 @@ async function cargarHome() {
         });
 
         // Destacadas = estrenos
-        const destacadas = peliculas.slice(0, 12);
-        renderCarousel("carousel-movies", destacadas);
+//        const destacadas = peliculas.slice(0, 12);
+   //     renderCarousel("carousel-movies", destacadas);
+     // Página 1 del home = estrenos; más páginas = /api/peliculas?page=2..761
+        window.__mzPelisPage = 1;
+        window.__mzPelisPages = 761;
+        window.__mzPelisLoading = false;
+        window.__mzPelisItems = peliculas.slice();
+        renderCarousel("carousel-movies", window.__mzPelisItems);
+        ensurePelisPaginationUI();
+      
         renderCarousel("carousel-series", series);
         renderCarousel("carousel-anime", anime);
         cargarContinuarViendo();
