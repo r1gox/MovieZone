@@ -1679,7 +1679,7 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
     lista = filtrarDescartados(lista);
 
     // Añadir al inicio ítems de Supabase del mismo tipo (búsquedas guardadas: Acaramelados → Series, etc.)
-    const tipoMatch = (m) => {
+ /*   const tipoMatch = (m) => {
       const t = String(m.tipo || "").toLowerCase();
       if (tipo === "series") return t === "serie" || t === "dorama" || t === "tv";
       if (tipo === "animes") return t === "anime";
@@ -1706,7 +1706,39 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
     }
     // Preferir recién guardados al frente de la sección
     lista = dedupeListItems([...extras, ...lista]).slice(0, limit);
+*/
 
+        // Series/animes: seguir mostrando búsquedas guardadas en su sección.
+    // Películas: NO mezclar búsquedas — la sección irá con paginación de catálogo.
+    if (tipo === "series" || tipo === "animes") {
+      const tipoMatch = (m) => {
+        const t = String(m.tipo || "").toLowerCase();
+        if (tipo === "series") return t === "serie" || t === "dorama" || t === "tv";
+        return t === "anime";
+      };
+      const seenSlug = new Set(
+        lista.map((it) => String(it.slug || "").toLowerCase()).filter(Boolean)
+      );
+      const seenTitle = new Set(
+        lista.map((it) => normalizeTitleKey(it.nombre || it.titulo || "")).filter(Boolean)
+      );
+      const extras = [];
+      for (const m of moviesDB) {
+        if (!m || esDescartado(m) || !tipoMatch(m)) continue;
+        const slug = String(m.slug || "").toLowerCase();
+        const tk = normalizeTitleKey(m.nombre || "");
+        if (slug && seenSlug.has(slug)) continue;
+        if (tk && seenTitle.has(tk)) continue;
+        if (slug) seenSlug.add(slug);
+        if (tk) seenTitle.add(tk);
+        const mapped = normalizeItemFromDB(m);
+        if (mapped) extras.push(mapped);
+        if (extras.length >= Math.min(12, limit)) break;
+      }
+      lista = dedupeListItems([...extras, ...lista]).slice(0, limit);
+    } else {
+      lista = lista.slice(0, limit);
+    }
     // Guardar en Supabase en background (solo metadatos)
     guardarEnSupabase(lista).catch(() => {});
     return { resultados: lista, total: data.total || lista.length, page: 1, limit };
