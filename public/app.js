@@ -2322,12 +2322,18 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
 // ======================================================
 async function fetchSeccion(seccion, page, limit = LIMIT) {
     const data = await getCatalog(seccion, page, limit);
-    
-    // Guardamos total para la paginación
-    gridTotalItems = data.total || 0;
-    gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / limit));
-    
-    return data.resultados || [];
+    const lista = data.resultados || [];
+
+    // Películas: 761 páginas del worker (1 = estrenos)
+    if (seccion === "movie" || seccion === "peliculas" || seccion === "pelicula") {
+        gridTotalPages = data.totalPages || data.pages || 761;
+        gridTotalItems = data.total || gridTotalPages * limit;
+    } else {
+        gridTotalItems = data.total || 0;
+        gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / limit));
+    }
+
+    return lista;
 }
 
 // Estado extra: por defecto ONLINE (la API tiene muchos más resultados que Supabase local)
