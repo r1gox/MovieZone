@@ -2535,10 +2535,11 @@ function crearMediaCard(item) {
             ${ratingBadgeHtml(item)}
             <span class="type-badge">${escapeHtml(tipo)}</span>
             <div class="poster-bottom-row">
-              <span class="availability-badge ${tieneVideo ? "available" : "unavailable"}">
-                <span class="dot"></span> ${tieneVideo ? "Disponible" : "Sin servers"}
-              </span>
-              ${enEmision ? `<span class="airing-badge">En emisión</span>` : ""}
+              ${enEmision
+                ? `<span class="availability-badge available airing-badge"><span class="dot"></span> En emisión</span>`
+                : (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))
+                    ? `<span class="availability-badge unavailable"><span class="dot"></span> Finalizado</span>`
+                    : "")}
             </div>
         </div>
         <div class="media-info">
@@ -3170,7 +3171,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 rellenarMetaDetalle(item);
                 document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
-                // Actualizar badge Disponible en la tarjeta del grid si existe
+         /*       // Actualizar badge Disponible en la tarjeta del grid si existe
                 try {
                     if (item.tiene_player || (item.embeds && item.embeds.length)) {
                         document.querySelectorAll(".media-card").forEach(function (card) {
@@ -3185,7 +3186,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                             }
                         });
                     }
-                } catch (_) {}
+                } catch (_) {}*/
             }
         } catch (err) {
             console.error("Error o timeout enriqueciendo detalle:", err);
