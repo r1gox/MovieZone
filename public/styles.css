@@ -3758,7 +3758,7 @@ body.player-open .btn-close-modal {
   z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: filex-start;
   gap: 4px;
   pointer-events: none;
 }
@@ -3815,7 +3815,7 @@ body.player-open .btn-close-modal {
   background: rgba(5, 2, 9, 0.75);
   border: 1px solid rgba(52, 211, 153, 0.55);
   white-space: nowrap;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 /* Tipo e IMDb mismo tamaño arriba */
@@ -4350,4 +4350,20 @@ body.player-open .btn-close-modal {
 .pelis-page-info {
   font-size: 0.85rem;
   opacity: 0.85;
+}
+
+.ended-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  background: rgba(5, 2, 9, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  white-space: nowrap;
+  margin-left: 0;
 }
