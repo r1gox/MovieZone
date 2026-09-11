@@ -966,9 +966,10 @@ function scoreItem(item) {
   const esAnime = /anime/i.test(String(item.tipo || ""));
   // En animes: priorizar animeav1 (4) > pelisplus (3) > lamovie (1) > hackstore (2)
   if (esAnime) {
-      // En animes: jkanime (5) > animeav1 (4) > ...
-    if (sid === "5" || sid === "jkanime") s += 30;
-    if (sid === "4" || sid === "animeav1") s += 20;
+      // En animes: solo animeav1 (4)
+    if (sid === "4" || sid === "animeav1") s += 30;
+    // jkanime no priorizar
+    if (sid === "5" || sid === "jkanime") s += 0;
     else if (sid === "3" || sid === "pelisplushd") s += 12;
     else if (sid === "1" || sid === "lamovie") s += 6;
     else if (sid === "2" || sid === "hackstore") s += 2;
@@ -2784,14 +2785,14 @@ async function obtenerDetalle(params) {
   // Anime: totales / rangos; preferir fuente 4
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
-    best._prefer_source_anime = "5";
+    best._prefer_source_anime = "4";
     const nEps = Number(best.total_episodios) || 0;
     const tieneRangos = Array.isArray(best.rangos_episodios) && best.rangos_episodios.length > 1;
     // One Piece: muchos eps → forzar 1 temporada (el front usa rangos 1–50…)
     if (nEps > 50 || tieneRangos) {
       best.temporadas = [1];
       best.total_temporadas = 1;
-      best.source_id = "5";
+      best.source_id = "4";
       if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
     } else {
       const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
