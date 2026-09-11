@@ -1740,6 +1740,50 @@ async function obtenerPopulares(tipo = "peliculas", limit = 24) {
   }
 }
 
+/** Catálogo PelisPlus paginado: /3/peliculas?page=N (page 1..761) */
+async function obtenerPeliculasCatalogo(page = 2, limit = 24) {
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(48, Math.max(6, parseInt(limit, 10) || 24));
+  await ensureMoviesDB().catch(() => {});
+  try {
+    const data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
+    let lista = (data.results || data.resultados || [])
+      .map(mapListItem)
+      .filter(Boolean)
+      .slice(0, limit);
+
+    lista = lista.map((item) => {
+      const local = moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug)
+      );
+      if (local) {
+        return mergeItems(item, {
+          tiene_player: local.tiene_player,
+          descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
+          calificacion: local.calificacion || item.calificacion,
+          portada: item.portada || local.portada,
+        });
+      }
+      return item;
+    });
+    lista = filtrarDescartados(lista);
+    // No mezclar búsquedas de Supabase aquí
+    return {
+      resultados: lista,
+      total: data.total || data.count || lista.length,
+      page,
+      pages: 761,
+      limit,
+      fuente: data.fuente || "pelisplushd",
+    };
+  } catch (err) {
+    console.error("Error catalogo peliculas:", err.message);
+    return { resultados: [], total: 0, page, pages: 761, limit, error: err.message };
+  }
+}
+
 /** Relevancia de un item respecto al query (mayor = mejor) */
 function scoreSearchRelevance(item, termino) {
   const qNorm = normalizeTitleKey(termino);
@@ -3004,6 +3048,19 @@ async function guardarPlayersEpisodio(serieItem, season, episode, embeds, reprod
   else moviesDB.unshift(updated);
   return updated;
 }
+
+app.get("/api/peliculas", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(48, Math.max(6, parseInt(req.query.limit, 10) || 24));
+    // page 1 del home = estrenos; el catálogo empieza en 2 en el front
+    const data = await obtenerPeliculasCatalogo(page, limit);
+    res.json(data);
+  } catch (err) {
+    console.error("/api/peliculas", err.message);
+    res.status(500).json({ error: "No se pudo cargar el catálogo", resultados: [] });
+  }
+});
 
 // ---------- Rutas API ----------
 app.get("/api/estrenos", async (req, res) => {
