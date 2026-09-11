@@ -4328,3 +4328,26 @@ body.player-open .btn-close-modal {
   flex-shrink: 0;
 }
 
+.pelis-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 0.25rem;
+}
+.pelis-page-btn {
+  background: rgba(124, 58, 237, 0.25);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+}
+.pelis-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pelis-page-info {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
