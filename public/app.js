@@ -3357,9 +3357,8 @@ function ordenPrioridadProveedor(sid, tipo) {
     const s = String(sid || "");
     const t = String(tipo || "");
     if (/anime/i.test(t)) {
-        if (s === "5") return 0; // jkanime primero
-        if (s === "4") return 1; // animeav1 respaldo
-        return 5;
+        if (s === "4") return 0; // solo animeav1
+        return 99;
     }
     if (/serie/i.test(t)) {
         if (s === "6") return 0;
@@ -3374,6 +3373,11 @@ function ordenPrioridadProveedor(sid, tipo) {
 /** Busca la misma serie/anime en otras fuentes y las guarda en item._proveedores */
 async function cargarProveedoresAlternos(item) {
     if (!item || (item.tipo !== "Serie" && item.tipo !== "Anime")) return [];
+    // Anime: solo AnimeAV1, sin fuentes alternas
+    if (/anime/i.test(String(item.tipo || ""))) {
+        item._proveedores = [];
+        return [];
+    }
     if (Array.isArray(item._proveedores) && item._proveedores.length) return item._proveedores;
 
     const q = (item.nombre || item.titulo || "").replace(/\s*\(\d{4}\)\s*$/, "").trim();
@@ -3494,6 +3498,12 @@ function resolverSidLocal(item) {
 function renderProveedorSwitcher(item) {
     const box = document.getElementById("mz-provider-switch");
     if (!box) return;
+    // Anime: solo AnimeAV1 → no mostrar switcher de fuentes
+    if (item && /anime/i.test(String(item.tipo || ""))) {
+        box.classList.add("hidden");
+        box.innerHTML = "";
+        return;
+    }
     const list = item._proveedores || [];
     if (list.length < 2) {
         box.classList.add("hidden");
@@ -3649,22 +3659,17 @@ function normalizarListaTemporadas(item) {
             seen.add(n);
             out.push({ num: n, episodios: null, fromTmdb: false });
         });
-      
-      out.sort((a, b) => a.num - b.num);
+        out.sort((a, b) => a.num - b.num);
     }
 
     // Anime: no inventar temporadas con TMDB
     const esAnime = /anime/i.test(String(item.tipo || ""));
     if (esAnime) {
         out.sort((a, b) => a.num - b.num);
-        if (out.length <= 1) {
-            return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
-        }
-        return out;
+        return out.length ? out : [{ num: 1, episodios: null, fromTmdb: false }];
     }
 
-
-    // 2) TMDB solo para completar 1–2 temporadas reales (Wistoria T2), nunca 20 arcs
+    // 2) TMDB solo para series (no anime)
     const tmdbSeasons = Array.isArray(item.temporadas_tmdb) ? item.temporadas_tmdb : [];
     let addedFromTmdb = 0;
     const maxTmdbExtra = 2;
