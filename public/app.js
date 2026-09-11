@@ -2538,7 +2538,7 @@ function crearMediaCard(item) {
               ${enEmision
                 ? `<span class="airing-badge">En emisión</span>`
                 : (item.finalizado === true || /final|ended|complet|conclu/i.test(String(item.estado || ""))
-                    ? `<span class="ended-badge">Finalizado</span>`
+                    ? `<span class="availability-badge unavailable"><span class="dot"></span> Finalizado</span>`
                     : "")}
             </div>
         </div>
