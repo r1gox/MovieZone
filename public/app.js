@@ -2784,16 +2784,8 @@ async function cargarHome() {
         });
 
         // Destacadas = estrenos
-//        const destacadas = peliculas.slice(0, 12);
-   //     renderCarousel("carousel-movies", destacadas);
-     // Página 1 del home = estrenos; más páginas = /api/peliculas?page=2..761
-        window.__mzPelisPage = 1;
-        window.__mzPelisPages = 761;
-        window.__mzPelisLoading = false;
-        window.__mzPelisItems = peliculas.slice();
-        renderCarousel("carousel-movies", window.__mzPelisItems);
-        ensurePelisPaginationUI();
-      
+        const destacadas = peliculas.slice(0, 12);
+        renderCarousel("carousel-movies", destacadas);
         renderCarousel("carousel-series", series);
         renderCarousel("carousel-anime", anime);
         cargarContinuarViendo();
