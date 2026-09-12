@@ -5077,3 +5077,338 @@ body.details-open .nav-bottom {
     padding-right: 16px !important;
   }
 }
+
+
+/* =========================================================
+   DETALLE ESTILO STREMIO (datos MovieZone, mismos IDs)
+   ========================================================= */
+#details-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10050 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #0e0e14 !important;
+  padding: 0 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  overflow: hidden !important;
+}
+#details-panel.hidden {
+  display: none !important;
+}
+
+/* Backdrop como Stremio: imagen a la derecha, opacidad baja */
+#details-panel .mz-stremio-bg {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  background-color: #0e0e14 !important;
+  background-size: cover !important;
+  background-position: center right !important;
+  background-repeat: no-repeat !important;
+  filter: none !important;
+  transform: none !important;
+  opacity: 0.32 !important;
+  pointer-events: none !important;
+}
+#details-panel .mz-stremio-bg::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background:
+    linear-gradient(90deg, #0e0e14 0%, rgba(14,14,20,0.92) 38%, rgba(14,14,20,0.55) 70%, rgba(14,14,20,0.35) 100%),
+    linear-gradient(180deg, rgba(14,14,20,0.15) 0%, rgba(14,14,20,0.25) 50%, #0e0e14 100%) !important;
+}
+
+#details-panel .modal-backdrop-close {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+#details-panel .btn-close-modal {
+  position: absolute !important;
+  top: max(12px, env(safe-area-inset-top)) !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
+  z-index: 20 !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+}
+
+#details-panel .details-content {
+  position: relative !important;
+  z-index: 2 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  animation: none !important;
+}
+
+#details-panel .details-body {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  background: transparent !important;
+  padding: 0 !important;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Layout 2 columnas (Stremio: meta izq / videos+streams der) */
+.mz-detail-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  min-height: min(100%, 100vh);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 2%;
+}
+
+.mz-meta-col {
+  flex: 1 1 48%;
+  min-width: 0;
+  padding: 56px 24px 32px 8px;
+  box-sizing: border-box;
+}
+
+.mz-streams-col {
+  flex: 1 1 42%;
+  min-width: 280px;
+  max-width: 520px;
+  padding: 56px 8px 32px 16px;
+  box-sizing: border-box;
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Header meta: logo primero (Stremio), póster secundario */
+#details-panel .mz-stremio-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  margin: 0 0 16px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: none !important;
+}
+
+#details-panel .mz-stremio-poster-col {
+  order: 2;
+  margin-top: 8px;
+}
+#details-panel .mz-stremio-info {
+  order: 1;
+  width: 100% !important;
+  text-align: left !important;
+  background: transparent !important;
+}
+
+/* Logo grande centrado a la izquierda */
+#details-logo:not(.hidden) {
+  display: block !important;
+  height: 7.5rem !important;
+  max-height: 7.5rem !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+  margin: 0 0 1rem !important;
+  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.45));
+}
+#details-logo.hidden {
+  display: none !important;
+}
+
+/* Si no hay logo, título grande como placeholder */
+#details-panel #details-title {
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem) !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  margin: 0 0 6px !important;
+  line-height: 1.15 !important;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+#details-panel #details-logo:not(.hidden) ~ * #details-title,
+#details-panel .mz-stremio-info:has(#details-logo:not(.hidden)) #details-title {
+  /* título sigue visible debajo del logo, más discreto */
+  font-size: 1.15rem !important;
+  font-weight: 600 !important;
+  opacity: 0.92;
+}
+
+/* Póster: solo fallback; más chico tipo Stremio no-poster */
+.mz-stremio-poster-col.mz-hide-poster,
+.details-poster.mz-poster-hidden {
+  display: none !important;
+}
+#details-panel .details-poster {
+  width: 120px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.55) !important;
+}
+
+#details-panel .details-type-row {
+  margin-bottom: 8px;
+}
+
+#details-panel .details-meta-row,
+#details-panel .meta-row.details-meta-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px 14px !important;
+  margin: 10px 0 !important;
+  justify-content: flex-start !important;
+}
+
+#details-panel .details-meta-row .meta-item {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 0.95rem !important;
+  color: rgba(255,255,255,0.85) !important;
+}
+
+/* IMDb chip Stremio */
+.mz-imdb-wrap {
+  display: inline-flex !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.mz-imdb-wrap.hidden { display: none !important; }
+.mz-imdb-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px !important;
+  border-radius: 3px !important;
+  background: #f5c518 !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  font-size: 0.9rem !important;
+  text-decoration: none !important;
+  line-height: 1.2 !important;
+}
+
+#details-panel .details-genres {
+  justify-content: flex-start !important;
+  margin-top: 8px;
+}
+
+#details-panel .mz-synopsis-section,
+#details-panel .details-section {
+  background: transparent !important;
+  border: none !important;
+  max-width: none !important;
+  margin: 0 0 16px !important;
+  padding: 0 !important;
+}
+
+#details-panel .details-section h4 {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: rgba(255,255,255,0.95) !important;
+  margin: 0 0 10px !important;
+}
+
+#details-panel .synopsis-text {
+  color: rgba(255,255,255,0.78) !important;
+  line-height: 1.55 !important;
+  font-size: 0.95rem !important;
+  max-height: 9.5em;
+  overflow-y: auto;
+}
+
+/* Columna streams: lista clara */
+.mz-streams-col .servers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mz-streams-col .server-btn,
+.mz-streams-col .servers-list button,
+.mz-streams-col .servers-list .server-item {
+  border-radius: 8px !important;
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  text-align: left !important;
+}
+
+#details-panel .episodes-grid {
+  justify-content: flex-start !important;
+}
+
+/* Player encima a pantalla ancha */
+#details-panel .video-player-container:not(.hidden) {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  z-index: 5;
+}
+
+body.details-open .bottom-nav,
+body.details-open nav.bottom-nav,
+body.details-open #bottom-nav,
+body.details-open .mobile-bottom-nav,
+body.details-open .nav-bottom {
+  display: none !important;
+}
+
+/* Móvil: una columna, meta arriba, streams abajo */
+@media (max-width: 900px) {
+  .mz-detail-layout {
+    flex-direction: column;
+    padding: 0 16px;
+  }
+  .mz-meta-col {
+    padding: 52px 0 12px;
+  }
+  .mz-streams-col {
+    max-width: none;
+    min-width: 0;
+    padding: 8px 0 40px;
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  #details-logo:not(.hidden) {
+    height: 5rem !important;
+    max-height: 5rem !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  #details-panel .mz-stremio-header,
+  #details-panel .mz-stremio-info {
+    align-items: center !important;
+    text-align: center !important;
+  }
+  #details-panel .details-meta-row,
+  #details-panel .details-genres {
+    justify-content: center !important;
+  }
+  #details-logo:not(.hidden) {
+    object-position: center !important;
+  }
+}

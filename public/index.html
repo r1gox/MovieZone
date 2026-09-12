@@ -384,6 +384,8 @@
           <p>Selecciona un elemento para ver su sinopsis, temporadas, servidores y opciones de descarga.</p>
         </div>
         <div class="details-content-inner hidden" id="details-content">
+          <div class="mz-detail-layout">
+          <div class="mz-meta-col">
           <div class="details-header-card mz-stremio-header">
             <div class="mz-stremio-poster-col">
               <img id="details-poster" src="" alt="Poster" class="details-poster">
@@ -457,11 +459,13 @@
             </div>
           </div>
     
-          <div class="details-section">
+          <div class="details-section mz-synopsis-section">
             <h4>Sinopsis</h4>
             <p id="details-synopsis" class="synopsis-text">Sinopsis completa del contenido...</p>
           </div>
+          </div><!-- /.mz-meta-col -->
 
+          <div class="mz-streams-col">
           <div class="details-section hidden" id="seasons-section">
             <h4>Temporadas y Capítulos</h4>
             <div id="mz-provider-switch" class="mz-provider-switch hidden" aria-label="Cambiar proveedor"></div>
@@ -471,7 +475,7 @@
 
           <div class="details-section hidden" id="servers-section">
             <div class="servers-header">
-              <h4 id="servers-section-title">Servidores de Reproducción</h4>
+              <h4 id="servers-section-title">Streams</h4>
               <button type="button" class="btn-refresh-servers" id="btn-refresh-servers" title="Forzar actualización de servidores">
                 <ion-icon name="refresh-outline"></ion-icon>
                 <span>Actualizar</span>
@@ -488,6 +492,8 @@
             <h4>Opciones de Descarga</h4>
             <div class="servers-list" id="downloads-list-container"></div>
           </div>
+          </div><!-- /.mz-streams-col -->
+          </div><!-- /.mz-detail-layout -->
         </div>
       </div>
     </div>
