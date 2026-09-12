@@ -4916,6 +4916,23 @@ window.addEventListener("scroll", () => {
 });
 
 
+
+function setDetailBackdrop(item) {
+  const bg = document.getElementById("mz-stremio-bg");
+  if (!bg) return;
+  const url =
+    item.backdrop ||
+    item.fondo ||
+    item.portada ||
+    item.poster ||
+    item.image ||
+    "";
+  bg.style.backgroundImage = url ? `url("${url}")` : "none";
+}
+
+// Donde ya abres/rellenas el detalle:
+// setDetailBackdrop(item);
+
 // ======================================================
 // PAGINACIÓN CON BOTONES
 // ======================================================
