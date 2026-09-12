@@ -5740,3 +5740,140 @@ body.details-open .nav-bottom {
     object-position: center center;
   }
 }
+
+
+/* ===== Ajustes UX: search center, stremio rows, next gone, loading full, browser warn ===== */
+
+/* Ocultar Siguiente si quedara en DOM */
+#btn-next-ep,
+.mz-ep-next {
+  display: none !important;
+}
+
+/* Buscador centrado */
+.netflix-navbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+.netflix-navbar .nav-left {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.netflix-navbar .nav-right {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.netflix-navbar .search-container {
+  flex: 0 1 520px;
+  width: min(520px, 56vw);
+  margin: 0 auto !important;
+  position: relative;
+  z-index: 1;
+}
+.netflix-navbar .search-form,
+.netflix-navbar .search-box-wrapper {
+  width: 100%;
+}
+@media (max-width: 720px) {
+  .netflix-navbar .search-container {
+    width: min(100%, calc(100vw - 120px));
+    flex-basis: auto;
+  }
+}
+
+/* Loading: tapa todo el detalle hasta datos */
+#details-content.hidden {
+  display: none !important;
+}
+.mz-details-loading:not(.hidden) {
+  display: flex !important;
+  z-index: 40 !important;
+  background: rgba(14, 14, 20, 0.72) !important;
+}
+
+/* Listado IMDb siempre amarillo marca (no solo estrella azul) */
+.rating-badge.rating-imdb-logo,
+.rating-badge.rating-src-imdb {
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+}
+.rating-badge.rating-src-imdb:not(.rating-imdb-logo) {
+  /* si algún card viejo solo tiene src-imdb */
+  background: rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Filas tipo Stremio: ~3 pósteres visibles (móvil); más en PC */
+.carousel-container {
+  display: flex !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.carousel-container .media-card,
+.carousel-container .carousel-card {
+  flex: 0 0 calc((100% - 24px) / 3) !important;
+  width: calc((100% - 24px) / 3) !important;
+  max-width: calc((100% - 24px) / 3) !important;
+  scroll-snap-align: start;
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .carousel-container .media-card,
+  .carousel-container .carousel-card {
+    flex: 0 0 calc((100% - 48px) / 5) !important;
+    width: calc((100% - 48px) / 5) !important;
+    max-width: calc((100% - 48px) / 5) !important;
+  }
+}
+@media (min-width: 1101px) {
+  .carousel-container .media-card,
+  .carousel-container .carousel-card {
+    flex: 0 0 calc((100% - 84px) / 8) !important;
+    width: calc((100% - 84px) / 8) !important;
+    max-width: calc((100% - 84px) / 8) !important;
+  }
+}
+
+/* Aviso navegador móvil 3s */
+.mz-browser-warn {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20000;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  background: rgba(20, 16, 28, 0.96);
+  border-bottom: 1px solid rgba(245, 197, 24, 0.35);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.mz-browser-warn strong {
+  display: block;
+  color: #f5c518;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+.mz-browser-warn.hidden {
+  display: none !important;
+}
+@media (min-width: 900px) {
+  .mz-browser-warn {
+    display: none !important; /* solo móvil */
+  }
+}

@@ -2893,11 +2893,17 @@ function mostrarDetalleLoading(on) {
   const empty = document.getElementById("details-empty");
   if (el) el.classList.toggle("hidden", !on);
   if (content) {
-    content.classList.toggle("mz-detail-dimmed", !!on);
-    if (on) content.classList.remove("hidden");
+    if (on) {
+      content.classList.add("hidden");
+      content.classList.add("mz-detail-dimmed");
+    } else {
+      content.classList.remove("hidden");
+      content.classList.remove("mz-detail-dimmed");
+    }
   }
   if (empty) empty.classList.add("hidden");
 }
+
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
@@ -2962,7 +2968,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     const _thinDetail = !item.descripcion || String(item.descripcion).trim().length < 20
       || (!(item.tipo === "Serie" || item.tipo === "Anime") && (!item.embeds || !item.embeds.length))
       || ((item.tipo === "Serie" || item.tipo === "Anime") && (!item.episodios || !item.episodios.length) && (!item.temporadas_raw || !item.temporadas_raw.length));
-    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(!!_thinDetail);
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
 
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
     // También si el listado marcó "Sin servidores" (tiene_player !== true) para películas
@@ -5201,6 +5207,21 @@ function actualizarPaginacion() {
 // ======================================================
 // INICIO
 // ======================================================
+
+
+function initBrowserWarn() {
+  try {
+    const el = document.getElementById("mz-browser-warn");
+    if (!el) return;
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+    if (!isMobile) return;
+    if (sessionStorage.getItem("mz_browser_warn") === "1") return;
+    el.classList.remove("hidden");
+    sessionStorage.setItem("mz_browser_warn", "1");
+    setTimeout(() => el.classList.add("hidden"), 3000);
+  } catch (_) {}
+}
+initBrowserWarn();
 
 initWakeupNotice();
 initProfilesUi();
