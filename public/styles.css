@@ -5412,3 +5412,37 @@ body.details-open .nav-bottom {
     object-position: center !important;
   }
 }
+
+
+/* ===== IMDb badge listado + un solo rating en detalle ===== */
+.rating-badge.rating-imdb-logo {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  background: #f5c518 !important;
+  color: #000 !important;
+  border: none !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+.rating-badge.rating-imdb-logo .imdb-mark {
+  font-size: 10px;
+  letter-spacing: -0.02em;
+  font-weight: 900;
+}
+.rating-badge.rating-imdb-logo .rating-main {
+  font-size: 11px;
+  font-weight: 800;
+}
+.rating-badge.rating-imdb-logo ion-icon {
+  display: none !important;
+}
+
+#details-panel #details-rating-wrap,
+#details-panel #details-type-rating {
+  display: none !important;
+}

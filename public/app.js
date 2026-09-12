@@ -504,43 +504,57 @@ const statusBadge = document.getElementById("status-badge");
 /** Rating con fuente: "IMDb 6.7" / "TMDB 8.8" */
 function ratingInfo(item) {
     if (!item) return { label: "—", value: null, source: null, secondary: null };
+
     const imdbR = item.imdb && item.imdb.rating != null ? Number(item.imdb.rating) : null;
     const tmdbR = item.tmdb && item.tmdb.rating != null ? Number(item.tmdb.rating) : null;
     const omdbR = item.omdb && item.omdb.rating != null ? Number(item.omdb.rating) : null;
     const mainRaw = item.rating != null ? item.rating : (item.calificacion != null ? item.calificacion : null);
     const main = mainRaw != null ? Number(mainRaw) : null;
-    const hasImdbId = !!(item.imdb_id || (item.imdb && item.imdb.id));
+    const hasImdbId = !!(item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)));
+    const srcApi = String(item.rating_source || "").toLowerCase();
 
-    // Si la API ya dice rating_source, respetarlo
-    const srcApi = (item.rating_source || "").toLowerCase();
     let primary;
-    if (srcApi === "imdb" && main != null && !isNaN(main) && main > 0) {
-      primary = { label: "IMDb " + main.toFixed(1), value: main, source: "imdb" };
-    } else if (srcApi === "tmdb" && main != null && !isNaN(main) && main > 0) {
-      primary = { label: "TMDB " + main.toFixed(1), value: main, source: "tmdb" };
-    } else if (imdbR != null && imdbR > 0) primary = { label: "IMDb " + imdbR.toFixed(1), value: imdbR, source: "imdb" };
-    else if (omdbR != null && omdbR > 0) primary = { label: "IMDb " + omdbR.toFixed(1), value: omdbR, source: "omdb" };
-    else if (hasImdbId && main != null && !isNaN(main) && main > 0) {
-      primary = { label: "IMDb " + main.toFixed(1), value: main, source: "imdb" };
-    }
-    else if (tmdbR != null && tmdbR > 0) primary = { label: "TMDB " + tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
-    else if (main != null && !isNaN(main) && main > 0) primary = { label: "Fun " + main.toFixed(1), value: main, source: "fuente" };
-    else primary = { label: "0", value: null, source: null };
 
-    let secondary = null;
-    if (primary.source === "imdb" && tmdbR != null && tmdbR > 0) secondary = "TMDB " + tmdbR.toFixed(1);
-    else if (primary.source === "tmdb" && imdbR != null && imdbR > 0) secondary = "IMDb " + imdbR.toFixed(1);
-    return Object.assign({ secondary: secondary }, primary);
+    // Prioridad: rating_source imdb de la API (ej. rating: 3.9, rating_source: "imdb")
+    if (srcApi === "imdb" && main != null && !isNaN(main) && main > 0) {
+      primary = { label: main.toFixed(1), value: main, source: "imdb" };
+    } else if (imdbR != null && !isNaN(imdbR) && imdbR > 0) {
+      primary = { label: imdbR.toFixed(1), value: imdbR, source: "imdb" };
+    } else if (omdbR != null && !isNaN(omdbR) && omdbR > 0) {
+      primary = { label: omdbR.toFixed(1), value: omdbR, source: "omdb" };
+    } else if (hasImdbId && main != null && !isNaN(main) && main > 0 && main <= 10) {
+      primary = { label: main.toFixed(1), value: main, source: "imdb" };
+    } else if (srcApi === "tmdb" && main != null && !isNaN(main) && main > 0) {
+      primary = { label: main.toFixed(1), value: main, source: "tmdb" };
+    } else if (tmdbR != null && !isNaN(tmdbR) && tmdbR > 0) {
+      primary = { label: tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
+    } else if (main != null && !isNaN(main) && main > 0) {
+      primary = { label: main.toFixed(1), value: main, source: "fuente" };
+    } else {
+      primary = { label: "—", value: null, source: null };
+    }
+
+    return Object.assign({ secondary: null }, primary);
 }
 
 function ratingBadgeHtml(item) {
-    // Mostrar rating si hay calificación (API/IMDb); si no, estrella vacía
     const r = ratingInfo(item);
     if (!r.value) {
-        return '<div class="rating-badge rating-empty" title="Entra para cargar datos"><ion-icon name="star-outline"></ion-icon> 0</div>';
+        return '<div class="rating-badge rating-empty" title="Sin rating"><span class="rating-main">—</span></div>';
     }
+
+    const isImdb = r.source === "imdb" || r.source === "omdb";
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-    // En tarjetas estrechas (carrusel) el CSS reduce el tamaño; el label puede ser "IMDb 6.7"
+
+    if (isImdb) {
+        return (
+            '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="IMDb ' + escapeHtml(r.label) + '">' +
+            '<span class="imdb-mark">IMDb</span>' +
+            '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
+            "</div>"
+        );
+    }
+
     return (
         '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + '">' +
         '<ion-icon name="star"></ion-icon> ' +
@@ -573,35 +587,13 @@ function rellenarMetaDetalle(item) {
         yearEl.textContent = item.year || (item.fecha_estreno ? String(item.fecha_estreno).slice(0, 4) : "—");
     }
 
-    // Rating: SOLO IMDb si hay; si no, el otro. No mostrar ambos.
+    // Un solo rating estilo Stremio: chip IMDb (ocultar estrellas duplicadas)
     const ri = ratingInfo(item);
-    const ratingEl = document.getElementById("details-rating");
-    const ratingWrap = document.getElementById("details-rating-wrap") || (ratingEl && ratingEl.closest(".meta-item"));
-    if (ratingEl) {
-        ratingEl.textContent = ri.value != null ? ri.label : "0";
-        ratingEl.title = (ri.source === "imdb" || ri.source === "omdb")
-            ? "Calificación IMDb"
-            : (ri.source === "tmdb" ? "Calificación TMDB" : "");
-    }
-    if (ratingWrap) {
-        ratingWrap.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente", "hidden");
-        if (ri.source) ratingWrap.classList.add("rating-src-" + ri.source);
-        if (ri.value == null) ratingWrap.classList.add("hidden");
-    }
-    // Badge compacto junto a PELÍCULA / SERIE
+    const ratingWrap = document.getElementById("details-rating-wrap");
     const typeRating = document.getElementById("details-type-rating");
-    const typeRatingText = document.getElementById("details-type-rating-text");
-    if (typeRating && typeRatingText) {
-        typeRating.classList.remove("rating-src-imdb", "rating-src-tmdb", "rating-src-omdb", "rating-src-fuente", "hidden");
-        if (ri.value != null) {
-            typeRatingText.textContent = ri.label;
-            typeRating.title = ri.label;
-            if (ri.source) typeRating.classList.add("rating-src-" + ri.source);
-        } else {
-            typeRating.classList.add("hidden");
-            typeRatingText.textContent = "0";
-        }
-    }
+    if (ratingWrap) ratingWrap.classList.add("hidden");
+    if (typeRating) typeRating.classList.add("hidden");
+    if (typeof setDetalleImdb === "function") setDetalleImdb(item);
 
     // Duración
     const durEl = document.getElementById("details-duration");
@@ -2905,7 +2897,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
     // Pintar lo que ya tenemos
     // Pintar lo que ya tenemos
-    document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
+    const __posterEl = document.getElementById("details-poster");
+    const __posterCol = document.querySelector(".mz-stremio-poster-col");
+    if (__posterEl) __posterEl.classList.add("mz-poster-hidden");
+    if (__posterCol) __posterCol.classList.add("mz-hide-poster");
+    if (__posterEl) __posterEl.src = item.portada || PLACEHOLDER;
     setDetailBackdrop(item);
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
