@@ -547,10 +547,11 @@ function ratingBadgeHtml(item) {
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
 
     if (isImdb) {
+        // Stremio: nota + pastilla IMDb amarilla
         return (
             '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="IMDb ' + escapeHtml(r.label) + '">' +
-            '<span class="imdb-mark">IMDb</span>' +
             '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
+            '<span class="imdb-mark">IMDb</span>' +
             "</div>"
         );
     }
@@ -5000,17 +5001,25 @@ function setDetalleFondo(item) {
 function setDetailBackdrop(item) {
   const bg = document.getElementById("mz-stremio-bg");
   if (!bg || !item) return;
+
   const url =
     item.backdrop ||
     item.fondo ||
+    item.background ||
+    item.backdrop_url ||
+    (item.imdb && item.imdb.backdrop) ||
+    (item.tmdb && (item.tmdb.backdrop || item.tmdb.fondo)) ||
     item.portada_imdb ||
     item.portada ||
     item.poster ||
     item.image ||
     "";
+
   if (url) {
     const safe = String(url).replace(/\\/g, "/").replace(/"/g, "%22");
     bg.style.setProperty("background-image", `url("${safe}")`, "important");
+    bg.style.setProperty("background-size", "cover", "important");
+    bg.style.setProperty("background-position", "center right", "important");
     bg.style.setProperty("opacity", "1", "important");
   } else {
     bg.style.setProperty("background-image", "none", "important");
@@ -5021,6 +5030,7 @@ function setDetalleLogo(item) {
   const logoEl = document.getElementById("details-logo");
   const posterEl = document.getElementById("details-poster");
   const posterCol = document.querySelector(".mz-stremio-poster-col");
+  const header = document.querySelector(".mz-stremio-header");
   if (!logoEl) return;
 
   logoEl.onload = null;
@@ -5028,10 +5038,13 @@ function setDetalleLogo(item) {
 
   const imdbIdRaw = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || "";
   const imdbId = String(imdbIdRaw || "").trim();
-  const tt = imdbId ? (imdbId.startsWith("tt") ? imdbId : "tt" + imdbId.replace(/\D/g, "")) : null;
+  const tt = imdbId
+    ? (imdbId.startsWith("tt") ? imdbId : "tt" + imdbId.replace(/\D/g, ""))
+    : null;
 
   const logoUrl =
     item.logo ||
+    item.logo_url ||
     item.logo_imdb ||
     (tt ? "https://images.metahub.space/logo/medium/" + tt + "/img" : null);
 
@@ -5039,13 +5052,21 @@ function setDetalleLogo(item) {
     logoEl.classList.add("hidden");
     logoEl.removeAttribute("src");
     if (posterEl) posterEl.classList.remove("mz-poster-hidden");
-    if (posterCol) posterCol.classList.remove("mz-hide-poster");
+    if (posterCol) {
+      posterCol.classList.remove("mz-hide-poster");
+      posterCol.classList.add("mz-poster-top");
+    }
+    if (header) header.classList.add("mz-has-poster-only");
   };
 
   const showLogo = () => {
     logoEl.classList.remove("hidden");
     if (posterEl) posterEl.classList.add("mz-poster-hidden");
-    if (posterCol) posterCol.classList.add("mz-hide-poster");
+    if (posterCol) {
+      posterCol.classList.add("mz-hide-poster");
+      posterCol.classList.remove("mz-poster-top");
+    }
+    if (header) header.classList.remove("mz-has-poster-only");
   };
 
   if (!logoUrl) {
@@ -5056,10 +5077,7 @@ function setDetalleLogo(item) {
   logoEl.onload = showLogo;
   logoEl.onerror = showPoster;
   logoEl.src = logoUrl;
-
-  if (logoEl.complete && logoEl.naturalWidth > 0) {
-    showLogo();
-  }
+  if (logoEl.complete && logoEl.naturalWidth > 0) showLogo();
 }
 
 // Donde ya abres/rellenas el detalle:

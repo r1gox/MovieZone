@@ -5446,3 +5446,95 @@ body.details-open .nav-bottom {
 #details-panel #details-type-rating {
   display: none !important;
 }
+
+
+/* ===== Solo: backdrop / poster arriba / IMDb Stremio (sin tocar resto) ===== */
+#details-panel .mz-stremio-header.mz-has-poster-only {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+#details-panel .mz-stremio-header.mz-has-poster-only .mz-stremio-poster-col {
+  order: 0 !important;
+  margin: 0 0 12px 0 !important;
+}
+#details-panel .mz-stremio-header.mz-has-poster-only .mz-stremio-info {
+  order: 1 !important;
+  width: 100% !important;
+}
+#details-panel .mz-stremio-poster-col.mz-poster-top .details-poster {
+  width: 140px !important;
+  border-radius: 8px !important;
+}
+#details-panel .mz-stremio-poster-col.mz-hide-poster {
+  display: none !important;
+}
+@media (max-width: 900px) {
+  #details-panel .mz-stremio-header.mz-has-poster-only {
+    align-items: center !important;
+  }
+}
+
+.rating-badge.rating-src-fuente {
+  background: rgba(5, 2, 9, 0.75) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.rating-badge.rating-imdb-logo,
+.rating-badge.rating-src-imdb.rating-imdb-logo,
+.rating-badge.rating-src-omdb.rating-imdb-logo {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  padding: 3px 7px !important;
+  font-weight: 700 !important;
+  backdrop-filter: blur(6px);
+}
+.rating-badge.rating-imdb-logo .rating-main {
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  order: 1;
+}
+.rating-badge.rating-imdb-logo .imdb-mark {
+  order: 2;
+  background: #f5c518 !important;
+  color: #000 !important;
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  line-height: 1 !important;
+}
+.rating-badge.rating-imdb-logo ion-icon {
+  display: none !important;
+}
+
+.mz-imdb-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+}
+.mz-imdb-btn #details-imdb-score {
+  color: rgba(255,255,255,0.95) !important;
+  font-size: 1.05rem !important;
+}
+.mz-imdb-btn .mz-imdb-logo {
+  background: #f5c518 !important;
+  color: #000 !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  padding: 3px 6px !important;
+  border-radius: 4px !important;
+}
