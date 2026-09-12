@@ -2921,6 +2921,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
     document.getElementById("details-year").textContent = item.year || "—";
     rellenarMetaDetalle(item);
+    setDetalleImdb(item);
+  
     document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
 
     actualizarBotonFavorito();
@@ -3167,6 +3169,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 fijarTitulosItem(item, item.nombre);
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
                 setDetailBackdrop(item);
+                setDetalleImbd(item);
                 setDetalleLogo(item);
                 document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 const origEl2 = document.getElementById("details-original-title");
@@ -3270,6 +3273,35 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
     // Al cerrar el player vuelve a mostrarse el botón de cerrar detalle (CSS body.player-open)
     cargarContinuarViendo();
 });
+
+function setDetalleImdb(item) {
+  const btn = document.getElementById("details-imdb-btn");
+  const scoreEl = document.getElementById("details-imdb-score");
+  if (!btn) return;
+
+  const imdbId = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || null;
+  const ri = typeof ratingInfo === "function" ? ratingInfo(item) : null;
+  let score = null;
+  if (ri && ri.source === "imdb" && ri.value != null) score = ri.value;
+  else if (item.imdb && item.imdb.rating != null) score = Number(item.imdb.rating);
+  else if (item.rating != null && (item.rating_source || "").toLowerCase() === "imdb") score = Number(item.rating);
+
+  if (imdbId || (score != null && !isNaN(score) && score > 0)) {
+    btn.classList.remove("hidden");
+    if (scoreEl) {
+      scoreEl.textContent =
+        score != null && !isNaN(score) && score > 0 ? Number(score).toFixed(1) : "IMDb";
+    }
+    btn.href = imdbId
+      ? "https://www.imdb.com/title/" + String(imdbId).replace(/^(tt)?/, "tt") + "/"
+      : "#";
+    if (!imdbId) btn.removeAttribute("target");
+    else btn.setAttribute("target", "_blank");
+  } else {
+    btn.classList.add("hidden");
+    btn.href = "#";
+  }
+}
 
 // ---------- Favoritos ----------
 function actualizarBotonFavorito() {
@@ -4967,23 +4999,36 @@ function setDetailBackdrop(item) {
 
 function setDetalleLogo(item) {
   const logoEl = document.getElementById("details-logo");
+  const posterEl = document.getElementById("details-poster");
+  const posterCol = document.querySelector(".mz-stremio-poster-col");
   if (!logoEl) return;
+
+  const imdbId = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || null;
   const logoUrl =
     item.logo ||
     item.logo_imdb ||
-    (item.imdb_id
-      ? "https://images.metahub.space/logo/medium/" + item.imdb_id + "/img"
-      : null);
-  if (logoUrl) {
-    logoEl.src = logoUrl;
-    logoEl.classList.remove("hidden");
-    logoEl.onerror = function () {
-      logoEl.classList.add("hidden");
-      logoEl.removeAttribute("src");
-    };
-  } else {
+    (imdbId ? "https://images.metahub.space/logo/medium/" + String(imdbId).replace(/^tt/, "tt") + "/img" : null);
+
+  const showPosterFallback = () => {
     logoEl.classList.add("hidden");
     logoEl.removeAttribute("src");
+    if (posterEl) posterEl.classList.remove("mz-poster-hidden");
+    if (posterCol) posterCol.classList.remove("mz-hide-poster");
+  };
+
+  if (logoUrl) {
+    logoEl.onload = function () {
+      logoEl.classList.remove("hidden");
+      // Como Stremio: con logo no hace falta póster grande
+      if (posterEl) posterEl.classList.add("mz-poster-hidden");
+      if (posterCol) posterCol.classList.add("mz-hide-poster");
+    };
+    logoEl.onerror = function () {
+      showPosterFallback();
+    };
+    logoEl.src = logoUrl;
+  } else {
+    showPosterFallback();
   }
 }
 
