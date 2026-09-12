@@ -6024,3 +6024,47 @@ main#home-view,
     max-width: none !important;
   }
 }
+
+
+/* ===== Móvil: grid Películas/Series/Anime = 3 columnas (no 2) ===== */
+@media (max-width: 900px) {
+  #grid-view .catalog-grid,
+  .grid-section .catalog-grid,
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 0 8px 16px !important;
+  }
+  #grid-view .catalog-grid .media-card,
+  .catalog-grid .media-card {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: unset !important;
+  }
+  #grid-view .catalog-grid .poster-img,
+  .catalog-grid .poster-img {
+    width: 100% !important;
+    aspect-ratio: 2 / 3 !important;
+    object-fit: cover !important;
+  }
+  #grid-view .catalog-grid .media-info h3,
+  .catalog-grid .media-info h3 {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  #grid-view .catalog-grid .media-info p,
+  .catalog-grid .media-info p {
+    font-size: 10px !important;
+  }
+  /* menos aire arriba del contador */
+  #grid-view.grid-section {
+    padding-top: 4px !important;
+  }
+  #grid-view .filter-toolbar {
+    margin-bottom: 4px !important;
+  }
+  #grid-view .results-count {
+    margin: 2px 8px 6px !important;
+  }
+}
