@@ -4367,3 +4367,207 @@ body.player-open .btn-close-modal {
   white-space: nowrap;
   margin-left: 0;
 }
+
+
+
+
+/* ========== Detalle estilo Stremio (móvil) — sin IMDb dedicado ========== */
+
+#details-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  overflow: hidden;
+}
+
+#details-panel.hidden {
+  display: none !important;
+}
+
+#details-panel .mz-stremio-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #0a0a12;
+  background-size: cover;
+  background-position: center top;
+  transform: scale(1.08);
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+#details-panel .mz-stremio-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 14, 0.35) 0%,
+    rgba(8, 8, 14, 0.55) 35%,
+    rgba(8, 8, 14, 0.92) 70%,
+    rgba(8, 8, 14, 0.98) 100%
+  );
+}
+
+#details-panel .modal-backdrop-close {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.btn-close-modal {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.details-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.details-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom));
+  background: transparent !important;
+}
+
+.details-header-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 56px 16px 8px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.details-poster {
+  width: min(42vw, 160px);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  object-fit: cover;
+  aspect-ratio: 2 / 3;
+}
+
+.details-meta-info {
+  width: 100%;
+  text-align: center;
+  background: transparent !important;
+}
+
+.details-meta-info h3#details-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 4px;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+#details-original-title {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 10px;
+}
+
+/* Usa tu meta-row actual: year, rating, duración… (lo que ya llena la API) */
+.details-meta-row,
+.meta-row.details-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.details-meta-row .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.details-genres {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.details-section {
+  margin: 0 16px 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(20, 20, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.details-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.details-section p,
+#details-synopsis {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .details-header-card {
+    flex-direction: row;
+    align-items: flex-end;
+    text-align: left;
+    padding: 48px 32px 16px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .details-meta-info { text-align: left; }
+  .details-meta-row,
+  .details-genres { justify-content: flex-start; }
+  .details-poster { width: 180px; }
+  .details-section {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
