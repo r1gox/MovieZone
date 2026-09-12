@@ -5218,7 +5218,7 @@ function initBrowserWarn() {
     if (sessionStorage.getItem("mz_browser_warn") === "1") return;
     el.classList.remove("hidden");
     sessionStorage.setItem("mz_browser_warn", "1");
-    setTimeout(() => el.classList.add("hidden"), 3000);
+    setTimeout(() => el.classList.add("hidden"), 5000);
   } catch (_) {}
 }
 initBrowserWarn();

@@ -5877,3 +5877,150 @@ body.details-open .nav-bottom {
     display: none !important; /* solo móvil */
   }
 }
+
+
+/* ===== FIX: buscador centro, perfil, 3 cards, grid arriba ===== */
+.netflix-navbar {
+  display: grid !important;
+  grid-template-columns: 1fr minmax(180px, 480px) 1fr !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+.netflix-navbar .nav-left {
+  position: static !important;
+  transform: none !important;
+  justify-self: start !important;
+  min-width: 0;
+}
+.netflix-navbar .search-container,
+.netflix-navbar #nav-search {
+  position: static !important;
+  justify-self: center !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  margin: 0 auto !important;
+  flex: unset !important;
+  z-index: 2 !important;
+}
+.netflix-navbar .nav-right {
+  position: static !important;
+  transform: none !important;
+  justify-self: end !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+
+/* Perfil: solo avatar redondo, sin texto roto */
+.mz-profile-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(167, 139, 250, 0.7) !important;
+  background: rgba(124, 58, 237, 0.25) !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+.mz-profile-chip .mz-profile-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+}
+.mz-profile-chip #mz-profile-name,
+.mz-profile-chip .sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0,0,0,0) !important;
+}
+
+/* Home: exactamente 3 pósteres visibles en móvil */
+#home-view .carousel-container {
+  display: flex !important;
+  gap: 10px !important;
+  overflow-x: auto !important;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+#home-view .carousel-container .media-card,
+#home-view .carousel-container .carousel-card {
+  flex: 0 0 calc((100% - 20px) / 3) !important;
+  width: calc((100% - 20px) / 3) !important;
+  min-width: calc((100% - 20px) / 3) !important;
+  max-width: calc((100% - 20px) / 3) !important;
+}
+#home-view .carousel-container .poster-img,
+#home-view .carousel-container .media-card .poster-img {
+  width: 100% !important;
+  aspect-ratio: 2 / 3 !important;
+  object-fit: cover !important;
+}
+@media (min-width: 900px) {
+  #home-view .carousel-container .media-card,
+  #home-view .carousel-container .carousel-card {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+  }
+}
+
+/* Grid Películas: menos espacio arriba */
+#grid-view.grid-section,
+.grid-section {
+  padding-top: 12px !important;
+  margin-top: 0 !important;
+}
+#grid-view .filter-toolbar,
+#filter-toolbar {
+  margin-top: 0 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+#grid-view .results-count,
+.results-count {
+  margin: 4px 0 8px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  opacity: 0.85;
+}
+/* navbar height offset */
+#grid-view {
+  padding-top: 8px !important;
+}
+main#home-view,
+#grid-view {
+  margin-top: 0;
+}
+/* si el grid queda bajo el navbar fixed */
+.grid-section {
+  scroll-margin-top: 70px;
+}
+
+@media (max-width: 720px) {
+  .netflix-navbar {
+    grid-template-columns: auto 1fr auto !important;
+  }
+  .netflix-navbar .nav-links {
+    display: none !important; /* menú móvil aparte si existe */
+  }
+  .netflix-navbar #nav-search {
+    max-width: none !important;
+  }
+}

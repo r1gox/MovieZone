@@ -71,23 +71,24 @@
       </ul>
     </div>
 
+    <div class="search-container" id="nav-search">
+      <form id="search-form" class="search-form">
+        <div class="search-box-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" id="search-input" placeholder="Buscar y presiona Enter..." autocomplete="off">
+          <button type="submit" class="btn-search-submit"></button>
+        </div>
+      </form>
+    </div>
+
     <div class="nav-right">
-      <div class="search-container">
-        <form id="search-form" class="search-form">
-          <div class="search-box-wrapper">
-            <ion-icon name="search-outline" class="search-icon"></ion-icon>
-            <input type="text" id="search-input" placeholder="Buscar y presiona Enter..." autocomplete="off">
-            <button type="submit" class="btn-search-submit"></button>
-          </div>
-        </form>
-      </div>
       <div class="api-status-badge online" id="status-badge" title="Estado API">
         <span class="status-dot"></span>
         <span class="status-text">Online</span>
       </div>
-      <button type="button" class="mz-profile-chip" id="mz-profile-chip" title="Perfil">
+      <button type="button" class="mz-profile-chip" id="mz-profile-chip" title="Cambiar perfil" aria-label="Perfil">
         <span class="mz-profile-avatar" id="mz-profile-avatar">?</span>
-        <span id="mz-profile-name">Perfil</span>
+        <span id="mz-profile-name" class="sr-only">Perfil</span>
       </button>
     </div>
   </nav>
