@@ -4744,3 +4744,32 @@ body.player-open .btn-close-modal {
     margin-right: auto;
   }
 }
+
+
+/* Backdrop estilo Stremio */
+#details-panel .mz-stremio-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.35;
+  pointer-events: none;
+  filter: blur(0px);
+}
+#details-panel .mz-stremio-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 6, 17, 0.55) 0%,
+    rgba(10, 6, 17, 0.85) 45%,
+    rgba(10, 6, 17, 0.96) 100%
+  );
+}
+#details-panel .details-content {
+  position: relative;
+  z-index: 1;
+}
