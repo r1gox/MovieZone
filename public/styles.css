@@ -4571,3 +4571,176 @@ body.player-open .btn-close-modal {
     margin-right: auto;
   }
 }
+
+
+/* —— Detalle estilo Stremio (datos MovieZone) —— */
+#details-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: #0a0a12;
+}
+
+#details-panel .mz-stremio-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #0a0a12;
+  background-size: cover;
+  background-position: center top;
+  transform: scale(1.1);
+  filter: blur(40px) saturate(1.2) brightness(0.55);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+#details-panel .mz-stremio-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 8, 14, 0.92) 0%,
+    rgba(8, 8, 14, 0.75) 45%,
+    rgba(8, 8, 14, 0.55) 100%
+  ),
+  linear-gradient(
+    180deg,
+    rgba(8, 8, 14, 0.2) 0%,
+    rgba(8, 8, 14, 0.85) 70%,
+    rgba(8, 8, 14, 1) 100%
+  );
+}
+
+.mz-stremio-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 28px;
+  padding: 72px 4% 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.mz-stremio-poster-col {
+  flex-shrink: 0;
+}
+
+.details-poster {
+  width: 180px;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+  object-fit: cover;
+  aspect-ratio: 2 / 3;
+  display: block;
+}
+
+.mz-stremio-info {
+  flex: 1;
+  min-width: 0;
+  text-align: left !important;
+  background: transparent !important;
+}
+
+.details-logo {
+  max-height: 72px;
+  max-width: min(420px, 90%);
+  width: auto;
+  object-fit: contain;
+  margin: 0 0 12px;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+}
+
+.details-logo.hidden {
+  display: none !important;
+}
+
+.mz-stremio-info h3#details-title {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: #fff;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.6);
+}
+
+#details-original-title {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+.details-meta-row,
+.meta-row.details-meta-row {
+  justify-content: flex-start !important;
+  gap: 10px;
+}
+
+.details-meta-row .meta-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.details-meta-row .meta-item.rating {
+  background: rgba(245, 197, 24, 0.15);
+  border-color: rgba(245, 197, 24, 0.35);
+  color: #f5c518;
+}
+
+.details-genres {
+  justify-content: flex-start !important;
+  margin-top: 10px;
+}
+
+.details-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 4% 16px;
+  box-sizing: border-box;
+}
+
+.details-section h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 8px;
+}
+
+.synopsis-text {
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 720px) {
+  .mz-stremio-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 56px;
+  }
+  .mz-stremio-info {
+    text-align: center !important;
+  }
+  .details-meta-row,
+  .meta-row.details-meta-row,
+  .details-genres {
+    justify-content: center !important;
+  }
+  .details-poster {
+    width: min(42vw, 150px);
+  }
+  .details-logo {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
