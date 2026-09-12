@@ -2890,11 +2890,15 @@ function fijarTitulosItem(item, preferido) {
 function mostrarDetalleLoading(on) {
   const el = document.getElementById("details-loading");
   const content = document.getElementById("details-content");
+  const empty = document.getElementById("details-empty");
   if (el) el.classList.toggle("hidden", !on);
-  if (content && on) {
-    // mantener content visible si ya hay datos parciales; el overlay cubre
+  if (content) {
+    content.classList.toggle("mz-detail-dimmed", !!on);
+    if (on) content.classList.remove("hidden");
   }
+  if (empty) empty.classList.add("hidden");
 }
+
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
@@ -2905,6 +2909,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
     document.body.classList.add("details-open");
+    // Siempre mostrar loading al entrar; se quita al terminar de cargar
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
 
     // Pintar lo que ya tenemos
     // Pintar lo que ya tenemos

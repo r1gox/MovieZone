@@ -5645,3 +5645,54 @@ body.details-open .nav-bottom {
     background-position: center center !important;
   }
 }
+
+
+/* ===== Streams transparente + loading visible ===== */
+#details-panel .mz-streams-col {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#details-content.mz-detail-dimmed {
+  opacity: 0.25;
+  pointer-events: none;
+  filter: grayscale(0.2);
+}
+
+.mz-details-loading {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 30 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  background: rgba(14, 14, 20, 0.35) !important;
+  pointer-events: none !important;
+}
+.mz-details-loading.hidden {
+  display: none !important;
+}
+.mz-details-loading-inner {
+  max-width: 360px;
+  width: 100%;
+  padding: 28px 24px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+.mz-details-skel-logo {
+  margin-left: auto;
+  margin-right: auto;
+}
+.mz-details-loading-text {
+  color: rgba(255,255,255,0.75) !important;
+  font-size: 0.95rem !important;
+  margin: 12px 0 0 !important;
+}
