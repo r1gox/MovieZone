@@ -2928,7 +2928,12 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
 
-    document.getElementById("servers-section").querySelector("#servers-loading").classList.remove("hidden");
+  const serversSection = document.getElementById("servers-section");
+    if (serversSection) {
+      serversSection.classList.add("hidden"); // Stremio: streams solo tras elegir
+      const loading = serversSection.querySelector("#servers-loading");
+      if (loading) loading.classList.add("hidden");
+    }
     document.getElementById("servers-container").innerHTML = "";
     document.getElementById("seasons-section").classList.add("hidden");
     document.getElementById("downloads-section").classList.add("hidden");
@@ -2949,6 +2954,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         (!item.episodios || item.episodios.length === 0) &&
         (!item.temporadas_raw || !item.temporadas_raw.length) &&
         (!item.temporadas || !item.temporadas.length);
+  
 
     // Ya completo (Supabase/list con players): NO llamar API de nuevo
     const yaCompleto =
@@ -3212,6 +3218,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             refrescarTotalAnimeSiHaceFalta(item).catch(() => {});
         }
     } else {
+        // Película: sí mostrar streams (equivalente a “video único”)
+        document.getElementById("servers-section")?.classList.remove("hidden");
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
         if (autoPlay) {
             const first = (item.embeds && item.embeds[0]) || (item.reproductor ? { url: item.reproductor } : null);
@@ -4265,6 +4273,9 @@ async function reproducir(embed, item) {
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, opts) {
     embedsRaw = normalizarEmbeds(embedsRaw);
     const expandido = !!(opts && opts.expandido);
+  // Mostrar sección streams (Stremio: tras elegir cap o peli)
+    document.getElementById("servers-section")?.classList.remove("hidden");
+    document.getElementById("servers-loading")?.classList.add("hidden");
 
     const serversContainer =
         document.getElementById("servers-container");
