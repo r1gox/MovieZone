@@ -122,29 +122,7 @@
     </section>
 
     <section class="view-container carousel-section" id="carousel-section-container">
-      <!-- TV en vivo + Fútbol (arriba) -->
-      <div class="carousel-row" id="row-tv-vivo">
-        <h2>TV en vivo</h2>
-        <div class="tv-home-entry">
-          <button type="button" class="tv-entry-card" id="btn-tv-cable">
-            <ion-icon name="tv-outline"></ion-icon>
-            <span>Cable</span>
-            <small>ChannelsTV</small>
-          </button>
-          <button type="button" class="tv-entry-card" id="btn-tv-paises">
-            <ion-icon name="globe-outline"></ion-icon>
-            <span>Por país</span>
-            <small>México, España…</small>
-          </button>
-          <button type="button" class="tv-entry-card" id="btn-tv-futbol">
-            <ion-icon name="football-outline"></ion-icon>
-            <span>Fútbol</span>
-            <small>Agenda del día</small>
-          </button>
-        </div>
-      </div>
-
-      <div class="carousel-row">
+<div class="carousel-row">
         <h2>Películas Destacadas</h2>
         <div class="carousel-container" id="carousel-movies">
           <div class="skeleton-row">
@@ -174,6 +152,29 @@
           </div>
         </div>
       </div>
+      
+      <!-- TV / Fútbol: visible, debajo del catálogo principal (hero intacto) -->
+      <div class="carousel-row" id="row-tv-vivo">
+        <h2>TV en vivo y deportes</h2>
+        <div class="tv-home-entry">
+          <button type="button" class="tv-entry-card" id="btn-tv-cable">
+            <ion-icon name="tv-outline"></ion-icon>
+            <span>Cable</span>
+            <small>ChannelsTV</small>
+          </button>
+          <button type="button" class="tv-entry-card" id="btn-tv-paises">
+            <ion-icon name="globe-outline"></ion-icon>
+            <span>Por país</span>
+            <small>México, España…</small>
+          </button>
+          <button type="button" class="tv-entry-card" id="btn-tv-futbol">
+            <ion-icon name="football-outline"></ion-icon>
+            <span>Fútbol</span>
+            <small>Agenda del día</small>
+          </button>
+        </div>
+      </div>
+
       <div class="carousel-row hidden" id="row-continuar">
         <h2>Continuar viendo</h2>
         <div class="carousel-container" id="carousel-continuar"></div>
@@ -208,7 +209,6 @@
           </div>
         </div>
       </div>
-          <!-- TV en vivo (entrada desde Inicio, no toca bottom nav) -->
     </section>
   </main>
 
@@ -428,6 +428,11 @@
                   <ion-icon name="star"></ion-icon>
                   <span id="details-rating">-</span>
                 </div>
+
+                <a class="mz-imdb-btn hidden" id="details-imdb-btn" href="#" target="_blank" rel="noopener noreferrer" title="Abrir en IMDb">
+                  <span id="details-imdb-score">—</span>
+                  <span class="mz-imdb-logo">IMDb</span>
+                </a>
                 <div class="meta-item duration" id="details-duration-wrap">
                   <ion-icon name="time-outline"></ion-icon>
                   <span id="details-duration">-</span>
