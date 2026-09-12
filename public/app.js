@@ -4956,7 +4956,13 @@ function setDetailBackdrop(item) {
     item.poster ||
     item.image ||
     "";
-  bg.style.backgroundImage = url ? `url("${String(url).replace(/"/g, "%22")}")` : "none";
+  if (url) {
+    const safe = String(url).replace(/\\/g, "/").replace(/"/g, "%22");
+    bg.style.setProperty("background-image", `url("${safe}")`, "important");
+    bg.style.setProperty("opacity", "1", "important");
+  } else {
+    bg.style.setProperty("background-image", "none", "important");
+  }
 }
 
 function setDetalleLogo(item) {
