@@ -542,24 +542,15 @@ function ratingBadgeHtml(item) {
     if (!r.value) {
         return '<div class="rating-badge rating-empty" title="Sin rating"><span class="rating-main">—</span></div>';
     }
-
-    const isImdb = r.source === "imdb" || r.source === "omdb";
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-
-    if (isImdb) {
-        // Stremio: nota + pastilla IMDb amarilla
-        return (
-            '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="IMDb ' + escapeHtml(r.label) + '">' +
-            '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
-            '<span class="imdb-mark">IMDb</span>' +
-            "</div>"
-        );
-    }
-
+    const title = (r.source === "imdb" || r.source === "omdb" || !r.source)
+      ? ("IMDb " + r.label)
+      : (String(r.source).toUpperCase() + " " + r.label);
+    // Mismo look para películas, series y anime (placa tipo Stremio)
     return (
-        '<div class="rating-badge' + srcClass + '" title="' + escapeHtml(r.label) + '">' +
-        '<ion-icon name="star"></ion-icon> ' +
+        '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="' + escapeHtml(title) + '">' +
         '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
+        '<span class="imdb-mark">IMDb</span>' +
         "</div>"
     );
 }
@@ -2755,6 +2746,7 @@ heroInfoBtn.addEventListener("click", () => {
 // CARGA INICIAL (home)
 // ======================================================
 async function cargarHome() {
+    if (typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
     try {
         console.log('🟡 Cargando estrenos (películas, series y anime)...');
@@ -2800,7 +2792,9 @@ async function cargarHome() {
         statusBadge.classList.add("online");
         statusBadge.querySelector(".status-text").textContent = "Online";
         console.log('✅ Home cargado (estrenos)');
+        if (typeof setBootLoading === "function") setBootLoading(false);
     } catch (err) {
+        if (typeof setBootLoading === "function") setBootLoading(false);
         console.error('❌ Error en cargarHome:', err);
         statusBadge.classList.remove("online");
         statusBadge.classList.add("offline");
@@ -5209,6 +5203,14 @@ function actualizarPaginacion() {
 // ======================================================
 
 
+
+function setBootLoading(on) {
+  const el = document.getElementById("mz-boot-loading");
+  if (!el) return;
+  el.classList.toggle("hidden", !on);
+  document.body.classList.toggle("mz-booting", !!on);
+}
+
 function initBrowserWarn() {
   try {
     const el = document.getElementById("mz-browser-warn");
@@ -5223,7 +5225,8 @@ function initBrowserWarn() {
 }
 initBrowserWarn();
 
-initWakeupNotice();
+// initWakeupNotice(); // desactivado: sin mensaje de servidores
+
 initProfilesUi();
 initNotifyBtn();
 cargarHome();

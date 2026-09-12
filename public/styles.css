@@ -6068,3 +6068,103 @@ main#home-view,
     margin: 2px 8px 6px !important;
   }
 }
+
+
+/* ===== Badges más compactos + boot loading + sin wakeup ===== */
+.type-badge {
+  top: 6px !important;
+  left: 6px !important;
+  padding: 2px 5px !important;
+  font-size: 8px !important;
+  border-radius: 4px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rating-badge,
+.rating-badge.rating-imdb-logo {
+  top: 6px !important;
+  right: 6px !important;
+  padding: 2px 5px !important;
+  font-size: 10px !important;
+  border-radius: 4px !important;
+  gap: 3px !important;
+}
+.rating-badge.rating-imdb-logo .rating-main {
+  font-size: 10px !important;
+}
+.rating-badge.rating-imdb-logo .imdb-mark {
+  font-size: 8px !important;
+  padding: 1px 3px !important;
+}
+
+.airing-badge {
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+}
+
+.availability-badge {
+  bottom: 6px !important;
+  left: 6px !important;
+  padding: 2px 6px !important;
+  font-size: 9px !important;
+  border-radius: 4px !important;
+}
+.availability-badge .dot {
+  width: 5px !important;
+  height: 5px !important;
+}
+
+.poster-bottom-row .airing-badge,
+.poster-bottom-row .availability-badge {
+  position: relative !important;
+  left: auto !important;
+  bottom: auto !important;
+}
+
+/* Ocultar cualquier resto de wakeup */
+.wakeup,
+.wakeup.is-visible {
+  display: none !important;
+}
+
+/* Loading al entrar a la página (como detalle) */
+.mz-boot-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 6, 17, 0.82);
+  backdrop-filter: blur(8px);
+}
+.mz-boot-loading.hidden {
+  display: none !important;
+}
+.mz-boot-loading-inner {
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.95rem;
+}
+.mz-boot-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 14px;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: mzBootSpin 0.8s linear infinite;
+}
+@keyframes mzBootSpin {
+  to { transform: rotate(360deg); }
+}
+body.mz-booting {
+  overflow: hidden;
+}
