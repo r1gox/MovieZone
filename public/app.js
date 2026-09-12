@@ -3269,6 +3269,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
 function cerrarDetalle() {
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    const bgImg = document.getElementById("mz-stremio-bg-img");
+    if (bgImg) { bgImg.classList.remove("is-ready"); bgImg.removeAttribute("src"); }
+
     detenerSeguimientoProgreso(true);
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
@@ -5034,31 +5037,52 @@ function setDetalleFondo(item) {
 }
 
 function setDetailBackdrop(item) {
-  const bg = document.getElementById("mz-stremio-bg");
-  if (!bg || !item) return;
+  const layer = document.getElementById("mz-stremio-bg");
+  const img = document.getElementById("mz-stremio-bg-img");
+  if (!layer) return;
 
   const url =
-    item.backdrop ||
-    item.fondo ||
-    item.background ||
-    item.backdrop_url ||
-    (item.imdb && item.imdb.backdrop) ||
-    (item.tmdb && (item.tmdb.backdrop || item.tmdb.fondo)) ||
-    item.portada_imdb ||
-    item.portada ||
-    item.poster ||
-    item.image ||
-    "";
+    (item && (
+      item.backdrop ||
+      item.fondo ||
+      item.background ||
+      item.backdrop_url ||
+      (item.imdb && item.imdb.backdrop) ||
+      (item.tmdb && (item.tmdb.backdrop || item.tmdb.fondo)) ||
+      item.portada_imdb ||
+      item.portada ||
+      item.poster ||
+      item.image
+    )) || "";
 
-  if (url) {
-    const safe = String(url).replace(/\\/g, "/").replace(/"/g, "%22");
-    // Stremio: imagen a la derecha, opacity 0.3 vía CSS (no forzar opacity 1)
-    bg.style.setProperty("background-image", `url("${safe}")`, "important");
-    bg.style.setProperty("background-size", "cover", "important");
-    bg.style.setProperty("background-position", "center right", "important");
-    bg.style.removeProperty("opacity");
-  } else {
-    bg.style.setProperty("background-image", "none", "important");
+  // Limpiar background-image viejo del div (ahora usamos <img> como Stremio)
+  layer.style.removeProperty("background-image");
+  layer.style.removeProperty("opacity");
+
+  if (img) {
+    if (url) {
+      const safe = String(url).trim();
+      img.onload = function () {
+        img.classList.add("is-ready");
+      };
+      img.onerror = function () {
+        img.classList.remove("is-ready");
+        img.removeAttribute("src");
+      };
+      if (img.src !== safe && img.getAttribute("src") !== safe) {
+        img.classList.remove("is-ready");
+        img.src = safe;
+      } else if (img.complete && img.naturalWidth > 0) {
+        img.classList.add("is-ready");
+      }
+    } else {
+      img.classList.remove("is-ready");
+      img.removeAttribute("src");
+    }
+  } else if (url) {
+    // fallback si no hay img
+    const safe = String(url).replace(/"/g, "%22");
+    layer.style.setProperty("background-image", `url("${safe}")`, "important");
   }
 }
 
