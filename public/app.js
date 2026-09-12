@@ -2901,6 +2901,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsContent.classList.remove("hidden");
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
+    document.body.classList.add("details-open");
 
     // Pintar lo que ya tenemos
     // Pintar lo que ya tenemos
@@ -3169,7 +3170,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 fijarTitulosItem(item, item.nombre);
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
                 setDetailBackdrop(item);
-                setDetalleImbd(item);
+                setDetalleImdb(item);
                 setDetalleLogo(item);
                 document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 const origEl2 = document.getElementById("details-original-title");
@@ -3210,6 +3211,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
     document.getElementById("servers-loading").classList.add("hidden");
 
+    setDetalleImdb(item);
+    setDetalleLogo(item);
+    if (typeof rellenarMetaDetalle === "function") rellenarMetaDetalle(item);
+
     const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
     if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
         document.getElementById("seasons-section").classList.remove("hidden");
@@ -3236,9 +3241,19 @@ function cerrarDetalle() {
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
+    document.body.classList.remove("details-open");
     destruirHls();
     playerIframe.src = "about:blank";
     videoContainer.classList.add("hidden");
+
+    document.getElementById("servers-section")?.classList.add("hidden");
+    document.getElementById("seasons-section")?.classList.add("hidden");
+    document.getElementById("downloads-section")?.classList.add("hidden");
+    const sc = document.getElementById("servers-container");
+    if (sc) sc.innerHTML = "";
+    const body = document.querySelector("#details-panel .details-body");
+    if (body) body.scrollTop = 0;
+
     cargarContinuarViendo();
 }
 document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
@@ -3275,29 +3290,38 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
 });
 
 function setDetalleImdb(item) {
+  const wrap = document.getElementById("details-imdb-wrap");
   const btn = document.getElementById("details-imdb-btn");
   const scoreEl = document.getElementById("details-imdb-score");
   if (!btn) return;
 
-  const imdbId = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || null;
+  const imdbIdRaw = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || "";
+  let imdbId = String(imdbIdRaw || "").trim();
+  if (imdbId && !imdbId.startsWith("tt")) imdbId = "tt" + imdbId.replace(/\D/g, "");
+
   const ri = typeof ratingInfo === "function" ? ratingInfo(item) : null;
   let score = null;
-  if (ri && ri.source === "imdb" && ri.value != null) score = ri.value;
+  if (ri && (ri.source === "imdb" || ri.source === "omdb") && ri.value != null) score = ri.value;
   else if (item.imdb && item.imdb.rating != null) score = Number(item.imdb.rating);
-  else if (item.rating != null && (item.rating_source || "").toLowerCase() === "imdb") score = Number(item.rating);
+  else if (item.rating != null && /imdb/i.test(String(item.rating_source || ""))) score = Number(item.rating);
 
-  if (imdbId || (score != null && !isNaN(score) && score > 0)) {
+  const okScore = score != null && !isNaN(score) && score > 0;
+  const okId = !!imdbId;
+
+  if (okId || okScore) {
+    if (wrap) wrap.classList.remove("hidden");
     btn.classList.remove("hidden");
-    if (scoreEl) {
-      scoreEl.textContent =
-        score != null && !isNaN(score) && score > 0 ? Number(score).toFixed(1) : "IMDb";
+    if (scoreEl) scoreEl.textContent = okScore ? Number(score).toFixed(1) : "—";
+    if (okId) {
+      btn.href = "https://www.imdb.com/title/" + imdbId + "/";
+      btn.setAttribute("target", "_blank");
+      btn.setAttribute("rel", "noopener noreferrer");
+    } else {
+      btn.href = "#";
+      btn.removeAttribute("target");
     }
-    btn.href = imdbId
-      ? "https://www.imdb.com/title/" + String(imdbId).replace(/^(tt)?/, "tt") + "/"
-      : "#";
-    if (!imdbId) btn.removeAttribute("target");
-    else btn.setAttribute("target", "_blank");
   } else {
+    if (wrap) wrap.classList.add("hidden");
     btn.classList.add("hidden");
     btn.href = "#";
   }
@@ -5003,32 +5027,42 @@ function setDetalleLogo(item) {
   const posterCol = document.querySelector(".mz-stremio-poster-col");
   if (!logoEl) return;
 
-  const imdbId = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || null;
+  logoEl.onload = null;
+  logoEl.onerror = null;
+
+  const imdbIdRaw = item.imdb_id || (item.imdb && (item.imdb.id || item.imdb.imdb_id)) || "";
+  const imdbId = String(imdbIdRaw || "").trim();
+  const tt = imdbId ? (imdbId.startsWith("tt") ? imdbId : "tt" + imdbId.replace(/\D/g, "")) : null;
+
   const logoUrl =
     item.logo ||
     item.logo_imdb ||
-    (imdbId ? "https://images.metahub.space/logo/medium/" + String(imdbId).replace(/^tt/, "tt") + "/img" : null);
+    (tt ? "https://images.metahub.space/logo/medium/" + tt + "/img" : null);
 
-  const showPosterFallback = () => {
+  const showPoster = () => {
     logoEl.classList.add("hidden");
     logoEl.removeAttribute("src");
     if (posterEl) posterEl.classList.remove("mz-poster-hidden");
     if (posterCol) posterCol.classList.remove("mz-hide-poster");
   };
 
-  if (logoUrl) {
-    logoEl.onload = function () {
-      logoEl.classList.remove("hidden");
-      // Como Stremio: con logo no hace falta póster grande
-      if (posterEl) posterEl.classList.add("mz-poster-hidden");
-      if (posterCol) posterCol.classList.add("mz-hide-poster");
-    };
-    logoEl.onerror = function () {
-      showPosterFallback();
-    };
-    logoEl.src = logoUrl;
-  } else {
-    showPosterFallback();
+  const showLogo = () => {
+    logoEl.classList.remove("hidden");
+    if (posterEl) posterEl.classList.add("mz-poster-hidden");
+    if (posterCol) posterCol.classList.add("mz-hide-poster");
+  };
+
+  if (!logoUrl) {
+    showPoster();
+    return;
+  }
+
+  logoEl.onload = showLogo;
+  logoEl.onerror = showPoster;
+  logoEl.src = logoUrl;
+
+  if (logoEl.complete && logoEl.naturalWidth > 0) {
+    showLogo();
   }
 }
 

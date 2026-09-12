@@ -4985,3 +4985,95 @@ body.player-open .btn-close-modal {
     max-height: 72px;
   }
 }
+
+
+/* ===== FIX detalle: IMDb, logo, barra inferior (no tocar resto) ===== */
+#details-panel .details-meta-row,
+#details-panel .meta-row.details-meta-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  max-width: 100%;
+}
+
+.mz-imdb-wrap {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.mz-imdb-wrap.hidden {
+  display: none !important;
+}
+
+.mz-imdb-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  background: #f5c518 !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  text-decoration: none !important;
+  line-height: 1.1 !important;
+  border: none !important;
+  white-space: nowrap;
+}
+
+#details-logo:not(.hidden) {
+  display: block !important;
+  max-height: 100px;
+  max-width: min(520px, 94%);
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  margin: 0 0 12px !important;
+}
+.mz-stremio-poster-col.mz-hide-poster,
+.details-poster.mz-poster-hidden {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+#details-panel {
+  z-index: 10050 !important;
+}
+body.details-open .bottom-nav,
+body.details-open nav.bottom-nav,
+body.details-open #bottom-nav,
+body.details-open .mobile-bottom-nav,
+body.details-open .nav-bottom {
+  display: none !important;
+}
+
+#details-panel .details-body {
+  padding-bottom: calc(32px + env(safe-area-inset-bottom)) !important;
+  max-height: 100%;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+#details-panel #servers-section {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+}
+
+@media (max-width: 720px) {
+  #details-panel .mz-stremio-header {
+    padding: 48px 16px 12px !important;
+    gap: 12px !important;
+  }
+  #details-logo:not(.hidden) {
+    max-height: 64px;
+  }
+  #details-panel .details-section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
