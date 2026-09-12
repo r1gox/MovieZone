@@ -2903,7 +2903,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.body.style.overflow = "hidden";
 
     // Pintar lo que ya tenemos
+    // Pintar lo que ya tenemos
     document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
+    setDetailBackdrop(item);
+    setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
 
@@ -3154,8 +3157,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 seleccionActual = item;
 
                 // Repintar metadatos (título principal fijo; original abajo)
+                // Repintar metadatos (título principal fijo; original abajo)
                 fijarTitulosItem(item, item.nombre);
                 document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
+                setDetailBackdrop(item);
+                setDetalleLogo(item);
                 document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 const origEl2 = document.getElementById("details-original-title");
                 if (origEl2) {
@@ -4917,17 +4923,51 @@ window.addEventListener("scroll", () => {
 
 
 
+function setDetalleFondo(item) {
+  const bg = document.getElementById("mz-stremio-bg");
+  if (!bg || !item) return;
+  const url = item.backdrop || item.portada_imdb || item.portada || "";
+  if (url) {
+    bg.style.backgroundImage = `url("${String(url).replace(/"/g, "%22")}")`;
+  } else {
+    bg.style.backgroundImage = "";
+  }
+}
+
 function setDetailBackdrop(item) {
   const bg = document.getElementById("mz-stremio-bg");
-  if (!bg) return;
+  if (!bg || !item) return;
   const url =
     item.backdrop ||
     item.fondo ||
+    item.portada_imdb ||
     item.portada ||
     item.poster ||
     item.image ||
     "";
-  bg.style.backgroundImage = url ? `url("${url}")` : "none";
+  bg.style.backgroundImage = url ? `url("${String(url).replace(/"/g, "%22")}")` : "none";
+}
+
+function setDetalleLogo(item) {
+  const logoEl = document.getElementById("details-logo");
+  if (!logoEl) return;
+  const logoUrl =
+    item.logo ||
+    item.logo_imdb ||
+    (item.imdb_id
+      ? "https://images.metahub.space/logo/medium/" + item.imdb_id + "/img"
+      : null);
+  if (logoUrl) {
+    logoEl.src = logoUrl;
+    logoEl.classList.remove("hidden");
+    logoEl.onerror = function () {
+      logoEl.classList.add("hidden");
+      logoEl.removeAttribute("src");
+    };
+  } else {
+    logoEl.classList.add("hidden");
+    logoEl.removeAttribute("src");
+  }
 }
 
 // Donde ya abres/rellenas el detalle:
