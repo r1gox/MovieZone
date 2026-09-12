@@ -4773,3 +4773,97 @@ body.player-open .btn-close-modal {
   position: relative;
   z-index: 1;
 }
+
+/* ========== FORCE Stremio detail look (gana a reglas viejas) ========== */
+#details-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #0a0a12 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+#details-panel.hidden {
+  display: none !important;
+}
+
+/* Capa de portada/backdrop: BIEN VISIBLE */
+#details-panel .mz-stremio-bg {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  background-color: #0a0a12 !important;
+  background-size: cover !important;
+  background-position: center top !important;
+  background-repeat: no-repeat !important;
+  transform: scale(1.12) !important;
+  filter: blur(24px) saturate(1.25) brightness(0.7) !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+/* Velo suave (no tapa del todo) */
+#details-panel .mz-stremio-bg::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 14, 0.25) 0%,
+    rgba(8, 8, 14, 0.45) 40%,
+    rgba(8, 8, 14, 0.88) 78%,
+    rgba(8, 8, 14, 0.97) 100%
+  ) !important;
+}
+
+/* Clic fuera: SIN oscurecer el fondo */
+#details-panel .modal-backdrop-close {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#details-panel .details-content {
+  position: relative !important;
+  z-index: 2 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  width: 100% !important;
+  max-height: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
+#details-panel .details-body {
+  background: transparent !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
+
+#details-panel .details-header-card,
+#details-panel .mz-stremio-header,
+#details-panel .mz-stremio-info,
+#details-panel .details-meta-info {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#details-panel .btn-close-modal {
+  z-index: 6 !important;
+}
