@@ -2886,6 +2886,16 @@ function fijarTitulosItem(item, preferido) {
     return item;
 }
 
+
+function mostrarDetalleLoading(on) {
+  const el = document.getElementById("details-loading");
+  const content = document.getElementById("details-content");
+  if (el) el.classList.toggle("hidden", !on);
+  if (content && on) {
+    // mantener content visible si ya hay datos parciales; el overlay cubre
+  }
+}
+
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
     seleccionActual = item;
@@ -2920,8 +2930,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.getElementById("details-year").textContent = item.year || "—";
     rellenarMetaDetalle(item);
     setDetalleImdb(item);
-  
-    document.getElementById("details-synopsis").textContent = item.descripcion || "Sin descripción disponible.";
+
+    const _desc = (item.descripcion && String(item.descripcion).trim()) || "";
+    const synEl = document.getElementById("details-synopsis");
+    if (synEl) {
+      synEl.textContent = _desc.length >= 20 ? _desc : "Cargando información…";
+      synEl.classList.toggle("mz-syn-loading", _desc.length < 20);
+    }
 
     actualizarBotonFavorito();
 
@@ -2938,10 +2953,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.getElementById("seasons-section").classList.add("hidden");
     document.getElementById("downloads-section").classList.add("hidden");
 
+    const _thinDetail = !item.descripcion || String(item.descripcion).trim().length < 20
+      || (!(item.tipo === "Serie" || item.tipo === "Anime") && (!item.embeds || !item.embeds.length))
+      || ((item.tipo === "Serie" || item.tipo === "Anime") && (!item.episodios || !item.episodios.length) && (!item.temporadas_raw || !item.temporadas_raw.length));
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(!!_thinDetail);
+
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
     // También si el listado marcó "Sin servidores" (tiene_player !== true) para películas
     const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
     const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+
+    const _needsEnrich = faltaDescripcion || true; // se ajusta abajo
     // Series/anime no requieren embeds a nivel ficha (van por capítulo)
     const faltaPlayers =
         !esSA && (
@@ -3211,6 +3233,12 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     setDetalleImdb(item);
     setDetalleLogo(item);
     if (typeof rellenarMetaDetalle === "function") rellenarMetaDetalle(item);
+    const _syn2 = document.getElementById("details-synopsis");
+    if (_syn2 && item.descripcion && String(item.descripcion).trim().length >= 20) {
+      _syn2.textContent = item.descripcion;
+      _syn2.classList.remove("mz-syn-loading");
+    }
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
 
     const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
     if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
@@ -3234,6 +3262,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 }
 
 function cerrarDetalle() {
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
     detenerSeguimientoProgreso(true);
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
@@ -5017,10 +5046,11 @@ function setDetailBackdrop(item) {
 
   if (url) {
     const safe = String(url).replace(/\\/g, "/").replace(/"/g, "%22");
+    // Stremio: imagen a la derecha, opacity 0.3 vía CSS (no forzar opacity 1)
     bg.style.setProperty("background-image", `url("${safe}")`, "important");
     bg.style.setProperty("background-size", "cover", "important");
     bg.style.setProperty("background-position", "center right", "important");
-    bg.style.setProperty("opacity", "1", "important");
+    bg.style.removeProperty("opacity");
   } else {
     bg.style.setProperty("background-image", "none", "important");
   }
