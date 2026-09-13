@@ -33,6 +33,7 @@ function setKoiMode(item) {
   // Título de sección como Koiflix
   const h4 = document.querySelector("#seasons-section > h4");
   if (h4) h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
+  try { bindKoiBackBtn(); } catch (_) {}
   return on;
 }
 
@@ -42,6 +43,33 @@ function clearKoiMode() {
   if (hero) hero.setAttribute("aria-hidden", "true");
   const h4 = document.querySelector("#seasons-section > h4");
   if (h4) h4.textContent = "Temporadas y Capítulos";
+}
+
+
+function bindKoiBackBtn() {
+  const btn = document.getElementById("koi-btn-back");
+  if (!btn || btn.dataset.koiBound) return;
+  btn.dataset.koiBound = "1";
+  btn.addEventListener("click", () => {
+    // Si está en player → volver al detalle (hero + episodios)
+    if (document.body.classList.contains("player-open")) {
+      document.body.classList.remove("player-open");
+      try {
+        const iframe = document.getElementById("player-iframe");
+        if (iframe) iframe.src = "about:blank";
+        document.getElementById("video-player-container")?.classList.add("hidden");
+        document.getElementById("servers-section")?.classList.add("hidden");
+        setKoiPlayerEpisodeTitle("");
+      } catch (_) {}
+      // Scroll al hero / episodios
+      try {
+        document.getElementById("koi-hero")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (_) {}
+      return;
+    }
+    // Si está en detalle → cerrar panel
+    try { cerrarDetalle(); } catch (_) {}
+  });
 }
 
 function firstEpisodeLabel(item) {
@@ -1336,26 +1364,28 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
 
 /** Prueba servidores en orden: Latino → Sub → EN → otro; resolve primero */
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
-  // Koiflix PC: NUNCA auto-reproducir (el usuario elige servidor).
-  const koiNoAuto = document.body.classList.contains("koi-desktop") || (isKoiDesktop() && isSerieOrAnime(item));
-  if (koiNoAuto && !window.__mzForceAutoPlay) {
+  // Koiflix PC: entrar a sección player SIN auto-reproducir.
+  const pc = (typeof window !== "undefined" && window.innerWidth >= 1025);
+  const serie = isSerieOrAnime(item) || /serie|anime|dorama|tv/i.test(String(item?.tipo || ""));
+  if (pc && serie && !window.__mzForceAutoPlay) {
     try {
+      document.body.classList.add("koi-desktop", "player-open", "details-open");
       setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || ("Episodio " + epNum)}`);
-      document.body.classList.add("player-open");
-      document.getElementById("details-title").textContent =
-        `${item.nombre || item.titulo || ""}`;
-      const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
-      const embeds = pack.embeds || [];
-      renderServidoresYDescargas(embeds, episodio.downloads || [], pack.video || episodio.video, item, { expandido: true });
-      document.getElementById("servers-section")?.classList.remove("hidden");
+      const titleEl = document.getElementById("details-title");
+      if (titleEl) titleEl.textContent = item.nombre || item.titulo || "";
+      // Nunca poner iframe con stream aquí
+      const iframe = document.getElementById("player-iframe");
+      if (iframe) iframe.src = "about:blank";
       const vc = document.getElementById("video-player-container");
-      if (vc) {
-        vc.classList.remove("hidden");
-        const iframe = document.getElementById("player-iframe");
-        if (iframe) iframe.src = "about:blank";
-      }
+      if (vc) vc.classList.remove("hidden");
       const pt = document.getElementById("player-title");
       if (pt) pt.textContent = "Elige un reproductor";
+      // Cargar lista de servidores (sin reproducir)
+      const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+      renderServidoresYDescargas(pack.embeds || [], episodio.downloads || [], pack.video || episodio.video, item, { expandido: true });
+      document.getElementById("servers-section")?.classList.remove("hidden");
+      // Scroll al área player
+      try { vc?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) {}
     } catch (e) {
       console.error("koi prepare ep:", e);
     }
@@ -5549,6 +5579,8 @@ initNotifyBtn();
 cargarHome();
 initTvUi();
 initAutoplayEpUi();
+try { bindKoiBackBtn(); } catch (_) {}
+
 
 // ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------
 (function reportarVisita() {

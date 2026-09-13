@@ -7145,3 +7145,94 @@ body.mz-booting {
     margin: 0 !important;
   }
 }
+
+
+/* Botón VOLVER arriba izquierda (detalle + player Koiflix) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop .koi-btn-back {
+    position: fixed !important;
+    top: 18px !important;
+    left: 22px !important;
+    z-index: 60 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 16px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(0,0,0,0.55) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+    cursor: pointer !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  body.details-open.koi-desktop .koi-btn-back:hover {
+    background: rgba(0,0,0,0.75) !important;
+    border-color: rgba(255,255,255,0.28) !important;
+  }
+  body.details-open.koi-desktop .koi-btn-back ion-icon {
+    font-size: 1.15rem !important;
+  }
+  /* Cerrar a la derecha; volver a la izquierda */
+  body.details-open.koi-desktop #details-panel .btn-close-modal {
+    right: 22px !important;
+    left: auto !important;
+  }
+
+  /* Meta IMDb siempre en una sola fila */
+  body.details-open.koi-desktop .koi-hero-meta {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px 8px !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-inline {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 5px !important;
+    background: linear-gradient(135deg, rgba(245,197,24,0.25), rgba(245,197,24,0.1)) !important;
+    border: 1px solid rgba(245,197,24,0.5) !important;
+    border-radius: 6px !important;
+    padding: 2px 8px !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-score {
+    color: #f5c518 !important;
+    font-weight: 800 !important;
+    font-size: 0.9rem !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-tag {
+    color: #111 !important;
+    background: #f5c518 !important;
+    font-weight: 900 !important;
+    font-size: 0.65rem !important;
+    padding: 1px 4px !important;
+    border-radius: 3px !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  /* Player sección: forzar layout página (como Koiflix) */
+  body.details-open.koi-desktop.player-open .koi-hero {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.player-open .video-player-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    background: #000 !important;
+    min-height: 200px !important;
+  }
+  body.details-open.koi-desktop.player-open .video-player-container.hidden {
+    display: block !important;
+  }
+  body.details-open.koi-desktop.player-open #servers-section {
+    display: block !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .koi-btn-back { display: none !important; }
+}
