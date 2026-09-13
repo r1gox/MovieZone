@@ -7076,3 +7076,28 @@ body.mz-booting {
     display: none !important;
   }
 }
+
+
+/* Badge IMDb en hero Koiflix (mismo estilo que MovieZone) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop .koi-hero-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  body.details-open.koi-desktop .koi-hero-meta .koi-meta-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  body.details-open.koi-desktop .koi-hero-meta .rating-badge {
+    font-size: 0.8rem !important;
+    padding: 0.2rem 0.5rem !important;
+  }
+  body.details-open.koi-desktop .koi-hero-meta .rating-badge .rating-main {
+    font-size: 0.85rem !important;
+  }
+  body.details-open.koi-desktop .koi-hero-meta .rating-badge .imdb-mark {
+    font-size: 0.7rem !important;
+  }
+}

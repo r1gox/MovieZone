@@ -124,23 +124,19 @@ function fillKoiHero(item) {
   if (metaEl) {
     const gens = genresText(item);
     const year = item.year || item.anio || "";
-    let rating = null;
-    let ratingSrc = "";
-    if (item.imdb && item.imdb.rating != null && Number(item.imdb.rating) > 0) {
-      rating = Number(item.imdb.rating).toFixed(1);
-      ratingSrc = "IMDb";
-    } else if (item.calificacion != null && Number(item.calificacion) > 0) {
-      rating = Number(item.calificacion).toFixed(1);
-      ratingSrc = (String(item.rating_source || "").toLowerCase() === "imdb") ? "IMDb" : "";
-    } else if (item.rating != null && Number(item.rating) > 0) {
-      rating = Number(item.rating).toFixed(1);
-      ratingSrc = "IMDb";
-    }
     const parts = [];
-    parts.push(`<span>${langLabel(item)}</span>`);
-    if (year) parts.push(`<span class="koi-meta-sep">•</span><span>${year}</span>`);
-    if (rating) parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-imdb">★ ${rating}${ratingSrc ? " " + ratingSrc : ""}</span>`);
-    if (gens) parts.push(`<span class="koi-meta-sep">•</span><span>${gens}</span>`);
+    parts.push(`<span class="koi-meta-lang">${langLabel(item)}</span>`);
+    if (year) parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-year">${year}</span>`);
+    // Badge IMDb igual que el detalle original de MovieZone
+    if (typeof ratingBadgeHtml === "function") {
+      parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-badge">${ratingBadgeHtml(item)}</span>`);
+    } else if (typeof ratingInfo === "function") {
+      const r = ratingInfo(item);
+      if (r && r.value) {
+        parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-badge"><span class="rating-badge rating-imdb-logo"><span class="rating-main">${r.label}</span><span class="imdb-mark">IMDb</span></span></span>`);
+      }
+    }
+    if (gens) parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-gens">${gens}</span>`);
     metaEl.innerHTML = parts.join(" ");
   }
 
@@ -1330,6 +1326,31 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
 
 /** Prueba servidores en orden: Latino → Sub → EN → otro; resolve primero */
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
+  // En PC estilo Koiflix (serie/anime): NUNCA auto-reproducir.
+  // Solo cargar/mostrar servidores; el usuario elige el reproductor.
+  if (isKoiDesktop() && isSerieOrAnime(item) && !window.__mzForceAutoPlay) {
+    try {
+      setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || ("Episodio " + epNum)}`);
+      document.body.classList.add("player-open");
+      document.getElementById("details-title").textContent =
+        `${item.nombre || item.titulo || ""} - ${episodio.nombre || ("Episodio " + epNum)}`;
+      const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+      const embeds = pack.embeds || [];
+      renderServidoresYDescargas(embeds, episodio.downloads || [], pack.video || episodio.video, item, { expandido: true });
+      document.getElementById("servers-section")?.classList.remove("hidden");
+      const vc = document.getElementById("video-player-container");
+      if (vc) {
+        vc.classList.remove("hidden");
+        const iframe = document.getElementById("player-iframe");
+        if (iframe) iframe.src = "about:blank";
+      }
+      const pt = document.getElementById("player-title");
+      if (pt) pt.textContent = "Elige un reproductor";
+    } catch (e) {
+      console.error("koi prepare ep:", e);
+    }
+    return false;
+  }
   const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
   let embeds = ordenarEmbedsAuto(pack.embeds || []);
 
