@@ -4,6 +4,15 @@
 
 import { initWakeupNotice } from './js/ui/wakeup.js';
 import { getCatalog, searchCatalog } from './js/data/catalogo.js';
+import {
+  setKoiMode,
+  clearKoiMode,
+  fillKoiHero,
+  bindKoiHeroControls,
+  setKoiPlayerEpisodeTitle,
+  isKoiDesktop,
+  isSerieOrAnime,
+} from './js/ui/koi-pc-detail.js';
 
 const LIMIT = 48;
 
@@ -2909,6 +2918,20 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
     document.body.classList.add("details-open");
+    // Modo visual Koiflix solo PC + serie/anime
+    try {
+      setKoiMode(item);
+      bindKoiHeroControls({
+        onPlay: () => {
+          const first =
+            document.querySelector("#episodes-container [data-ep]") ||
+            document.querySelector("#episodes-container button") ||
+            document.querySelector("#episodes-container .ep-card") ||
+            document.querySelector("#episodes-container > *");
+          if (first) first.click();
+        },
+      });
+    } catch (_) {}
     // Siempre mostrar loading al entrar; se quita al terminar de cargar
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
 
@@ -2923,6 +2946,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
+    try { fillKoiHero(item); } catch (_) {}
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
@@ -3245,6 +3269,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       _syn2.classList.remove("mz-syn-loading");
     }
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    try {
+      setKoiMode(item);
+      fillKoiHero(item);
+    } catch (_) {}
 
     const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
     if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
@@ -3277,6 +3305,7 @@ function cerrarDetalle() {
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
     document.body.classList.remove("details-open");
+    try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
     destruirHls();
     playerIframe.src = "about:blank";
     videoContainer.classList.add("hidden");
@@ -4352,6 +4381,12 @@ async function reproducir(embed, item) {
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
     iniciarSeguimientoProgreso(item || seleccionActual);
     document.body.classList.add("player-open");
+    try {
+      const ctx = typeof _epPlayCtx !== "undefined" ? _epPlayCtx : null;
+      const epNum = ctx?.ep || ctx?.episodio || "";
+      const label = epNum ? `E${epNum} - Episodio ${epNum}` : (playerTitle?.textContent || "");
+      setKoiPlayerEpisodeTitle(label);
+    } catch (_) {}
     requestAnimationFrame(() => {
         try {
             videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
