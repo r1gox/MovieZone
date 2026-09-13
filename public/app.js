@@ -1134,6 +1134,10 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
 
   document.getElementById("details-title").textContent =
     `${item.nombre || item.titulo || ""} - ${episodio.nombre || ("Episodio " + epNum)}`;
+  try {
+    setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || ("Episodio " + epNum)}`);
+    document.body.classList.add("player-open");
+  } catch (_) {}
 
   // Probar uno por uno
   for (const emb of embeds) {
@@ -4210,10 +4214,36 @@ function renderEpisodios(item, season = 1) {
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
-        btn.className = "episode-btn" + (index === 0 ? " active" : "");
         const num = episodioNumero(episodio, index);
-        btn.textContent = num;
-        btn.title = episodio.nombre || `Episodio ${num}`;
+        const epNombre = episodio.nombre || `Episodio ${num}`;
+        const koiCards = isKoiDesktop() && isSerieOrAnime(item);
+        btn.className = "episode-btn" + (index === 0 ? " active" : "") + (koiCards ? " koi-ep-card" : "");
+        btn.title = epNombre;
+        btn.setAttribute("data-ep", String(num));
+        if (koiCards) {
+            const thumb =
+                episodio.still ||
+                episodio.portada ||
+                episodio.imagen ||
+                episodio.image ||
+                episodio.thumbnail ||
+                item.portada ||
+                item.backdrop ||
+                PLACEHOLDER;
+            const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
+            const safeName = String(epNombre).replace(/</g, "");
+            const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
+            btn.innerHTML =
+                `<span class="koi-ep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy"/>` +
+                (dur ? `<span class="koi-ep-dur">${dur}</span>` : `<span class="koi-ep-dur">E${num}</span>`) +
+                `</span>` +
+                `<span class="koi-ep-meta">` +
+                `<span class="koi-ep-series">${safeSeries}</span>` +
+                `<span class="koi-ep-name">E${num} - ${safeName}</span>` +
+                `</span>`;
+        } else {
+            btn.textContent = num;
+        }
         if (!tieneVideo) btn.style.opacity = "0.55";
 
         btn.addEventListener("click", async () => {
@@ -4224,6 +4254,10 @@ function renderEpisodios(item, season = 1) {
             const seasonNum = episodio.season || episodio.temporada || season || 1;
             document.getElementById("details-title").textContent =
                 `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
+            try {
+              setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || "Episodio " + epNum}`);
+              document.body.classList.add("player-open");
+            } catch (_) {}
 
             const expandirServidores = () => {
                 const sc = document.getElementById("servers-container");
