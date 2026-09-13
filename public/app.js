@@ -4568,6 +4568,32 @@ function renderEpisodios(item, season = 1) {
             // Número real del episodio (no el index del rango filtrado)
             const epNum = episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index);
             const seasonNum = episodio.season || episodio.temporada || season || 1;
+          {
+            const pc =
+              (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
+              window.innerWidth >= 1025;
+            const serie =
+              (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
+              /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
+
+            if (pc && serie) {
+              window.__mzForceAutoPlay = false;
+              document.getElementById("details-title").textContent =
+                item.nombre || item.titulo || "";
+              try {
+                setKoiPlayerEpisodeTitle(
+                  "E" + epNum + " - " + (episodio.nombre || "Episodio " + epNum)
+                );
+                document.body.classList.add("player-open", "koi-desktop", "details-open");
+              } catch (_) {}
+
+    // Prepara vista + servidores; NO reproduce
+              await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
+              return; // no seguir al path móvil / autoplay
+            }
+          }
+// --- FIN bloque PC sin autoplay ---
+
             document.getElementById("details-title").textContent =
                 `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
             try {
