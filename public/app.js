@@ -145,11 +145,26 @@ function fillKoiHero(item) {
   }
 
   const synEl = document.getElementById("koi-hero-synopsis");
+  const toggleBtn = document.getElementById("koi-toggle-details");
+  const fullSyn =
+    (item.descripcion && String(item.descripcion).trim()) ||
+    document.getElementById("details-synopsis")?.textContent ||
+    "";
   if (synEl) {
-    synEl.textContent =
-      (item.descripcion && String(item.descripcion).trim()) ||
-      document.getElementById("details-synopsis")?.textContent ||
-      "";
+    synEl.textContent = fullSyn;
+    synEl.dataset.full = fullSyn;
+    // Si es larga, clamp + botón MÁS DETALLES
+    if (fullSyn.length > 220) {
+      synEl.classList.add("koi-syn-clamp");
+      synEl.classList.remove("koi-syn-open");
+      if (toggleBtn) {
+        toggleBtn.classList.remove("hidden");
+        toggleBtn.textContent = "MÁS DETALLES";
+      }
+    } else {
+      synEl.classList.remove("koi-syn-clamp", "koi-syn-open");
+      if (toggleBtn) toggleBtn.classList.add("hidden");
+    }
   }
 
   const playText = document.getElementById("koi-btn-play-text");
@@ -193,6 +208,19 @@ function bindKoiHeroControls(handlers = {}) {
       const fav = document.getElementById("btn-favorito");
       if (fav) fav.click();
       else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
+    });
+  }
+
+  const toggleBtn = document.getElementById("koi-toggle-details");
+  if (toggleBtn && !toggleBtn.dataset.koiBound) {
+    toggleBtn.dataset.koiBound = "1";
+    toggleBtn.addEventListener("click", () => {
+      const synEl = document.getElementById("koi-hero-synopsis");
+      if (!synEl) return;
+      const open = synEl.classList.toggle("koi-syn-open");
+      if (open) synEl.classList.remove("koi-syn-clamp");
+      else synEl.classList.add("koi-syn-clamp");
+      toggleBtn.textContent = open ? "MENOS DETALLES" : "MÁS DETALLES";
     });
   }
 }
@@ -4466,7 +4494,19 @@ function renderEpisodios(item, season = 1) {
                 expandirServidores();
                 btn.style.opacity = "1";
                 // Auto: Latino → Sub → resolve primero (sin elegir servidor a mano)
-                await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
+                // Koi PC: no auto-reproducir; solo mostrar reproductores
+                if (!(isKoiDesktop() && isSerieOrAnime(item))) {
+                  await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
+                } else {
+                  document.getElementById("servers-section")?.classList.remove("hidden");
+                  // Mostrar área de video vacía (usuario elige servidor)
+                  const vc = document.getElementById("video-player-container");
+                  if (vc) {
+                    vc.classList.remove("hidden");
+                    const iframe = document.getElementById("player-iframe");
+                    if (iframe) iframe.src = "about:blank";
+                  }
+                }
                 return;
             }
 
@@ -4559,8 +4599,18 @@ function renderEpisodios(item, season = 1) {
                         { expandido: true }
                     );
                     expandirServidores();
-                    // Auto-reproducir sin elegir servidor
-                    await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
+                    // Koi PC: no auto-reproducir; el usuario elige servidor
+                    if (!(isKoiDesktop() && isSerieOrAnime(item))) {
+                      await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
+                    } else {
+                      document.getElementById("servers-section")?.classList.remove("hidden");
+                      const vc = document.getElementById("video-player-container");
+                      if (vc) {
+                        vc.classList.remove("hidden");
+                        const iframe = document.getElementById("player-iframe");
+                        if (iframe) iframe.src = "about:blank";
+                      }
+                    }
                 }
             } catch (err) {
                 console.error("capitulo:", err);

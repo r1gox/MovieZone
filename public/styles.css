@@ -7045,3 +7045,34 @@ body.mz-booting {
     margin: 0 auto !important;
   }
 }
+
+
+/* Sinopsis larga: clamp + MÁS DETALLES */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis.koi-syn-clamp {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 4 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis.koi-syn-open {
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    overflow: visible !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-toggle-details {
+    display: inline-block !important;
+    background: none !important;
+    border: none !important;
+    color: #00f2fe !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    margin-top: 6px !important;
+    text-transform: uppercase !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-toggle-details.hidden {
+    display: none !important;
+  }
+}
