@@ -1,0 +1,470 @@
+/* =========================================================
+   MovieZone — Estilo detalle/player tipo Koiflix (SOLO PC)
+   No afecta móvil ni películas (solo .koi-mode en desktop)
+   ========================================================= */
+
+@media (min-width: 1025px) {
+  /* ---- Panel a pantalla completa estilo página ---- */
+  body.details-open.koi-desktop #details-panel {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    background: #060913;
+    backdrop-filter: none;
+  }
+
+  body.details-open.koi-desktop #details-panel .modal-backdrop-close {
+    display: none;
+  }
+
+  body.details-open.koi-desktop #details-panel .details-content {
+    max-width: none;
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: #060913;
+    animation: none;
+    overflow-y: auto;
+  }
+
+  body.details-open.koi-desktop #details-panel .btn-close-modal {
+    position: fixed;
+    top: 18px;
+    right: 22px;
+    z-index: 50;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* Ocultar layout clásico Stremio cuando está en modo Koi */
+  body.details-open.koi-desktop:not(.player-open) .mz-detail-layout .mz-stremio-header,
+  body.details-open.koi-desktop:not(.player-open) .mz-detail-layout .mz-synopsis-section {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .details-body {
+    padding: 0;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .mz-detail-layout {
+    display: block;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .mz-streams-col {
+    width: 100%;
+  }
+
+  /* ---- HERO Koiflix ---- */
+  .koi-hero {
+    display: none;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .koi-hero {
+    display: flex;
+    position: relative;
+    width: 100%;
+    min-height: 78vh;
+    background-color: #060913;
+    background-size: cover;
+    background-position: center 20%;
+    background-repeat: no-repeat;
+    align-items: flex-end;
+    padding: 100px 4% 48px;
+  }
+
+  .koi-hero-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      linear-gradient(90deg, #060913 0%, rgba(6, 9, 19, 0.82) 42%, transparent 100%),
+      linear-gradient(0deg, #060913 0%, transparent 45%);
+  }
+
+  .koi-hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .koi-hero-logo {
+    max-width: 380px;
+    max-height: 160px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.85));
+  }
+
+  .koi-hero-logo.hidden {
+    display: none !important;
+  }
+
+  .koi-hero-title {
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    margin: 0 0 12px;
+    text-shadow: 0 4px 14px rgba(0, 0, 0, 0.9);
+  }
+
+  .koi-hero-title.hidden {
+    display: none !important;
+  }
+
+  .koi-hero-meta {
+    color: #94a3b8;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 22px;
+  }
+
+  .koi-hero-meta span {
+    color: #fff;
+  }
+
+  .koi-hero-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+
+  .koi-btn-play {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 28px;
+    background: #a855f7;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(168, 85, 247, 0.35);
+  }
+
+  .koi-btn-play:hover {
+    background: #9333ea;
+    transform: scale(1.03);
+  }
+
+  .koi-btn-play ion-icon {
+    font-size: 1.25rem;
+  }
+
+  .koi-btn-bookmark {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 2px solid #00d4ff;
+    background: transparent;
+    color: #00d4ff;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .koi-btn-bookmark:hover,
+  .koi-btn-bookmark.active {
+    background: rgba(0, 212, 255, 0.12);
+  }
+
+  .koi-btn-bookmark ion-icon {
+    font-size: 1.25rem;
+  }
+
+  .koi-hero-synopsis {
+    color: #e2e8f0;
+    font-size: 0.98rem;
+    line-height: 1.65;
+    max-width: 620px;
+    margin: 0 0 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .koi-toggle-details {
+    background: none;
+    border: none;
+    color: #00d4ff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .koi-toggle-details:hover {
+    text-decoration: underline;
+  }
+
+  .koi-extra-details {
+    display: none;
+    margin-top: 14px;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .koi-extra-details.open {
+    display: block;
+  }
+
+  .koi-extra-details strong {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* ---- Sección episodios bajo el hero ---- */
+  body.details-open.koi-desktop:not(.player-open) #seasons-section {
+    padding: 28px 4% 60px;
+    background: #060913;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) #seasons-section > h4 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) #episodes-container.episodes-grid,
+  body.details-open.koi-desktop:not(.player-open) .episodes-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 22px 16px;
+  }
+
+  /* Cards de episodio estilo Koiflix (solo PC koi) */
+  body.details-open.koi-desktop:not(.player-open) .episodes-grid .ep-card,
+  body.details-open.koi-desktop:not(.player-open) .episodes-grid .episode-item,
+  body.details-open.koi-desktop:not(.player-open) .episodes-grid > * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 4px;
+    overflow: visible;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .episodes-grid > *:hover {
+    transform: scale(1.02);
+  }
+
+  /* Ocultar servidores/descargas en vista detalle koi (se ven al reproducir) */
+  body.details-open.koi-desktop:not(.player-open) #servers-section,
+  body.details-open.koi-desktop:not(.player-open) #downloads-section {
+    display: none !important;
+  }
+
+  /* ---- PLAYER modo página (PC) ---- */
+  body.details-open.koi-desktop.player-open .koi-hero {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .details-body {
+    padding: 0;
+  }
+
+  body.details-open.koi-desktop.player-open .video-player-container {
+    aspect-ratio: auto;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    border-bottom: none;
+  }
+
+  body.details-open.koi-desktop.player-open .player-iframe-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+  }
+
+  body.details-open.koi-desktop.player-open .player-iframe-wrapper iframe,
+  body.details-open.koi-desktop.player-open .player-iframe-wrapper .player-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-detail-layout {
+    display: flex !important;
+    gap: 36px;
+    padding: 32px 4% 70px;
+    align-items: flex-start;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-meta-col {
+    flex: 2;
+    min-width: 0;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-streams-col {
+    flex: 1;
+    min-width: 320px;
+    max-width: 400px;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-stremio-header {
+    display: block !important;
+    flex-direction: column;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-stremio-poster-col {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .details-logo {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .media-type-badge,
+  body.details-open.koi-desktop.player-open .details-type-row {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open #details-title {
+    color: #a855f7;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  body.details-open.koi-desktop.player-open .details-meta-info h3 {
+    font-size: 1.05rem;
+  }
+
+  body.details-open.koi-desktop.player-open #details-original-title {
+    display: none !important;
+  }
+
+  /* Título de episodio bajo el nombre del anime */
+  .koi-player-ep-title {
+    display: none;
+  }
+
+  body.details-open.koi-desktop.player-open .koi-player-ep-title {
+    display: block;
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 10px;
+    line-height: 1.2;
+  }
+
+  body.details-open.koi-desktop.player-open .meta-row,
+  body.details-open.koi-desktop.player-open .details-genres {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-synopsis-section h4 {
+    display: none;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-synopsis-section {
+    display: block !important;
+    background: #101524;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-top: 8px;
+  }
+
+  body.details-open.koi-desktop.player-open #details-synopsis {
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Sidebar de episodios en player */
+  body.details-open.koi-desktop.player-open #seasons-section > h4 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #1e293b;
+  }
+
+  body.details-open.koi-desktop.player-open #episodes-container,
+  body.details-open.koi-desktop.player-open .episodes-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+
+  body.details-open.koi-desktop.player-open .episodes-grid > * {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    transform: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .episodes-grid > *:hover {
+    background: #182035;
+  }
+
+  body.details-open.koi-desktop.player-open .episodes-grid > *.active,
+  body.details-open.koi-desktop.player-open .episodes-grid > *.playing,
+  body.details-open.koi-desktop.player-open .episodes-grid > *[data-playing="1"] {
+    background: #101524;
+    border-color: #1e293b;
+  }
+
+  body.details-open.koi-desktop.player-open #servers-section {
+    display: block !important;
+    margin-top: 18px;
+  }
+
+  body.details-open.koi-desktop.player-open #downloads-section {
+    display: none !important;
+  }
+
+  /* Fondo stremio desactivado en koi */
+  body.details-open.koi-desktop .mz-stremio-bg {
+    display: none !important;
+  }
+}
+
+/* Móvil / tablet: nunca mostrar hero koi */
+@media (max-width: 1024px) {
+  .koi-hero {
+    display: none !important;
+  }
+  .koi-player-ep-title {
+    display: none !important;
+  }
+}
