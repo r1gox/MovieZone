@@ -5851,4 +5851,7 @@ if ("serviceWorker" in navigator) {
     ker.register("/sw.js").catch(() => {});
 }
 
+
 window.asegurarEmbedsEpisodio = asegurarEmbedsEpisodio;
+window.streamUrlParaNoAds = streamUrlParaNoAds;
+window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
