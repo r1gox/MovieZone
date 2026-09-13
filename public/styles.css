@@ -6975,3 +6975,73 @@ body.mz-booting {
     gap: 8px !important;
   }
 }
+
+
+/* Player Koiflix: reproductores debajo de la descripción */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open) #servers-section,
+  body.details-open.koi-desktop:not(.player-open) #downloads-section {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-meta-col {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  body.details-open.koi-desktop.player-open #servers-section {
+    display: block !important;
+    margin-top: 8px !important;
+    background: #101524 !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 8px !important;
+    padding: 14px 16px !important;
+  }
+
+  body.details-open.koi-desktop.player-open #servers-section .servers-header h4,
+  body.details-open.koi-desktop.player-open #servers-section-title {
+    color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+  }
+
+  body.details-open.koi-desktop.player-open #downloads-section {
+    display: none !important;
+  }
+
+  /* Ocultar tabs de temporada en player (solo lista eps) */
+  body.details-open.koi-desktop.player-open #seasons-tabs-container,
+  body.details-open.koi-desktop.player-open #mz-provider-switch {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop.player-open .mz-streams-col {
+    flex: 1 !important;
+    min-width: 320px !important;
+    max-width: 400px !important;
+  }
+
+  body.details-open.koi-desktop.player-open #seasons-section {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.details-open.koi-desktop.player-open #seasons-section > h4 {
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+    margin: 0 0 16px !important;
+    padding-bottom: 12px !important;
+    border-bottom: 2px solid #1e293b !important;
+  }
+
+  /* video a ancho completo arriba */
+  body.details-open.koi-desktop.player-open .video-player-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+  }
+}

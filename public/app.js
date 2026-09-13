@@ -155,21 +155,6 @@ function fillKoiHero(item) {
   const playText = document.getElementById("koi-btn-play-text");
   if (playText) playText.textContent = firstEpisodeLabel(item);
 
-  // Extra detalles (año, rating, estado)
-  const extra = document.getElementById("koi-extra-details");
-  if (extra) {
-    const parts = [];
-    if (item.year) parts.push(`<strong>Año:</strong> ${item.year}`);
-    const rating = item.calificacion || item.rating || item.imdb?.rating;
-    if (rating) parts.push(`<strong>Rating:</strong> ${rating}`);
-    if (item.estado) parts.push(`<strong>Estado:</strong> ${item.estado}`);
-    if (item.formato) parts.push(`<strong>Formato:</strong> ${item.formato}`);
-    extra.innerHTML = parts.join("<br>");
-    extra.classList.remove("open");
-  }
-
-  const toggleBtn = document.getElementById("koi-toggle-details");
-  if (toggleBtn) toggleBtn.textContent = "MÁS DETALLES";
 }
 
 /** Actualiza título de episodio en layout player PC */
@@ -187,18 +172,15 @@ function setKoiPlayerOpen(on) {
 function bindKoiHeroControls(handlers = {}) {
   const playBtn = document.getElementById("koi-btn-play");
   const bookmarkBtn = document.getElementById("koi-btn-bookmark");
-  const toggleBtn = document.getElementById("koi-toggle-details");
 
   if (playBtn && !playBtn.dataset.koiBound) {
     playBtn.dataset.koiBound = "1";
     playBtn.addEventListener("click", () => {
       if (typeof handlers.onPlay === "function") handlers.onPlay();
       else {
-        // Fallback: primer episodio del grid
         const first =
           document.querySelector("#episodes-container [data-ep]") ||
           document.querySelector("#episodes-container button") ||
-          document.querySelector("#episodes-container .ep-card") ||
           document.querySelector("#episodes-container > *");
         first?.click?.();
       }
@@ -211,16 +193,6 @@ function bindKoiHeroControls(handlers = {}) {
       const fav = document.getElementById("btn-favorito");
       if (fav) fav.click();
       else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
-    });
-  }
-
-  if (toggleBtn && !toggleBtn.dataset.koiBound) {
-    toggleBtn.dataset.koiBound = "1";
-    toggleBtn.addEventListener("click", () => {
-      const extra = document.getElementById("koi-extra-details");
-      if (!extra) return;
-      const open = extra.classList.toggle("open");
-      toggleBtn.textContent = open ? "MENOS DETALLES" : "MÁS DETALLES";
     });
   }
 }
