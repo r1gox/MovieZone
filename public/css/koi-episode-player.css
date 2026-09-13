@@ -381,3 +381,13 @@ body.mz-koi-ep-open {
     font-size: 1.5rem;
   }
 }
+
+/* Descargas: mismos chips, como enlace */
+a.mz-kp-srv-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.mz-kp-downloads-wrap {
+  margin-top: 18px;
+}
