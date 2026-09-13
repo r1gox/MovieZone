@@ -123,7 +123,25 @@ function fillKoiHero(item) {
   const metaEl = document.getElementById("koi-hero-meta");
   if (metaEl) {
     const gens = genresText(item);
-    metaEl.innerHTML = `<span>${langLabel(item)}</span>${gens ? " • " + gens : ""}`;
+    const year = item.year || item.anio || "";
+    let rating = null;
+    let ratingSrc = "";
+    if (item.imdb && item.imdb.rating != null && Number(item.imdb.rating) > 0) {
+      rating = Number(item.imdb.rating).toFixed(1);
+      ratingSrc = "IMDb";
+    } else if (item.calificacion != null && Number(item.calificacion) > 0) {
+      rating = Number(item.calificacion).toFixed(1);
+      ratingSrc = (String(item.rating_source || "").toLowerCase() === "imdb") ? "IMDb" : "";
+    } else if (item.rating != null && Number(item.rating) > 0) {
+      rating = Number(item.rating).toFixed(1);
+      ratingSrc = "IMDb";
+    }
+    const parts = [];
+    parts.push(`<span>${langLabel(item)}</span>`);
+    if (year) parts.push(`<span class="koi-meta-sep">•</span><span>${year}</span>`);
+    if (rating) parts.push(`<span class="koi-meta-sep">•</span><span class="koi-meta-imdb">★ ${rating}${ratingSrc ? " " + ratingSrc : ""}</span>`);
+    if (gens) parts.push(`<span class="koi-meta-sep">•</span><span>${gens}</span>`);
+    metaEl.innerHTML = parts.join(" ");
   }
 
   const synEl = document.getElementById("koi-hero-synopsis");
@@ -4426,15 +4444,19 @@ function renderEpisodios(item, season = 1) {
                 item.backdrop ||
                 PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
-            const safeName = String(epNombre).replace(/</g, "");
+            // Nombre limpio: evitar "T1E01" crudo si hay nombre mejor
+            let labelName = String(epNombre || "").replace(/</g, "");
+            if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
+              labelName = "Episodio " + num;
+            }
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
             btn.innerHTML =
-                `<span class="koi-ep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy"/>` +
-                (dur ? `<span class="koi-ep-dur">${dur}</span>` : `<span class="koi-ep-dur">E${num}</span>`) +
+                `<span class="koi-ep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.3"/>` +
+                `<span class="koi-ep-dur">${dur ? dur : ("E" + num)}</span>` +
                 `</span>` +
                 `<span class="koi-ep-meta">` +
                 `<span class="koi-ep-series">${safeSeries}</span>` +
-                `<span class="koi-ep-name">E${num} - ${safeName}</span>` +
+                `<span class="koi-ep-name">E${num} · ${labelName}</span>` +
                 `</span>`;
         } else {
             btn.textContent = num;
