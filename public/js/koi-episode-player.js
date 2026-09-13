@@ -1,9 +1,9 @@
 /**
  * MovieZone — Vista Koiflix PC
- * - Serie/Anime: mzKoiOpenEpisode(item, ep, season, epNum)
- * - Película:    mzKoiOpenMovie(item)
- * Meta completa: año, fecha, IMDb, duración, géneros, título original, compartir.
- * NO ADS → HLS; embeds clásicos → iframe.
+ * - Serie/Anime: mzKoiOpenEpisode — sin autoplay hasta elegir servidor
+ * - Película:    mzKoiOpenMovie  — poster arriba, sin autoplay
+ * Reproductores normales arriba; Directo / sin anuncios abajo (sin texto "NO ADS").
+ * Espacio no reinicia el player (solo play/pause nativo del video).
  */
 (function () {
   "use strict";
@@ -16,7 +16,7 @@
 
   var _ctx = null;
   var _hls = null;
-  var _mode = "episode"; // episode | movie
+  var _mode = "episode";
 
   function $(id) {
     return document.getElementById(id);
@@ -33,27 +33,29 @@
       '  <button type="button" class="mz-kp-back" id="mz-kp-back">← Volver</button>' +
       '  <span class="mz-kp-topbar-title" id="mz-kp-topbar-title"></span>' +
       '  <div class="mz-kp-top-actions">' +
-      '    <button type="button" class="mz-kp-icon-btn" id="mz-kp-share" title="Compartir">' +
-      "      ↗ Compartir" +
-      "    </button>" +
+      '    <button type="button" class="mz-kp-icon-btn" id="mz-kp-share" title="Compartir">↗ Compartir</button>' +
       "  </div>" +
       "</div>" +
       '<section class="mz-kp-hero">' +
-      '  <div class="mz-kp-video-wrap">' +
-      '    <div class="mz-kp-video-placeholder" id="mz-kp-placeholder">' +
+      '  <div class="mz-kp-video-wrap" id="mz-kp-video-wrap">' +
+      '    <div class="mz-kp-poster-layer" id="mz-kp-poster-layer">' +
+      '      <img id="mz-kp-poster-img" alt="" />' +
+      '      <div class="mz-kp-poster-overlay">' +
+      '        <p class="mz-kp-poster-hint" id="mz-kp-poster-hint">Elige un reproductor para comenzar</p>' +
+      "      </div>" +
+      "    </div>" +
+      '    <div class="mz-kp-video-placeholder hidden" id="mz-kp-placeholder">' +
       '      <div class="spin"></div><span>Cargando…</span>' +
       "    </div>" +
-      '    <iframe id="mz-kp-iframe" class="hidden" src="about:blank" allowfullscreen allow="autoplay; encrypted-media" referrerpolicy="no-referrer"></iframe>' +
-      '    <video id="mz-kp-video" class="hidden" controls playsinline></video>' +
+      '    <iframe id="mz-kp-iframe" class="hidden" src="about:blank" allowfullscreen allow="autoplay; encrypted-media" referrerpolicy="no-referrer" tabindex="-1"></iframe>' +
+      '    <video id="mz-kp-video" class="hidden" controls playsinline tabindex="-1"></video>' +
       "  </div>" +
       "</section>" +
       '<section class="mz-kp-layout">' +
       '  <div class="mz-kp-info">' +
       '    <button type="button" class="mz-kp-anime-link" id="mz-kp-anime-title"></button>' +
       '    <p class="mz-kp-original hidden" id="mz-kp-original"></p>' +
-      '    <div class="mz-kp-ep-title-row">' +
-      '      <h1 class="mz-kp-ep-title" id="mz-kp-ep-title"></h1>' +
-      "    </div>" +
+      '    <div class="mz-kp-ep-title-row"><h1 class="mz-kp-ep-title" id="mz-kp-ep-title"></h1></div>' +
       '    <div class="mz-kp-meta-chips" id="mz-kp-meta-chips"></div>' +
       '    <div class="mz-kp-meta" id="mz-kp-meta"></div>' +
       '    <div class="mz-kp-genres" id="mz-kp-genres"></div>' +
@@ -61,6 +63,8 @@
       '    <div class="mz-kp-servers">' +
       '      <div class="mz-kp-servers-label">Reproductores</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers"></div>' +
+      '      <div class="mz-kp-servers-label mz-kp-direct-label hidden" id="mz-kp-direct-label">Directo / sin anuncios</div>' +
+      '      <div class="mz-kp-servers-list" id="mz-kp-servers-direct"></div>' +
       "    </div>" +
       '    <div class="mz-kp-servers mz-kp-downloads-wrap" id="mz-kp-downloads-wrap" hidden>' +
       '      <div class="mz-kp-servers-label">Descargas</div>' +
@@ -80,6 +84,23 @@
       closeView();
     });
     $("mz-kp-share").addEventListener("click", onShare);
+
+    // Evitar que Espacio reinicie/dispare botones fuera del video
+    root.addEventListener(
+      "keydown",
+      function (e) {
+        if (e.code !== "Space" && e.key !== " ") return;
+        var t = e.target;
+        var vid = $("mz-kp-video");
+        // Si el foco no está en el video, bloquear espacio (no reinicia iframe ni click en botones)
+        if (vid && !vid.classList.contains("hidden") && (t === vid || vid.contains(t))) {
+          return; // play/pause nativo del video
+        }
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      true
+    );
   }
 
   function isPc() {
@@ -99,11 +120,7 @@
   }
   function durationOf(ep, item) {
     if (ep) {
-      var d =
-        ep.duracion_texto ||
-        ep.duracion ||
-        ep.runtime ||
-        ep.duration;
+      var d = ep.duracion_texto || ep.duracion || ep.runtime || ep.duration;
       if (d) return String(d);
     }
     if (item) {
@@ -156,6 +173,19 @@
     return [];
   }
 
+  function estadoOf(item) {
+    if (item.estado) return String(item.estado);
+    if (item.finalizado === true) return "Finalizado";
+    if (item.en_emision === true) return "En emisión";
+    if (item.status) {
+      var st = String(item.status).toLowerCase();
+      if (/final|ended|complet/.test(st)) return "Finalizado";
+      if (/emis|air|ongoing|returning/.test(st)) return "En emisión";
+      return item.status;
+    }
+    return null;
+  }
+
   function shareUrl(item, epNum) {
     try {
       if (typeof window.buildSharePath === "function") {
@@ -170,16 +200,8 @@
       : /serie|dorama/.test(tipo)
         ? "serie"
         : "pelicula";
-    if (slug) {
-      return (
-        location.origin +
-        "/" +
-        pathTipo +
-        "/" +
-        slug +
-        (epNum ? "?ep=" + epNum : "")
-      );
-    }
+    if (slug)
+      return location.origin + "/" + pathTipo + "/" + slug + (epNum ? "?ep=" + epNum : "");
     return location.href;
   }
 
@@ -189,14 +211,10 @@
     var url = shareUrl(item, _ctx.episode || null);
     var title = item.nombre || item.titulo || "MovieZone";
     if (navigator.share) {
-      navigator
-        .share({ title: title, url: url })
-        .catch(function () {
-          copyShare(url);
-        });
-    } else {
-      copyShare(url);
-    }
+      navigator.share({ title: title, url: url }).catch(function () {
+        copyShare(url);
+      });
+    } else copyShare(url);
   }
 
   function copyShare(url) {
@@ -216,9 +234,7 @@
           prompt("Copia el enlace:", url);
         }
       );
-    } else {
-      prompt("Copia el enlace:", url);
-    }
+    } else prompt("Copia el enlace:", url);
   }
 
   function setPlaceholder(on, text) {
@@ -229,6 +245,33 @@
       var span = ph.querySelector("span");
       if (span && text) span.textContent = text;
     } else ph.classList.add("hidden");
+  }
+
+  function showPoster(item, hint) {
+    destroyHls();
+    var layer = $("mz-kp-poster-layer");
+    var img = $("mz-kp-poster-img");
+    var hintEl = $("mz-kp-poster-hint");
+    if (layer) layer.classList.remove("hidden");
+    if (img) {
+      img.src =
+        item.backdrop ||
+        item.portada ||
+        item.portada_imdb ||
+        item.poster ||
+        PLACEHOLDER;
+      img.onerror = function () {
+        img.src = item.portada || PLACEHOLDER;
+      };
+    }
+    if (hintEl)
+      hintEl.textContent = hint || "Elige un reproductor para comenzar";
+    setPlaceholder(false);
+  }
+
+  function hidePoster() {
+    var layer = $("mz-kp-poster-layer");
+    if (layer) layer.classList.add("hidden");
   }
 
   function destroyHls() {
@@ -295,6 +338,27 @@
     return null;
   }
 
+  /** Directo / HLS resoluble vs embed iframe normal */
+  function isDirectEmbed(emb) {
+    if (!emb) return false;
+    if (emb.noAds) return true;
+    if (streamApiForEmbed(emb)) return true;
+    var name = String(emb.servidor || emb.server || emb.name || "").toLowerCase();
+    if (/directo|no\s*ads|hls|streamwish|voe|vidhide|goodstream|vimeos/.test(name))
+      return !!streamApiForEmbed(emb) || /directo|no\s*ads|hls/.test(name);
+    return false;
+  }
+
+  function cleanServerName(emb) {
+    var name = emb.servidor || emb.server || emb.name || emb.provider || "Servidor";
+    name = String(name)
+      .replace(/\s*[·•\-–]?\s*NO\s*ADS\s*/gi, "")
+      .replace(/\s*NO\s*ADS\s*/gi, "")
+      .trim();
+    if (!name) name = "Servidor";
+    return name;
+  }
+
   async function resolveNoAdsPlayUrl(emb) {
     if (typeof window.resolverPlayUrlNoAds === "function") {
       try {
@@ -335,6 +399,7 @@
 
   function playHlsInKoi(playUrl) {
     destroyHls();
+    hidePoster();
     var vid = $("mz-kp-video");
     var iframe = $("mz-kp-iframe");
     if (iframe) iframe.classList.add("hidden");
@@ -358,6 +423,7 @@
 
   function playIframeInKoi(url) {
     destroyHls();
+    hidePoster();
     var iframe = $("mz-kp-iframe");
     var vid = $("mz-kp-video");
     if (vid) vid.classList.add("hidden");
@@ -369,6 +435,7 @@
 
   async function playEmbed(emb) {
     setPlaceholder(true, "Resolviendo servidor…");
+    hidePoster();
     var api = streamApiForEmbed(emb);
     if (api || emb.noAds) {
       try {
@@ -380,7 +447,7 @@
           return true;
         }
       } catch (e) {
-        console.warn("NO ADS fail", e);
+        console.warn("resolve fail", e);
       }
     }
     var url = emb.url || emb.stream_url;
@@ -389,7 +456,7 @@
       return true;
     }
     if (url && isWorkerStreamApi(url)) {
-      setPlaceholder(true, "No se pudo resolver NO ADS");
+      setPlaceholder(true, "No se pudo resolver el stream");
       return false;
     }
     if (url) {
@@ -433,35 +500,63 @@
     return out;
   }
 
+  function makeServerBtn(emb, boxAll) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mz-kp-srv-btn";
+    var name = cleanServerName(emb);
+    var idioma = emb.idioma || emb.lang || "";
+    btn.textContent = idioma ? name + " · " + idioma : name;
+    btn.addEventListener("click", function () {
+      document
+        .querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn")
+        .forEach(function (b) {
+          b.classList.remove("active");
+        });
+      btn.classList.add("active");
+      playEmbed(emb);
+    });
+    return btn;
+  }
+
   function renderServers(embeds) {
-    var box = $("mz-kp-servers");
-    if (!box) return;
-    box.innerHTML = "";
+    var boxN = $("mz-kp-servers");
+    var boxD = $("mz-kp-servers-direct");
+    var labD = $("mz-kp-direct-label");
+    if (!boxN) return;
+    boxN.innerHTML = "";
+    if (boxD) boxD.innerHTML = "";
+    if (labD) labD.classList.add("hidden");
+
     if (!embeds || !embeds.length) {
-      box.innerHTML =
+      boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Cargando mirrors…</span>';
       return;
     }
-    embeds.forEach(function (emb, idx) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mz-kp-srv-btn" + (idx === 0 ? " active" : "");
-      var name = emb.servidor || "Servidor " + (idx + 1);
-      if ((emb.noAds || streamApiForEmbed(emb)) && !/no\s*ads/i.test(name))
-        name = name + " · NO ADS";
-      var idioma = emb.idioma || emb.lang || "";
-      btn.textContent = idioma ? name + " · " + idioma : name;
-      btn.addEventListener("click", function () {
-        box.querySelectorAll(".mz-kp-srv-btn").forEach(function (b) {
-          b.classList.remove("active");
-        });
-        btn.classList.add("active");
-        playEmbed(emb);
-      });
-      box.appendChild(btn);
+
+    var normal = [];
+    var direct = [];
+    embeds.forEach(function (emb) {
+      if (isDirectEmbed(emb)) direct.push(emb);
+      else normal.push(emb);
     });
-    if (!box.children.length) {
-      box.innerHTML =
+    // Si todos son "direct", mostrarlos solo en normales sin etiqueta NO ADS
+    if (!normal.length && direct.length) {
+      normal = direct;
+      direct = [];
+    }
+
+    normal.forEach(function (emb) {
+      boxN.appendChild(makeServerBtn(emb));
+    });
+    if (direct.length && boxD) {
+      if (labD) labD.classList.remove("hidden");
+      direct.forEach(function (emb) {
+        boxD.appendChild(makeServerBtn(emb));
+      });
+    }
+    if (!boxN.children.length && !direct.length) {
+      boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Sin mirrors válidos</span>';
     }
   }
@@ -485,7 +580,7 @@
       a.href = d.url || d.stream_url;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
-      var name = d.servidor || "Descarga " + (idx + 1);
+      var name = cleanServerName(d) || "Descarga " + (idx + 1);
       var idioma = d.idioma || d.lang || "";
       a.textContent = idioma ? name + " · " + idioma : name;
       box.appendChild(a);
@@ -493,7 +588,6 @@
     if (!box.children.length) wrap.hidden = true;
   }
 
-  /** Chips: año · fecha · IMDb · duración */
   function fillMetaChips(item) {
     var box = $("mz-kp-meta-chips");
     if (!box) return;
@@ -512,6 +606,11 @@
     var dur = durationOf(null, item);
     if (dur) chip(dur);
     if (item.certificacion) chip(String(item.certificacion));
+    var est = estadoOf(item);
+    if (est) {
+      var isAir = /emis/i.test(est);
+      chip(est, isAir ? "mz-kp-chip-air" : "mz-kp-chip-end");
+    }
   }
 
   function fillGenres(item) {
@@ -533,7 +632,11 @@
 
     var orig = item.titulo_original || null;
     var origEl = $("mz-kp-original");
-    if (orig && String(orig).trim() && String(orig).toLowerCase() !== String(main).toLowerCase()) {
+    if (
+      orig &&
+      String(orig).trim() &&
+      String(orig).toLowerCase() !== String(main).toLowerCase()
+    ) {
       origEl.textContent = orig;
       origEl.classList.remove("hidden");
     } else {
@@ -542,13 +645,8 @@
     }
 
     var epEl = $("mz-kp-ep-title");
-    if (epTitleText) {
-      epEl.textContent = epTitleText;
-      epEl.style.display = "";
-    } else {
-      epEl.textContent = main;
-      epEl.style.display = "";
-    }
+    epEl.textContent = epTitleText || main;
+    epEl.style.display = "";
 
     $("mz-kp-meta").textContent = "";
     fillMetaChips(item);
@@ -597,7 +695,7 @@
       card.className = "mz-kp-ep-card" + (playing ? " playing" : "");
       card.innerHTML =
         '<div class="mz-kp-ep-thumb">' +
-        (playing ? '<div class="mz-kp-badge-playing">Reproduciendo</div>' : "") +
+        (playing ? '<div class="mz-kp-badge-playing">Seleccionado</div>' : "") +
         '<img src="' +
         String(thumb).replace(/"/g, "") +
         '" alt="" loading="lazy" onerror="this.style.opacity=.3"/>' +
@@ -661,8 +759,6 @@
     var embeds = normalizeList(item.embeds || item.reproductores || []);
     var downloads = normalizeList(item.downloads || item.descargas || []);
     if (embeds.length) return { embeds: embeds, downloads: downloads, item: item };
-
-    // Detalle completo si hace falta
     try {
       if (item.slug || item.link) {
         var params = new URLSearchParams();
@@ -676,8 +772,7 @@
         var data = await res.json().catch(function () {
           return null;
         });
-        if (data && (data.success !== false)) {
-          // merge meta
+        if (data && data.success !== false) {
           [
             "descripcion",
             "year",
@@ -693,8 +788,15 @@
             "certificacion",
             "portada",
             "backdrop",
+            "estado",
+            "en_emision",
+            "finalizado",
           ].forEach(function (k) {
-            if (data[k] != null && data[k] !== "" && (item[k] == null || item[k] === ""))
+            if (
+              data[k] != null &&
+              data[k] !== "" &&
+              (item[k] == null || item[k] === "")
+            )
               item[k] = data[k];
           });
           embeds = normalizeList(data.reproductores || data.embeds || []);
@@ -716,6 +818,7 @@
     _mode = "episode";
     var view = $("mz-koi-ep-view");
     view.classList.add("open");
+    view.classList.remove("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
 
@@ -726,27 +829,28 @@
     fillTitles(item, epLabel(episodio, epNum));
     renderSidebar(item, epNum, seasonNum);
     destroyHls();
-    setPlaceholder(true, "Cargando episodio…");
+    showPoster(item, "Elige un reproductor para comenzar");
     renderServers([]);
     renderDownloads([]);
 
     var pack = await fetchCapitulo(item, seasonNum, epNum);
-    // merge embeds on episodio
     if (episodio) {
       episodio.embeds = pack.embeds;
       episodio.downloads = pack.downloads;
     }
     renderServers(pack.embeds);
     renderDownloads(pack.downloads);
-    if (pack.embeds.length) await playEmbed(pack.embeds[0]);
-    else setPlaceholder(true, "Sin mirrors para este episodio");
+    // SIN autoplay: se queda el poster hasta que elijan servidor
+    showPoster(item, pack.embeds.length
+      ? "Elige un reproductor para comenzar"
+      : "Sin mirrors para este episodio");
+
     try {
       view.scrollTop = 0;
     } catch (_) {}
     return true;
   }
 
-  /** Película: mismo layout, sin sidebar, reproductores al entrar */
   async function openMovie(item) {
     if (!isPc()) return false;
     if (!item) return false;
@@ -754,39 +858,38 @@
     _mode = "movie";
     var view = $("mz-koi-ep-view");
     view.classList.add("open");
+    view.classList.add("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
 
     _ctx = { item: item, episode: null, season: null };
 
     fillTitles(item, null);
-    // En película el h1 es el título; el link cyan puede ser tipo
     $("mz-kp-anime-title").textContent = item.tipo || "Película";
     $("mz-kp-ep-title").textContent = item.nombre || item.titulo || "Película";
 
     renderSidebar(item, 0, 0);
     destroyHls();
-    setPlaceholder(true, "Cargando reproductores…");
+    showPoster(item, "Elige un reproductor para comenzar");
     renderServers([]);
     renderDownloads([]);
 
     var pack = await fetchMoviePlayers(item);
     item = pack.item || item;
     _ctx.item = item;
-    // refrescar meta por si /api/detalle completó datos
     fillTitles(item, null);
     $("mz-kp-anime-title").textContent = item.tipo || "Película";
     $("mz-kp-ep-title").textContent = item.nombre || item.titulo || "Película";
 
     renderServers(pack.embeds);
     renderDownloads(pack.downloads);
-
-    if (pack.embeds.length) {
-      // No autoplay agresivo: muestra primer servidor resuelto (como Koiflix)
-      await playEmbed(pack.embeds[0]);
-    } else {
-      setPlaceholder(true, "Elige un reproductor cuando esté disponible");
-    }
+    // SIN autoplay
+    showPoster(
+      item,
+      pack.embeds.length
+        ? "Elige un reproductor para comenzar"
+        : "Sin mirrors disponibles"
+    );
 
     try {
       view.scrollTop = 0;
@@ -798,6 +901,7 @@
     var view = $("mz-koi-ep-view");
     if (!view) return;
     view.classList.remove("open");
+    view.classList.remove("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "true");
     document.body.classList.remove("mz-koi-ep-open");
     destroyHls();
