@@ -3233,6 +3233,28 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsContent.classList.remove("hidden");
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
+// --- PC película → vista Koiflix con meta + reproductores ---
+  {
+    const pc =
+      (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
+      window.innerWidth >= 1025;
+    const esPeli =
+      !item ? false :
+      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")) ||
+      (!/serie|anime|dorama|tv/i.test(String(item.tipo || "")) && !item.episodios);
+
+    if (pc && esPeli && typeof window.mzKoiOpenMovie === "function") {
+    // Opcional: no hace falta abrir el details-panel clásico
+      try {
+        detailsPanel.classList.add("hidden");
+        document.body.style.overflow = "";
+      } catch (_) {}
+      await window.mzKoiOpenMovie(item);
+      return;
+    }
+  }
+// --- fin película Koiflix ---
+
     document.body.classList.add("details-open");
     // Modo visual Koiflix solo PC + serie/anime
     try {
