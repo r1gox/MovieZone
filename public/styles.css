@@ -6168,3 +6168,65 @@ main#home-view,
 body.mz-booting {
   overflow: hidden;
 }
+
+
+/* ===== Móvil: tipo + IMDb aún más chicos (no apretados) ===== */
+@media (max-width: 900px) {
+  .type-badge {
+    top: 4px !important;
+    left: 4px !important;
+    padding: 1px 4px !important;
+    font-size: 7px !important;
+    line-height: 1.15 !important;
+    border-radius: 3px !important;
+    max-width: 42% !important;
+    letter-spacing: 0 !important;
+  }
+
+  .rating-badge,
+  .rating-badge.rating-imdb-logo {
+    top: 4px !important;
+    right: 4px !important;
+    padding: 1px 3px !important;
+    gap: 2px !important;
+    border-radius: 3px !important;
+    max-width: 48% !important;
+  }
+  .rating-badge.rating-imdb-logo .rating-main {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+  }
+  .rating-badge.rating-imdb-logo .imdb-mark {
+    font-size: 7px !important;
+    padding: 1px 2px !important;
+    border-radius: 2px !important;
+  }
+
+  .airing-badge {
+    font-size: 8px !important;
+    padding: 1px 4px !important;
+  }
+  .availability-badge {
+    bottom: 4px !important;
+    left: 4px !important;
+    padding: 1px 4px !important;
+    font-size: 8px !important;
+  }
+
+  /* Grid 3 cols: info más compacta */
+  #grid-view .catalog-grid .media-info {
+    padding: 4px 2px 0 !important;
+  }
+  #grid-view .catalog-grid .media-info h3 {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  #grid-view .catalog-grid .media-info p {
+    font-size: 9px !important;
+    opacity: 0.75;
+  }
+}
