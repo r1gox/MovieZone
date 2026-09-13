@@ -22,6 +22,9 @@ export function setKoiMode(item) {
   document.body.classList.toggle("koi-desktop", on);
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
+  // Título de sección como Koiflix
+  const h4 = document.querySelector("#seasons-section > h4");
+  if (h4) h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
   return on;
 }
 
@@ -29,6 +32,8 @@ export function clearKoiMode() {
   document.body.classList.remove("koi-desktop", "player-open");
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", "true");
+  const h4 = document.querySelector("#seasons-section > h4");
+  if (h4) h4.textContent = "Temporadas y Capítulos";
 }
 
 function firstEpisodeLabel(item) {
