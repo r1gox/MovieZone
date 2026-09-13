@@ -7101,3 +7101,47 @@ body.mz-booting {
     font-size: 0.7rem !important;
   }
 }
+
+
+/* IMDb en la misma fila del meta (inline) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop .koi-hero-meta {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px 8px !important;
+    line-height: 1.4 !important;
+  }
+  body.details-open.koi-desktop .koi-hero-meta .koi-meta-sep {
+    color: #64748b !important;
+    margin: 0 2px !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-inline {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    vertical-align: middle !important;
+    background: linear-gradient(135deg, rgba(245, 197, 24, 0.22), rgba(245, 197, 24, 0.08)) !important;
+    border: 1px solid rgba(245, 197, 24, 0.45) !important;
+    border-radius: 6px !important;
+    padding: 2px 8px !important;
+    line-height: 1.2 !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-score {
+    color: #f5c518 !important;
+    font-weight: 800 !important;
+    font-size: 0.9rem !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-tag {
+    color: #f5c518 !important;
+    font-weight: 800 !important;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.3px !important;
+  }
+  /* Evitar que .rating-badge (div) rompa la fila si aparece */
+  body.details-open.koi-desktop .koi-hero-meta .rating-badge {
+    display: inline-flex !important;
+    margin: 0 !important;
+  }
+}
