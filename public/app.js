@@ -3364,23 +3364,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             } catch (_) {}
             return;
           }
-
-          const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
-          if (esPeli) {
-            // Mostrar reproductores (sin autoplay)
-            try {
-              document.getElementById("servers-section")?.classList.remove("hidden");
-              document.getElementById("servers-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              const sc = document.getElementById("servers-container");
-              const tg = document.getElementById("mz-servers-toggle");
-              if (sc) {
-                sc.classList.remove("mz-collapsed-content");
-                sc.classList.add("mz-expanded-content");
-              }
-              if (tg) tg.classList.add("open");
-            } catch (_) {}
-            return;
-          }
           const first =
             document.querySelector("#episodes-container [data-ep]") ||
             document.querySelector("#episodes-container button") ||
