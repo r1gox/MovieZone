@@ -3342,7 +3342,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsContent.classList.remove("hidden");
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
-// --- fin película Koiflix ---
 
     document.body.classList.add("details-open");
     // Modo visual Koiflix solo PC + serie/anime
@@ -3350,6 +3349,22 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       setKoiMode(item);
       bindKoiHeroControls({
         onPlay: () => {
+          const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+          if (esPeli) {
+            try {
+              document.getElementById("servers-section")?.classList.remove("hidden");
+              document.getElementById("servers-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              const sc = document.getElementById("servers-container");
+              const tg = document.getElementById("mz-servers-toggle");
+              if (sc) {
+                sc.classList.remove("mz-collapsed-content");
+                sc.classList.add("mz-expanded-content");
+              }
+              if (tg) tg.classList.add("open");
+            } catch (_) {}
+            return;
+          }
+
           const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
           if (esPeli) {
             // Mostrar reproductores (sin autoplay)
@@ -3728,13 +3743,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             refrescarTotalAnimeSiHaceFalta(item).catch(() => {});
         }
     } else {
-        // Película: sí mostrar streams (equivalente a “video único”)
+        // Película: mostrar streams sin autoplay (elige servidor)
         document.getElementById("servers-section")?.classList.remove("hidden");
         renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
-        if (autoPlay) {
-            const first = (item.embeds && item.embeds[0]) || (item.reproductor ? { url: item.reproductor } : null);
-            if (first) reproducir(first, item);
-        }
+        // no auto-reproducir: el usuario elige servidor
     }
 }
 
