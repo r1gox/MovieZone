@@ -148,35 +148,135 @@ function fillKoiHero(item) {
     }
   }
 
+
+  // Título original debajo del título/logo
+  let origHero = document.getElementById("koi-hero-original");
+  if (!origHero) {
+    origHero = document.createElement("p");
+    origHero.id = "koi-hero-original";
+    origHero.className = "koi-hero-original";
+    const titleEl2 = document.getElementById("koi-hero-title");
+    const metaAnchor = document.getElementById("koi-hero-meta");
+    if (metaAnchor && metaAnchor.parentNode) {
+      metaAnchor.parentNode.insertBefore(origHero, metaAnchor);
+    } else if (titleEl2 && titleEl2.parentNode) {
+      titleEl2.parentNode.insertBefore(origHero, titleEl2.nextSibling);
+    }
+  }
+  const mainT = String(item.nombre || item.titulo || "").trim();
+  const origT = String(item.titulo_original || (item.tmdb && item.tmdb.titulo) || "").trim();
+  if (origT && origT.toLowerCase() !== mainT.toLowerCase()) {
+    origHero.textContent = origT;
+    origHero.classList.remove("hidden");
+    origHero.style.display = "";
+  } else {
+    origHero.textContent = "";
+    origHero.classList.add("hidden");
+    origHero.style.display = "none";
+  }
+
   const metaEl = document.getElementById("koi-hero-meta");
   if (metaEl) {
-    const gens = genresText(item);
-    const year = item.year || item.anio || "";
-    // Rating con la misma lógica de MovieZone
+    const bits = [];
+    const push = (html) => {
+      if (bits.length) bits.push('<span class="koi-meta-sep">•</span>');
+      bits.push(html);
+    };
+
+    // Idioma
+    if (typeof langLabel === "function") {
+      const lang = langLabel(item);
+      if (lang) push('<span class="koi-meta-lang">' + lang + "</span>");
+    }
+
+    // Año
+    const year = item.year || item.anio || (item.fecha_estreno ? String(item.fecha_estreno).slice(0, 4) : "");
+    if (year) push("<span>" + year + "</span>");
+
+    // Fecha estreno dd/mm/yyyy
+    if (item.fecha_estreno) {
+      const f = String(item.fecha_estreno).slice(0, 10);
+      let releaseLabel = null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+        const [yy, mm, dd] = f.split("-");
+        releaseLabel = dd + "/" + mm + "/" + yy;
+      } else if (f && f !== String(year)) {
+        releaseLabel = f;
+      }
+      if (releaseLabel) push("<span>" + releaseLabel + "</span>");
+    }
+
+    // IMDb rating
     let scoreLabel = "";
     if (typeof ratingInfo === "function") {
       const r = ratingInfo(item);
       if (r && r.value) scoreLabel = r.label;
     } else if (item.imdb && item.imdb.rating) {
       scoreLabel = Number(item.imdb.rating).toFixed(1);
-    } else if (item.calificacion) {
+    } else if (item.calificacion != null && item.calificacion !== "") {
       scoreLabel = Number(item.calificacion).toFixed(1);
+    } else if (item.rating != null && item.rating !== "") {
+      scoreLabel = Number(item.rating).toFixed(1);
     }
-    const bits = [];
-    bits.push(`<span class="koi-meta-lang">${langLabel(item)}</span>`);
-    if (year) bits.push(`<span class="koi-meta-sep">•</span><span>${year}</span>`);
-    if (scoreLabel) {
-      bits.push(
-        `<span class="koi-meta-sep">•</span>` +
-        `<span class="koi-imdb-inline" title="IMDb ${scoreLabel}">` +
-        `<span class="koi-imdb-score">${scoreLabel}</span>` +
-        `<span class="koi-imdb-tag">IMDb</span>` +
-        `</span>`
+    if (scoreLabel && !isNaN(Number(scoreLabel))) {
+      push(
+        '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
+          '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
+          '<span class="koi-imdb-tag">IMDb</span></span>'
       );
     }
-    if (gens) bits.push(`<span class="koi-meta-sep">•</span><span>${gens}</span>`);
+
+    // Duración
+    let durTxt = item.duracion_texto || null;
+    if (!durTxt && item.imdb && item.imdb.duracion_texto) durTxt = item.imdb.duracion_texto;
+    if (!durTxt && item.tmdb && item.tmdb.duracion_texto) durTxt = item.tmdb.duracion_texto;
+    if (!durTxt && item.duracion) {
+      const m = Number(item.duracion);
+      if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const mins = m % 60;
+        durTxt = mins ? h + "h " + mins + "min" : h + "h";
+      } else if (m > 0) durTxt = m + " min";
+    }
+    if (durTxt) push("<span>" + durTxt + "</span>");
+
+    // Certificación (B15, TV-14, R…)
+    const cert = item.certificacion || (item.imdb && item.imdb.certificacion) || null;
+    if (cert) push("<span>" + String(cert) + "</span>");
+
+    // Estado: En emisión / Finalizado
+    let statusLabel = null;
+    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
+      statusLabel = "Finalizado";
+    } else if (
+      item.en_emision === true ||
+      /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))
+    ) {
+      statusLabel = "En emisión";
+    } else if (item.estado) {
+      statusLabel = String(item.estado);
+    }
+    if (statusLabel) {
+      push(
+        '<span class="koi-meta-status' +
+          (/emis/i.test(statusLabel) ? " koi-meta-air" : " koi-meta-end") +
+          '">' +
+          statusLabel +
+          "</span>"
+      );
+    }
+
+    // Votos
+    const votos = item.votos || (item.imdb && item.imdb.votos) || null;
+    if (votos) push("<span>" + String(votos) + " votos</span>");
+
+    // Géneros
+    const gens = typeof genresText === "function" ? genresText(item) : (item.genero || "");
+    if (gens) push("<span>" + gens + "</span>");
+
     metaEl.innerHTML = bits.join("");
   }
+
 
   const synEl = document.getElementById("koi-hero-synopsis");
   const toggleBtn = document.getElementById("koi-toggle-details");
