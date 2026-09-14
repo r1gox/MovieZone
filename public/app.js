@@ -1486,11 +1486,15 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
   if (validos.length || (episodio.video && !esEmbedInvalido(episodio.video))) {
     return { embeds: validos.length ? validos : (episodio.embeds || []), video: episodio.video };
   }
+  const sNum = Number(seasonNum || episodio?.season || episodio?.temporada || item?._seasonActiva || 1) || 1;
+  const eNum = Number(epNum || episodio?.episode || episodio?.episodio || 0) || 0;
   const params = new URLSearchParams();
-  params.set("temporada", String(seasonNum));
-  params.set("episodio", String(epNum));
+  params.set("temporada", String(sNum));
+  params.set("episodio", String(eNum));
   if (item.postId) params.set("postId", item.postId);
-  if (item.link) params.set("link", item.link);
+  // Preferir link del episodio (fuentes con URL por capítulo)
+  if (episodio && episodio.link) params.set("link", episodio.link);
+  else if (item.link) params.set("link", item.link);
   if (item.slug) params.set("slug", item.slug);
   if (item.source_id) params.set("source_id", item.source_id);
   if (item.tipo) params.set("tipo", item.tipo);
@@ -4618,7 +4622,25 @@ function renderTemporadas(item) {
             }
             const res = await fetch(`/api/episodios?${qs.toString()}`, { cache: "no-store" });
             const data = await res.json();
-            item.episodios = data.episodios || [];
+            let epsApi = Array.isArray(data.episodios) ? data.episodios : [];
+            // Si la API trae varias temporadas mezcladas, quedarnos solo con la pedida
+            const tagged = epsApi.some((e) => e && (e.season != null || e.temporada != null));
+            if (tagged) {
+                epsApi = epsApi.filter((e) => Number(e.season || e.temporada || 1) === seasonNum);
+            }
+            item.episodios = epsApi.map((ep, idx) => {
+                const num = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || (idx + 1);
+                return Object.assign({}, ep, {
+                    season: seasonNum,
+                    temporada: seasonNum,
+                    episode: num,
+                    episodio: num,
+                    nombre: ep.nombre || ep.titulo || ep.name || ("Episodio " + num),
+                    embeds: ep.embeds || ep.reproductores || [],
+                    link: ep.link || null,
+                    source_id: ep.source_id || item.source_id
+                });
+            });
             if (data.slug) item.slug = data.slug;
             if (data.source_id) item.source_id = data.source_id;
             if (data.link) item.link = data.link;
@@ -4782,9 +4804,25 @@ function renderEpisodios(item, season = 1) {
 
     let lista = ordenarEpisodiosParaUI(item, Array.isArray(item.episodios) ? item.episodios : []);
     const seasonNum = Number(season) || 1;
+    // Solo episodios de la temporada activa (nunca mezclar todas)
     if (lista.length) {
-        const filtrados = lista.filter((ep) => Number(ep.season || ep.temporada || 1) === seasonNum);
-        if (filtrados.length) lista = filtrados;
+        const tabsN = tabsContainer
+            ? tabsContainer.querySelectorAll(".season-tab[data-season]").length
+            : 0;
+        const multiTemp = tabsN > 1
+            || (Array.isArray(item.temporadas) && item.temporadas.length > 1)
+            || (Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 1);
+        const filtrados = lista.filter((ep) => {
+            const s = Number(ep.season != null ? ep.season : (ep.temporada != null ? ep.temporada : seasonNum));
+            return s === seasonNum;
+        });
+        // Multi-temporada: SIEMPRE filtrar (aunque quede vacío)
+        // Una sola temporada: filtrar si hay match; si nadie trae season, dejar lista
+        if (multiTemp || seasonNum > 1) {
+            lista = filtrados;
+        } else if (filtrados.length) {
+            lista = filtrados;
+        }
     }
     // Filtrar por rango activo si aplica
     if (rango && lista.length) {
@@ -4855,8 +4893,19 @@ function renderEpisodios(item, season = 1) {
             episodesContainer.querySelectorAll(".episode-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             // Número real del episodio (no el index del rango filtrado)
-            const epNum = episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index);
-            const seasonNum = episodio.season || episodio.temporada || season || 1;        
+            const epNum = Number(episodio.episode || episodio.episodio || episodio.episode_number || episodioNumero(episodio, index)) || 1;
+            // Temporada de la pestaña activa (evita pedir T1 cuando el ep no trae season)
+            const seasonNum = Number(
+                item._seasonActiva ||
+                episodio.season ||
+                episodio.temporada ||
+                season ||
+                1
+            ) || 1;
+            episodio.season = seasonNum;
+            episodio.temporada = seasonNum;
+            episodio.episode = epNum;
+            episodio.episodio = epNum;
           {
             const pc =
               (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
