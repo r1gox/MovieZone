@@ -448,14 +448,34 @@
     iframe.src = url;
   }
 
-  async function playEmbed(emb) {
-    setPlaceholder(true, "Resolviendo servidor…");
+  /**
+   * mode: "iframe" = solo link normal (streamwish.to, voe.sx…)
+   * mode: "direct" = resolver HLS / stream_url del worker
+   * mode: auto     = según datos del embed
+   */
+  async function playEmbed(emb, mode) {
+    mode = mode || "auto";
     hidePoster();
-    var api = streamApiForEmbed(emb);
-    if (api || emb.noAds) {
+
+    // --- FORZAR IFRAME (reproductores normales) ---
+    if (mode === "iframe") {
+      var uIframe = emb && emb.url;
+      if (uIframe && /^https?:\/\//i.test(String(uIframe)) && !isWorkerStreamApi(uIframe)) {
+        setPlaceholder(true, "Cargando…");
+        playIframeInKoi(uIframe);
+        return true;
+      }
+      setPlaceholder(true, "Sin link de embed");
+      return false;
+    }
+
+    // --- FORZAR DIRECTO (resuelto) ---
+    if (mode === "direct") {
+      setPlaceholder(true, "Resolviendo servidor…");
+      var api = (emb && emb.stream_url) || streamApiForEmbed(emb);
       try {
         var play = await resolveNoAdsPlayUrl(
-          Object.assign({}, emb, { stream_url: emb.stream_url || api })
+          Object.assign({}, emb || {}, { stream_url: (emb && emb.stream_url) || api })
         );
         if (play) {
           playHlsInKoi(play);
@@ -463,6 +483,25 @@
         }
       } catch (e) {
         console.warn("resolve fail", e);
+      }
+      setPlaceholder(true, "No se pudo resolver el stream");
+      return false;
+    }
+
+    // --- auto (por si se llama sin mode) ---
+    setPlaceholder(true, "Resolviendo servidor…");
+    var api2 = streamApiForEmbed(emb);
+    if (api2 || (emb && emb.noAds)) {
+      try {
+        var play2 = await resolveNoAdsPlayUrl(
+          Object.assign({}, emb, { stream_url: emb.stream_url || api2 })
+        );
+        if (play2) {
+          playHlsInKoi(play2);
+          return true;
+        }
+      } catch (e2) {
+        console.warn("resolve fail", e2);
       }
     }
     var url = emb.url || emb.stream_url;
@@ -515,7 +554,8 @@
     return out;
   }
 
-  function makeServerBtn(emb, boxAll) {
+  function makeServerBtn(emb, mode) {
+    mode = mode || "iframe";
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mz-kp-srv-btn";
@@ -529,7 +569,7 @@
           b.classList.remove("active");
         });
       btn.classList.add("active");
-      playEmbed(emb);
+      playEmbed(emb, mode);
     });
     return btn;
   }
@@ -590,13 +630,13 @@
     });
 
     normal.forEach(function (emb) {
-      boxN.appendChild(makeServerBtn(emb));
+      boxN.appendChild(makeServerBtn(emb, "iframe"));
     });
 
     if (direct.length && boxD) {
       if (labD) labD.classList.remove("hidden");
       direct.forEach(function (emb) {
-        boxD.appendChild(makeServerBtn(emb));
+        boxD.appendChild(makeServerBtn(emb, "direct"));
       });
     }
 
