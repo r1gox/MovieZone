@@ -2,7 +2,7 @@
  * MovieZone — Vista Koiflix PC
  * - Serie/Anime: mzKoiOpenEpisode — sin autoplay hasta elegir servidor
  * - Película:    mzKoiOpenMovie  — poster arriba, sin autoplay
- * Reproductores normales arriba; Directo / sin anuncios abajo (sin texto "NO ADS").
+ * Reproductores normales arriba; Directos abajo (sin texto "NO ADS").
  * Espacio no reinicia el player (solo play/pause nativo del video).
  */
 (function () {
@@ -63,7 +63,7 @@
       '    <div class="mz-kp-servers">' +
       '      <div class="mz-kp-servers-label">Reproductores</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers"></div>' +
-      '      <div class="mz-kp-servers-label mz-kp-direct-label hidden" id="mz-kp-direct-label">Directo / sin anuncios</div>' +
+      '      <div class="mz-kp-servers-label mz-kp-direct-label hidden" id="mz-kp-direct-label">Directos</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers-direct"></div>' +
       "    </div>" +
       '    <div class="mz-kp-servers mz-kp-downloads-wrap" id="mz-kp-downloads-wrap" hidden>' +
@@ -338,15 +338,30 @@
     return null;
   }
 
-  /** Directo / HLS resoluble vs embed iframe normal */
+  /**
+   * Directo = ya trae stream resuelto del worker (stream_url/hls_resolve) o noAds.
+   * Normal  = embed clásico para iframe (url de voe, mega, streamtape…).
+   * NO marcar como directo solo porque el host “podría” resolverse.
+   */
   function isDirectEmbed(emb) {
     if (!emb) return false;
     if (emb.noAds) return true;
-    if (streamApiForEmbed(emb)) return true;
+    if (emb.stream_url && isWorkerStreamApi(emb.stream_url)) return true;
+    if (emb.hls_resolve && isWorkerStreamApi(emb.hls_resolve)) return true;
     var name = String(emb.servidor || emb.server || emb.name || "").toLowerCase();
-    if (/directo|no\s*ads|hls|streamwish|voe|vidhide|goodstream|vimeos/.test(name))
-      return !!streamApiForEmbed(emb) || /directo|no\s*ads|hls/.test(name);
+    if (/^directo$|no\s*ads/.test(name)) return true;
+    // "HLS" como nombre + stream del worker
+    if (/^hls$/.test(name) && (emb.stream_url || emb.hls_resolve)) return true;
     return false;
+  }
+
+  function isNormalEmbed(emb) {
+    if (!emb) return false;
+    var url = emb.url;
+    if (!url || !/^https?:\/\//i.test(String(url))) return false;
+    if (isWorkerStreamApi(url)) return false;
+    if (/moviezone\.tvjz\.workers\.dev\/\d+\//i.test(String(url))) return false;
+    return true;
   }
 
   function cleanServerName(emb) {
@@ -526,7 +541,10 @@
     if (!boxN) return;
     boxN.innerHTML = "";
     if (boxD) boxD.innerHTML = "";
-    if (labD) labD.classList.add("hidden");
+    if (labD) {
+      labD.classList.add("hidden");
+      labD.textContent = "Directos";
+    }
 
     if (!embeds || !embeds.length) {
       boxN.innerHTML =
@@ -536,28 +554,59 @@
 
     var normal = [];
     var direct = [];
+    var seenN = Object.create(null);
+    var seenD = Object.create(null);
+
     embeds.forEach(function (emb) {
-      if (isDirectEmbed(emb)) direct.push(emb);
-      else normal.push(emb);
+      // Normal: embed iframe usable
+      if (isNormalEmbed(emb)) {
+        var keyN = String(emb.url).split("?")[0].toLowerCase();
+        if (!seenN[keyN]) {
+          seenN[keyN] = 1;
+          normal.push(emb);
+        }
+      }
+      // Directo: stream resuelto del worker (puede ser el mismo mirror)
+      if (isDirectEmbed(emb)) {
+        var keyD = String(emb.stream_url || emb.hls_resolve || emb.url || "")
+          .split("?")[0]
+          .toLowerCase();
+        if (keyD && !seenD[keyD]) {
+          seenD[keyD] = 1;
+          direct.push(emb);
+        }
+      } else if (isNormalEmbed(emb) && streamApiForEmbed(emb)) {
+        // Tiene embed normal pero el host se puede resolver → entrada extra en Directos
+        var clone = Object.assign({}, emb, {
+          stream_url: emb.stream_url || streamApiForEmbed(emb),
+          servidor: cleanServerName(emb),
+        });
+        var keyC = String(clone.stream_url).split("?")[0].toLowerCase();
+        if (!seenD[keyC]) {
+          seenD[keyC] = 1;
+          direct.push(clone);
+        }
+      }
     });
-    // Si todos son "direct", mostrarlos solo en normales sin etiqueta NO ADS
-    if (!normal.length && direct.length) {
-      normal = direct;
-      direct = [];
-    }
 
     normal.forEach(function (emb) {
       boxN.appendChild(makeServerBtn(emb));
     });
+
     if (direct.length && boxD) {
       if (labD) labD.classList.remove("hidden");
       direct.forEach(function (emb) {
         boxD.appendChild(makeServerBtn(emb));
       });
     }
-    if (!boxN.children.length && !direct.length) {
+
+    if (!normal.length && !direct.length) {
       boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Sin mirrors válidos</span>';
+    } else if (!normal.length && direct.length) {
+      // Solo directos: mostrarlos arriba también etiquetados como Directos abajo
+      boxN.innerHTML =
+        '<span style="color:#64748b;font-size:0.85rem">Sin embeds clásicos</span>';
     }
   }
 
