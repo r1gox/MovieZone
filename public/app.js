@@ -5,262 +5,6 @@
 import { initWakeupNotice } from './js/ui/wakeup.js';
 import { getCatalog, searchCatalog } from './js/data/catalogo.js';
 
-// ===== Koi PC detail (inline) =====
-/**
- * MovieZone — Modo detalle/player estilo Koiflix SOLO en PC
- * para series y animes. Usa los mismos datos que ya pinta app.js.
- * No cambia el flujo: solo clases CSS + relleno del hero.
- */
-
-const KOI_MQ = window.matchMedia("(min-width: 1025px)");
-
-function isKoiDesktop() {
-  return (typeof window !== "undefined" && window.innerWidth >= 1025) || KOI_MQ.matches;
-}
-
-function isSerieOrAnime(item) {
-  if (!item) return false;
-  const t = String(item.tipo || item.type || "").toLowerCase();
-  return /serie|anime|dorama|tv|ova|ona/.test(t);
-}
-
-/** Activa/desactiva el layout Koiflix en body */
-function setKoiMode(item) {
-  const on = isKoiDesktop() && isSerieOrAnime(item);
-  document.body.classList.toggle("koi-desktop", on);
-  const hero = document.getElementById("koi-hero");
-  if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
-  // Título de sección como Koiflix
-  const h4 = document.querySelector("#seasons-section > h4");
-  if (h4) h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
-  try { bindKoiBackBtn(); } catch (_) {}
-  return on;
-}
-
-function clearKoiMode() {
-  document.body.classList.remove("koi-desktop", "player-open");
-  const hero = document.getElementById("koi-hero");
-  if (hero) hero.setAttribute("aria-hidden", "true");
-  const h4 = document.querySelector("#seasons-section > h4");
-  if (h4) h4.textContent = "Temporadas y Capítulos";
-}
-
-
-function bindKoiBackBtn() {
-  const btn = document.getElementById("koi-btn-back");
-  if (!btn || btn.dataset.koiBound) return;
-  btn.dataset.koiBound = "1";
-  btn.addEventListener("click", () => {
-    // Si está en player → volver al detalle (hero + episodios)
-    if (document.body.classList.contains("player-open")) {
-      document.body.classList.remove("player-open");
-      try {
-        const iframe = document.getElementById("player-iframe");
-        if (iframe) iframe.src = "about:blank";
-        document.getElementById("video-player-container")?.classList.add("hidden");
-        document.getElementById("servers-section")?.classList.add("hidden");
-        setKoiPlayerEpisodeTitle("");
-      } catch (_) {}
-      // Scroll al hero / episodios
-      try {
-        document.getElementById("koi-hero")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch (_) {}
-      return;
-    }
-    // Si está en detalle → cerrar panel
-    try { cerrarDetalle(); } catch (_) {}
-  });
-}
-
-function firstEpisodeLabel(item) {
-  const eps = item?.episodios || item?.episodes || [];
-  if (Array.isArray(eps) && eps.length) {
-    const n = Number(eps[0].episode || eps[0].episodio || eps[0].episode_number || 1) || 1;
-    return `COMENZAR A VER E${n}`;
-  }
-  return "COMENZAR A VER E1";
-}
-
-function genresText(item) {
-  let lista = [];
-  if (Array.isArray(item.generos) && item.generos.length) {
-    lista = item.generos.map((g) => String(g).trim()).filter(Boolean);
-  } else if (item.genero) {
-    lista = String(item.genero).split(",").map((g) => g.trim()).filter(Boolean);
-  }
-  return lista.slice(0, 6).join(", ");
-}
-
-function langLabel(item) {
-  const l = item.idioma || item.audio || item.language || "";
-  if (/jap|jpn|ja/i.test(String(l))) return "Japonés";
-  if (/lat|es-la|latino/i.test(String(l))) return "Latino";
-  if (/cast|es-es|español/i.test(String(l))) return "Castellano";
-  if (/en|ingl/i.test(String(l))) return "Inglés";
-  if (/anime/i.test(String(item.tipo || ""))) return "Japonés";
-  return l || "Español";
-}
-
-/**
- * Rellena el hero Koiflix con los datos del item actual.
- * Llamar después de pintar el detalle normal.
- */
-function fillKoiHero(item) {
-  if (!item || !isKoiDesktop() || !isSerieOrAnime(item)) return;
-
-  const bg =
-    item.backdrop ||
-    item.fondo ||
-    item.banner ||
-    item.portada_imdb ||
-    item.portada ||
-    item.poster ||
-    "";
-
-  const hero = document.getElementById("koi-hero");
-  if (hero) {
-    if (bg) {
-      hero.style.backgroundImage = `url("${bg}")`;
-      hero.classList.remove("no-bg");
-    } else {
-      hero.style.backgroundImage = "";
-      hero.classList.add("no-bg");
-    }
-  }
-
-  const logoEl = document.getElementById("koi-hero-logo");
-  const titleEl = document.getElementById("koi-hero-title");
-  const logoUrl = item.logo || item.logo_url || (document.getElementById("details-logo")?.src) || "";
-
-  if (logoEl && logoUrl && !/placeholder|via\.placeholder/i.test(logoUrl)) {
-    logoEl.src = logoUrl;
-    logoEl.alt = item.nombre || item.titulo || "";
-    logoEl.classList.remove("hidden");
-    if (titleEl) titleEl.classList.add("hidden");
-  } else {
-    if (logoEl) {
-      logoEl.src = "";
-      logoEl.classList.add("hidden");
-    }
-    if (titleEl) {
-      titleEl.textContent = item.nombre || item.titulo || "Sin título";
-      titleEl.classList.remove("hidden");
-    }
-  }
-
-  const metaEl = document.getElementById("koi-hero-meta");
-  if (metaEl) {
-    const gens = genresText(item);
-    const year = item.year || item.anio || "";
-    // Rating con la misma lógica de MovieZone
-    let scoreLabel = "";
-    if (typeof ratingInfo === "function") {
-      const r = ratingInfo(item);
-      if (r && r.value) scoreLabel = r.label;
-    } else if (item.imdb && item.imdb.rating) {
-      scoreLabel = Number(item.imdb.rating).toFixed(1);
-    } else if (item.calificacion) {
-      scoreLabel = Number(item.calificacion).toFixed(1);
-    }
-    const bits = [];
-    bits.push(`<span class="koi-meta-lang">${langLabel(item)}</span>`);
-    if (year) bits.push(`<span class="koi-meta-sep">•</span><span>${year}</span>`);
-    if (scoreLabel) {
-      bits.push(
-        `<span class="koi-meta-sep">•</span>` +
-        `<span class="koi-imdb-inline" title="IMDb ${scoreLabel}">` +
-        `<span class="koi-imdb-score">${scoreLabel}</span>` +
-        `<span class="koi-imdb-tag">IMDb</span>` +
-        `</span>`
-      );
-    }
-    if (gens) bits.push(`<span class="koi-meta-sep">•</span><span>${gens}</span>`);
-    metaEl.innerHTML = bits.join("");
-  }
-
-  const synEl = document.getElementById("koi-hero-synopsis");
-  const toggleBtn = document.getElementById("koi-toggle-details");
-  const fullSyn =
-    (item.descripcion && String(item.descripcion).trim()) ||
-    document.getElementById("details-synopsis")?.textContent ||
-    "";
-  if (synEl) {
-    synEl.textContent = fullSyn;
-    synEl.dataset.full = fullSyn;
-    // Si es larga, clamp + botón MÁS DETALLES
-    if (fullSyn.length > 220) {
-      synEl.classList.add("koi-syn-clamp");
-      synEl.classList.remove("koi-syn-open");
-      if (toggleBtn) {
-        toggleBtn.classList.remove("hidden");
-        toggleBtn.textContent = "MÁS DETALLES";
-      }
-    } else {
-      synEl.classList.remove("koi-syn-clamp", "koi-syn-open");
-      if (toggleBtn) toggleBtn.classList.add("hidden");
-    }
-  }
-
-  const playText = document.getElementById("koi-btn-play-text");
-  if (playText) playText.textContent = firstEpisodeLabel(item);
-
-}
-
-/** Actualiza título de episodio en layout player PC */
-function setKoiPlayerEpisodeTitle(label) {
-  const el = document.getElementById("koi-player-ep-title");
-  if (el) el.textContent = label || "";
-}
-
-/** Marca player abierto / cerrado para CSS */
-function setKoiPlayerOpen(on) {
-  document.body.classList.toggle("player-open", !!on);
-}
-
-/** Enlaza botones del hero (una sola vez) */
-function bindKoiHeroControls(handlers = {}) {
-  const playBtn = document.getElementById("koi-btn-play");
-  const bookmarkBtn = document.getElementById("koi-btn-bookmark");
-
-  if (playBtn && !playBtn.dataset.koiBound) {
-    playBtn.dataset.koiBound = "1";
-    playBtn.addEventListener("click", () => {
-      if (typeof handlers.onPlay === "function") handlers.onPlay();
-      else {
-        const first =
-          document.querySelector("#episodes-container [data-ep]") ||
-          document.querySelector("#episodes-container button") ||
-          document.querySelector("#episodes-container > *");
-        first?.click?.();
-      }
-    });
-  }
-
-  if (bookmarkBtn && !bookmarkBtn.dataset.koiBound) {
-    bookmarkBtn.dataset.koiBound = "1";
-    bookmarkBtn.addEventListener("click", () => {
-      const fav = document.getElementById("btn-favorito");
-      if (fav) fav.click();
-      else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
-    });
-  }
-
-  const toggleBtn = document.getElementById("koi-toggle-details");
-  if (toggleBtn && !toggleBtn.dataset.koiBound) {
-    toggleBtn.dataset.koiBound = "1";
-    toggleBtn.addEventListener("click", () => {
-      const synEl = document.getElementById("koi-hero-synopsis");
-      if (!synEl) return;
-      const open = synEl.classList.toggle("koi-syn-open");
-      if (open) synEl.classList.remove("koi-syn-clamp");
-      else synEl.classList.add("koi-syn-clamp");
-      toggleBtn.textContent = open ? "MENOS DETALLES" : "MÁS DETALLES";
-    });
-  }
-}
-
-// ===== fin Koi =====
-
 const LIMIT = 48;
 
 // ======================================================
@@ -1364,33 +1108,6 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
 
 /** Prueba servidores en orden: Latino → Sub → EN → otro; resolve primero */
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
-  // Koiflix PC: entrar a sección player SIN auto-reproducir.
-  const pc = (typeof window !== "undefined" && window.innerWidth >= 1025);
-  const serie = isSerieOrAnime(item) || /serie|anime|dorama|tv/i.test(String(item?.tipo || ""));
-  if (pc && serie && !window.__mzForceAutoPlay) {
-    try {
-      document.body.classList.add("koi-desktop", "player-open", "details-open");
-      setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || ("Episodio " + epNum)}`);
-      const titleEl = document.getElementById("details-title");
-      if (titleEl) titleEl.textContent = item.nombre || item.titulo || "";
-      // Nunca poner iframe con stream aquí
-      const iframe = document.getElementById("player-iframe");
-      if (iframe) iframe.src = "about:blank";
-      const vc = document.getElementById("video-player-container");
-      if (vc) vc.classList.remove("hidden");
-      const pt = document.getElementById("player-title");
-      if (pt) pt.textContent = "Elige un reproductor";
-      // Cargar lista de servidores (sin reproducir)
-      const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
-      renderServidoresYDescargas(pack.embeds || [], episodio.downloads || [], pack.video || episodio.video, item, { expandido: true });
-      document.getElementById("servers-section")?.classList.remove("hidden");
-      // Scroll al área player
-      try { vc?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) {}
-    } catch (e) {
-      console.error("koi prepare ep:", e);
-    }
-    return false;
-  }
   const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
   let embeds = ordenarEmbedsAuto(pack.embeds || []);
 
@@ -1408,10 +1125,6 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
 
   document.getElementById("details-title").textContent =
     `${item.nombre || item.titulo || ""} - ${episodio.nombre || ("Episodio " + epNum)}`;
-  try {
-    setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || ("Episodio " + epNum)}`);
-    document.body.classList.add("player-open");
-  } catch (_) {}
 
   // Probar uno por uno
   for (const emb of embeds) {
@@ -3196,20 +2909,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
     document.body.classList.add("details-open");
-    // Modo visual Koiflix solo PC + serie/anime
-    try {
-      setKoiMode(item);
-      bindKoiHeroControls({
-        onPlay: () => {
-          const first =
-            document.querySelector("#episodes-container [data-ep]") ||
-            document.querySelector("#episodes-container button") ||
-            document.querySelector("#episodes-container .ep-card") ||
-            document.querySelector("#episodes-container > *");
-          if (first) first.click();
-        },
-      });
-    } catch (_) {}
     // Siempre mostrar loading al entrar; se quita al terminar de cargar
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
 
@@ -3224,7 +2923,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
-    try { fillKoiHero(item); } catch (_) {}
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
@@ -3547,10 +3245,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       _syn2.classList.remove("mz-syn-loading");
     }
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
-    try {
-      setKoiMode(item);
-      fillKoiHero(item);
-    } catch (_) {}
 
     const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
     if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
@@ -3583,7 +3277,6 @@ function cerrarDetalle() {
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
     document.body.classList.remove("details-open");
-    try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
     destruirHls();
     playerIframe.src = "about:blank";
     videoContainer.classList.add("hidden");
@@ -4488,40 +4181,10 @@ function renderEpisodios(item, season = 1) {
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
+        btn.className = "episode-btn" + (index === 0 ? " active" : "");
         const num = episodioNumero(episodio, index);
-        const epNombre = episodio.nombre || `Episodio ${num}`;
-        const koiCards = isKoiDesktop() && isSerieOrAnime(item);
-        btn.className = "episode-btn" + (index === 0 ? " active" : "") + (koiCards ? " koi-ep-card" : "");
-        btn.title = epNombre;
-        btn.setAttribute("data-ep", String(num));
-        if (koiCards) {
-            const thumb =
-                episodio.still ||
-                episodio.portada ||
-                episodio.imagen ||
-                episodio.image ||
-                episodio.thumbnail ||
-                item.portada ||
-                item.backdrop ||
-                PLACEHOLDER;
-            const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
-            // Nombre limpio: evitar "T1E01" crudo si hay nombre mejor
-            let labelName = String(epNombre || "").replace(/</g, "");
-            if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
-              labelName = "Episodio " + num;
-            }
-            const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
-            btn.innerHTML =
-                `<span class="koi-ep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.3"/>` +
-                `<span class="koi-ep-dur">${dur ? dur : ("E" + num)}</span>` +
-                `</span>` +
-                `<span class="koi-ep-meta">` +
-                `<span class="koi-ep-series">${safeSeries}</span>` +
-                `<span class="koi-ep-name">E${num} · ${labelName}</span>` +
-                `</span>`;
-        } else {
-            btn.textContent = num;
-        }
+        btn.textContent = num;
+        btn.title = episodio.nombre || `Episodio ${num}`;
         if (!tieneVideo) btn.style.opacity = "0.55";
 
         btn.addEventListener("click", async () => {
@@ -4532,10 +4195,6 @@ function renderEpisodios(item, season = 1) {
             const seasonNum = episodio.season || episodio.temporada || season || 1;
             document.getElementById("details-title").textContent =
                 `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
-            try {
-              setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || "Episodio " + epNum}`);
-              document.body.classList.add("player-open");
-            } catch (_) {}
 
             const expandirServidores = () => {
                 const sc = document.getElementById("servers-container");
@@ -4555,7 +4214,6 @@ function renderEpisodios(item, season = 1) {
                 expandirServidores();
                 btn.style.opacity = "1";
                 // Auto: Latino → Sub → resolve primero (sin elegir servidor a mano)
-                // Siempre pasar por reproducirCapituloAuto (ahí se bloquea autoplay en koi)
                 await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 return;
             }
@@ -4649,6 +4307,7 @@ function renderEpisodios(item, season = 1) {
                         { expandido: true }
                     );
                     expandirServidores();
+                    // Auto-reproducir sin elegir servidor
                     await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 }
             } catch (err) {
@@ -4693,12 +4352,6 @@ async function reproducir(embed, item) {
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
     iniciarSeguimientoProgreso(item || seleccionActual);
     document.body.classList.add("player-open");
-    try {
-      const ctx = typeof _epPlayCtx !== "undefined" ? _epPlayCtx : null;
-      const epNum = ctx?.ep || ctx?.episodio || "";
-      const label = epNum ? `E${epNum} - Episodio ${epNum}` : (playerTitle?.textContent || "");
-      setKoiPlayerEpisodeTitle(label);
-    } catch (_) {}
     requestAnimationFrame(() => {
         try {
             videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -4813,14 +4466,104 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
 
 
-    
-    // Sin toggle "Servidores de reproducción": siempre chips visibles
-    try {
-      const oldT = document.getElementById("mz-servers-toggle");
-      if (oldT) oldT.remove();
-    } catch (_) {}
-    serversContainer.classList.remove("mz-collapsed-content");
-    serversContainer.classList.add("mz-expanded-content");
+    /*
+     * Crear botón desplegable de servidores
+     */
+
+    let serversToggle =
+        document.getElementById(
+            "mz-servers-toggle"
+        );
+
+    if (!serversToggle) {
+
+        serversToggle =
+            document.createElement("button");
+
+        serversToggle.id =
+            "mz-servers-toggle";
+
+        serversToggle.className =
+            "mz-collapse-toggle";
+
+        serversToggle.type =
+            "button";
+
+        serversToggle.innerHTML = `
+            <span class="mz-collapse-left">
+                <ion-icon name="play-circle-outline"></ion-icon>
+                <span>Servidores de reproducción</span>
+            </span>
+
+            <ion-icon
+                class="mz-collapse-arrow"
+                name="chevron-down-outline">
+            </ion-icon>
+        `;
+
+        serversContainer.parentNode.insertBefore(
+            serversToggle,
+            serversContainer
+        );
+
+    }
+
+
+    /*
+     * Estado: expandido si venimos de clic en episodio, si no cerrado
+     */
+    if (expandido) {
+        serversContainer.classList.remove("mz-collapsed-content");
+        serversContainer.classList.add("mz-expanded-content");
+        serversToggle.classList.add("open");
+    } else {
+        serversContainer.classList.add("mz-collapsed-content");
+        serversContainer.classList.remove("mz-expanded-content");
+        serversToggle.classList.remove("open");
+    }
+
+    /*
+     * Abrir / cerrar servidores
+     */
+
+    serversToggle.onclick = function () {
+
+        const abierto =
+            serversContainer.classList.contains(
+                "mz-expanded-content"
+            );
+
+        if (abierto) {
+
+            serversContainer.classList.remove(
+                "mz-expanded-content"
+            );
+
+            serversContainer.classList.add(
+                "mz-collapsed-content"
+            );
+
+            serversToggle.classList.remove(
+                "open"
+            );
+
+        } else {
+
+            serversContainer.classList.remove(
+                "mz-collapsed-content"
+            );
+
+            serversContainer.classList.add(
+                "mz-expanded-content"
+            );
+
+            serversToggle.classList.add(
+                "open"
+            );
+
+        }
+
+    };
 
 
     /*
@@ -4833,78 +4576,77 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     const noAds = embeds.find(e => e && e.noAds);
 
     if (embeds.length > 0) {
+        let globalIndex = 0;
+        // Lista plana para data-index (play handlers)
         const flatForPlay = [];
         if (noAds) flatForPlay.push(noAds);
-
-        // UI chips (Reproductores / Directos) — mismo estilo series y películas
-        const useChips = true;
-        // Separar: embeds normales vs stream_url / directos
-        const isDirect = (e) => !!(e && (e.stream_url || e.direct || e.noAds || /m3u8|mp4/i.test(String(e.url || ""))));
 
         seccionesRender.forEach((sec) => {
             const wrap = document.createElement("div");
             wrap.id = "player-section-" + sec.id;
-            wrap.className = "koi-servers-block";
-            wrap.style.cssText = "width:100%;margin:0 0 16px;";
+            wrap.style.cssText = "width:100%;margin:0 0 14px;";
+            const h = document.createElement("div");
+            h.style.cssText = "font-size:12px;font-weight:700;color:var(--text-muted);margin:8px 0 6px;text-transform:uppercase;letter-spacing:0.04em;";
+            h.textContent = `${sec.label} · ${sec.list.length}`;
+            wrap.appendChild(h);
 
             const listToShow = sec.id === seccionesRender[0].id && noAds
                 ? [noAds, ...sec.list]
-                : sec.list.slice();
+                : sec.list;
 
-            // Partir en Reproductores (iframe) y Directos
-            const reps = [];
-            const dirs = [];
             listToShow.forEach((embed) => {
                 if (!embed || !embed.url) return;
                 if (embed.noAds && sec.id !== seccionesRender[0].id) return;
-                if (isDirect(embed) && embed.noAds) dirs.push(embed);
-                else if (embed.stream_url && !embed.url.includes("embed")) dirs.push(embed);
-                else reps.push(embed);
+                const index = flatForPlay.indexOf(embed);
+                const idx = index >= 0 ? index : (flatForPlay.push(embed) - 1);
+
+                const nombre = embed.noAds
+                    ? "NO ADS"
+                    : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
+
+                const lang = embed.lang || embed.idioma || "";
+                const quality = embed.quality || embed.calidad || "";
+                const idTag = idiomaDeEmbed(embed);
+                const badge =
+                    embed.noAds ? "" :
+                    idTag === "lat" ? '<span class="latino-badge">Latino</span>' :
+                    idTag === "sub" ? '<span class="latino-badge" style="background:#3b82f6">SUB</span>' :
+                    '<span class="latino-badge" style="background:#6b7280">?</span>';
+
+                const row = document.createElement("div");
+                row.className = "server-row" + (idTag === "lat" ? " latino-highlight" : "");
+                row.innerHTML = `
+                    <div class="server-name-group">
+                        <ion-icon name="play-circle-outline" class="server-logo"></ion-icon>
+                        <div class="server-info">
+                            <span class="server-title">
+                                ${escapeHtml(nombre)}
+                                ${badge}
+                            </span>
+                            <span class="server-lang">
+                                ${escapeHtml([lang || (idTag === "otro" ? "Sin etiqueta" : ""), quality].filter(Boolean).join(" · "))}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="server-actions">
+                        <button class="btn-action play" data-index="${idx}">
+
+                            <ion-icon
+                                name="play">
+                            </ion-icon>
+
+                            Reproducir
+
+                        </button>
+
+                    </div>
+
+                `;
+
+
+                row.querySelector(".btn-action.play").addEventListener("click", () => reproducir(embed, item));
+                wrap.appendChild(row);
             });
-            // Si la partición dejó todo en reps, mostrar una sola sección con el label original
-            const groups = [];
-            if (reps.length && dirs.length) {
-                groups.push({ label: "Reproductores", list: reps });
-                groups.push({ label: "Directos", list: dirs });
-            } else {
-                groups.push({ label: sec.label.replace(/\s*\(.*\)/, "") || "Reproductores", list: listToShow.filter(e => e && e.url) });
-            }
-
-            groups.forEach((g) => {
-                if (!g.list.length) return;
-                const h = document.createElement("div");
-                h.className = "koi-servers-title";
-                h.textContent = g.label;
-                wrap.appendChild(h);
-
-                const chipWrap = document.createElement("div");
-                chipWrap.className = "koi-servers-chips";
-
-                g.list.forEach((embed) => {
-                    if (!embed || !embed.url) return;
-                    const index = flatForPlay.indexOf(embed);
-                    const idx = index >= 0 ? index : (flatForPlay.push(embed) - 1);
-                    const nombre = embed.noAds
-                        ? "NO ADS"
-                        : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
-                    const idTag = idiomaDeEmbed(embed);
-                    const langLabel =
-                        embed.noAds ? "" :
-                        idTag === "lat" ? "Latino" :
-                        idTag === "sub" ? "Subtitulado" :
-                        (embed.lang || embed.idioma || "Desconocido");
-                    const chip = document.createElement("button");
-                    chip.type = "button";
-                    chip.className = "koi-server-chip";
-                    chip.dataset.index = String(idx);
-                    chip.innerHTML = `<span class="koi-chip-name">${escapeHtml(nombre)}</span>` +
-                        (langLabel ? `<span class="koi-chip-sep">·</span><span class="koi-chip-lang">${escapeHtml(langLabel)}</span>` : "");
-                    chip.addEventListener("click", () => reproducir(embed, item));
-                    chipWrap.appendChild(chip);
-                });
-                wrap.appendChild(chipWrap);
-            });
-
             serversContainer.appendChild(wrap);
         });
     } else {
@@ -5490,8 +5232,6 @@ initNotifyBtn();
 cargarHome();
 initTvUi();
 initAutoplayEpUi();
-try { bindKoiBackBtn(); } catch (_) {}
-
 
 // ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------
 (function reportarVisita() {

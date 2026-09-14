@@ -357,10 +357,6 @@
     <div class="mz-stremio-bg" id="mz-stremio-bg" aria-hidden="true">
       <img id="mz-stremio-bg-img" class="mz-stremio-bg-img" alt="" decoding="async" />
     </div>
-    <button type="button" class="koi-btn-back" id="koi-btn-back" title="Volver" aria-label="Volver">
-      <ion-icon name="arrow-back-outline"></ion-icon>
-      <span>Volver</span>
-    </button>
     <button class="btn-close-modal" id="btn-close-modal" title="Cerrar detalles">
       <ion-icon name="close-outline"></ion-icon>
     </button>
@@ -393,27 +389,6 @@
       </div>
 
       <div class="details-body">
-        <!-- Hero estilo Koiflix (solo PC, series/anime) -->
-        <section class="koi-hero" id="koi-hero" aria-hidden="true">
-          <div class="koi-hero-overlay"></div>
-          <div class="koi-hero-content">
-            <img id="koi-hero-logo" class="koi-hero-logo hidden" src="" alt="" />
-            <h1 id="koi-hero-title" class="koi-hero-title">Título</h1>
-            <div class="koi-hero-meta" id="koi-hero-meta"></div>
-            <div class="koi-hero-actions">
-              <button type="button" class="koi-btn-play" id="koi-btn-play">
-                <ion-icon name="play"></ion-icon>
-                <span id="koi-btn-play-text">COMENZAR A VER E1</span>
-              </button>
-              <button type="button" class="koi-btn-bookmark" id="koi-btn-bookmark" title="Favoritos">
-                <ion-icon name="bookmark-outline" id="koi-btn-bookmark-icon"></ion-icon>
-              </button>
-            </div>
-            <p class="koi-hero-synopsis koi-syn-clamp" id="koi-hero-synopsis"></p>
-            <button type="button" class="koi-toggle-details hidden" id="koi-toggle-details">MÁS DETALLES</button>
-          </div>
-        </section>
-
         <div class="mz-details-loading hidden" id="details-loading" aria-live="polite">
           <div class="mz-details-loading-inner">
             <div class="mz-details-skel-logo"></div>
@@ -460,7 +435,6 @@
               </div>
 
               <h3 id="details-title">Título del Contenido</h3>
-              <div class="koi-player-ep-title" id="koi-player-ep-title"></div>
               <p id="details-original-title" class="subtext"></p>
 
               <div class="meta-row details-meta-row">
@@ -521,7 +495,7 @@
 
           <div class="details-section hidden" id="servers-section">
             <div class="servers-header">
-              <h4 id="servers-section-title">Reproductores</h4>
+              <h4 id="servers-section-title">Streams</h4>
               <button type="button" class="btn-refresh-servers" id="btn-refresh-servers" title="Forzar actualización de servidores">
                 <ion-icon name="refresh-outline"></ion-icon>
                 <span>Actualizar</span>
