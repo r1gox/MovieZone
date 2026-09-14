@@ -4934,7 +4934,14 @@ async function reproducir(embed, item) {
     playerTitle.textContent = (item?.nombre || "Reproduciendo...")
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
     iniciarSeguimientoProgreso(item || seleccionActual);
-    document.body.classList.add("player-open");
+    document.body.classList.add("player-open", "details-open");
+    if (isKoiDesktop()) document.body.classList.add("koi-desktop");
+    try {
+      const it = item || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
+      if (it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || ""))) {
+        document.body.classList.add("koi-movie");
+      }
+    } catch (_) {}
     try {
       const ctx = typeof _epPlayCtx !== "undefined" ? _epPlayCtx : null;
       const epNum = ctx?.ep || ctx?.episodio || "";
@@ -4946,7 +4953,11 @@ async function reproducir(embed, item) {
         const vc = document.getElementById("video-player-container") || videoContainer;
         if (vc) {
           vc.classList.remove("hidden");
+          // Sube TODO el panel al reproductor (como series)
+          const panel = document.getElementById("details-panel") || vc;
           vc.scrollIntoView({ behavior: "smooth", block: "start" });
+          try { panel.scrollTop = 0; } catch (__) {}
+          try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (__) {}
         }
       } catch (_) {
         try { videoContainer.scrollIntoView(true); } catch (__) {}
@@ -4954,8 +4965,9 @@ async function reproducir(embed, item) {
     };
     requestAnimationFrame(() => {
       scrollPlayer();
-      setTimeout(scrollPlayer, 120);
-      setTimeout(scrollPlayer, 350);
+      setTimeout(scrollPlayer, 80);
+      setTimeout(scrollPlayer, 250);
+      setTimeout(scrollPlayer, 500);
     });
 }
 
@@ -5177,10 +5189,17 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         const flatForPlay = [];
         if (noAds) flatForPlay.push(noAds);
 
-        const isDirect = (e) => !!(e && (
-            e.noAds || e.direct || e.stream_url ||
-            /\.m3u8(\?|$)|\.mp4(\?|$)/i.test(String(e.url || ""))
-        ));
+        const isDirect = (e) => {
+          if (!e) return false;
+          if (e.noAds || e.direct || e.stream_url) return true;
+          const u = String(e.url || "");
+          const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
+          if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
+          if (/direct|hls|m3u8|mp4|no\s*ads/.test(s)) return true;
+          // Algunos providers marcan download/stream aparte del embed
+          if (e.download || e.is_direct) return true;
+          return false;
+        };
 
         const allList = [];
         seccionesRender.forEach((sec) => {

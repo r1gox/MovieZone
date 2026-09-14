@@ -6320,13 +6320,14 @@ body.mz-booting {
     display: flex !important;
     position: relative;
     width: 100%;
-    min-height: 78vh;
+    min-height: 0 !important;
+    height: auto !important;
     background-color: #060913;
     background-size: cover;
     background-position: center 20%;
     background-repeat: no-repeat;
     align-items: flex-end;
-    padding: 100px 4% 48px;
+    padding: 80px 4% 20px !important;
   }
 
   .koi-hero-overlay {
@@ -6464,8 +6465,9 @@ body.mz-booting {
   /* ========== EPISODIOS (grid de cards) ========== */
   body.details-open.koi-desktop:not(.player-open) #seasons-section {
     display: block !important;
-    padding: 28px 4% 60px !important;
+    padding: 12px 4% 40px !important;
     background: #060913 !important;
+    margin-top: 0 !important;
   }
 
   body.details-open.koi-desktop:not(.player-open) #seasons-section > h4 {
@@ -7493,5 +7495,88 @@ body.mz-booting {
   body.details-open.koi-desktop.koi-movie.player-open #servers-section {
     display: block !important;
     visibility: visible !important;
+  }
+}
+
+
+/* ===== Espacio hero ↔ episodios más compacto ===== */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero {
+    min-height: 0 !important;
+    height: auto !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-content {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-toggle-details {
+    margin-bottom: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .mz-detail-layout,
+  body.details-open.koi-desktop:not(.player-open) .mz-streams-col,
+  body.details-open.koi-desktop:not(.player-open) #seasons-section {
+    margin-top: 0 !important;
+    padding-top: 8px !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) #seasons-section {
+    padding: 8px 4% 36px !important;
+  }
+
+  /* Película player: MISMO layout que series (video arriba + info abajo, scrollea) */
+  body.details-open.koi-desktop.koi-movie.player-open {
+    overflow: auto !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container,
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container.hidden {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    max-height: none !important;
+    height: auto !important;
+    aspect-ratio: auto !important;
+    background: #000 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper {
+    position: relative !important;
+    padding-bottom: 56.25% !important;
+    height: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-detail-layout {
+    display: flex !important;
+    gap: 36px !important;
+    padding: 28px 4% 70px !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    align-items: flex-start !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col {
+    display: block !important;
+    flex: 2 !important;
+    visibility: visible !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-streams-col {
+    display: none !important;
+  }
+
+  /* Chips Directos/Reproductores visibles en película */
+  body.details-open.koi-desktop.koi-movie .koi-servers-block,
+  body.details-open.koi-desktop.koi-movie .koi-servers-chips {
+    display: block !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-servers-chips {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
   }
 }
