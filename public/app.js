@@ -4359,6 +4359,132 @@ function buildEpisodiosQuery(item, season) {
     return params.toString();
 }
 
+
+/** Cuenta de episodios declarada por la fuente para una temporada */
+function countEpisodiosTemporadaRaw(raw) {
+  if (raw == null) return 0;
+  if (typeof raw === "number" && raw > 0) return raw;
+  if (typeof raw !== "object") return 0;
+  if (typeof raw.episodios === "number" && raw.episodios > 0) return raw.episodios;
+  if (typeof raw.episodes === "number" && raw.episodes > 0) return raw.episodes;
+  if (typeof raw.episodios_count === "number" && raw.episodios_count > 0) return raw.episodios_count;
+  if (typeof raw.total === "number" && raw.total > 0) return raw.total;
+  if (Array.isArray(raw.lista) && raw.lista.length) return raw.lista.length;
+  if (Array.isArray(raw.episodios) && raw.episodios.length) return raw.episodios.length;
+  if (Array.isArray(raw.episodes) && raw.episodes.length) return raw.episodes.length;
+  return 0;
+}
+
+/**
+ * Rango absoluto de números de episodio para una temporada
+ * (T1: 1–12, T2: 13–24…) cuando la API mezcla todo en una lista.
+ */
+function rangoAbsolutoTemporada(item, seasonNum) {
+  const season = Number(seasonNum) || 1;
+  const listaTemp = typeof normalizarListaTemporadas === "function"
+    ? normalizarListaTemporadas(item)
+    : [];
+  if (!listaTemp.length) return null;
+  const rawAll = Array.isArray(item.temporadas_raw) && item.temporadas_raw.length
+    ? item.temporadas_raw
+    : (Array.isArray(item.temporadas) ? item.temporadas : []);
+
+  let start = 1;
+  for (let i = 0; i < listaTemp.length; i++) {
+    const t = listaTemp[i];
+    const raw =
+      rawAll.find((x) => {
+        if (x == null) return false;
+        if (typeof x === "number" || typeof x === "string") return Number(x) === t.num;
+        return Number(x.temporada || x.season || x.season_number || 0) === t.num;
+      }) || null;
+
+    let c = countEpisodiosTemporadaRaw(raw);
+    if (!c && Array.isArray(t.episodios) && t.episodios.length) {
+      // Si esta temp trae de más (p.ej. 24 en T1), no usar length como count
+      // solo si es la única con lista o length razonable vs total
+      c = t.episodios.length;
+    }
+    if (!c) c = 0;
+
+    if (t.num === season) {
+      if (c > 0) return { desde: start, hasta: start + c - 1, count: c };
+      return null;
+    }
+    start += c;
+  }
+  return null;
+}
+
+/** Deja solo episodios de la temporada activa (por season o por rango absoluto) */
+function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
+  const season = Number(seasonNum) || 1;
+  let eps = Array.isArray(lista) ? lista.slice() : [];
+  if (!eps.length) return [];
+
+  const listaTemp = typeof normalizarListaTemporadas === "function"
+    ? normalizarListaTemporadas(item)
+    : [];
+  const multi = listaTemp.length > 1
+    || (Array.isArray(item.temporadas) && item.temporadas.length > 1)
+    || (Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 1);
+
+  // 1) Filtro por campo season/temporada
+  const conSeason = eps.filter((ep) => ep && (ep.season != null || ep.temporada != null));
+  if (conSeason.length) {
+    const f = eps.filter((ep) => Number(ep.season || ep.temporada || 0) === season);
+    if (f.length) eps = f;
+    else if (multi) eps = [];
+  }
+
+  // 2) Multi-temp: si la lista es continua (1…24), recortar por rango absoluto
+  if (multi) {
+    const rango = rangoAbsolutoTemporada(item, season);
+    if (rango && rango.count > 0) {
+      const nums = eps.map((ep, idx) =>
+        Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0
+      );
+      const maxN = nums.length ? Math.max.apply(null, nums) : 0;
+      // Absoluto si hay caps > count de esta temp o sobran ítems
+      const looksAbsolute = maxN > rango.count || eps.length > rango.count;
+      if (looksAbsolute) {
+        const byRange = eps.filter((ep, idx) => {
+          const n = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0;
+          return n >= rango.desde && n <= rango.hasta;
+        });
+        if (byRange.length) {
+          eps = byRange;
+        } else {
+          // Lista plana ordenada: T1 primeros N, T2 los siguientes…
+          const offset = rango.desde - 1;
+          eps = eps
+            .slice()
+            .sort((a, b) =>
+              Number(a.episode || a.episodio || 0) - Number(b.episode || b.episodio || 0)
+            )
+            .slice(offset, offset + rango.count);
+        }
+      } else if (eps.length > rango.count) {
+        // Relativo 1..N por temporada: solo el tope
+        eps = eps.slice(0, rango.count);
+      }
+      if (eps.length > rango.count) eps = eps.slice(0, rango.count);
+    }
+  }
+
+  // Etiquetar temporada activa
+  return eps.map((ep, idx) => {
+    const num = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || (idx + 1);
+    return Object.assign({}, ep, {
+      season: season,
+      temporada: season,
+      episode: num,
+      episodio: num
+    });
+  });
+}
+
+
 function normalizarListaTemporadas(item) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
     const tieneRangos = Array.isArray(item.rangos_episodios) && item.rangos_episodios.length > 1;
@@ -4381,20 +4507,28 @@ function normalizarListaTemporadas(item) {
     raw.forEach((s, i) => {
         let num;
         let episodios = null;
+        let countDecl = 0;
         if (typeof s === "number" || typeof s === "string") {
             num = parseInt(s, 10) || (i + 1);
         } else if (s && typeof s === "object") {
             num = parseInt(s.temporada || s.season_number || s.season || (i + 1), 10) || (i + 1);
+            // AnimeAV1: lista[] = caps de ESTA temporada; episodios puede ser solo el número (12)
             if (Array.isArray(s.lista) && s.lista.length) episodios = s.lista;
-            else if (Array.isArray(s.episodios)) episodios = s.episodios;
-            else if (Array.isArray(s.episodes)) episodios = s.episodes;
+            else if (Array.isArray(s.episodios) && s.episodios.length) episodios = s.episodios;
+            else if (Array.isArray(s.episodes) && s.episodes.length) episodios = s.episodes;
             else episodios = null;
+            if (typeof s.episodios === "number" && s.episodios > 0) countDecl = s.episodios;
+            else if (typeof s.episodes === "number" && s.episodes > 0) countDecl = s.episodes;
+            // Si lista trae de más respecto al count declarado, recortar
+            if (episodios && countDecl > 0 && episodios.length > countDecl) {
+                episodios = episodios.slice(0, countDecl);
+            }
         } else {
             num = i + 1;
         }
         if (seen.has(num) || num < 1) return;
         seen.add(num);
-        out.push({ num, episodios, fromTmdb: false });
+        out.push({ num, episodios, count: countDecl || (episodios ? episodios.length : 0), fromTmdb: false });
     });
     if (Array.isArray(item.episodios) && item.episodios.length) {
         item.episodios.forEach((ep) => {
@@ -4608,6 +4742,7 @@ function renderTemporadas(item) {
                     source_id: ep.source_id || item.source_id
                 };
             });
+            item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios);
             if (item.totalEpisodios && !item.total_episodios) item.total_episodios = item.totalEpisodios;
             renderEpisodios(item, seasonNum);
             return;
@@ -4641,6 +4776,7 @@ function renderTemporadas(item) {
                     source_id: ep.source_id || item.source_id
                 });
             });
+            item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios);
             if (data.slug) item.slug = data.slug;
             if (data.source_id) item.source_id = data.source_id;
             if (data.link) item.link = data.link;
@@ -4664,7 +4800,22 @@ function renderTemporadas(item) {
             } else if (totalEp > (item.episodios || []).length) {
                 hasta = totalEp;
             }
-            if (totalEp > (item.episodios || []).length || item._epRangoActivo) {
+            // NO expandir a total_episodios (24) en multi-temp: solo lo de esta temporada
+            const multiTemp = (listaTemp && listaTemp.length > 1);
+            if (item._epRangoActivo) {
+                const filled = [];
+                for (let n = desde; n <= hasta; n++) {
+                    filled.push(byNum.get(n) || {
+                        season: seasonNum,
+                        episode: n,
+                        nombre: "Episodio " + n,
+                        embeds: [],
+                        video: null,
+                        source_id: item.source_id
+                    });
+                }
+                item.episodios = filled;
+            } else if (!multiTemp && totalEp > (item.episodios || []).length) {
                 const filled = [];
                 for (let n = desde; n <= hasta; n++) {
                     filled.push(byNum.get(n) || {
@@ -4678,6 +4829,7 @@ function renderTemporadas(item) {
                 }
                 item.episodios = filled;
             }
+            item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios || []);
             renderEpisodios(item, seasonNum);
         } catch (err) {
             console.error(err);
@@ -4804,26 +4956,8 @@ function renderEpisodios(item, season = 1) {
 
     let lista = ordenarEpisodiosParaUI(item, Array.isArray(item.episodios) ? item.episodios : []);
     const seasonNum = Number(season) || 1;
-    // Solo episodios de la temporada activa (nunca mezclar todas)
-    if (lista.length) {
-        const tabsN = tabsContainer
-            ? tabsContainer.querySelectorAll(".season-tab[data-season]").length
-            : 0;
-        const multiTemp = tabsN > 1
-            || (Array.isArray(item.temporadas) && item.temporadas.length > 1)
-            || (Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 1);
-        const filtrados = lista.filter((ep) => {
-            const s = Number(ep.season != null ? ep.season : (ep.temporada != null ? ep.temporada : seasonNum));
-            return s === seasonNum;
-        });
-        // Multi-temporada: SIEMPRE filtrar (aunque quede vacío)
-        // Una sola temporada: filtrar si hay match; si nadie trae season, dejar lista
-        if (multiTemp || seasonNum > 1) {
-            lista = filtrados;
-        } else if (filtrados.length) {
-            lista = filtrados;
-        }
-    }
+    // Solo la temporada activa (campo season o rango absoluto T1 1–12 / T2 13–24)
+    lista = filtrarEpisodiosDeTemporada(item, seasonNum, lista);
     // Filtrar por rango activo si aplica
     if (rango && lista.length) {
         lista = lista.filter((ep, idx) => {
