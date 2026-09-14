@@ -7238,119 +7238,89 @@ body.mz-booting {
 }
 
 
-/* Pegar al final de styles.css o koi CSS */
+/* Ocultar meta duplicada (año, fecha, duración, status) en detalle koi y player */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop .meta-row,
+  body.details-open.koi-desktop .details-meta-row,
+  body.details-open.koi-desktop #details-release-wrap,
+  body.details-open.koi-desktop #details-duration-wrap,
+  body.details-open.koi-desktop #details-status-wrap,
+  body.details-open.koi-desktop #details-cert-wrap,
+  body.details-open.koi-desktop #details-votes-wrap,
+  body.details-open.koi-desktop #details-year,
+  body.details-open.koi-desktop .details-type-rating,
+  body.details-open.koi-desktop #details-type-rating,
+  body.details-open.koi-desktop .media-type-badge,
+  body.details-open.koi-desktop .details-type-row {
+    display: none !important;
+  }
 
-.koi-hero-original {
-  color: rgba(255, 255, 255, 0.65);
+  /* En detalle (no player): meta-col completa oculta */
+  body.details-open.koi-desktop:not(.player-open) .mz-meta-col {
+    display: none !important;
+  }
+
+  /* Toggle viejo "Servidores de reproducción" */
+  body.details-open #mz-servers-toggle,
+  body.details-open .koi-hide-toggle,
+  #mz-servers-toggle.koi-hide-toggle {
+    display: none !important;
+  }
+}
+
+/* Chips de reproductores (series, animes y películas) */
+.koi-servers-block {
+  width: 100%;
+  margin: 0 0 14px;
+}
+.koi-servers-title {
   font-size: 0.95rem;
-  margin: 4px 0 10px;
-  font-weight: 500;
+  font-weight: 800;
+  color: #fff;
+  margin: 10px 0 10px;
 }
-.koi-hero-original.hidden {
-  display: none !important;
-}
-.koi-hero-meta {
+.koi-servers-chips {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 4px;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.4;
+  gap: 8px;
 }
-.koi-meta-status {
+.koi-server-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.koi-server-chip:hover {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: rgba(168, 85, 247, 0.45);
+  transform: translateY(-1px);
+}
+.koi-server-chip .koi-chip-name {
+  color: #fff;
   font-weight: 700;
 }
-.koi-meta-air {
-  color: #6ee7b7;
+.koi-server-chip .koi-chip-sep {
+  color: #64748b;
 }
-.koi-meta-end {
-  color: #cbd5e1;
-}
-
-
-/* Película en modo Koi PC: mostrar servidores (el CSS de series los oculta) */
-@media (min-width: 1025px) {
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
-    display: block !important;
-    padding: 28px 4% 40px !important;
-    background: #060913 !important;
-  }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section {
-    display: none !important;
-  }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section > h4,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section-title {
-    font-size: 1.45rem !important;
-    font-weight: 800 !important;
-    color: #fff !important;
-    margin: 0 0 18px !important;
-  }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 10px !important;
-  }
+.koi-server-chip .koi-chip-lang {
+  color: #94a3b8;
+  font-weight: 500;
 }
 
-
-/* ============================================================
-   Película en modo Koi PC
-   Los servidores viven DENTRO de .mz-meta-col, y ese bloque
-   estaba oculto (pensado solo para series). Hay que mostrarlo.
-   Pegar al FINAL de styles.css
-   ============================================================ */
-@media (min-width: 1025px) {
-  /* Mostrar la columna donde está #servers-section */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-meta-col {
-    display: block !important;
-    width: 100% !important;
-    max-width: none !important;
-    padding: 0 !important;
-  }
-
-  /* Ocultar lista de episodios en película */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-streams-col,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section {
-    display: none !important;
-  }
-
-  /* Servidores y descargas visibles */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
-    display: block !important;
-    padding: 28px 4% 40px !important;
-    background: #060913 !important;
-    margin: 0 !important;
-  }
-
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section > h4,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section-title,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .servers-header h4 {
-    font-size: 1.45rem !important;
-    font-weight: 800 !important;
-    color: #fff !important;
-    margin: 0 0 18px !important;
-    display: block !important;
-  }
-
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container.servers-list {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 10px !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  /* Asegurar que botones de servidor se vean */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container .server-row,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container .server-btn,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container button {
-    display: flex !important;
-    visibility: visible !important;
-  }
+/* Servers section limpia */
+#servers-section .servers-header {
+  margin-bottom: 8px;
+}
+#servers-container.mz-collapsed-content {
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
