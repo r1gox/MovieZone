@@ -57,6 +57,28 @@ function setKoiMode(item) {
   return on;
 }
 
+function mzScrollPanelTo(el) {
+  if (!el) return;
+  try {
+    const body =
+      document.querySelector("#details-panel .details-content") ||
+      document.querySelector("#details-panel .details-body") ||
+      document.getElementById("details-panel");
+    if (body && body.scrollHeight > body.clientHeight + 20) {
+      const top =
+        el.getBoundingClientRect().top -
+        body.getBoundingClientRect().top +
+        body.scrollTop -
+        20;
+      body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    } else {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  } catch (_) {
+    try { el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (__) {}
+  }
+}
+
 function clearKoiMode() {
   document.body.classList.remove("koi-desktop", "koi-movie", "player-open");
   const hero = document.getElementById("koi-hero");
@@ -1554,36 +1576,16 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
             srv.classList.remove("hidden");
             srv.style.setProperty("display", "block", "important");
           }
-          // Prioridad: lista de reproductores (no el mensaje "Elige un reproductor")
+          // Abajo: título episodio + sinopsis + chips (no el mensaje del player vacío)
           var target =
             document.getElementById("servers-section") ||
-            document.getElementById("servers-container") ||
-            document.getElementById("video-player-container") ||
-            vc;
-          if (!target) return;
-          var body =
-            document.querySelector("#details-panel .details-content") ||
-            document.querySelector("#details-panel .details-body");
-          try {
-            if (body) {
-              var top =
-                target.getBoundingClientRect().top -
-                body.getBoundingClientRect().top +
-                body.scrollTop -
-                24;
-              body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-            } else {
-              target.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-          } catch (_) {
-            try { target.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (__) {}
-          }
+            document.getElementById("servers-container");
+          if (target) mzScrollPanelTo(target);
         }
-        // Tras pintar chips (render async)
         requestAnimationFrame(function () {
           mzScrollAReproductores();
-          setTimeout(mzScrollAReproductores, 120);
-          setTimeout(mzScrollAReproductores, 400);
+          setTimeout(mzScrollAReproductores, 150);
+          setTimeout(mzScrollAReproductores, 450);
         });
       } catch (_) {}
     } catch (e) {
@@ -5044,6 +5046,19 @@ async function reproducir(embed, item) {
           db.style.overflowY = "auto";
           db.style.minHeight = "0";
         }
+      } else if (it && isKoiDesktop()) {
+        // Series/anime: al elegir servidor, ir al cuadro del player
+        requestAnimationFrame(() => {
+          const vc = document.getElementById("video-player-container");
+          if (vc) {
+            vc.classList.remove("hidden");
+            mzScrollPanelTo(vc);
+          }
+        });
+        setTimeout(() => {
+          const vc = document.getElementById("video-player-container");
+          if (vc) mzScrollPanelTo(vc);
+        }, 200);
       }
     } catch (_) {}
     try {
