@@ -1548,33 +1548,42 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       actualizarBotonesEpPlayer();
 
       try {
-        requestAnimationFrame(function () {
-          var target =
-            document.getElementById("video-player-container") ||
-            document.getElementById("servers-section") ||
-            vc;
-          if (target) {
-            try {
-              target.scrollIntoView({ behavior: "smooth", block: "start" });
-            } catch (_) {}
-          }
-          var body = document.querySelector("#details-panel .details-body") ||
-            document.querySelector("#details-panel .details-content");
-          if (body && target) {
-            try {
-              var top =
-                target.getBoundingClientRect().top -
-                body.getBoundingClientRect().top +
-                body.scrollTop -
-                12;
-              body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-            } catch (_) {}
-          }
+        function mzScrollAReproductores() {
           var srv = document.getElementById("servers-section");
           if (srv) {
             srv.classList.remove("hidden");
             srv.style.setProperty("display", "block", "important");
           }
+          // Prioridad: lista de reproductores (no el mensaje "Elige un reproductor")
+          var target =
+            document.getElementById("servers-section") ||
+            document.getElementById("servers-container") ||
+            document.getElementById("video-player-container") ||
+            vc;
+          if (!target) return;
+          var body =
+            document.querySelector("#details-panel .details-content") ||
+            document.querySelector("#details-panel .details-body");
+          try {
+            if (body) {
+              var top =
+                target.getBoundingClientRect().top -
+                body.getBoundingClientRect().top +
+                body.scrollTop -
+                24;
+              body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            } else {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          } catch (_) {
+            try { target.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (__) {}
+          }
+        }
+        // Tras pintar chips (render async)
+        requestAnimationFrame(function () {
+          mzScrollAReproductores();
+          setTimeout(mzScrollAReproductores, 120);
+          setTimeout(mzScrollAReproductores, 400);
         });
       } catch (_) {}
     } catch (e) {
