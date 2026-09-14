@@ -344,16 +344,16 @@
   }
 
   /* ========== PLAYER ========== */
-  body.details-open.koi-desktop.player-open .koi-hero {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .koi-hero {
     display: none !important;
   }
 
-  body.details-open.koi-desktop.player-open .details-body {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-body {
     padding: 0 !important;
   }
 
-  body.details-open.koi-desktop.player-open .video-player-container,
-  body.details-open.koi-desktop.player-open .video-player-container.hidden {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container.hidden {
     display: block !important;
     aspect-ratio: auto !important;
     max-width: 1400px;
@@ -364,7 +364,7 @@
     position: relative;
   }
 
-  body.details-open.koi-desktop.player-open .player-iframe-wrapper {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper {
     position: relative !important;
     padding-bottom: 56.25% !important;
     height: 0 !important;
@@ -374,15 +374,15 @@
     bottom: auto !important;
   }
 
-  body.details-open.koi-desktop.player-open .player-iframe-wrapper iframe,
-  body.details-open.koi-desktop.player-open .player-iframe-wrapper .player-video {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper iframe,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper .player-video {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
   }
 
-  body.details-open.koi-desktop.player-open .mz-detail-layout {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-detail-layout {
     display: flex !important;
     gap: 36px;
     padding: 32px 4% 70px;
@@ -391,33 +391,33 @@
     margin: 0 auto;
   }
 
-  body.details-open.koi-desktop.player-open .mz-meta-col {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col {
     display: block !important;
     flex: 2;
     min-width: 0;
   }
 
-  body.details-open.koi-desktop.player-open .mz-streams-col {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-streams-col {
     flex: 1;
     min-width: 320px;
     max-width: 400px;
   }
 
-  body.details-open.koi-desktop.player-open .mz-stremio-header {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-stremio-header {
     display: block !important;
   }
 
-  body.details-open.koi-desktop.player-open .mz-stremio-poster-col,
-  body.details-open.koi-desktop.player-open .details-logo,
-  body.details-open.koi-desktop.player-open .media-type-badge,
-  body.details-open.koi-desktop.player-open .details-type-row,
-  body.details-open.koi-desktop.player-open #details-original-title,
-  body.details-open.koi-desktop.player-open .meta-row,
-  body.details-open.koi-desktop.player-open .details-genres {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-stremio-poster-col,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-logo,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .media-type-badge,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-type-row,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #details-original-title,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .meta-row,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-genres {
     display: none !important;
   }
 
-  body.details-open.koi-desktop.player-open #details-title {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #details-title {
     display: block !important;
     color: #00f2fe !important;
     font-size: 1.05rem !important;
@@ -427,7 +427,7 @@
 
   .koi-player-ep-title { display: none; }
 
-  body.details-open.koi-desktop.player-open .koi-player-ep-title {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .koi-player-ep-title {
     display: block !important;
     font-size: 1.85rem;
     font-weight: 800;
@@ -436,7 +436,7 @@
     line-height: 1.2;
   }
 
-  body.details-open.koi-desktop.player-open .mz-synopsis-section {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-synopsis-section {
     display: block !important;
     background: #101524;
     border: 1px solid #1e293b;
@@ -445,22 +445,22 @@
     margin-top: 8px;
   }
 
-  body.details-open.koi-desktop.player-open .mz-synopsis-section h4 {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-synopsis-section h4 {
     display: none !important;
   }
 
-  body.details-open.koi-desktop.player-open #details-synopsis {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #details-synopsis {
     color: #e2e8f0;
     font-size: 0.95rem;
     line-height: 1.6;
     margin: 0;
   }
 
-  body.details-open.koi-desktop.player-open #seasons-section {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #seasons-section {
     display: block !important;
   }
 
-  body.details-open.koi-desktop.player-open #seasons-section > h4 {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #seasons-section > h4 {
     font-size: 1.3rem !important;
     font-weight: 800 !important;
     color: #fff !important;
@@ -469,8 +469,8 @@
     border-bottom: 2px solid #1e293b !important;
   }
 
-  body.details-open.koi-desktop.player-open #episodes-container,
-  body.details-open.koi-desktop.player-open .episodes-grid {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #episodes-container,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episodes-grid {
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
@@ -479,7 +479,7 @@
     padding-right: 6px;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -492,17 +492,17 @@
     text-align: left !important;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card:hover {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card:hover {
     background: #182035 !important;
     transform: none !important;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card.active {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card.active {
     background: #101524 !important;
     border-color: #1e293b !important;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-thumb {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-thumb {
     position: relative;
     width: 140px;
     flex-shrink: 0;
@@ -513,13 +513,13 @@
     background: #111;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-thumb img {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-dur {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-dur {
     position: absolute;
     bottom: 4px;
     right: 4px;
@@ -531,29 +531,29 @@
     border-radius: 2px;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-meta {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-meta {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 4px;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-series {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-series {
     display: none;
   }
 
-  body.details-open.koi-desktop.player-open .episode-btn.koi-ep-card .koi-ep-name {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .episode-btn.koi-ep-card .koi-ep-name {
     color: #060913;
     font-weight: 700;
     font-size: 0.92rem;
   }
 
-  body.details-open.koi-desktop.player-open #servers-section {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #servers-section {
     display: block !important;
     margin-top: 18px;
   }
 
-  body.details-open.koi-desktop.player-open #downloads-section {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #downloads-section {
     display: none !important;
   }
 }
