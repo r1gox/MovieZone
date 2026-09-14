@@ -8092,3 +8092,45 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
+
+
+/* Película: player ABAJO + sin info duplicada + scroll */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop.koi-movie.player-open .details-body {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  /* Hero con datos UNA sola vez; ocultar ficha stremio duplicada */
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 20px 4% 8px !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie.player-open .details-header-card,
+  body.details-open.koi-desktop.koi-movie.player-open #details-title,
+  body.details-open.koi-desktop.koi-movie.player-open #details-original-title,
+  body.details-open.koi-desktop.koi-movie.player-open .details-type-row,
+  body.details-open.koi-desktop.koi-movie.player-open .meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-genres,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section {
+    display: none !important;
+  }
+  /* Player abajo, en flujo (no fixed) */
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container {
+    display: block !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    margin: 12px 0 32px !important;
+    z-index: 1 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section,
+  body.details-open.koi-desktop.koi-movie.player-open #downloads-section {
+    display: block !important;
+  }
+}

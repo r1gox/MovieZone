@@ -4964,16 +4964,13 @@ async function reproducir(embed, item) {
     if (isKoiDesktop()) document.body.classList.add("koi-desktop");
     try {
       const it = item || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
-      const esPeli = !!(it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || "")));
-      if (esPeli) {
+      if (it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || ""))) {
         document.body.classList.add("koi-movie");
-        // Colocar el video al inicio del body para poder scrollear info debajo (como series)
-        const vc = document.getElementById("video-player-container");
+        // Player se queda ABAJO (donde está en el HTML); solo asegurar scroll del panel
         const db = document.querySelector("#details-panel .details-body");
-        if (vc && db && vc.parentElement !== db) {
-          db.insertBefore(vc, db.firstChild);
-        } else if (vc && db && db.firstChild !== vc) {
-          db.insertBefore(vc, db.firstChild);
+        if (db) {
+          db.style.overflowY = "auto";
+          db.style.minHeight = "0";
         }
       }
     } catch (_) {}
