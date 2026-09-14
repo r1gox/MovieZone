@@ -625,13 +625,68 @@
     });
   }
 
-  function fillTitles(item, epTitleText) {
+  function idiomaSimple(item, episodio) {
+    if (episodio) {
+      var e = episodio.embeds || episodio.reproductores || [];
+      for (var i = 0; i < e.length; i++) {
+        var idm = e[i] && (e[i].idioma || e[i].lang);
+        if (idm) return String(idm);
+      }
+    }
+    if (item.idiomas) {
+      var id = Array.isArray(item.idiomas) ? item.idiomas[0] : item.idiomas;
+      if (id && id !== "[]") return String(id);
+    }
+    if (item.idioma) return String(item.idioma);
+    return "Subtitulado";
+  }
+
+  /**
+   * mode: "episode" → solo serie + E1 + idioma · duración (como Koiflix)
+   * mode: "movie"   → chips completos (año, IMDb, géneros, estado…)
+   */
+  function fillTitles(item, epTitleText, mode, episodio) {
+    mode = mode || "movie";
     var main = item.nombre || item.titulo || "Título";
     $("mz-kp-anime-title").textContent = main;
     $("mz-kp-topbar-title").textContent = main;
 
-    var orig = item.titulo_original || null;
     var origEl = $("mz-kp-original");
+    var chips = $("mz-kp-meta-chips");
+    var genres = $("mz-kp-genres");
+    var metaLine = $("mz-kp-meta");
+    var synBox = $("mz-kp-synopsis") && $("mz-kp-synopsis").parentElement;
+
+    if (mode === "episode") {
+      // Sin título original, chips ni géneros (ya están en detalle)
+      if (origEl) {
+        origEl.textContent = "";
+        origEl.classList.add("hidden");
+      }
+      if (chips) chips.innerHTML = "";
+      if (genres) genres.innerHTML = "";
+
+      var epEl = $("mz-kp-ep-title");
+      epEl.textContent = epTitleText || "Episodio";
+      epEl.style.display = "";
+
+      var parts = [];
+      parts.push(idiomaSimple(item, episodio));
+      var dur = durationOf(episodio, item) || "24m";
+      parts.push(dur);
+      if (metaLine) metaLine.textContent = parts.filter(Boolean).join(" · ");
+
+      // Sinopsis corta opcional del episodio/serie (se puede dejar)
+      $("mz-kp-synopsis").textContent =
+        (episodio && episodio.descripcion) ||
+        item.descripcion ||
+        item.synopsis ||
+        "";
+      return;
+    }
+
+    // --- Película: meta completa ---
+    var orig = item.titulo_original || null;
     if (
       orig &&
       String(orig).trim() &&
@@ -644,11 +699,11 @@
       origEl.classList.add("hidden");
     }
 
-    var epEl = $("mz-kp-ep-title");
-    epEl.textContent = epTitleText || main;
-    epEl.style.display = "";
+    var epEl2 = $("mz-kp-ep-title");
+    epEl2.textContent = epTitleText || main;
+    epEl2.style.display = "";
 
-    $("mz-kp-meta").textContent = "";
+    if (metaLine) metaLine.textContent = "";
     fillMetaChips(item);
     fillGenres(item);
     $("mz-kp-synopsis").textContent =
@@ -826,7 +881,7 @@
     epNum = Number(epNum) || epNumOf(episodio, 1);
     _ctx = { item: item, episodio: episodio, season: seasonNum, episode: epNum };
 
-    fillTitles(item, epLabel(episodio, epNum));
+    fillTitles(item, epLabel(episodio, epNum), "episode", episodio);
     renderSidebar(item, epNum, seasonNum);
     destroyHls();
     showPoster(item, "Elige un reproductor para comenzar");
@@ -864,7 +919,7 @@
 
     _ctx = { item: item, episode: null, season: null };
 
-    fillTitles(item, null);
+    fillTitles(item, null, "movie");
     $("mz-kp-anime-title").textContent = item.tipo || "Película";
     $("mz-kp-ep-title").textContent = item.nombre || item.titulo || "Película";
 
@@ -877,7 +932,7 @@
     var pack = await fetchMoviePlayers(item);
     item = pack.item || item;
     _ctx.item = item;
-    fillTitles(item, null);
+    fillTitles(item, null, "movie");
     $("mz-kp-anime-title").textContent = item.tipo || "Película";
     $("mz-kp-ep-title").textContent = item.nombre || item.titulo || "Película";
 
