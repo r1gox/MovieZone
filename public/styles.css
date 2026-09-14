@@ -7238,36 +7238,6 @@ body.mz-booting {
 }
 
 
-/* Ocultar meta duplicada (año, fecha, duración, status) en detalle koi y player */
-@media (min-width: 1025px) {
-  body.details-open.koi-desktop .meta-row,
-  body.details-open.koi-desktop .details-meta-row,
-  body.details-open.koi-desktop #details-release-wrap,
-  body.details-open.koi-desktop #details-duration-wrap,
-  body.details-open.koi-desktop #details-status-wrap,
-  body.details-open.koi-desktop #details-cert-wrap,
-  body.details-open.koi-desktop #details-votes-wrap,
-  body.details-open.koi-desktop #details-year,
-  body.details-open.koi-desktop .details-type-rating,
-  body.details-open.koi-desktop #details-type-rating,
-  body.details-open.koi-desktop .media-type-badge,
-  body.details-open.koi-desktop .details-type-row {
-    display: none !important;
-  }
-
-  /* En detalle (no player): meta-col completa oculta */
-  body.details-open.koi-desktop:not(.player-open) .mz-meta-col {
-    display: none !important;
-  }
-
-  /* Toggle viejo "Servidores de reproducción" */
-  body.details-open #mz-servers-toggle,
-  body.details-open .koi-hide-toggle,
-  #mz-servers-toggle.koi-hide-toggle {
-    display: none !important;
-  }
-}
-
 /* Chips de reproductores (series, animes y películas) */
 .koi-servers-block {
   width: 100%;
@@ -7323,4 +7293,30 @@ body.mz-booting {
   display: block !important;
   max-height: none !important;
   overflow: visible !important;
+}
+
+
+/* Series koi detalle: no duplicar header bajo el hero (solo detalle, no player) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open) .mz-stremio-header,
+  body.details-open.koi-desktop:not(.player-open) .mz-synopsis-section,
+  body.details-open.koi-desktop:not(.player-open) .details-header-card {
+    display: none !important;
+  }
+  /* En detalle serie: servers ocultos hasta elegir episodio */
+  body.details-open.koi-desktop:not(.player-open) #servers-section,
+  body.details-open.koi-desktop:not(.player-open) #downloads-section {
+    display: none !important;
+  }
+  /* En player serie: mostrar servers en streams-col */
+  body.details-open.koi-desktop.player-open #servers-section {
+    display: block !important;
+  }
+  /* Películas (sin koi-desktop): meta completa + reproductores a la derecha */
+  body.details-open:not(.koi-desktop) .mz-meta-col {
+    display: block !important;
+  }
+  body.details-open:not(.koi-desktop) #servers-section:not(.hidden) {
+    display: block !important;
+  }
 }
