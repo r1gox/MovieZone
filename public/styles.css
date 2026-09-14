@@ -7974,3 +7974,121 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
+
+
+/* ============================================================
+   PELÍCULA al reproducir: SIN info duplicada + scroll como series
+   ============================================================ */
+@media (min-width: 1025px) {
+  /* Solo UNA ficha de info: ocultar hero Koiflix al reproducir película */
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    display: none !important;
+  }
+
+  /* Mostrar una sola vez título + meta + sinopsis (bloque stremio) */
+  body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie.player-open .details-header-card {
+    display: block !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-poster-col {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #details-title {
+    display: block !important;
+    color: #00f2fe !important;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    margin: 0 0 8px !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #details-original-title {
+    display: none !important; /* evita título duplicado */
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .details-type-row {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-meta-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px 12px !important;
+    margin: 0 0 12px !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 0 16px !important;
+    box-shadow: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section h4 {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #details-synopsis {
+    color: #cbd5e1 !important;
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+  }
+
+  /* Layout en columna scrolleable: video → info → servidores */
+  body.details-open.koi-desktop.koi-movie.player-open .details-content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .details-body {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-detail-layout {
+    display: block !important;
+    padding: 16px 4% 48px !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+  }
+
+  /* Video en flujo normal (no fixed / no sticky) */
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container,
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container.hidden {
+    display: block !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto 16px !important;
+    z-index: 1 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container::before,
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container::after {
+    display: none !important;
+  }
+
+  /* Servidores visibles debajo de la info */
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section,
+  body.details-open.koi-desktop.koi-movie.player-open #downloads-section {
+    display: block !important;
+    position: relative !important;
+  }
+
+  /* SERIES: mantener scroll en details-body también */
+  body.details-open.koi-desktop:not(.koi-movie).player-open .details-body {
+    overflow-y: auto !important;
+    min-height: 0 !important;
+  }
+}

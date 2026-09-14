@@ -4964,8 +4964,17 @@ async function reproducir(embed, item) {
     if (isKoiDesktop()) document.body.classList.add("koi-desktop");
     try {
       const it = item || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
-      if (it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || ""))) {
+      const esPeli = !!(it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || "")));
+      if (esPeli) {
         document.body.classList.add("koi-movie");
+        // Colocar el video al inicio del body para poder scrollear info debajo (como series)
+        const vc = document.getElementById("video-player-container");
+        const db = document.querySelector("#details-panel .details-body");
+        if (vc && db && vc.parentElement !== db) {
+          db.insertBefore(vc, db.firstChild);
+        } else if (vc && db && db.firstChild !== vc) {
+          db.insertBefore(vc, db.firstChild);
+        }
       }
     } catch (_) {}
     try {
