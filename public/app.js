@@ -4422,59 +4422,56 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
   let eps = Array.isArray(lista) ? lista.slice() : [];
   if (!eps.length) return [];
 
-  const listaTemp = typeof normalizarListaTemporadas === "function"
-    ? normalizarListaTemporadas(item)
-    : [];
-  const multi = listaTemp.length > 1
-    || (Array.isArray(item.temporadas) && item.temporadas.length > 1)
-    || (Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 1);
-
-  // 1) Filtro por campo season/temporada
-  const conSeason = eps.filter((ep) => ep && (ep.season != null || ep.temporada != null));
-  if (conSeason.length) {
-    const f = eps.filter((ep) => Number(ep.season || ep.temporada || 0) === season);
-    if (f.length) eps = f;
-    else if (multi) eps = [];
+  // AnimeAV1 y similares: cada temp trae lista[] con temporada + episodio relativos (1..12)
+  const strict = eps.filter(function (ep) {
+    if (!ep) return false;
+    var s = ep.season != null ? Number(ep.season) : (ep.temporada != null ? Number(ep.temporada) : null);
+    if (s == null || isNaN(s)) return false;
+    return s === season;
+  });
+  if (strict.length) {
+    return strict.map(function (ep, idx) {
+      var num = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || (idx + 1);
+      return Object.assign({}, ep, {
+        season: season,
+        temporada: season,
+        episode: num,
+        episodio: num
+      });
+    });
   }
 
-  // 2) Multi-temp: si la lista es continua (1…24), recortar por rango absoluto
+  // Sin tags de temporada: si multi-temp y hay count, recortar lista plana
+  var listaTemp = typeof normalizarListaTemporadas === "function" ? normalizarListaTemporadas(item) : [];
+  var multi = listaTemp.length > 1;
   if (multi) {
-    const rango = rangoAbsolutoTemporada(item, season);
+    var rango = rangoAbsolutoTemporada(item, season);
     if (rango && rango.count > 0) {
-      const nums = eps.map((ep, idx) =>
-        Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0
-      );
-      const maxN = nums.length ? Math.max.apply(null, nums) : 0;
-      // Absoluto si hay caps > count de esta temp o sobran ítems
-      const looksAbsolute = maxN > rango.count || eps.length > rango.count;
-      if (looksAbsolute) {
-        const byRange = eps.filter((ep, idx) => {
-          const n = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0;
+      var nums = eps.map(function (ep, idx) {
+        return Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0;
+      });
+      var maxN = nums.length ? Math.max.apply(null, nums) : 0;
+      if (maxN > rango.count || eps.length > rango.count) {
+        // Numeración absoluta 1..24
+        var byRange = eps.filter(function (ep, idx) {
+          var n = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || 0;
           return n >= rango.desde && n <= rango.hasta;
         });
-        if (byRange.length) {
-          eps = byRange;
-        } else {
-          // Lista plana ordenada: T1 primeros N, T2 los siguientes…
-          const offset = rango.desde - 1;
-          eps = eps
-            .slice()
-            .sort((a, b) =>
-              Number(a.episode || a.episodio || 0) - Number(b.episode || b.episodio || 0)
-            )
-            .slice(offset, offset + rango.count);
+        if (byRange.length) eps = byRange;
+        else {
+          var offset = rango.desde - 1;
+          eps = eps.slice().sort(function (a, b) {
+            return Number(a.episode || a.episodio || 0) - Number(b.episode || b.episodio || 0);
+          }).slice(offset, offset + rango.count);
         }
-      } else if (eps.length > rango.count) {
-        // Relativo 1..N por temporada: solo el tope
-        eps = eps.slice(0, rango.count);
       }
+      // Cap al count declarado (12), sin inventar
       if (eps.length > rango.count) eps = eps.slice(0, rango.count);
     }
   }
 
-  // Etiquetar temporada activa
-  return eps.map((ep, idx) => {
-    const num = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || (idx + 1);
+  return eps.map(function (ep, idx) {
+    var num = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1)) || (idx + 1);
     return Object.assign({}, ep, {
       season: season,
       temporada: season,
@@ -4742,6 +4739,7 @@ function renderTemporadas(item) {
                     source_id: ep.source_id || item.source_id
                 };
             });
+            item._epRangoActivo = null;
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios);
             if (item.totalEpisodios && !item.total_episodios) item.total_episodios = item.totalEpisodios;
             renderEpisodios(item, seasonNum);
@@ -4880,10 +4878,15 @@ function renderEpisodios(item, season = 1) {
     const tabsContainer = document.getElementById("seasons-tabs-container");
     const tabsSonRangos = !!(tabsContainer && tabsContainer.querySelector("[data-range-from]"));
 
-    if (!item._epRangoActivo && rangos.length > 1) {
+    // Multi-temporada real (T1/T2): no usar rangos tipo One Piece
+    const multiTemporadasUI = (typeof normalizarListaTemporadas === "function"
+      && normalizarListaTemporadas(item).length > 1);
+    if (multiTemporadasUI) {
+        item._epRangoActivo = null;
+    } else if (!item._epRangoActivo && rangos.length > 1) {
         item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
     }
-    const rango = item._epRangoActivo || null;
+    const rango = multiTemporadasUI ? null : (item._epRangoActivo || null);
 
     // Barra de rangos solo si NO están ya en las pestañas (p.ej. multi-temp + muchos eps)
     if (rangos.length > 1 && !tabsSonRangos) {
