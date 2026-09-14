@@ -365,34 +365,7 @@
       <ion-icon name="close-outline"></ion-icon>
     </button>
 
-    <div class="details-content">
-      <div class="video-player-container hidden" id="video-player-container">
-
-        <div class="player-header">
-          <span id="player-title">Reproduciendo...</span>
-          <button class="btn-fs-player hidden" id="btn-fs-player" title="Pantalla completa" type="button">
-            <ion-icon name="expand-outline" id="btn-fs-player-icon"></ion-icon>
-          </button>
-          <button class="btn-close-player" id="close-player-btn" title="Cerrar reproductor">
-            <ion-icon name="close-outline"></ion-icon>
-          </button>
-        </div>
-
-        <!-- Controles episodio: visibles también en fullscreen -->
-        <div class="mz-ep-controls" id="mz-ep-controls">
-          <button type="button" class="mz-ep-btn mz-ep-auto" id="btn-autoplay-ep" title="Reproducción automática">
-            <span class="mz-ep-dot"></span>
-            <span id="btn-autoplay-ep-text">Auto</span>
-          </button>
-        </div>
-
-        <div class="player-iframe-wrapper">
-
-          <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
-        </div>
-      </div>
-
-      <div class="details-body">
+    <div class="details-content">      <div class="details-body">
         <!-- Hero estilo Koiflix (solo PC, series/anime) -->
         <section class="koi-hero" id="koi-hero" aria-hidden="true">
           <div class="koi-hero-overlay"></div>
@@ -529,6 +502,29 @@
             <h4>Opciones de Descarga</h4>
             <div class="servers-list" id="downloads-list-container"></div>
           </div>
+
+          <!-- Cuadro reproductor (películas: abajo de descargas) -->
+          <div class="video-player-container hidden" id="video-player-container">
+            <div class="player-header">
+              <span id="player-title">Reproduciendo...</span>
+              <button class="btn-fs-player hidden" id="btn-fs-player" title="Pantalla completa" type="button">
+                <ion-icon name="expand-outline" id="btn-fs-player-icon"></ion-icon>
+              </button>
+              <button class="btn-close-player" id="close-player-btn" title="Cerrar reproductor">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
+            </div>
+            <div class="mz-ep-controls" id="mz-ep-controls">
+              <button type="button" class="mz-ep-btn mz-ep-auto" id="btn-autoplay-ep" title="Reproducción automática">
+                <span class="mz-ep-dot"></span>
+                <span id="btn-autoplay-ep-text">Auto</span>
+              </button>
+            </div>
+            <div class="player-iframe-wrapper">
+              <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+            </div>
+          </div>
+
           </div><!-- /.mz-meta-col -->
 
           <div class="mz-streams-col">

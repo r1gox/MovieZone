@@ -7711,3 +7711,133 @@ body.mz-booting {
     margin: 12px 0 8px !important;
   }
 }
+
+
+/* ========== SERIES: Episodios justo bajo MÁS DETALLES ========== */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 28px 4% 0 !important;
+    margin: 0 !important;
+    background-size: cover !important;
+    background-position: center top !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-overlay {
+    /* menos “pozo” negro abajo */
+    background:
+      linear-gradient(90deg, #060913 0%, rgba(6, 9, 19, 0.88) 40%, transparent 100%),
+      linear-gradient(0deg, #060913 0%, rgba(6,9,19,0.2) 35%, transparent 70%) !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-content {
+    margin: 0 !important;
+    padding: 0 0 8px !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .mz-details-loading,
+  body.details-open.koi-desktop:not(.player-open) .mz-details-loading.hidden,
+  body.details-open.koi-desktop:not(.player-open) .details-empty,
+  body.details-open.koi-desktop:not(.player-open) .details-empty.hidden {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .mz-detail-layout {
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) #seasons-section {
+    margin: 0 !important;
+    padding: 0 4% 28px !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) #seasons-section > h4 {
+    margin: 0 0 10px !important;
+    padding-top: 4px !important;
+  }
+
+  /* ========== PELÍCULAS: detalle primero, cuadro player bajo descargas ========== */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .video-player-container,
+  body.details-open.koi-desktop.koi-movie .video-player-container.hidden {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 12px 0 28px !important;
+    min-height: 180px !important;
+    border-radius: 12px !important;
+    border: 1px solid #1e293b !important;
+    background: #0b0f1a !important;
+    overflow: hidden !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .video-player-container::after {
+    content: "Elige un reproductor para comenzar";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container::after {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .player-iframe-wrapper,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .player-header,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-ep-controls {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper {
+    display: block !important;
+    position: relative !important;
+    padding-bottom: 56.25% !important;
+    height: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-header {
+    display: flex !important;
+  }
+  /* Series: el player sigue arriba al abrir episodio (fuera de meta-col se mueve por JS scroll) */
+  body.details-open.koi-desktop:not(.koi-movie).player-open .video-player-container {
+    display: block !important;
+  }
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) .video-player-container {
+    display: none !important;
+  }
+}
+
+
+/* Series player: video a ancho completo arriba (aunque esté dentro de meta-col) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.koi-movie).player-open .mz-meta-col {
+    display: contents !important;
+  }
+  body.details-open.koi-desktop:not(.koi-movie).player-open .mz-detail-layout {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 24px !important;
+    padding: 16px 4% 48px !important;
+  }
+  body.details-open.koi-desktop:not(.koi-movie).player-open .video-player-container {
+    order: -1 !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto 8px !important;
+    display: block !important;
+  }
+  body.details-open.koi-desktop:not(.koi-movie).player-open #servers-section {
+    display: block !important;
+    flex: 1 1 280px !important;
+  }
+  body.details-open.koi-desktop:not(.koi-movie).player-open .mz-streams-col {
+    flex: 1 1 320px !important;
+    display: block !important;
+  }
+}

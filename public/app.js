@@ -3361,6 +3361,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     document.body.style.overflow = "hidden";
 
     document.body.classList.add("details-open");
+    // Al abrir detalle: nunca entrar en modo player (evita que película abra reproductor solo)
+    try {
+      document.body.classList.remove("player-open");
+      const iframe = document.getElementById("player-iframe");
+      if (iframe) iframe.src = "about:blank";
+      const vc = document.getElementById("video-player-container");
+      if (vc) {
+        vc.classList.add("hidden");
+        // Solo en película dejamos el cuadro vacío visible vía CSS
+      }
+    } catch (_) {}
     // Modo visual Koiflix solo PC + serie/anime
     try {
       setKoiMode(item);
@@ -3778,9 +3789,18 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
         if (serversEl) serversEl.classList.remove("hidden");
         document.body.classList.add("koi-movie");
+        document.body.classList.remove("player-open");
         const embeds = item.embeds || item.reproductores || [];
         const downloads = item.downloads || item.descargas || [];
-        renderServidoresYDescargas(embeds, downloads, item.reproductor, item);
+        renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
+        try {
+          const vc = document.getElementById("video-player-container");
+          if (vc) {
+            vc.classList.add("hidden"); // CSS de película muestra el cuadro placeholder
+            const ifr = document.getElementById("player-iframe");
+            if (ifr) ifr.src = "about:blank";
+          }
+        } catch (_) {}
         // Forzar visibilidad por si el CSS de series ocultó el padre
         try {
           const metaCol = document.querySelector(".mz-meta-col");
