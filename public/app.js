@@ -31,21 +31,24 @@ function setKoiMode(item) {
     /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))
   ));
   document.body.classList.toggle("koi-desktop", on);
+  const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
+  document.body.classList.toggle("koi-movie", on && esPeliMode);
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
   // Título de sección como Koiflix
   const h4 = document.querySelector("#seasons-section > h4");
-  const esPeliMode = item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
   if (h4) {
     if (esPeliMode) h4.textContent = "Reproductores";
     else h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
   }
+  const serversTitle = document.getElementById("servers-section-title");
+  if (serversTitle) serversTitle.textContent = "Reproductores";
   try { bindKoiBackBtn(); } catch (_) {}
   return on;
 }
 
 function clearKoiMode() {
-  document.body.classList.remove("koi-desktop", "player-open");
+  document.body.classList.remove("koi-desktop", "koi-movie", "player-open");
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", "true");
   const h4 = document.querySelector("#seasons-section > h4");
@@ -3780,6 +3783,7 @@ function cerrarDetalle() {
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
+    document.body.classList.remove("koi-movie");
     document.body.classList.remove("details-open");
     try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
     destruirHls();
