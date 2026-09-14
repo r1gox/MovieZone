@@ -8134,3 +8134,56 @@ body.mz-booting {
     display: block !important;
   }
 }
+
+
+/* Películas: sin duplicados de info ni de servidores; scroll sobre player */
+@media (min-width: 1025px) {
+  /* UNA sola ficha: solo hero; nada de stremio/meta vieja */
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie.player-open .details-header-card,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-info,
+  body.details-open.koi-desktop.koi-movie.player-open #details-title,
+  body.details-open.koi-desktop.koi-movie.player-open #details-original-title,
+  body.details-open.koi-desktop.koi-movie.player-open .details-type-row,
+  body.details-open.koi-desktop.koi-movie.player-open .meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-genres,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section,
+  body.details-open.koi-desktop.koi-movie.player-open #details-synopsis {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* Sin cuadro feo ni header duplicado en servidores */
+  body.details-open.koi-desktop.koi-movie #servers-section .servers-header,
+  body.details-open.koi-desktop.koi-movie #mz-servers-toggle,
+  body.details-open.koi-desktop.koi-movie .idioma-filter-bar,
+  body.details-open.koi-desktop.koi-movie .idioma-chip {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie #servers-section {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 8px 0 16px !important;
+  }
+  body.details-open.koi-desktop.koi-movie #servers-container {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  /* Scroll del panel */
+  body.details-open.koi-desktop.koi-movie.player-open .details-body {
+    overflow-y: auto !important;
+    min-height: 0 !important;
+  }
+}

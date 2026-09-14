@@ -4985,9 +4985,18 @@ async function reproducir(embed, item) {
         const vc = document.getElementById("video-player-container") || videoContainer;
         if (!vc) return;
         vc.classList.remove("hidden");
+        // Rueda del mouse sobre el player → scroll del detalle (el iframe come el wheel)
+        if (!vc._mzWheelBound) {
+          vc._mzWheelBound = true;
+          vc.addEventListener("wheel", (e) => {
+            const db = document.querySelector("#details-panel .details-body");
+            if (!db) return;
+            db.scrollTop += e.deltaY;
+            e.preventDefault();
+          }, { passive: false });
+        }
         const db = document.querySelector("#details-panel .details-body");
         if (db) {
-          // Mantener scroll dentro del panel (así se puede subir/bajar y ver info)
           const top = vc.offsetTop - 12;
           db.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
         } else {
@@ -5017,6 +5026,13 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     }
     document.getElementById("servers-section")?.classList.remove("hidden");
     document.getElementById("servers-loading")?.classList.add("hidden");
+    // Ocultar "Reproductores / Actualizar" del header (los chips ya traen títulos)
+    try {
+      const sh = document.querySelector("#servers-section .servers-header");
+      if (sh) sh.style.display = "none";
+      const tg = document.getElementById("mz-servers-toggle");
+      if (tg) tg.remove();
+    } catch (_) {}
 
     const serversContainer =
         document.getElementById("servers-container");
@@ -5083,25 +5099,8 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     // Si no hay clasificación, un solo bloque con todos
     if (!secciones.length) secciones.push({ id: "all", label: "Reproductores", list: embeds.filter(e => !e.noAds) });
 
-    // Chips para saltar a sección (opcional; por defecto se muestran todas)
-    if (secciones.length > 1) {
-        const chipBar = document.createElement("div");
-        chipBar.className = "idioma-filter-bar";
-        chipBar.style.cssText = "display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;justify-content:center;align-items:center;width:100%;";
-        secciones.forEach((sec) => {
-            const b = document.createElement("button");
-            b.type = "button";
-            b.className = "idioma-chip";
-            b.textContent = `${sec.label} (${sec.list.length})`;
-            b.style.cssText = "padding:8px 14px;border-radius:20px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;";
-            b.addEventListener("click", () => {
-                const el = document.getElementById("player-section-" + sec.id);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            });
-            chipBar.appendChild(b);
-        });
-        serversContainer.appendChild(chipBar);
-    }
+    // Sin barra Latino/Sub: los chips Reproductores/Directos bastan
+
 
     // Lista plana ordenada: LAT → SUB → Otros (para autoplay / NO ADS)
     embeds = [...grupoLat, ...grupoSub, ...grupoOtro];
@@ -5170,44 +5169,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
      * Abrir / cerrar servidores
      */
 
-    serversToggle.onclick = function () {
-
-        const abierto =
-            serversContainer.classList.contains(
-                "mz-expanded-content"
-            );
-
-        if (abierto) {
-
-            serversContainer.classList.remove(
-                "mz-expanded-content"
-            );
-
-            serversContainer.classList.add(
-                "mz-collapsed-content"
-            );
-
-            serversToggle.classList.remove(
-                "open"
-            );
-
-        } else {
-
-            serversContainer.classList.remove(
-                "mz-collapsed-content"
-            );
-
-            serversContainer.classList.add(
-                "mz-expanded-content"
-            );
-
-            serversToggle.classList.add(
-                "open"
-            );
-
-        }
-
-    };
+    if (serversToggle) {
+      try { serversToggle.remove(); } catch (_) {}
+    }
 
 
     /*
