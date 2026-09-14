@@ -560,8 +560,21 @@
     btn.type = "button";
     btn.className = "mz-kp-srv-btn";
     var name = cleanServerName(emb);
-    var idioma = emb.idioma || emb.lang || "";
-    btn.textContent = idioma ? name + " · " + idioma : name;
+    var idioma = emb.idioma || emb.lang || emb.language || "";
+    var idLow = String(idioma).toLowerCase();
+    var badge = "";
+    if (/lat|dub|castellano|espanol|espa/.test(idLow)) {
+      badge = '<span class="koi-lang-badge koi-lang-dub">DUB</span>';
+      btn.classList.add("is-dub");
+    } else if (/sub/.test(idLow)) {
+      badge = '<span class="koi-lang-badge koi-lang-sub">SUB</span>';
+      btn.classList.add("is-sub");
+    } else if (/eng|ingl/.test(idLow)) {
+      badge = '<span class="koi-lang-badge koi-lang-eng">ENG</span>';
+    } else if (idioma) {
+      badge = '<span class="koi-lang-badge koi-lang-other">' + String(idioma).slice(0, 6).toUpperCase() + '</span>';
+    }
+    btn.innerHTML = badge + '<span class="koi-chip-name">' + name + '</span>';
     btn.addEventListener("click", function () {
       document
         .querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn")
