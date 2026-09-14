@@ -4985,15 +4985,44 @@ async function reproducir(embed, item) {
         const vc = document.getElementById("video-player-container") || videoContainer;
         if (!vc) return;
         vc.classList.remove("hidden");
-        // Rueda del mouse sobre el player → scroll del detalle (el iframe come el wheel)
+        // Overlay sobre el iframe: captura rueda (el iframe no burbujea wheel)
         if (!vc._mzWheelBound) {
           vc._mzWheelBound = true;
-          vc.addEventListener("wheel", (e) => {
-            const db = document.querySelector("#details-panel .details-body");
-            if (!db) return;
-            db.scrollTop += e.deltaY;
-            e.preventDefault();
-          }, { passive: false });
+          const bindOverlay = () => {
+            const wrap = vc.querySelector(".player-iframe-wrapper") || vc;
+            let ov = vc.querySelector(".mz-scroll-catch");
+            if (!ov) {
+              ov = document.createElement("div");
+              ov.className = "mz-scroll-catch";
+              ov.setAttribute("aria-hidden", "true");
+              ov.style.cssText = "position:absolute;inset:0;z-index:6;background:transparent;cursor:default;";
+              wrap.style.position = wrap.style.position || "relative";
+              wrap.appendChild(ov);
+            }
+            const scrollDb = (dy) => {
+              const db = document.querySelector("#details-panel .details-body");
+              if (db) db.scrollTop += dy;
+            };
+            ov.onwheel = (e) => {
+              scrollDb(e.deltaY);
+              e.preventDefault();
+              e.stopPropagation();
+            };
+            // Clic: dejar pasar al iframe un momento (play/controles)
+            ov.onmousedown = () => {
+              ov.style.pointerEvents = "none";
+              const restore = () => {
+                ov.style.pointerEvents = "auto";
+                window.removeEventListener("mouseup", restore, true);
+              };
+              window.addEventListener("mouseup", restore, true);
+              setTimeout(restore, 800);
+            };
+          };
+          bindOverlay();
+          // Por si el wrapper se recrea
+          setTimeout(bindOverlay, 200);
+          setTimeout(bindOverlay, 600);
         }
         const db = document.querySelector("#details-panel .details-body");
         if (db) {

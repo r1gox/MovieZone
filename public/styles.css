@@ -8187,3 +8187,62 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
+
+
+/* Espacio MÁS DETALLES → Reproductores (película) + overlay scroll */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop.koi-movie .koi-hero,
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 20px 4% 0 !important;
+    margin: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-hero-content,
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero-content {
+    margin: 0 !important;
+    padding: 0 0 4px !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-toggle-details,
+  body.details-open.koi-desktop.koi-movie.player-open .koi-toggle-details {
+    margin: 0 0 4px !important;
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-hero-synopsis,
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero-synopsis {
+    margin-bottom: 4px !important;
+  }
+  body.details-open.koi-desktop.koi-movie .mz-meta-col,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col {
+    margin: 0 !important;
+    padding: 0 4% !important;
+  }
+  body.details-open.koi-desktop.koi-movie #servers-section,
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
+    margin: 0 !important;
+    padding: 4px 0 12px !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-servers-title {
+    margin: 4px 0 8px !important;
+  }
+  /* Quitar huecos de bloques ocultos */
+  body.details-open.koi-desktop.koi-movie .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie .mz-synopsis-section,
+  body.details-open.koi-desktop.koi-movie .details-header-card {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .mz-scroll-catch {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 6 !important;
+    background: transparent !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper {
+    position: relative !important;
+  }
+}
