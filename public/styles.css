@@ -7444,3 +7444,54 @@ body.mz-booting {
     margin: 0 auto !important;
   }
 }
+
+
+/* Series: forzar ocultar Reproductores fuera de player */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section *,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #downloads-section,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #mz-servers-toggle,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) .servers-header {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  /* Player NO tapa toda la pantalla: se puede scrollear info abajo */
+  body.details-open.koi-desktop.player-open {
+    overflow: auto !important;
+    overflow-y: auto !important;
+    touch-action: auto !important;
+    overscroll-behavior-y: auto !important;
+  }
+  body.details-open.koi-desktop.player-open #details-panel {
+    overflow: auto !important;
+    max-height: none !important;
+  }
+  body.details-open.koi-desktop.player-open .video-player-container {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 1200px !important;
+    margin: 16px auto !important;
+    height: auto !important;
+    max-height: 70vh !important;
+    aspect-ratio: 16 / 9 !important;
+    z-index: 5 !important;
+  }
+  body.details-open.koi-desktop.player-open .details-content,
+  body.details-open.koi-desktop.player-open .mz-detail-layout {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col,
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
+    display: block !important;
+    visibility: visible !important;
+  }
+}

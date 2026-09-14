@@ -35,7 +35,6 @@ function setKoiMode(item) {
   document.body.classList.toggle("koi-movie", on && esPeliMode);
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
-  // Título de sección como Koiflix
   const h4 = document.querySelector("#seasons-section > h4");
   if (h4) {
     if (esPeliMode) h4.textContent = "Reproductores";
@@ -43,6 +42,17 @@ function setKoiMode(item) {
   }
   const serversTitle = document.getElementById("servers-section-title");
   if (serversTitle) serversTitle.textContent = "Reproductores";
+  // Series/animes en detalle: NUNCA mostrar bloque Reproductores
+  try {
+    const ss = document.getElementById("servers-section");
+    const ds = document.getElementById("downloads-section");
+    const tg = document.getElementById("mz-servers-toggle");
+    if (on && !esPeliMode && !document.body.classList.contains("player-open")) {
+      if (ss) ss.classList.add("hidden");
+      if (ds) ds.classList.add("hidden");
+      if (tg) tg.remove();
+    }
+  } catch (_) {}
   try { bindKoiBackBtn(); } catch (_) {}
   return on;
 }
@@ -4952,7 +4962,14 @@ async function reproducir(embed, item) {
 function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, opts) {
     embedsRaw = normalizarEmbeds(embedsRaw);
     const expandido = !!(opts && opts.expandido);
-  // Mostrar sección streams (Stremio: tras elegir cap o peli)
+    const esPeli = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
+    const esSerie = !!(item && (typeof isSerieOrAnime === "function" ? isSerieOrAnime(item) : /serie|anime/i.test(String(item.tipo || ""))));
+    // Series/animes: solo mostrar servidores si ya estamos en player (episodio elegido)
+    if (esSerie && !esPeli && !document.body.classList.contains("player-open")) {
+      document.getElementById("servers-section")?.classList.add("hidden");
+      document.getElementById("servers-loading")?.classList.add("hidden");
+      return;
+    }
     document.getElementById("servers-section")?.classList.remove("hidden");
     document.getElementById("servers-loading")?.classList.add("hidden");
 
