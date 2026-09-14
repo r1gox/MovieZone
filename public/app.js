@@ -3767,9 +3767,24 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         } catch (_) {}
 
         if (serversEl) serversEl.classList.remove("hidden");
+        document.body.classList.add("koi-movie");
         const embeds = item.embeds || item.reproductores || [];
         const downloads = item.downloads || item.descargas || [];
         renderServidoresYDescargas(embeds, downloads, item.reproductor, item);
+        // Forzar visibilidad por si el CSS de series ocultó el padre
+        try {
+          const metaCol = document.querySelector(".mz-meta-col");
+          if (metaCol) metaCol.style.setProperty("display", "block", "important");
+          if (serversEl) {
+            serversEl.classList.remove("hidden");
+            serversEl.style.setProperty("display", "block", "important");
+          }
+          const sc = document.getElementById("servers-container");
+          if (sc) {
+            sc.style.setProperty("display", "flex", "important");
+            sc.style.setProperty("flex-wrap", "wrap", "important");
+          }
+        } catch (_) {}
         // sin autoplay
     }
 }
