@@ -4931,12 +4931,21 @@ async function reproducir(embed, item) {
       const label = epNum ? `E${epNum} - Episodio ${epNum}` : (playerTitle?.textContent || "");
       setKoiPlayerEpisodeTitle(label);
     } catch (_) {}
-    requestAnimationFrame(() => {
-        try {
-            videoContainer.scrollIntoView({ behavior: "smooth", block: "center" });
-        } catch (_) {
-            videoContainer.scrollIntoView(true);
+    const scrollPlayer = () => {
+      try {
+        const vc = document.getElementById("video-player-container") || videoContainer;
+        if (vc) {
+          vc.classList.remove("hidden");
+          vc.scrollIntoView({ behavior: "smooth", block: "start" });
         }
+      } catch (_) {
+        try { videoContainer.scrollIntoView(true); } catch (__) {}
+      }
+    };
+    requestAnimationFrame(() => {
+      scrollPlayer();
+      setTimeout(scrollPlayer, 120);
+      setTimeout(scrollPlayer, 350);
     });
 }
 
@@ -5071,7 +5080,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         serversToggle.innerHTML = `
             <span class="mz-collapse-left">
                 <ion-icon name="play-circle-outline"></ion-icon>
-                <span>Servidores de reproducción</span>
+                <span><!--srv--></span>
             </span>
 
             <ion-icon
@@ -5091,15 +5100,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     /*
      * Estado: expandido si venimos de clic en episodio, si no cerrado
      */
-    if (expandido) {
-        serversContainer.classList.remove("mz-collapsed-content");
-        serversContainer.classList.add("mz-expanded-content");
-        serversToggle.classList.add("open");
-    } else {
-        serversContainer.classList.add("mz-collapsed-content");
-        serversContainer.classList.remove("mz-expanded-content");
-        serversToggle.classList.remove("open");
-    }
+    serversContainer.classList.remove("mz-collapsed-content");
+    serversContainer.classList.add("mz-expanded-content");
+    try { const _tg = document.getElementById("mz-servers-toggle"); if (_tg) _tg.remove(); } catch (_) {}
 
     /*
      * Abrir / cerrar servidores
@@ -5146,86 +5149,74 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
 
     /*
-     * Crear servidores por sección: Latino / Sub / Otros
+     * Chips: Reproductores / Directos (mismo estilo series y películas)
      */
     const seccionesRender = serversContainer._seccionesPlayers || [
         { id: "all", label: "Reproductores", list: embeds.filter(e => !e.noAds) }
     ];
-    // NO ADS al inicio de la primera sección si existe
     const noAds = embeds.find(e => e && e.noAds);
 
     if (embeds.length > 0) {
-        let globalIndex = 0;
-        // Lista plana para data-index (play handlers)
         const flatForPlay = [];
         if (noAds) flatForPlay.push(noAds);
 
-        seccionesRender.forEach((sec) => {
-            const wrap = document.createElement("div");
-            wrap.id = "player-section-" + sec.id;
-            wrap.style.cssText = "width:100%;margin:0 0 14px;";
-            const h = document.createElement("div");
-            h.style.cssText = "font-size:12px;font-weight:700;color:var(--text-muted);margin:8px 0 6px;text-transform:uppercase;letter-spacing:0.04em;";
-            h.textContent = `${sec.label} · ${sec.list.length}`;
-            wrap.appendChild(h);
+        const isDirect = (e) => !!(e && (
+            e.noAds || e.direct || e.stream_url ||
+            /\.m3u8(\?|$)|\.mp4(\?|$)/i.test(String(e.url || ""))
+        ));
 
+        const allList = [];
+        seccionesRender.forEach((sec) => {
             const listToShow = sec.id === seccionesRender[0].id && noAds
                 ? [noAds, ...sec.list]
                 : sec.list;
-
             listToShow.forEach((embed) => {
                 if (!embed || !embed.url) return;
                 if (embed.noAds && sec.id !== seccionesRender[0].id) return;
-                const index = flatForPlay.indexOf(embed);
-                const idx = index >= 0 ? index : (flatForPlay.push(embed) - 1);
+                if (!allList.includes(embed)) allList.push(embed);
+            });
+        });
 
+        const reps = allList.filter(e => !isDirect(e));
+        const dirs = allList.filter(e => isDirect(e));
+        const groups = [];
+        if (reps.length) groups.push({ label: "Reproductores", list: reps });
+        if (dirs.length) groups.push({ label: "Directos", list: dirs });
+        if (!groups.length) groups.push({ label: "Reproductores", list: allList });
+
+        groups.forEach((g) => {
+            const wrap = document.createElement("div");
+            wrap.className = "koi-servers-block";
+            const h = document.createElement("div");
+            h.className = "koi-servers-title";
+            h.textContent = g.label;
+            wrap.appendChild(h);
+            const chipWrap = document.createElement("div");
+            chipWrap.className = "koi-servers-chips";
+            g.list.forEach((embed) => {
+                if (!embed || !embed.url) return;
+                let idxp = flatForPlay.indexOf(embed);
+                if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }
                 const nombre = embed.noAds
                     ? "NO ADS"
                     : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
-
-                const lang = embed.lang || embed.idioma || "";
-                const quality = embed.quality || embed.calidad || "";
                 const idTag = idiomaDeEmbed(embed);
-                const badge =
+                const langLabel =
                     embed.noAds ? "" :
-                    idTag === "lat" ? '<span class="latino-badge">Latino</span>' :
-                    idTag === "sub" ? '<span class="latino-badge" style="background:#3b82f6">SUB</span>' :
-                    '<span class="latino-badge" style="background:#6b7280">?</span>';
-
-                const row = document.createElement("div");
-                row.className = "server-row" + (idTag === "lat" ? " latino-highlight" : "");
-                row.innerHTML = `
-                    <div class="server-name-group">
-                        <ion-icon name="play-circle-outline" class="server-logo"></ion-icon>
-                        <div class="server-info">
-                            <span class="server-title">
-                                ${escapeHtml(nombre)}
-                                ${badge}
-                            </span>
-                            <span class="server-lang">
-                                ${escapeHtml([lang || (idTag === "otro" ? "Sin etiqueta" : ""), quality].filter(Boolean).join(" · "))}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="server-actions">
-                        <button class="btn-action play" data-index="${idx}">
-
-                            <ion-icon
-                                name="play">
-                            </ion-icon>
-
-                            Reproducir
-
-                        </button>
-
-                    </div>
-
-                `;
-
-
-                row.querySelector(".btn-action.play").addEventListener("click", () => reproducir(embed, item));
-                wrap.appendChild(row);
+                    idTag === "lat" ? "Latino" :
+                    idTag === "sub" ? "Subtitulado" :
+                    (embed.lang || embed.idioma || "Desconocido");
+                const chip = document.createElement("button");
+                chip.type = "button";
+                chip.className = "koi-server-chip";
+                chip.dataset.index = String(idxp);
+                chip.innerHTML =
+                    `<span class="koi-chip-name">${escapeHtml(nombre)}</span>` +
+                    (langLabel ? `<span class="koi-chip-sep">·</span><span class="koi-chip-lang">${escapeHtml(langLabel)}</span>` : "");
+                chip.addEventListener("click", () => reproducir(embed, item));
+                chipWrap.appendChild(chip);
             });
+            wrap.appendChild(chipWrap);
             serversContainer.appendChild(wrap);
         });
     } else {

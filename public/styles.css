@@ -7411,3 +7411,36 @@ body.mz-booting {
     display: none !important;
   }
 }
+
+
+/* Chips reproductores FINAL */
+#mz-servers-toggle { display: none !important; }
+.koi-servers-block { width: 100%; margin: 0 0 16px; }
+.koi-servers-title { font-size: 1rem; font-weight: 800; color: #fff; margin: 8px 0 10px; }
+.koi-servers-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.koi-server-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: #e2e8f0;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.koi-server-chip:hover { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.45); }
+.koi-server-chip .koi-chip-name { color: #fff; font-weight: 700; }
+.koi-server-chip .koi-chip-sep { color: #64748b; }
+.koi-server-chip .koi-chip-lang { color: #94a3b8; }
+
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #downloads-section,
+  body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #mz-servers-toggle {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container,
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container.hidden {
+    display: block !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+  }
+}
