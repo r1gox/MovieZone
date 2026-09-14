@@ -1,8 +1,11 @@
 /* koi-pc-player-layout.css — PC (>=901px)
- * Player películas + badges SUB/DUB + scroll target servers
+ * 1) Películas: al reproducir NO reflow del detalle (solo aparece el player)
+ * 2) Series: scroll a reproductores / al player
+ * 3) Badges DUB/SUB
  */
 
 @media (min-width: 901px) {
+  /* ===== Badges ===== */
   .koi-lang-badge {
     display: inline-flex;
     align-items: center;
@@ -31,19 +34,19 @@
   .koi-server-chip.is-dub { border-color: rgba(22, 163, 74, 0.45) !important; }
   .koi-server-chip.is-sub { border-color: rgba(37, 99, 235, 0.45) !important; }
 
-  /* ===== PELÍCULAS: player centrado; reproductores/descargas a ancho del detalle ===== */
+  /* =========================================================
+     PELÍCULAS (koi-movie): player-open NO debe mover el layout
+     Anula reglas de koi-pc-detail.css que esconden/reordenan todo
+     ========================================================= */
   body.details-open.koi-desktop.koi-movie.player-open .mz-detail-layout {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
     gap: 0 !important;
-    max-width: 1400px !important;
-    margin: 0 auto !important;
-    padding: 24px 4% 56px !important;
   }
   body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col {
-    display: flex !important;
-    flex-direction: column !important;
+    display: block !important;
     width: 100% !important;
     max-width: 100% !important;
     flex: none !important;
@@ -52,18 +55,56 @@
     display: none !important;
   }
 
-  /* Solo el cuadro de video queda más estrecho y centrado */
+  /* NO ocultar datos del detalle al reproducir */
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-poster-col,
+  body.details-open.koi-desktop.koi-movie.player-open .details-logo,
+  body.details-open.koi-desktop.koi-movie.player-open .media-type-badge,
+  body.details-open.koi-desktop.koi-movie.player-open .details-type-row,
+  body.details-open.koi-desktop.koi-movie.player-open #details-original-title,
+  body.details-open.koi-desktop.koi-movie.player-open .meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-genres,
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section,
+  body.details-open.koi-desktop.koi-movie.player-open #koi-toggle-details {
+    /* restaurar visibilidad natural (detail.css los display:none en player-open) */
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-poster-col,
+  body.details-open.koi-desktop.koi-movie.player-open .details-logo,
+  body.details-open.koi-desktop.koi-movie.player-open .media-type-badge,
+  body.details-open.koi-desktop.koi-movie.player-open .details-type-row,
+  body.details-open.koi-desktop.koi-movie.player-open #details-original-title,
+  body.details-open.koi-desktop.koi-movie.player-open .meta-row,
+  body.details-open.koi-desktop.koi-movie.player-open .details-genres {
+    display: revert !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header {
+    display: block !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-synopsis-section {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #details-title {
+    color: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+  }
+
+  /* Player: solo aparece, sin empujar anchos raros */
   body.details-open.koi-desktop.koi-movie.player-open .video-player-container,
   body.details-open.koi-desktop.koi-movie.player-open .video-player-container.hidden {
     display: block !important;
     width: 100% !important;
-    max-width: 960px !important;
-    margin: 0 auto 20px auto !important;
+    max-width: 100% !important;
+    margin: 0 0 16px 0 !important;
     border-radius: 10px;
     overflow: hidden;
     aspect-ratio: 16 / 9 !important;
     background: #000 !important;
-    align-self: center !important;
+    position: relative !important;
   }
   body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper {
     position: relative !important;
@@ -79,34 +120,36 @@
     height: 100% !important;
   }
 
-  /* Reproductores + descargas: ancho del detalle (no del player) */
-  body.details-open.koi-desktop.koi-movie.player-open #servers-section,
-  body.details-open.koi-desktop.koi-movie.player-open #downloads-section {
+  /* Reproductores y descargas: mismos anchos que antes de reproducir */
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 0 16px 0 !important;
-    padding: 0 !important;
-    align-self: stretch !important;
+    margin: 0 0 12px 0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #downloads-section {
+    display: block !important; /* detail.css lo pone display:none en player-open */
+    width: 100% !important;
+    max-width: 100% !important;
   }
   body.details-open.koi-desktop.koi-movie.player-open #servers-container {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 10px !important;
-    align-items: center !important;
-    width: 100% !important;
   }
-  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-top: 8px !important;
+  body.details-open.koi-desktop.koi-movie.player-open .details-body {
+    padding: inherit !important;
   }
 
-  /* ===== SERIES / ANIME: scroll a #servers-section ===== */
+  /* =========================================================
+     SERIES / ANIME
+     ========================================================= */
   body.details-open.koi-desktop.player-open:not(.koi-movie) #servers-section {
     display: block !important;
-    scroll-margin-top: 20px;
+    scroll-margin-top: 24px;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container {
+    scroll-margin-top: 16px;
   }
   body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-detail-layout {
     display: flex !important;
