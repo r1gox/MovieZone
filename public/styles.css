@@ -7236,3 +7236,35 @@ body.mz-booting {
 @media (max-width: 1024px) {
   .koi-btn-back { display: none !important; }
 }
+
+
+/* Pegar al final de styles.css o koi CSS */
+
+.koi-hero-original {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+  margin: 4px 0 10px;
+  font-weight: 500;
+}
+.koi-hero-original.hidden {
+  display: none !important;
+}
+.koi-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+.koi-meta-status {
+  font-weight: 700;
+}
+.koi-meta-air {
+  color: #6ee7b7;
+}
+.koi-meta-end {
+  color: #cbd5e1;
+}
+
