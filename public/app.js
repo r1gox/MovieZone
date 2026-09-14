@@ -3336,15 +3336,52 @@ function mostrarDetalleLoading(on) {
   const el = document.getElementById("details-loading");
   const content = document.getElementById("details-content");
   const empty = document.getElementById("details-empty");
-  if (el) el.classList.toggle("hidden", !on);
+  const body = document.querySelector("#details-panel .details-body");
+  const hero = document.getElementById("koi-hero");
+  const bg = document.getElementById("mz-stremio-bg");
+  const bgImg = document.getElementById("mz-stremio-bg-img");
+  if (el) {
+    el.classList.toggle("hidden", !on);
+    if (on) el.style.display = "";
+  }
   if (content) {
-    if (on) {
-      content.classList.add("hidden");
-      content.classList.add("mz-detail-dimmed");
-    } else {
-      content.classList.remove("hidden");
-      content.classList.remove("mz-detail-dimmed");
+    // content-inner: no ocultar todo el shell, solo el interior con datos
+  }
+  // Mientras carga: ocultar hero, layout y fondo
+  if (on) {
+    if (body) body.classList.add("mz-loading-detail");
+    if (hero) {
+      hero.classList.add("hidden");
+      hero.style.visibility = "hidden";
     }
+    if (bg) {
+      bg.style.opacity = "0";
+      bg.style.visibility = "hidden";
+    }
+    if (bgImg) {
+      bgImg.classList.remove("is-ready");
+    }
+    try {
+      const inner = document.getElementById("details-content");
+      if (inner) {
+        inner.classList.add("mz-detail-dimmed");
+        // no usar .hidden en details-content (rompe el panel); ocultamos hijos vía CSS
+      }
+    } catch (_) {}
+  } else {
+    if (body) body.classList.remove("mz-loading-detail");
+    if (hero) {
+      hero.classList.remove("hidden");
+      hero.style.visibility = "";
+    }
+    if (bg) {
+      bg.style.opacity = "";
+      bg.style.visibility = "";
+    }
+    try {
+      const inner = document.getElementById("details-content");
+      if (inner) inner.classList.remove("mz-detail-dimmed");
+    } catch (_) {}
   }
   if (empty) empty.classList.add("hidden");
 }
@@ -3407,21 +3444,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         },
       });
     } catch (_) {}
-    // Siempre mostrar loading al entrar; se quita al terminar de cargar
+    // Siempre mostrar loading al entrar; fondo/hero ocultos hasta tener datos
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
 
-    // Pintar lo que ya tenemos
-    // Pintar lo que ya tenemos
+    // Preparar datos en DOM pero sin mostrar fondo aún (loading cubre)
     const __posterEl = document.getElementById("details-poster");
     const __posterCol = document.querySelector(".mz-stremio-poster-col");
     if (__posterEl) __posterEl.classList.add("mz-poster-hidden");
     if (__posterCol) __posterCol.classList.add("mz-hide-poster");
     if (__posterEl) __posterEl.src = item.portada || PLACEHOLDER;
-    setDetailBackdrop(item);
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
-    try { fillKoiHero(item); } catch (_) {}
+    // backdrop + hero se pintan al terminar carga (abajo)
 
     const originalEl = document.getElementById("details-original-title");
     if (item.titulo_original && item.titulo_original !== item.nombre) {
@@ -3750,11 +3785,12 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       _syn2.textContent = item.descripcion;
       _syn2.classList.remove("mz-syn-loading");
     }
-    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    try { setDetailBackdrop(item); } catch (_) {}
     try {
       setKoiMode(item);
       fillKoiHero(item);
     } catch (_) {}
+    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
 
     const esSerieOAnime =
       item.tipo === "Serie" ||
@@ -5024,21 +5060,12 @@ async function reproducir(embed, item) {
           setTimeout(bindOverlay, 200);
           setTimeout(bindOverlay, 600);
         }
-        const db = document.querySelector("#details-panel .details-body");
-        if (db) {
-          const top = vc.offsetTop - 12;
-          db.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-        } else {
-          vc.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
-      } catch (_) {
-        try { videoContainer.scrollIntoView(true); } catch (__) {}
-      }
+        // No centrar servidores con el player: solo asegurar overlay de scroll
+      } catch (_) {}
     };
     requestAnimationFrame(() => {
       scrollPlayer();
-      setTimeout(scrollPlayer, 150);
-      setTimeout(scrollPlayer, 400);
+      setTimeout(scrollPlayer, 200);
     });
 }
 

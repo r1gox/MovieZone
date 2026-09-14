@@ -8246,3 +8246,69 @@ body.mz-booting {
     position: relative !important;
   }
 }
+
+
+/* Loading detalle: solo "Cargando…", sin fondo ni contenido */
+#details-loading.mz-details-loading,
+#details-loading {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #0a0a12 !important;
+}
+#details-loading.hidden {
+  display: none !important;
+}
+/* Mientras carga: ocultar hero, layout, fondo */
+.details-body.mz-loading-detail .koi-hero,
+.details-body.mz-loading-detail .details-content-inner,
+.details-body.mz-loading-detail .mz-detail-layout,
+.details-body.mz-loading-detail #seasons-section,
+.details-body.mz-loading-detail #servers-section,
+.details-body.mz-loading-detail #downloads-section,
+.details-body.mz-loading-detail .video-player-container {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+body.details-open.mz-loading-detail #mz-stremio-bg,
+#details-panel:has(.mz-loading-detail) #mz-stremio-bg {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+/* NO ocultar el loading en koi-desktop */
+body.details-open.koi-desktop:not(.player-open) #details-loading:not(.hidden),
+body.details-open.koi-desktop #details-loading:not(.hidden) {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Series: mismo espacio MÁS DETALLES → Episodios que películas → Reproductores */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop:not(.player-open):not(.koi-movie) .koi-hero {
+    padding: 20px 4% 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  body.details-open.koi-desktop:not(.player-open):not(.koi-movie) .koi-hero-content {
+    padding: 0 0 4px !important;
+    margin: 0 !important;
+  }
+  body.details-open.koi-desktop:not(.player-open):not(.koi-movie) .koi-toggle-details {
+    margin: 0 0 4px !important;
+  }
+  body.details-open.koi-desktop:not(.player-open):not(.koi-movie) #seasons-section {
+    margin: 0 !important;
+    padding: 4px 4% 24px !important;
+  }
+  body.details-open.koi-desktop:not(.player-open):not(.koi-movie) #seasons-section > h4 {
+    margin: 4px 0 8px !important;
+  }
+}
