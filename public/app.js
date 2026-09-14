@@ -15,7 +15,7 @@ import { getCatalog, searchCatalog } from './js/data/catalogo.js';
 const KOI_MQ = window.matchMedia("(min-width: 1025px)");
 
 function isKoiDesktop() {
-  return KOI_MQ.matches;
+  return (typeof window !== "undefined" && window.innerWidth >= 1025) || KOI_MQ.matches;
 }
 
 function isSerieOrAnime(item) {
@@ -4813,102 +4813,14 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
 
 
-    /*
-     * Crear botón desplegable de servidores
-     */
-
-    let serversToggle =
-        document.getElementById(
-            "mz-servers-toggle"
-        );
-
-    if (!serversToggle) {
-
-        serversToggle =
-            document.createElement("button");
-
-        serversToggle.id =
-            "mz-servers-toggle";
-
-        serversToggle.className =
-            "mz-collapse-toggle";
-
-        serversToggle.type =
-            "button";
-
-        serversToggle.innerHTML = `
-            <span class="mz-collapse-left">
-                <ion-icon name="play-circle-outline"></ion-icon>
-                <span>Servidores de reproducción</span>
-            </span>
-
-            <ion-icon
-                class="mz-collapse-arrow"
-                name="chevron-down-outline">
-            </ion-icon>
-        `;
-
-        serversContainer.parentNode.insertBefore(
-            serversToggle,
-            serversContainer
-        );
-
-    }
-
-
-    /*
-     * Estado: expandido si venimos de clic en episodio, si no cerrado
-     */
-    // Siempre expandido; el toggle viejo se oculta por CSS en modo limpio
+    
+    // Sin toggle "Servidores de reproducción": siempre chips visibles
+    try {
+      const oldT = document.getElementById("mz-servers-toggle");
+      if (oldT) oldT.remove();
+    } catch (_) {}
     serversContainer.classList.remove("mz-collapsed-content");
     serversContainer.classList.add("mz-expanded-content");
-    if (serversToggle) {
-        serversToggle.classList.add("open");
-        serversToggle.classList.add("koi-hide-toggle");
-    }
-
-    /*
-     * Abrir / cerrar servidores
-     */
-
-    serversToggle.onclick = function () {
-
-        const abierto =
-            serversContainer.classList.contains(
-                "mz-expanded-content"
-            );
-
-        if (abierto) {
-
-            serversContainer.classList.remove(
-                "mz-expanded-content"
-            );
-
-            serversContainer.classList.add(
-                "mz-collapsed-content"
-            );
-
-            serversToggle.classList.remove(
-                "open"
-            );
-
-        } else {
-
-            serversContainer.classList.remove(
-                "mz-collapsed-content"
-            );
-
-            serversContainer.classList.add(
-                "mz-expanded-content"
-            );
-
-            serversToggle.classList.add(
-                "open"
-            );
-
-        }
-
-    };
 
 
     /*
