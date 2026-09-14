@@ -1531,7 +1531,7 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       if (typeof setKoiMode === "function") setKoiMode(item);
 
       const epLabel = episodio.nombre || episodio.titulo || ("Episodio " + epNum);
-      setKoiPlayerEpisodeTitle("E" + epNum + " - " + epLabel);
+      setKoiPlayerEpisodeTitle("T" + (seasonNum || 1) + " · " + (epLabel || ("Episodio " + epNum)));
 
       const titleEl = document.getElementById("details-title");
       if (titleEl) {
@@ -1615,7 +1615,7 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   document.getElementById("details-title").textContent =
     (item.nombre || item.titulo || "") + " - " + (episodio.nombre || ("Episodio " + epNum));
   try {
-    setKoiPlayerEpisodeTitle("E" + epNum + " - " + (episodio.nombre || ("Episodio " + epNum)));
+    setKoiPlayerEpisodeTitle("T" + (seasonNum || 1) + " · " + (episodio.nombre || ("Episodio " + epNum)));
     document.body.classList.add("player-open");
   } catch (_) {}
 
@@ -5019,7 +5019,7 @@ function renderEpisodios(item, season = 1) {
                 `</span>` +
                 `<span class="koi-ep-meta">` +
                 `<span class="koi-ep-series">${safeSeries}</span>` +
-                `<span class="koi-ep-name">E${num} · ${labelName}</span>` +
+                `<span class="koi-ep-name">T${season} · ${labelName}</span>` +
                 `</span>`;
         } else {
             btn.textContent = num;
@@ -5061,7 +5061,7 @@ function renderEpisodios(item, season = 1) {
             document.getElementById("details-title").textContent =
                 `${item.nombre} - ${episodio.nombre || "Episodio " + epNum}`;
             try {
-              setKoiPlayerEpisodeTitle(`E${epNum} - ${episodio.nombre || "Episodio " + epNum}`);
+              setKoiPlayerEpisodeTitle(`T${seasonNum || 1} · ${episodio.nombre || "Episodio " + epNum}`);
               document.body.classList.add("player-open");
             } catch (_) {}
 
