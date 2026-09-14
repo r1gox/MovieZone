@@ -4951,23 +4951,20 @@ async function reproducir(embed, item) {
     const scrollPlayer = () => {
       try {
         const vc = document.getElementById("video-player-container") || videoContainer;
-        if (vc) {
-          vc.classList.remove("hidden");
-          // Sube TODO el panel al reproductor (como series)
-          const panel = document.getElementById("details-panel") || vc;
-          vc.scrollIntoView({ behavior: "smooth", block: "start" });
-          try { panel.scrollTop = 0; } catch (__) {}
-          try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (__) {}
-        }
+        if (!vc) return;
+        vc.classList.remove("hidden");
+        const it = item || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
+        const esPeli = !!(it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || "")));
+        // Película: baja al cuadro del reproductor (abajo). Series: sube al player.
+        vc.scrollIntoView({ behavior: "smooth", block: esPeli ? "center" : "start" });
       } catch (_) {
         try { videoContainer.scrollIntoView(true); } catch (__) {}
       }
     };
     requestAnimationFrame(() => {
       scrollPlayer();
-      setTimeout(scrollPlayer, 80);
-      setTimeout(scrollPlayer, 250);
-      setTimeout(scrollPlayer, 500);
+      setTimeout(scrollPlayer, 150);
+      setTimeout(scrollPlayer, 400);
     });
 }
 
@@ -5213,12 +5210,27 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             });
         });
 
-        const reps = allList.filter(e => !isDirect(e));
-        const dirs = allList.filter(e => isDirect(e));
+        let reps = allList.filter(e => !isDirect(e));
+        let dirs = allList.filter(e => isDirect(e));
+        // Si no hay "directos" detectados, usar embeds con stream_url/noAds como Directos
+        if (!dirs.length) {
+          dirs = allList.filter(e => e && (e.stream_url || e.noAds || e.direct));
+          reps = allList.filter(e => !dirs.includes(e));
+        }
+        // Si aún no hay división, primera mitad visual: todos en Reproductores y Directos con los que tengan quality/HD
+        if (!dirs.length && reps.length > 1) {
+          const maybe = reps.filter(e => /direct|hls|mp4|m3u8|hd|1080|720/i.test(String(e.server||e.name||e.quality||e.url||"")));
+          if (maybe.length) {
+            dirs = maybe;
+            reps = reps.filter(e => !maybe.includes(e));
+          }
+        }
         const groups = [];
-        if (reps.length) groups.push({ label: "Reproductores", list: reps });
+        groups.push({ label: "Reproductores", list: reps.length ? reps : allList });
         if (dirs.length) groups.push({ label: "Directos", list: dirs });
-        if (!groups.length) groups.push({ label: "Reproductores", list: allList });
+        else if (reps.length && reps !== allList) {
+          /* sin directos extra */
+        }
 
         groups.forEach((g) => {
             const wrap = document.createElement("div");
