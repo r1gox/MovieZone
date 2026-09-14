@@ -25,8 +25,11 @@ function isSerieOrAnime(item) {
 }
 
 /** Activa/desactiva el layout Koiflix en body */
-function setKoiMode(item) {
-  const on = isKoiDesktop() && isSerieOrAnime(item);
+function setKoiMode(item) {  
+  const on = isKoiDesktop() && !!(item && (
+    isSerieOrAnime(item) ||
+    /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))
+  ));
   document.body.classList.toggle("koi-desktop", on);
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
@@ -106,7 +109,10 @@ function langLabel(item) {
  * Llamar después de pintar el detalle normal.
  */
 function fillKoiHero(item) {
-  if (!item || !isKoiDesktop() || !isSerieOrAnime(item)) return;
+    if (!item || !isKoiDesktop()) return;
+    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+    const esSA = isSerieOrAnime(item);
+    if (!esPeli && !esSA) return;
 
   const bg =
     item.backdrop ||
@@ -302,7 +308,10 @@ function fillKoiHero(item) {
   }
 
   const playText = document.getElementById("koi-btn-play-text");
-  if (playText) playText.textContent = firstEpisodeLabel(item);
+  if (playText) {
+    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+    playText.textContent = esPeli ? "REPRODUCIR" : firstEpisodeLabel(item);
+  }
 
 }
 
@@ -3333,26 +3342,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     detailsContent.classList.remove("hidden");
     detailsPanel.classList.remove("hidden");
     document.body.style.overflow = "hidden";
-// --- PC película → vista Koiflix con meta + reproductores ---
-  {
-    const pc =
-      (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
-      window.innerWidth >= 1025;
-    const esPeli =
-      !item ? false :
-      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")) ||
-      (!/serie|anime|dorama|tv/i.test(String(item.tipo || "")) && !item.episodios);
-
-    if (pc && esPeli && typeof window.mzKoiOpenMovie === "function") {
-    // Opcional: no hace falta abrir el details-panel clásico
-      try {
-        detailsPanel.classList.add("hidden");
-        document.body.style.overflow = "";
-      } catch (_) {}
-      await window.mzKoiOpenMovie(item);
-      return;
-    }
-  }
 // --- fin película Koiflix ---
 
     document.body.classList.add("details-open");
@@ -3361,6 +3350,22 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       setKoiMode(item);
       bindKoiHeroControls({
         onPlay: () => {
+          const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+          if (esPeli) {
+            // Mostrar reproductores (sin autoplay)
+            try {
+              document.getElementById("servers-section")?.classList.remove("hidden");
+              document.getElementById("servers-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              const sc = document.getElementById("servers-container");
+              const tg = document.getElementById("mz-servers-toggle");
+              if (sc) {
+                sc.classList.remove("mz-collapsed-content");
+                sc.classList.add("mz-expanded-content");
+              }
+              if (tg) tg.classList.add("open");
+            } catch (_) {}
+            return;
+          }
           const first =
             document.querySelector("#episodes-container [data-ep]") ||
             document.querySelector("#episodes-container button") ||
