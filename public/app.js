@@ -1548,7 +1548,34 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       actualizarBotonesEpPlayer();
 
       try {
-        vc?.scrollIntoView({ behavior: "smooth", block: "start" });
+        requestAnimationFrame(function () {
+          var target =
+            document.getElementById("video-player-container") ||
+            document.getElementById("servers-section") ||
+            vc;
+          if (target) {
+            try {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (_) {}
+          }
+          var body = document.querySelector("#details-panel .details-body") ||
+            document.querySelector("#details-panel .details-content");
+          if (body && target) {
+            try {
+              var top =
+                target.getBoundingClientRect().top -
+                body.getBoundingClientRect().top +
+                body.scrollTop -
+                12;
+              body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            } catch (_) {}
+          }
+          var srv = document.getElementById("servers-section");
+          if (srv) {
+            srv.classList.remove("hidden");
+            srv.style.setProperty("display", "block", "important");
+          }
+        });
       } catch (_) {}
     } catch (e) {
       console.error("koi prepare ep:", e);
@@ -5305,18 +5332,28 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                     ? "NO ADS"
                     : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
                 const idTag = idiomaDeEmbed(embed);
-                const langLabel =
-                    embed.noAds ? "" :
-                    idTag === "lat" ? "Latino" :
-                    idTag === "sub" ? "Subtitulado" :
-                    (embed.lang || embed.idioma || "Desconocido");
+                let langBadge = "";
+                if (!embed.noAds) {
+                    if (idTag === "lat") {
+                        langBadge = `<span class="koi-lang-badge koi-lang-dub" title="Latino / Doblado">DUB</span>`;
+                    } else if (idTag === "sub") {
+                        langBadge = `<span class="koi-lang-badge koi-lang-sub" title="Subtitulado">SUB</span>`;
+                    } else if (/eng|ingl/i.test(String(embed.lang || embed.idioma || ""))) {
+                        langBadge = `<span class="koi-lang-badge koi-lang-eng" title="English">ENG</span>`;
+                    } else {
+                        const raw = String(embed.lang || embed.idioma || "").trim();
+                        if (raw) {
+                            langBadge = `<span class="koi-lang-badge koi-lang-other" title="${escapeHtml(raw)}">${escapeHtml(raw.slice(0, 6).toUpperCase())}</span>`;
+                        }
+                    }
+                }
                 const chip = document.createElement("button");
                 chip.type = "button";
-                chip.className = "koi-server-chip";
+                chip.className = "koi-server-chip" + (idTag === "lat" ? " is-dub" : idTag === "sub" ? " is-sub" : "");
                 chip.dataset.index = String(idxp);
                 chip.innerHTML =
-                    `<span class="koi-chip-name">${escapeHtml(nombre)}</span>` +
-                    (langLabel ? `<span class="koi-chip-sep">·</span><span class="koi-chip-lang">${escapeHtml(langLabel)}</span>` : "");
+                    langBadge +
+                    `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
                 chip.addEventListener("click", () => reproducir(embed, item));
                 chipWrap.appendChild(chip);
             });
