@@ -1,0 +1,149 @@
+/* koi-pc-player-layout.css — PC (>=901px)
+ * Layout player + badges SUB/DUB
+ * Enlazado desde index.html
+ */
+
+@media (min-width: 901px) {
+  /* Badges idioma tipo AnimeAV1 */
+  .koi-lang-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  .koi-lang-dub { background: #16a34a; color: #fff; }
+  .koi-lang-sub { background: #2563eb; color: #fff; }
+  .koi-lang-eng { background: #9333ea; color: #fff; }
+  .koi-lang-other { background: #475569; color: #e2e8f0; }
+
+  .koi-server-chip,
+  .mz-kp-srv-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .koi-server-chip .koi-chip-name,
+  .mz-kp-srv-btn .koi-chip-name {
+    font-weight: 600;
+  }
+  .koi-server-chip.is-dub {
+    border-color: rgba(22, 163, 74, 0.45) !important;
+  }
+  .koi-server-chip.is-sub {
+    border-color: rgba(37, 99, 235, 0.45) !important;
+  }
+
+  /* ---- Películas: al abrir player, no se “cuadran” los datos al lado ---- */
+  body.details-open.koi-desktop.koi-movie.player-open .mz-detail-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+    max-width: 1100px !important;
+    margin: 0 auto !important;
+    padding: 24px 4% 48px !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-meta-col {
+    display: block !important;
+    width: 100% !important;
+    flex: none !important;
+    max-width: 100% !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-streams-col {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container,
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container.hidden {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 16px !important;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9 !important;
+    background: #000 !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    height: 0 !important;
+    padding-bottom: 56.25% !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper iframe,
+  body.details-open.koi-desktop.koi-movie.player-open .player-iframe-wrapper .player-video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 0 12px !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #servers-container {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header {
+    display: block !important;
+    margin-top: 8px !important;
+  }
+
+  /* ---- Series / anime PC: player + servers ---- */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-body {
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container.hidden {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000 !important;
+    aspect-ratio: auto !important;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper {
+    position: relative !important;
+    padding-bottom: 56.25% !important;
+    height: 0 !important;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper iframe,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-iframe-wrapper .player-video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-detail-layout {
+    display: flex !important;
+    gap: 36px;
+    padding: 32px 4% 70px;
+    align-items: flex-start !important;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col {
+    display: block !important;
+    flex: 2;
+    min-width: 0;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-streams-col {
+    flex: 1;
+    min-width: 320px;
+    max-width: 400px;
+  }
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #servers-section {
+    display: block !important;
+    scroll-margin-top: 16px;
+  }
+}
