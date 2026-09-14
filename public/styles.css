@@ -7293,3 +7293,64 @@ body.mz-booting {
     gap: 10px !important;
   }
 }
+
+
+/* ============================================================
+   Película en modo Koi PC
+   Los servidores viven DENTRO de .mz-meta-col, y ese bloque
+   estaba oculto (pensado solo para series). Hay que mostrarlo.
+   Pegar al FINAL de styles.css
+   ============================================================ */
+@media (min-width: 1025px) {
+  /* Mostrar la columna donde está #servers-section */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-meta-col {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Ocultar lista de episodios en película */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-streams-col,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section {
+    display: none !important;
+  }
+
+  /* Servidores y descargas visibles */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
+    display: block !important;
+    padding: 28px 4% 40px !important;
+    background: #060913 !important;
+    margin: 0 !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section > h4,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section-title,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .servers-header h4 {
+    font-size: 1.45rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+    margin: 0 0 18px !important;
+    display: block !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container.servers-list {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Asegurar que botones de servidor se vean */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container .server-row,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container .server-btn,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container button {
+    display: flex !important;
+    visibility: visible !important;
+  }
+}
