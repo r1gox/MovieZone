@@ -35,7 +35,11 @@ function setKoiMode(item) {
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
   // Título de sección como Koiflix
   const h4 = document.querySelector("#seasons-section > h4");
-  if (h4) h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
+  const esPeliMode = item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+  if (h4) {
+    if (esPeliMode) h4.textContent = "Reproductores";
+    else h4.textContent = on ? "Episodios" : "Temporadas y Capítulos";
+  }
   try { bindKoiBackBtn(); } catch (_) {}
   return on;
 }
@@ -3422,6 +3426,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     }
     document.getElementById("servers-container").innerHTML = "";
     document.getElementById("seasons-section").classList.add("hidden");
+    document.getElementById("servers-section")?.classList.add("hidden");
+    try {
+      const _epc = document.getElementById("episodes-container");
+      if (_epc) _epc.innerHTML = "";
+      const _sec = document.getElementById("seasons-container");
+      if (_sec) _sec.innerHTML = "";
+    } catch (_) {}
     document.getElementById("downloads-section").classList.add("hidden");
 
     const _thinDetail = !item.descripcion || String(item.descripcion).trim().length < 20
@@ -3715,21 +3726,48 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       fillKoiHero(item);
     } catch (_) {}
 
-    const esSerieOAnime = item.tipo === "Serie" || item.tipo === "Anime";
-    if (esSerieOAnime && (Array.isArray(item.episodios) && item.episodios.length > 0 || Array.isArray(item.temporadas) && item.temporadas.length > 0 || Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)) {
-        document.getElementById("seasons-section").classList.remove("hidden");
+    const esSerieOAnime =
+      item.tipo === "Serie" ||
+      item.tipo === "Anime" ||
+      (typeof isSerieOrAnime === "function" && isSerieOrAnime(item));
+    const esPeli =
+      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")) ||
+      (!esSerieOAnime && !item.episodios);
+
+    const seasonsEl = document.getElementById("seasons-section");
+    const serversEl = document.getElementById("servers-section");
+    const epsCont = document.getElementById("episodes-container");
+    const seasonsCont = document.getElementById("seasons-container");
+
+    if (esSerieOAnime && !esPeli && (
+      (Array.isArray(item.episodios) && item.episodios.length > 0) ||
+      (Array.isArray(item.temporadas) && item.temporadas.length > 0) ||
+      (Array.isArray(item.temporadas_raw) && item.temporadas_raw.length > 0)
+    )) {
+        // Serie / anime: episodios sí, servidores no (van por capítulo)
+        if (serversEl) serversEl.classList.add("hidden");
+        if (seasonsEl) seasonsEl.classList.remove("hidden");
         renderTemporadas(item);
-        // Proveedores alternos (Doramasflix primero)
         cargarProveedoresAlternos(item).then(() => renderProveedorSwitcher(item)).catch(() => {});
-        // Anime largo: si el total parece cortado, refrescar meta (eps nuevos)
         if (item.tipo === "Anime" && item.slug) {
             refrescarTotalAnimeSiHaceFalta(item).catch(() => {});
         }
     } else {
-        // Película: mostrar streams sin autoplay (elige servidor)
-        document.getElementById("servers-section")?.classList.remove("hidden");
-        renderServidoresYDescargas(item.embeds, item.downloads, item.reproductor, item);
-        // no auto-reproducir: el usuario elige servidor
+        // Película (u otro sin episodios): limpiar episodios previos y mostrar servidores
+        if (seasonsEl) seasonsEl.classList.add("hidden");
+        if (epsCont) epsCont.innerHTML = "";
+        if (seasonsCont) seasonsCont.innerHTML = "";
+        // quitar switcher de proveedores de serie anterior
+        try {
+          const sw = document.getElementById("mz-proveedor-switcher");
+          if (sw) sw.innerHTML = "";
+        } catch (_) {}
+
+        if (serversEl) serversEl.classList.remove("hidden");
+        const embeds = item.embeds || item.reproductores || [];
+        const downloads = item.downloads || item.descargas || [];
+        renderServidoresYDescargas(embeds, downloads, item.reproductor, item);
+        // sin autoplay
     }
 }
 
