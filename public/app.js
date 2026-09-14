@@ -15,7 +15,7 @@ import { getCatalog, searchCatalog } from './js/data/catalogo.js';
 const KOI_MQ = window.matchMedia("(min-width: 1025px)");
 
 function isKoiDesktop() {
-  return KOI_MQ.matches;
+  return (typeof window !== "undefined" && window.innerWidth >= 1025) || KOI_MQ.matches;
 }
 
 function isSerieOrAnime(item) {
