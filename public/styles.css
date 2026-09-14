@@ -7268,3 +7268,28 @@ body.mz-booting {
   color: #cbd5e1;
 }
 
+
+/* Película en modo Koi PC: mostrar servidores (el CSS de series los oculta) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
+    display: block !important;
+    padding: 28px 4% 40px !important;
+    background: #060913 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section > h4,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section-title {
+    font-size: 1.45rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+    margin: 0 0 18px !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-container {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+}
