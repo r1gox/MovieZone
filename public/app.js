@@ -3369,7 +3369,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       const vc = document.getElementById("video-player-container");
       if (vc) {
         vc.classList.add("hidden");
-        // Solo en película dejamos el cuadro vacío visible vía CSS
+      }
+      // Scroll del detalle en el body interno
+      const db = document.querySelector("#details-panel .details-body");
+      if (db) {
+        db.style.overflowY = "auto";
+        db.style.webkitOverflowScrolling = "touch";
+        db.scrollTop = 0;
       }
     } catch (_) {}
     // Modo visual Koiflix solo PC + serie/anime
@@ -4973,10 +4979,14 @@ async function reproducir(embed, item) {
         const vc = document.getElementById("video-player-container") || videoContainer;
         if (!vc) return;
         vc.classList.remove("hidden");
-        const it = item || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
-        const esPeli = !!(it && /pel[ií]cula|movie|film/i.test(String(it.tipo || it.type || "")));
-        // Película: baja al cuadro del reproductor (abajo). Series: sube al player.
-        vc.scrollIntoView({ behavior: "smooth", block: esPeli ? "center" : "start" });
+        const db = document.querySelector("#details-panel .details-body");
+        if (db) {
+          // Mantener scroll dentro del panel (así se puede subir/bajar y ver info)
+          const top = vc.offsetTop - 12;
+          db.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        } else {
+          vc.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
       } catch (_) {
         try { videoContainer.scrollIntoView(true); } catch (__) {}
       }
