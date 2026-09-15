@@ -2134,6 +2134,12 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       actualizarBotonesEpPlayer();
 
       try {
+        if (typeof mzPushDetalleUrl === "function") {
+          mzPushDetalleUrl(item, seasonNum, epNum);
+        }
+      } catch (_) {}
+
+      try {
         function mzScrollAReproductores() {
           var srv = document.getElementById("servers-section");
           if (srv) {
