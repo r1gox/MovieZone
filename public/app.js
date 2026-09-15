@@ -1484,7 +1484,11 @@ function obtenerSiguienteEpisodioCtx(ctx) {
 async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
   let validos = embedsValidosDe(episodio);
   if (validos.length || (episodio.video && !esEmbedInvalido(episodio.video))) {
-    return { embeds: validos.length ? validos : (episodio.embeds || []), video: episodio.video };
+    return {
+      embeds: validos.length ? validos : (episodio.embeds || []),
+      video: episodio.video,
+      downloads: episodio.downloads || []
+    };
   }
   const sNum = Number(seasonNum || episodio?.season || episodio?.temporada || item?._seasonActiva || 1) || 1;
   const eNum = Number(epNum || episodio?.episode || episodio?.episodio || 0) || 0;
@@ -1492,23 +1496,57 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
   params.set("temporada", String(sNum));
   params.set("episodio", String(eNum));
   if (item.postId) params.set("postId", item.postId);
-  // Preferir link del episodio (fuentes con URL por capítulo)
   if (episodio && episodio.link) params.set("link", episodio.link);
   else if (item.link) params.set("link", item.link);
   if (item.slug) params.set("slug", item.slug);
-  if (item.source_id) params.set("source_id", item.source_id);
+  if (item.source_id) params.set("source_id", String(item.source_id));
   if (item.tipo) params.set("tipo", item.tipo);
+  if (item.url_extract && !item.link) params.set("link", item.url_extract);
+
   const controller = new AbortController();
   const to = setTimeout(() => controller.abort(), 45000);
   try {
-    const res = await fetch(`/api/capitulo?${params.toString()}`, { cache: "no-store", signal: controller.signal });
-    const data = await res.json();
-    if (data && data.embeds) episodio.embeds = data.embeds;
-    if (data && data.reproductores) episodio.embeds = data.reproductores;
-    if (data && data.video) episodio.video = data.video;
-    if (data && data.downloads) episodio.downloads = data.downloads;
+    const res = await fetch(`/api/capitulo?${params.toString()}`, {
+      cache: "no-store",
+      signal: controller.signal
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.warn("capitulo API:", res.status, data);
+      return { embeds: [], video: null, downloads: [] };
+    }
+    let embedsNuevos = normalizarEmbeds(
+      (Array.isArray(data.reproductores) && data.reproductores.length)
+        ? data.reproductores
+        : (data.embeds || [])
+    );
+    if (!embedsNuevos.length && data.reproductor && typeof data.reproductor === "string") {
+      embedsNuevos = [{ url: data.reproductor }];
+    }
+    if (typeof esUrlApiWorker === "function") {
+      embedsNuevos = embedsNuevos.filter((e) => e && e.url && !esUrlApiWorker(e.url));
+    }
+    episodio.embeds = embedsNuevos.map((e) => ({
+      ...e,
+      idioma: e.idioma || e.lang || null,
+      lang: e.lang || e.idioma || null,
+      server: e.server || e.servidor || e.name || null,
+      servidor: e.servidor || e.server || e.name || null,
+      stream_url: e.stream_url || (typeof streamUrlParaNoAds === "function" ? streamUrlParaNoAds(e.url) : null) || null
+    }));
+    if (data.video) episodio.video = data.video;
+    if (data.downloads || data.descargas) {
+      episodio.downloads = data.downloads || data.descargas || [];
+    }
     validos = embedsValidosDe(episodio);
-    return { embeds: validos.length ? validos : (episodio.embeds || []), video: episodio.video };
+    return {
+      embeds: validos.length ? validos : (episodio.embeds || []),
+      video: episodio.video || null,
+      downloads: episodio.downloads || []
+    };
+  } catch (err) {
+    console.error("asegurarEmbedsEpisodio:", err);
+    return { embeds: [], video: null, downloads: [] };
   } finally {
     clearTimeout(to);
   }
@@ -1914,19 +1952,40 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   renderMobileEpNumberGrid(item, seasonNum, epNum);
 
   // Cargar servidores (sin autoplay)
-  const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+  // Cargar servidores (sin autoplay) — siempre mostrar sección
+  const serversEl = document.getElementById("servers-section");
+  const serversContainer = document.getElementById("servers-container");
+  if (serversEl) serversEl.classList.remove("hidden");
+  if (serversContainer) {
+    serversContainer.innerHTML =
+      '<div class="loading-state"><div class="spinner"></div><p>Cargando servidores...</p></div>';
+  }
+
+  let pack = { embeds: [], downloads: [] };
+  try {
+    pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+  } catch (err) {
+    console.error("embeds ep móvil:", err);
+  }
+
   window.__mzMobileDownloads = episodio.downloads || pack.downloads || [];
-  renderServidoresYDescargas(
-    pack.embeds || [],
-    episodio.downloads || [],
-    null,
-    item,
-    { expandido: true, noAutoplay: true }
-  );
-  document.getElementById("servers-section")?.classList.remove("hidden");
-  // Descargas solo por el botón ↑ (no bloque "Opciones de descarga")
+  const lista = pack.embeds || [];
+  if (lista.length) {
+    renderServidoresYDescargas(
+      lista,
+      episodio.downloads || pack.downloads || [],
+      null,
+      item,
+      { expandido: true, noAutoplay: true }
+    );
+  } else if (serversContainer) {
+    serversContainer.innerHTML =
+      '<p style="color:var(--text-muted);padding:12px;">Este episodio aún no tiene servidores. Prueba otro o Actualizar.</p>';
+  }
+  if (serversEl) serversEl.classList.remove("hidden");
   document.getElementById("downloads-section")?.classList.add("hidden");
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+  
 
     // Si ya eligió un servidor (ej. VOE) en otro episodio → reutilizarlo
   try {
