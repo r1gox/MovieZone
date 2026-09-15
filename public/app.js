@@ -6112,13 +6112,67 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.className = "koi-server-chip" + (idTag === "lat" ? " is-dub" : idTag === "sub" ? " is-sub" : "");
             chip.dataset.index = String(idxp);
             if (mobileSrv) {
-                // Móvil: texto plano SUB / NO ADS / Voe en la misma fila
-                const langTxt = embed.noAds ? "" :
-                  (idTag === "lat" ? "DUB" : idTag === "sub" ? "SUB" : (embed.lang || embed.idioma || ""));
-                chip.classList.add("mz-mep-srv-chip");
-                chip.innerHTML =
-                  (langTxt ? `<span class="mz-mep-srv-lang">${escapeHtml(String(langTxt).toUpperCase())}</span>` : "") +
-                  `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
+                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
+                const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
+                const noAdsL = g.list.filter((e) => e && e.noAds);
+                const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+
+                const tabs = [];
+                if (dubL.length) tabs.push({ key: "dub", label: "DUB", list: dubL });
+                if (subL.length || noAdsL.length) {
+                  tabs.push({
+                    key: "sub",
+                    label: "SUB",
+                    list: [...noAdsL.filter((e) => idiomaDeEmbed(e) === "sub" || !idiomaDeEmbed(e)), ...subL]
+                  });
+                }
+                if (otherL.length || noAdsL.filter((e) => idiomaDeEmbed(e) !== "sub").length) {
+                  const rest = [
+                    ...noAdsL.filter((e) => idiomaDeEmbed(e) !== "sub"),
+                    ...otherL
+                  ];
+                  if (rest.length) tabs.push({ key: "oth", label: "Otros", list: rest });
+                }
+                if (!tabs.length) {
+                  tabs.push({ key: "all", label: "Todos", list: g.list.slice() });
+                }
+
+                const tabBar = document.createElement("div");
+                tabBar.className = "mz-mep-lang-tabs";
+                const panels = document.createElement("div");
+                panels.className = "mz-mep-lang-panels";
+
+                tabs.forEach((tab, i) => {
+                  const tbtn = document.createElement("button");
+                  tbtn.type = "button";
+                  tbtn.className = "mz-mep-lang-tab" + (i === 0 ? " active" : "");
+                  tbtn.textContent = tab.label + " (" + tab.list.length + ")";
+                  tbtn.dataset.tab = tab.key;
+
+                  const panel = document.createElement("div");
+                  panel.className = "mz-mep-lang-panel" + (i === 0 ? " active" : "");
+                  panel.dataset.tab = tab.key;
+
+                  const chips = document.createElement("div");
+                  chips.className = "koi-servers-chips mz-mep-srv-chips mz-mep-srv-scroll";
+                  tab.list.forEach((embed) => {
+                    const c = makeChip(embed);
+                    if (c) chips.appendChild(c);
+                  });
+                  panel.appendChild(chips);
+                  panels.appendChild(panel);
+
+                  tbtn.addEventListener("click", function () {
+                    tabBar.querySelectorAll(".mz-mep-lang-tab").forEach((b) => b.classList.remove("active"));
+                    panels.querySelectorAll(".mz-mep-lang-panel").forEach((p) => p.classList.remove("active"));
+                    tbtn.classList.add("active");
+                    panel.classList.add("active");
+                  });
+                  tabBar.appendChild(tbtn);
+                });
+
+                wrap.appendChild(tabBar);
+                wrap.appendChild(panels);
             } else {
                 chip.innerHTML = langBadge + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             }
