@@ -8821,3 +8821,46 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
   }
   .mz-mep-dl-arrow ion-icon { font-size: 20px; }
 }
+
+
+/* Descargas panel: título + filas alineadas */
+@media (max-width: 768px) {
+  .mz-mep-dl-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 0 0 10px;
+    padding: 0 2px;
+  }
+  .mz-mep-dl-item {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .mz-mep-dl-bits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Fondo detalle tipo morado transparente (también al ver episodio) */
+  body.details-open #details-panel {
+    background: rgba(20, 10, 35, 0.55) !important;
+  }
+  body.details-open #details-panel .mz-stremio-bg {
+    display: block !important;
+    opacity: 0.85 !important;
+    filter: blur(36px) saturate(1.25) brightness(0.55) !important;
+  }
+  body.mz-mobile-ep-playing #details-panel {
+    background: rgba(18, 8, 32, 0.72) !important;
+  }
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg {
+    display: block !important;
+    opacity: 0.75 !important;
+  }
+  body.mz-mobile-ep-playing .details-content {
+    background: transparent !important;
+  }
+}

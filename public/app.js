@@ -1576,7 +1576,7 @@ function renderMobileDownloadPanel(panel) {
   if (!panel) return;
   const list = Array.isArray(window.__mzMobileDownloads) ? window.__mzMobileDownloads : [];
   if (!list.length) {
-    panel.innerHTML = '<div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
     return;
   }
   function esc(s) {
@@ -1605,7 +1605,8 @@ function renderMobileDownloadPanel(panel) {
   function sizeOf(d) {
     return d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "";
   }
-  panel.innerHTML = list.map(function (d, i) {
+  panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div>' + list.map(function (d, i) {
+
     const url = d.url || d.link || d.href || "";
     if (!url) return "";
     const host = hostOf(d);
@@ -1721,6 +1722,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 
   document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
   document.body.classList.remove("koi-desktop", "koi-movie");
+  try { mzPushDetalleUrl(item, seasonNum, epNum); } catch (_) {}
 
   const chrome = ensureMobileEpChrome();
   chrome.nav.classList.remove("hidden");
@@ -3745,6 +3747,7 @@ function mostrarDetalleLoading(on) {
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
     seleccionActual = item;
+    try { if (typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item); } catch (_) {}
 
     detailsEmpty.classList.add("hidden");
     detailsContent.classList.remove("hidden");
@@ -4215,8 +4218,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     }
 }
 
-function cerrarDetalle() {
+function cerrarDetalle(fromPop) {
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    if (!fromPop) {
+      try { mzReplaceHomeUrl(); } catch (_) {}
+    }
     const bgImg = document.getElementById("mz-stremio-bg-img");
     if (bgImg) { bgImg.classList.remove("is-ready"); bgImg.removeAttribute("src"); }
 
@@ -6645,26 +6651,97 @@ try { bindKoiBackBtn(); } catch (_) {}
 
 
 
+
+/** Rutas amigables: /detalle/slug  |  /detalle/slug/1/2 */
+function mzSlugFromItem(item) {
+  if (!item) return "";
+  let s = item.slug || "";
+  if (!s && item.link) {
+    const m = String(item.link).match(/\/(?:pelicula|serie|anime|dorama)\/([^\/?#]+)/i);
+    if (m) s = m[1];
+  }
+  if (!s && item.nombre) s = String(item.nombre).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return String(s || "").replace(/^\/+|\/+$/g, "");
+}
+
+function mzBuildDetallePath(item, season, episode) {
+  const slug = mzSlugFromItem(item);
+  if (!slug) return "/";
+  const base = "/detalle/" + encodeURIComponent(slug);
+  const s = season != null && season !== "" ? Number(season) : null;
+  const e = episode != null && episode !== "" ? Number(episode) : null;
+  if (s != null && e != null && !isNaN(s) && !isNaN(e) && s >= 1 && e >= 1) {
+    return base + "/" + s + "/" + e;
+  }
+  return base;
+}
+
+function mzPushDetalleUrl(item, season, episode) {
+  try {
+    const path = mzBuildDetallePath(item, season, episode);
+    if (location.pathname === path) return;
+    history.pushState({ mz: "detalle", slug: mzSlugFromItem(item), season, episode }, "", path);
+  } catch (_) {}
+}
+
+function mzReplaceHomeUrl() {
+  try {
+    if (location.pathname !== "/" && location.pathname !== "") {
+      history.pushState({ mz: "home" }, "", "/");
+    }
+  } catch (_) {}
+}
+
+
 // ---------- Deep link: /serie/slug  |  /?id=  |  /?link= ----------
 (async function handleDeepLink() {
     try {
-        const pathM = location.pathname.match(
-            /^\/(serie|pelicula|anime)\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+        // /detalle/slug  |  /detalle/slug/1/2
+        let pathM = location.pathname.match(
+            /^\/detalle\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
         );
-        if (pathM) {
-            const tipoPath = pathM[1].toLowerCase();
-            let slug = pathM[2];
+        // Compat: /serie|anime|pelicula/slug[/s/e]
+        if (!pathM) {
+            pathM = location.pathname.match(
+                /^\/(serie|pelicula|anime)\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+            );
+            if (pathM) {
+                pathM = [pathM[0], pathM[2], pathM[3], pathM[4]];
+            }
+        } else {
+            pathM = [pathM[0], pathM[1], pathM[2], pathM[3]];
+        }
+
+        if (pathM && pathM[1]) {
+            let slug = pathM[1];
             try { slug = decodeURIComponent(slug); } catch (_) {}
-            const tipo =
-                tipoPath === "anime" ? "Anime" :
-                tipoPath === "serie" ? "Serie" : "Pelicula";
+            const season = pathM[2] ? parseInt(pathM[2], 10) : null;
+            const episode = pathM[3] ? parseInt(pathM[3], 10) : null;
             const q = new URLSearchParams();
             q.set("slug", slug);
-            q.set("tipo", tipo);
+            // sin forzar tipo: el API resuelve
             const res = await fetch("/api/detalle?" + q.toString());
             const item = await res.json();
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
                 await abrirDetalle(item);
+                if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
+                    // Esperar episodios y abrir vista (móvil o click)
+                    setTimeout(async () => {
+                        try {
+                            const ep = (item.episodios || []).find(function (x) {
+                                return Number(x.season || x.temporada || 1) === season &&
+                                  Number(x.episode || x.episodio || 0) === episode;
+                            }) || { season: season, episode: episode, nombre: "Episodio " + episode };
+                            if (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
+                                typeof abrirVistaMovilEpisodio === "function") {
+                                await abrirVistaMovilEpisodio(item, ep, season, episode);
+                            } else {
+                                const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
+                                if (btn) btn.click();
+                            }
+                        } catch (e) { console.warn("deep ep", e); }
+                    }, 600);
+                }
             }
             return;
         }
@@ -6679,6 +6756,20 @@ try { bindKoiBackBtn(); } catch (_) {}
         if (item && (item.nombre || item.link || item.slug)) abrirDetalle(item);
     } catch (e) { console.warn("Deep link:", e); }
 })();
+
+window.addEventListener("popstate", function () {
+  try {
+    const path = location.pathname || "/";
+    if (path === "/" || path === "") {
+      if (typeof cerrarDetalle === "function") cerrarDetalle(true);
+      return;
+    }
+    // Re-dispatch deep link without full reload
+    if (/^\/detalle\//i.test(path) || /^\/(serie|anime|pelicula)\//i.test(path)) {
+      location.reload();
+    }
+  } catch (_) {}
+});
 
 // ---------- Continuar viendo (localStorage) ----------
 let progresoTimer = null;
