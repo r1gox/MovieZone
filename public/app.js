@@ -5343,6 +5343,7 @@ function renderEpisodios(item, season = 1) {
     checkNuevoCapitulo(item);
     // Móvil: rejilla de números [1][2]… sin imágenes
     const mobileNums =
+      document.body.classList.contains("mz-mobile-ep-playing") &&
       typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
       typeof isSerieOrAnime === "function" && isSerieOrAnime(item);
     if (mobileNums) {
@@ -5399,9 +5400,27 @@ function renderEpisodios(item, season = 1) {
                 `<span class="koi-ep-name">T${season} · ${labelName}</span>` +
                 `</span>`;
         } else if (mobileCards) {
-            // Solo cuadrado + número (sin imagen ni T1 • E)
-            btn.textContent = String(num);
-            btn.classList.add("mz-ep-num-btn");
+            // Detalle (/detalle/slug): cards con imagen
+            // Vista episodio (/detalle/slug/s/e o mz-mobile-ep-playing): solo número
+            const epPlaying = document.body.classList.contains("mz-mobile-ep-playing");
+            if (epPlaying) {
+              btn.textContent = String(num);
+              btn.classList.add("mz-ep-num-btn");
+            } else {
+              const thumb =
+                  episodio.still ||
+                  episodio.portada ||
+                  episodio.imagen ||
+                  episodio.image ||
+                  episodio.thumbnail ||
+                  item.portada ||
+                  item.backdrop ||
+                  PLACEHOLDER;
+              const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+              btn.innerHTML =
+                  `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
+                  `<span class="mz-mep-label">T${sLab} • E${num}</span>`;
+            }
         } else {
             btn.textContent = num;
         }

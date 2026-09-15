@@ -8954,3 +8954,53 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     color: #fff !important;
   }
 }
+
+
+@media (max-width: 768px) {
+  /* Detalle: cards con imagen (2 columnas) */
+  body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px 10px !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
+    display: block !important;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #111;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
+    display: block !important;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e2e8f0;
+    padding: 0 2px;
+  }
+
+  /* Vista episodio: solo cuadritos numéricos */
+  body.mz-mobile-ep-playing #episodes-container.mz-ep-num-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+}
