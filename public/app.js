@@ -1956,10 +1956,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   const serversEl = document.getElementById("servers-section");
   const serversContainer = document.getElementById("servers-container");
   if (serversEl) serversEl.classList.remove("hidden");
-  if (serversContainer) {
-    serversContainer.innerHTML =
-      '<div class="loading-state"><div class="spinner"></div><p>Cargando servidores...</p></div>';
-  }
+  // Sin spinner: se rellena cuando lleguen los embeds
 
   let pack = { embeds: [], downloads: [] };
   try {
