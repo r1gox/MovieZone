@@ -5903,18 +5903,49 @@ function renderEpisodios(item, season = 1) {
 async function reproducir(embed, item) {
     if (!embed?.url && !embed?.stream_url) return;
 
-    // NO ADS: resuelve stream en vivo (caduca; no va a Supabase)
-    if (embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS") {
+    // Directos resueltos: NO ADS o chips de película con __directHls (StreamWish/VidHide)
+    // Series/anime: solo entra por noAds (como antes)
+    if (
+      embed.noAds ||
+      embed.__directHls ||
+      embed.server === "NO ADS" ||
+      embed.name === "NO ADS"
+    ) {
         try {
-            playerTitle.textContent = "Cargando NO ADS...";
+            const esNoAds = !!(embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS");
+            playerTitle.textContent = esNoAds
+              ? "Cargando NO ADS..."
+              : "Resolviendo servidor…";
             videoContainer.classList.remove("hidden");
+            if (!embed.stream_url && typeof streamUrlParaNoAds === "function") {
+              embed = {
+                ...embed,
+                stream_url: streamUrlParaNoAds(embed.url || embed.sourceEmbed)
+              };
+            }
             const playUrl = await resolverPlayUrlNoAds(embed);
             await reproducirHlsNoAds(playUrl, item);
         } catch (err) {
-            console.error("NO ADS:", err);
-            alert("NO ADS no disponible: " + (err.message || err));
+            console.error("Directo HLS:", err);
+            if (embed.__directHls && embed.url) {
+              // fallback iframe solo si era StreamWish/VidHide directo de película
+            } else {
+              alert("Directo no disponible: " + (err.message || err));
+              return;
+            }
         }
-        return;
+        // Si el video HLS quedó visible, no abrir iframe
+        try {
+          const vid = document.getElementById("player-video");
+          if (vid && !vid.classList.contains("hidden")) return;
+        } catch (_) {}
+        if (embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS") return;
+        if (embed.__directHls && !embed.url) return;
+        if (embed.__directHls && embed.url) {
+          // sigue al iframe de abajo como respaldo
+        } else {
+          return;
+        }
     }
 
     destruirHls();
