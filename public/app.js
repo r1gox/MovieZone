@@ -1635,11 +1635,22 @@ function renderMobileDownloadPanel(panel) {
   function sizeOf(d) {
     return String(d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "").slice(0, 16);
   }
-  if (!list.length) {
-    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    if (!list.length) {
+    panel.innerHTML =
+      '<div class="mz-mep-dl-title-row">' +
+      '<div class="mz-mep-dl-title">Descargas</div>' +
+      '<button type="button" class="mz-mep-dl-close" id="mz-mep-dl-close" aria-label="Cerrar">×</button>' +
+      '</div>' +
+      '<div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    bindMobileDlClose(panel);
     return;
   }
-  let html = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-list">';
+  let html =
+    '<div class="mz-mep-dl-title-row">' +
+    '<div class="mz-mep-dl-title">Descargas</div>' +
+    '<button type="button" class="mz-mep-dl-close" id="mz-mep-dl-close" aria-label="Cerrar">×</button>' +
+    '</div>' +
+    '<div class="mz-mep-dl-list">';
   for (let i = 0; i < list.length; i++) {
     const d = list[i] || {};
     const url = d.url || d.link || d.href || "";
@@ -1659,8 +1670,25 @@ function renderMobileDownloadPanel(panel) {
   }
   html += "</div>";
   panel.innerHTML = html;
+  bindMobileDlClose(panel);
 }
 
+
+
+function bindMobileDlClose(panel) {
+  const btn = panel && panel.querySelector("#mz-mep-dl-close");
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = "1";
+  btn.addEventListener("click", function (ev) {
+    try {
+      ev.preventDefault();
+      ev.stopPropagation();
+    } catch (_) {}
+    const p = document.getElementById("mz-mep-dl-panel");
+    if (p) p.classList.add("hidden");
+    document.body.classList.remove("mz-mep-dl-open");
+  });
+}
 
 function actualizarMobileEpNav(ctx) {
   const prev = document.getElementById("mz-mep-prev");
