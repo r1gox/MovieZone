@@ -5,79 +5,28 @@
 
 @media (max-width: 768px) {
 
-  /* ---------- 1) Auto arriba izquierda ---------- */
+  /* Auto: esquina superior izquierda (más arriba) */
   .mz-ep-controls {
-    left: 10px !important;
+    left: 8px !important;
     right: auto !important;
-    top: 56px !important;
+    top: 8px !important;
     bottom: auto !important;
     gap: 8px !important;
     align-items: flex-start !important;
+    z-index: 100060 !important;
   }
   .video-player-container.is-fullscreen .mz-ep-controls {
-    left: max(12px, env(safe-area-inset-left)) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
     right: auto !important;
-    top: max(56px, env(safe-area-inset-top)) !important;
+    top: max(8px, env(safe-area-inset-top)) !important;
     bottom: auto !important;
   }
 
-  /* ---------- 2) Detalle: fondo API (no transparente / no imagen de inicio) ---------- */
-  body.details-open #details-panel {
-    background: #0e0e14 !important; /* base sólida: no se ve el home detrás */
-  }
-  body.details-open #details-panel .mz-stremio-bg {
-    display: block !important;
-    opacity: 1 !important;
-    filter: none !important;
-    transform: none !important;
-    background-color: #0e0e14 !important;
-  }
-  body.details-open #details-panel .mz-stremio-bg-img {
-    opacity: 0.45 !important; /* imagen de la API visible */
-    object-fit: cover !important;
-    object-position: center center !important;
-  }
-  body.details-open #details-panel .mz-stremio-bg-img.is-ready {
-    opacity: 0.45 !important;
-  }
-  body.details-open #details-panel .modal-backdrop-close {
-    background: transparent !important;
-    backdrop-filter: none !important;
-  }
-  body.details-open .details-content,
-  body.details-open .details-body {
-    background: transparent !important; /* deja ver el bg API */
+  /* FIX DOBLE TOQUE: overlay que bloqueaba el primer touch del player */
+  .mz-scroll-catch {
+    pointer-events: none !important;
   }
 
-  /* Al VER episodio: fondo sólido oscuro (como series PC) */
-  body.mz-mobile-ep-playing #details-panel {
-    background: #060913 !important;
-  }
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg {
-    display: none !important;
-  }
-  body.mz-mobile-ep-playing .details-content,
-  body.mz-mobile-ep-playing .details-body {
-    background: #060913 !important;
-  }
-
-  /* Botón retroceder arriba izquierda al ver episodio */
-  body.mz-mobile-ep-playing .btn-close-modal {
-    display: flex !important;
-    pointer-events: auto !important;
-    position: fixed !important;
-    top: max(12px, env(safe-area-inset-top)) !important;
-    left: 12px !important;
-    right: auto !important;
-    z-index: 100100 !important;
-    width: 42px !important;
-    height: 42px !important;
-    border-radius: 50% !important;
-    background: rgba(0, 0, 0, 0.65) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  }
-
-  /* ---------- 3) Player: menos toques para play/pause ---------- */
   body.player-open {
     touch-action: manipulation !important;
   }
@@ -89,7 +38,6 @@
     -webkit-tap-highlight-color: transparent !important;
     pointer-events: auto !important;
   }
-  /* Quitar capas que “comen” el primer toque sobre el video */
   body.mz-mobile-ep-playing .video-player-container .player-header {
     pointer-events: none !important;
   }
@@ -102,46 +50,96 @@
   body.mz-mobile-ep-playing .mz-ep-controls .mz-ep-btn {
     pointer-events: auto !important;
   }
-  /* Evitar que el backdrop del modal capture toques del player */
   body.mz-mobile-ep-playing #details-panel .modal-backdrop-close {
     pointer-events: none !important;
   }
 
-  /* ---------- 4) Panel descargas: título + botón cerrar a la derecha ---------- */
+  /* Detalle: fondo API (no home detrás) */
+  body.details-open #details-panel {
+    background: #0e0e14 !important;
+  }
+  body.details-open #details-panel .mz-stremio-bg {
+    display: block !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  body.details-open #details-panel .mz-stremio-bg-img,
+  body.details-open #details-panel .mz-stremio-bg-img.is-ready {
+    opacity: 0.45 !important;
+    object-fit: cover !important;
+    object-position: center center !important;
+  }
+  body.details-open .details-content,
+  body.details-open .details-body {
+    background: transparent !important;
+  }
+
+  /* Viendo episodio: fondo sólido */
+  body.mz-mobile-ep-playing #details-panel {
+    background: #060913 !important;
+  }
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing .details-content,
+  body.mz-mobile-ep-playing .details-body {
+    background: #060913 !important;
+  }
+
+  /* Ocultar X de cerrar detalle al ver episodio */
+  body.mz-mobile-ep-playing .btn-close-modal {
+    display: none !important;
+  }
+
+  /* Botón RETROCEDER (no cierra del todo) — arriba izquierda */
+  #mz-mep-back {
+    display: none;
+  }
+  body.mz-mobile-ep-playing #mz-mep-back {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    top: max(10px, env(safe-area-inset-top)) !important;
+    left: 10px !important;
+    z-index: 100120 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    color: #fff !important;
+    font-size: 22px !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+  }
+
+  /* Panel descargas: título + cerrar a la derecha */
   .mz-mep-dl-title-row {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     gap: 10px !important;
     margin: 0 0 10px !important;
-    padding: 0 2px !important;
   }
   .mz-mep-dl-title-row .mz-mep-dl-title {
     margin: 0 !important;
-    padding: 0 !important;
     font-size: 15px !important;
     font-weight: 800 !important;
     color: #f8fafc !important;
   }
   .mz-mep-dl-close {
-    flex-shrink: 0 !important;
     width: 36px !important;
     height: 36px !important;
     border-radius: 50% !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    background: rgba(255,255,255,0.08) !important;
     color: #f8fafc !important;
     font-size: 20px !important;
-    font-weight: 700 !important;
-    line-height: 1 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    padding: 0 !important;
-  }
-  .mz-mep-dl-close:active {
-    transform: scale(0.95);
-    background: rgba(255, 255, 255, 0.15) !important;
   }
 }
