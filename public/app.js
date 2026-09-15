@@ -1536,9 +1536,9 @@ function ensureMobileEpChrome() {
     nav.className = "mz-mobile-ep-nav hidden";
     nav.innerHTML =
       '<button type="button" class="mz-mep-nav-btn" id="mz-mep-prev" aria-label="Anterior">&lt; Anterior</button>' +
+      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">Siguiente &gt;</button>' +
       '<button type="button" class="mz-mep-nav-btn mz-mep-dl-btn" id="mz-mep-download" aria-label="Descargas" title="Descargas">' +
       '<ion-icon name="download-outline"></ion-icon></button>' +
-      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">Siguiente &gt;</button>' +
       '<div id="mz-mep-dl-panel" class="mz-mep-dl-panel hidden"></div>';
     const vc = document.getElementById("video-player-container");
     if (vc && vc.parentNode) vc.parentNode.insertBefore(nav, vc.nextSibling);
@@ -1579,14 +1579,52 @@ function renderMobileDownloadPanel(panel) {
     panel.innerHTML = '<div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
     return;
   }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/</g, "").replace(/"/g, "");
+  }
+  function langOf(d) {
+    const raw = String(d.lang || d.idioma || d.language || d.lang_code || "").toLowerCase();
+    if (/lat|latino|dub|dobl/.test(raw)) return "DUB";
+    if (/sub|subt/.test(raw)) return "SUB";
+    if (/eng|ingl/.test(raw)) return "ENG";
+    if (raw) return raw.slice(0, 6).toUpperCase();
+    return "";
+  }
+  function hostOf(d) {
+    const name = d.name || d.server || d.servidor || d.host || "";
+    if (name) return String(name);
+    try {
+      const u = d.url || d.link || "";
+      if (u) return new URL(u).hostname.replace(/^www\./, "");
+    } catch (_) {}
+    return "Descarga";
+  }
+  function qualityOf(d) {
+    return d.calidad || d.quality || d.resolution || d.res || d.formato || "";
+  }
+  function sizeOf(d) {
+    return d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "";
+  }
   panel.innerHTML = list.map(function (d, i) {
-    const name = d.name || d.server || d.servidor || d.calidad || ("Opción " + (i + 1));
     const url = d.url || d.link || d.href || "";
     if (!url) return "";
-    return '<a class="mz-mep-dl-item" href="' + String(url).replace(/"/g, "") +
-      '" target="_blank" rel="noopener noreferrer">' +
-      '<ion-icon name="arrow-down-circle-outline"></ion-icon> ' +
-      String(name).replace(/</g, "") + "</a>";
+    const host = hostOf(d);
+    const lang = langOf(d);
+    const q = qualityOf(d);
+    const sz = sizeOf(d);
+    const bits = [];
+    if (lang) bits.push('<span class="mz-mep-dl-tag">' + esc(lang) + "</span>");
+    if (q) bits.push('<span class="mz-mep-dl-meta">' + esc(q) + "</span>");
+    if (sz) bits.push('<span class="mz-mep-dl-meta">' + esc(sz) + "</span>");
+    return (
+      '<a class="mz-mep-dl-item" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<div class="mz-mep-dl-info">' +
+          '<div class="mz-mep-dl-host">' + esc(host) + "</div>" +
+          (bits.length ? '<div class="mz-mep-dl-bits">' + bits.join("") + "</div>" : "") +
+        "</div>" +
+        '<span class="mz-mep-dl-arrow" aria-hidden="true"><ion-icon name="download-outline"></ion-icon></span>' +
+      "</a>"
+    );
   }).filter(Boolean).join("") || '<div class="mz-mep-dl-empty">No hay descargas</div>';
 }
 
@@ -1765,7 +1803,8 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
     { expandido: true, noAutoplay: true }
   );
   document.getElementById("servers-section")?.classList.remove("hidden");
-  // cerrar panel dl al cambiar ep
+  // Descargas solo por el botón ↑ (no bloque "Opciones de descarga")
+  document.getElementById("downloads-section")?.classList.add("hidden");
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
 
   try {
@@ -5979,6 +6018,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
     const downloads = Array.isArray(downloadsRaw) ? downloadsRaw : [];
     window.__mzMobileDownloads = downloads;
+    if (document.body.classList.contains("mz-mobile-ep-playing")) {
+      try { document.getElementById("downloads-section")?.classList.add("hidden"); } catch (_) {}
+    }
+
 
 
 

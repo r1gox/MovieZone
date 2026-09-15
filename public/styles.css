@@ -8674,10 +8674,13 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
 @media (max-width: 768px) {
   body.mz-mobile-ep-playing .mz-mobile-ep-nav {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 1fr 1fr auto;
     gap: 8px;
     align-items: center;
     position: relative;
+  }
+  body.mz-mobile-ep-playing #downloads-section {
+    display: none !important;
   }
   .mz-mep-dl-btn {
     width: 44px;
@@ -8768,4 +8771,53 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     margin-right: 4px;
     opacity: 0.9;
   }
+}
+
+@media (max-width: 768px) {
+  .mz-mep-dl-item {
+    justify-content: space-between;
+  }
+  .mz-mep-dl-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  .mz-mep-dl-host {
+    font-weight: 800;
+    font-size: 14px;
+    color: #f8fafc;
+  }
+  .mz-mep-dl-bits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .mz-mep-dl-tag {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #2563eb;
+    color: #fff;
+  }
+  .mz-mep-dl-meta {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .mz-mep-dl-arrow {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(167, 139, 250, 0.15);
+    color: #c4b5fd;
+  }
+  .mz-mep-dl-arrow ion-icon { font-size: 20px; }
 }
