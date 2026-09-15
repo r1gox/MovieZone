@@ -5341,7 +5341,19 @@ function renderEpisodios(item, season = 1) {
         return;
     }
     checkNuevoCapitulo(item);
-    // #episodes-container ya tiene class episodes-grid (no anidar otro)
+    // Móvil: rejilla de números [1][2]… sin imágenes
+    const mobileNums =
+      typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
+      typeof isSerieOrAnime === "function" && isSerieOrAnime(item);
+    if (mobileNums) {
+      episodesContainer.classList.add("mz-ep-num-grid");
+      episodesContainer.classList.remove("episodes-grid");
+    } else {
+      episodesContainer.classList.remove("mz-ep-num-grid");
+      if (!episodesContainer.classList.contains("episodes-grid")) {
+        episodesContainer.classList.add("episodes-grid");
+      }
+    }
     lista.forEach((episodio, index) => {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
@@ -5387,19 +5399,9 @@ function renderEpisodios(item, season = 1) {
                 `<span class="koi-ep-name">T${season} · ${labelName}</span>` +
                 `</span>`;
         } else if (mobileCards) {
-            const thumb =
-                episodio.still ||
-                episodio.portada ||
-                episodio.imagen ||
-                episodio.image ||
-                episodio.thumbnail ||
-                item.portada ||
-                item.backdrop ||
-                PLACEHOLDER;
-            const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
-            btn.innerHTML =
-                `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
-                `<span class="mz-mep-label">T${sLab} • E${num}</span>`;
+            // Solo cuadrado + número (sin imagen ni T1 • E)
+            btn.textContent = String(num);
+            btn.classList.add("mz-ep-num-btn");
         } else {
             btn.textContent = num;
         }
