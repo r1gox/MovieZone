@@ -5636,13 +5636,14 @@ function renderEpisodios(item, season = 1) {
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
             const thumb =
+                episodio.backdrop ||
                 episodio.still ||
-                episodio.portada ||
                 episodio.imagen ||
                 episodio.image ||
                 episodio.thumbnail ||
-                item.portada ||
                 item.backdrop ||
+                episodio.portada ||
+                item.portada ||
                 PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
@@ -5667,13 +5668,14 @@ function renderEpisodios(item, season = 1) {
               btn.classList.add("mz-ep-num-btn");
             } else {
               const thumb =
+                  episodio.backdrop ||
                   episodio.still ||
-                  episodio.portada ||
                   episodio.imagen ||
                   episodio.image ||
                   episodio.thumbnail ||
-                  item.portada ||
                   item.backdrop ||
+                  episodio.portada ||
+                  item.portada ||
                   PLACEHOLDER;
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
@@ -6966,11 +6968,7 @@ function mzBuildDetallePath(item, season, episode) {
   const slug = mzSlugFromItem(item);
   if (!slug) return "/";
   const base = "/detalle/" + encodeURIComponent(slug);
-  // Episodio en URL solo en móvil
-  const mobile =
-    (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
-    (typeof window !== "undefined" && window.innerWidth <= 768);
-  if (!mobile) return base;
+  // PC y móvil: /detalle/slug/temporada/episodio
   const s = season != null && season !== "" ? Number(season) : null;
   const e = episode != null && episode !== "" ? Number(episode) : null;
   if (s != null && e != null && !isNaN(s) && !isNaN(e) && s >= 1 && e >= 1) {
