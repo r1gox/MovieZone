@@ -1304,9 +1304,8 @@ function itemTieneVideo(item) {
 }
 
 // Mapa de dominios conocidos -> nombre bonito
-// Mapa de dominios conocidos -> nombre bonito
 const SERVIDORES_CONOCIDOS = {
-    "goodstream.one": "Goodstream", "goodstream.uno": "Goodstream",
+    "goodstream.one": "GoodstreamOne", "goodstream.uno": "GoodstreamOne",
     "vimeos.net": "MovieZone",
     "voe.sx": "Voe",
     "doodstream.com": "Doodstream", "dood.to": "Doodstream", "dood.wf": "Doodstream", "dood.la": "Doodstream",
@@ -1323,52 +1322,25 @@ const SERVIDORES_CONOCIDOS = {
     "vidmoly.me": "Vidmoly", "vidmoly.to": "Vidmoly",
     "mp4upload.com": "Mp4Upload",
     "waaw.to": "Waaw", "netu.tv": "Waaw",
-    "mega.nz": "Mega", "mega.co.nz": "Mega", "mega.io": "Mega",
+    "mega.nz": "Mega",
     "drive.google.com": "Google Drive",
     "mediafire.com": "Mediafire",
     "pixeldrain.com": "Pixeldrain",
-    "1fichier.com": "1Fichier",
-    "upnshare.com": "UPNShare", "upn.share": "UPNShare"
+    "1fichier.com": "1Fichier"
 };
 
 function detectarServidor(url, serverOriginal) {
-    const u = String(url || "");
     let host = "";
-    try { host = new URL(u).hostname.toLowerCase().replace(/^www\./, ""); }
-    catch { /* ignore */ }
+    try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ""); }
+    catch { return serverOriginal || "Servidor"; }
 
     for (const dominio in SERVIDORES_CONOCIDOS) {
         if (host === dominio || host.endsWith("." + dominio)) return SERVIDORES_CONOCIDOS[dominio];
     }
+    const generico = ["online", "server", "servidor", ""].includes((serverOriginal || "").toLowerCase().trim());
+    if (serverOriginal && !generico) return serverOriginal;
 
-    // StreamWish y mirrors
-    if (/streamwish|flaswish|strwish|ahvsh|streamhg|swhoi|wishfast|embedwish|playerwish/i.test(host + " " + u)) {
-        return "StreamWish";
-    }
-    // Voe mirrors
-    if (/voe|jilliandescribe/i.test(host + " " + u)) return "Voe";
-    // HLS / m3u8
-    if (/\.m3u8(\?|$)/i.test(u) || /\bhls\b/i.test(String(serverOriginal || ""))) return "HLS";
-    // Mp4
-    if (/\.mp4(\?|$)/i.test(u)) return "Mp4Upload";
-    // UPNShare
-    if (/upnshare|upn\.?share/i.test(host + " " + u + " " + String(serverOriginal || ""))) return "UPNShare";
-    // Mega
-    if (/mega\.(nz|io|co)/i.test(host + u)) return "Mega";
-
-    const so = String(serverOriginal || "").trim();
-    const generico = ["online", "server", "servidor", "desconocido", "unknown", ""].includes(so.toLowerCase());
-    if (so && !generico) {
-        if (/stream\s*wish|streamwish/i.test(so)) return "StreamWish";
-        if (/^voe$/i.test(so)) return "Voe";
-        if (/hls|m3u8/i.test(so)) return "HLS";
-        if (/upn/i.test(so)) return "UPNShare";
-        if (/mega/i.test(so)) return "Mega";
-        if (/mp4/i.test(so)) return "Mp4Upload";
-        return so;
-    }
-
-    const base = host ? host.split(".")[0] : "";
+    const base = host.split(".")[0];
     return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Servidor";
 }
 
@@ -1663,22 +1635,11 @@ function renderMobileDownloadPanel(panel) {
   function sizeOf(d) {
     return String(d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "").slice(0, 16);
   }
-    if (!list.length) {
-    panel.innerHTML =
-      '<div class="mz-mep-dl-title-row">' +
-      '<div class="mz-mep-dl-title">Descargas</div>' +
-      '<button type="button" class="mz-mep-dl-close" id="mz-mep-dl-close" aria-label="Cerrar">×</button>' +
-      '</div>' +
-      '<div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
-    bindMobileDlClose(panel);
+  if (!list.length) {
+    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
     return;
   }
-  let html =
-    '<div class="mz-mep-dl-title-row">' +
-    '<div class="mz-mep-dl-title">Descargas</div>' +
-    '<button type="button" class="mz-mep-dl-close" id="mz-mep-dl-close" aria-label="Cerrar">×</button>' +
-    '</div>' +
-    '<div class="mz-mep-dl-list">';
+  let html = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-list">';
   for (let i = 0; i < list.length; i++) {
     const d = list[i] || {};
     const url = d.url || d.link || d.href || "";
@@ -1698,25 +1659,8 @@ function renderMobileDownloadPanel(panel) {
   }
   html += "</div>";
   panel.innerHTML = html;
-  bindMobileDlClose(panel);
 }
 
-
-
-function bindMobileDlClose(panel) {
-  const btn = panel && panel.querySelector("#mz-mep-dl-close");
-  if (!btn || btn.dataset.bound) return;
-  btn.dataset.bound = "1";
-  btn.addEventListener("click", function (ev) {
-    try {
-      ev.preventDefault();
-      ev.stopPropagation();
-    } catch (_) {}
-    const p = document.getElementById("mz-mep-dl-panel");
-    if (p) p.classList.add("hidden");
-    document.body.classList.remove("mz-mep-dl-open");
-  });
-}
 
 function actualizarMobileEpNav(ctx) {
   const prev = document.getElementById("mz-mep-prev");
@@ -3646,35 +3590,29 @@ heroInfoBtn.addEventListener("click", () => {
 // ======================================================
 async function cargarHome() {
     if (typeof setBootLoading === "function") setBootLoading(true);
-    console.log("🟢 Iniciando cargarHome()");
+    console.log('🟢 Iniciando cargarHome()');
     try {
-        console.log("🟡 Cargando estrenos (películas, series y anime)...");
+        console.log('🟡 Cargando estrenos (películas, series y anime)...');
 
-        const ctrl = new AbortController();
-        const to = setTimeout(() => ctrl.abort(), 15000);
-
+        // Películas destacadas + hero = estrenos de la API
         const results = await Promise.allSettled([
-            fetch("/api/estrenos?tipo=peliculas&limit=24", {
-                cache: "no-store",
-                signal: ctrl.signal,
-            }).then((r) => r.json()),
+            fetch('/api/estrenos?tipo=peliculas&limit=24', { cache: 'no-store' }).then(r => r.json()),
             fetchSeccion("series", 1, 12),
-            fetchSeccion("anime", 1, 12),
+            fetchSeccion("anime", 1, 12)
         ]);
-        clearTimeout(to);
 
-        const estrenosData =
-            results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
+        const estrenosData = results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
         const peliculas = estrenosData.resultados || [];
-        const series = results[1].status === "fulfilled" ? results[1].value : [];
-        const anime = results[2].status === "fulfilled" ? results[2].value : [];
+        const series    = results[1].status === "fulfilled" ? results[1].value : [];
+        const anime     = results[2].status === "fulfilled" ? results[2].value : [];
 
-        console.log("✅ Datos:", {
+        console.log('✅ Datos:', {
             peliculas: peliculas.length,
             series: series.length,
-            anime: anime.length,
+            anime: anime.length
         });
 
+        // Destacadas = estrenos
         const destacadas = peliculas.slice(0, 12);
         renderCarousel("carousel-movies", destacadas);
         renderCarousel("carousel-series", series);
@@ -3683,23 +3621,27 @@ async function cargarHome() {
         cargarRecienAnadidos();
         cargarMiLista();
         cargarPorqueViste();
-        cargarMoodsHome(peliculas, series, anime);
+        // peliculas, series, anime = variables que ya armas en cargarHome
+        cargarMoodsHome(
+          typeof peliculas !== "undefined" ? peliculas : [],
+          typeof series !== "undefined" ? series : [],
+          typeof anime !== "undefined" ? anime : []
+        );
+
+        // Hero ("Película recomendada") también con estrenos
         iniciarHero(peliculas.length ? peliculas : series);
 
         statusBadge.classList.remove("offline");
         statusBadge.classList.add("online");
         statusBadge.querySelector(".status-text").textContent = "Online";
-        console.log("✅ Home cargado (estrenos)");
-    } catch (err) {
-        console.error("❌ Error en cargarHome:", err);
-        try {
-            statusBadge.classList.remove("online");
-            statusBadge.classList.add("offline");
-            statusBadge.querySelector(".status-text").textContent = "Offline";
-        } catch (_) {}
-    } finally {
-        // SIEMPRE quitar el loading de la página
+        console.log('✅ Home cargado (estrenos)');
         if (typeof setBootLoading === "function") setBootLoading(false);
+    } catch (err) {
+        if (typeof setBootLoading === "function") setBootLoading(false);
+        console.error('❌ Error en cargarHome:', err);
+        statusBadge.classList.remove("online");
+        statusBadge.classList.add("offline");
+        statusBadge.querySelector(".status-text").textContent = "Offline";
     }
 }
 
@@ -6028,11 +5970,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         const makeChip = (embed) => {
             if (!embed || !embed.url) return null;
             let idxp = flatForPlay.indexOf(embed);
-            if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }              
-          const nombre = embed.noAds
+            if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }
+            const nombre = embed.noAds
                 ? "NO ADS"
                 : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
-            // (ya limpia StreamWish, Voe, HLS, UPNShare, Mega, Mp4Upload)
             const idTag = idiomaDeEmbed(embed);
             let langBadge = "";
             if (!embed.noAds) {
@@ -6082,43 +6023,34 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
                 const noAdsL = g.list.filter((e) => e && e.noAds);
                 const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-                                // Filas: SUB | DUB | DES  → luego chips (NO ADS, Voe, HLS, …)
-                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
-                const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
-                const desL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-                const noAdsL = g.list.filter((e) => e && e.noAds);
-
-                // NO ADS va primero en la fila de su idioma; si no tiene idioma → DES
-                const noAdsSub = noAdsL.filter((e) => idiomaDeEmbed(e) === "sub");
-                const noAdsDub = noAdsL.filter((e) => idiomaDeEmbed(e) === "lat");
-                const noAdsDes = noAdsL.filter((e) => idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-
                 const rows = [
-                  { key: "sub", label: "SUB", list: [...noAdsSub, ...subL] },
-                  { key: "dub", label: "DUB", list: [...noAdsDub, ...dubL] },
-                  { key: "des", label: "DES", list: [...noAdsDes, ...desL] }
+                  { key: "sub", label: "SUB", list: [...noAdsL.filter(e => idiomaDeEmbed(e) === "sub"), ...subL] },
+                  { key: "dub", label: "DUB", list: dubL },
+                  { key: "oth", label: "", list: [...noAdsL.filter(e => idiomaDeEmbed(e) !== "sub"), ...otherL] }
                 ];
-                // Si hay NO ADS sin idioma y no hay DES aún, meterlos en DES
-                if (noAdsL.length && !noAdsSub.length && !noAdsDub.length && !noAdsDes.length) {
-                  rows[2].list = [...noAdsL, ...rows[2].list];
+                // NO ADS sin idioma → fila propia al inicio de SUB o OTH
+                if (noAdsL.length && !subL.length) {
+                  rows[0].list = [...noAdsL, ...rows[0].list];
                 }
-
                 rows.forEach((row) => {
                   if (!row.list.length) return;
                   const rowEl = document.createElement("div");
                   rowEl.className = "mz-mep-srv-row";
-                  const tag = document.createElement("span");
-                  tag.className = "mz-mep-srv-row-tag" +
-                    (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : " is-des");
-                  tag.textContent = row.label;
-                  rowEl.appendChild(tag);
+                  if (row.label) {
+                    const tag = document.createElement("span");
+                    tag.className = "mz-mep-srv-row-tag" + (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : "");
+                    tag.textContent = row.label;
+                    rowEl.appendChild(tag);
+                  }
                   const chips = document.createElement("div");
                   chips.className = "koi-servers-chips mz-mep-srv-chips";
                   row.list.forEach((embed) => {
+                    // En fila SUB/DUB no repetir badge de idioma en cada chip
                     const c = makeChip(embed);
                     if (!c) return;
-                    // El idioma ya va en la etiqueta de fila (SUB/DUB/DES)
-                    c.querySelector(".mz-mep-srv-lang")?.remove();
+                    if (row.label) {
+                      c.querySelector(".mz-mep-srv-lang")?.remove();
+                    }
                     chips.appendChild(c);
                   });
                   rowEl.appendChild(chips);
@@ -7024,7 +6956,8 @@ async function cargarRecienAnadidos() {
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWor
+    ker.register("/sw.js").catch(() => {});
 }
 
 
