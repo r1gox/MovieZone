@@ -1304,8 +1304,9 @@ function itemTieneVideo(item) {
 }
 
 // Mapa de dominios conocidos -> nombre bonito
+// Mapa de dominios conocidos -> nombre bonito
 const SERVIDORES_CONOCIDOS = {
-    "goodstream.one": "GoodstreamOne", "goodstream.uno": "GoodstreamOne",
+    "goodstream.one": "Goodstream", "goodstream.uno": "Goodstream",
     "vimeos.net": "MovieZone",
     "voe.sx": "Voe",
     "doodstream.com": "Doodstream", "dood.to": "Doodstream", "dood.wf": "Doodstream", "dood.la": "Doodstream",
@@ -1322,25 +1323,52 @@ const SERVIDORES_CONOCIDOS = {
     "vidmoly.me": "Vidmoly", "vidmoly.to": "Vidmoly",
     "mp4upload.com": "Mp4Upload",
     "waaw.to": "Waaw", "netu.tv": "Waaw",
-    "mega.nz": "Mega",
+    "mega.nz": "Mega", "mega.co.nz": "Mega", "mega.io": "Mega",
     "drive.google.com": "Google Drive",
     "mediafire.com": "Mediafire",
     "pixeldrain.com": "Pixeldrain",
-    "1fichier.com": "1Fichier"
+    "1fichier.com": "1Fichier",
+    "upnshare.com": "UPNShare", "upn.share": "UPNShare"
 };
 
 function detectarServidor(url, serverOriginal) {
+    const u = String(url || "");
     let host = "";
-    try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ""); }
-    catch { return serverOriginal || "Servidor"; }
+    try { host = new URL(u).hostname.toLowerCase().replace(/^www\./, ""); }
+    catch { /* ignore */ }
 
     for (const dominio in SERVIDORES_CONOCIDOS) {
         if (host === dominio || host.endsWith("." + dominio)) return SERVIDORES_CONOCIDOS[dominio];
     }
-    const generico = ["online", "server", "servidor", ""].includes((serverOriginal || "").toLowerCase().trim());
-    if (serverOriginal && !generico) return serverOriginal;
 
-    const base = host.split(".")[0];
+    // StreamWish y mirrors
+    if (/streamwish|flaswish|strwish|ahvsh|streamhg|swhoi|wishfast|embedwish|playerwish/i.test(host + " " + u)) {
+        return "StreamWish";
+    }
+    // Voe mirrors
+    if (/voe|jilliandescribe/i.test(host + " " + u)) return "Voe";
+    // HLS / m3u8
+    if (/\.m3u8(\?|$)/i.test(u) || /\bhls\b/i.test(String(serverOriginal || ""))) return "HLS";
+    // Mp4
+    if (/\.mp4(\?|$)/i.test(u)) return "Mp4Upload";
+    // UPNShare
+    if (/upnshare|upn\.?share/i.test(host + " " + u + " " + String(serverOriginal || ""))) return "UPNShare";
+    // Mega
+    if (/mega\.(nz|io|co)/i.test(host + u)) return "Mega";
+
+    const so = String(serverOriginal || "").trim();
+    const generico = ["online", "server", "servidor", "desconocido", "unknown", ""].includes(so.toLowerCase());
+    if (so && !generico) {
+        if (/stream\s*wish|streamwish/i.test(so)) return "StreamWish";
+        if (/^voe$/i.test(so)) return "Voe";
+        if (/hls|m3u8/i.test(so)) return "HLS";
+        if (/upn/i.test(so)) return "UPNShare";
+        if (/mega/i.test(so)) return "Mega";
+        if (/mp4/i.test(so)) return "Mp4Upload";
+        return so;
+    }
+
+    const base = host ? host.split(".")[0] : "";
     return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Servidor";
 }
 
@@ -5998,10 +6026,11 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         const makeChip = (embed) => {
             if (!embed || !embed.url) return null;
             let idxp = flatForPlay.indexOf(embed);
-            if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }
-            const nombre = embed.noAds
+            if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }              
+          const nombre = embed.noAds
                 ? "NO ADS"
                 : detectarServidor(embed.url, embed.server || embed.servidor || embed.name);
+            // (ya limpia StreamWish, Voe, HLS, UPNShare, Mega, Mp4Upload)
             const idTag = idiomaDeEmbed(embed);
             let langBadge = "";
             if (!embed.noAds) {
@@ -6051,34 +6080,43 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
                 const noAdsL = g.list.filter((e) => e && e.noAds);
                 const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+                                // Filas: SUB | DUB | DES  → luego chips (NO ADS, Voe, HLS, …)
+                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
+                const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
+                const desL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+                const noAdsL = g.list.filter((e) => e && e.noAds);
+
+                // NO ADS va primero en la fila de su idioma; si no tiene idioma → DES
+                const noAdsSub = noAdsL.filter((e) => idiomaDeEmbed(e) === "sub");
+                const noAdsDub = noAdsL.filter((e) => idiomaDeEmbed(e) === "lat");
+                const noAdsDes = noAdsL.filter((e) => idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+
                 const rows = [
-                  { key: "sub", label: "SUB", list: [...noAdsL.filter(e => idiomaDeEmbed(e) === "sub"), ...subL] },
-                  { key: "dub", label: "DUB", list: dubL },
-                  { key: "oth", label: "", list: [...noAdsL.filter(e => idiomaDeEmbed(e) !== "sub"), ...otherL] }
+                  { key: "sub", label: "SUB", list: [...noAdsSub, ...subL] },
+                  { key: "dub", label: "DUB", list: [...noAdsDub, ...dubL] },
+                  { key: "des", label: "DES", list: [...noAdsDes, ...desL] }
                 ];
-                // NO ADS sin idioma → fila propia al inicio de SUB o OTH
-                if (noAdsL.length && !subL.length) {
-                  rows[0].list = [...noAdsL, ...rows[0].list];
+                // Si hay NO ADS sin idioma y no hay DES aún, meterlos en DES
+                if (noAdsL.length && !noAdsSub.length && !noAdsDub.length && !noAdsDes.length) {
+                  rows[2].list = [...noAdsL, ...rows[2].list];
                 }
+
                 rows.forEach((row) => {
                   if (!row.list.length) return;
                   const rowEl = document.createElement("div");
                   rowEl.className = "mz-mep-srv-row";
-                  if (row.label) {
-                    const tag = document.createElement("span");
-                    tag.className = "mz-mep-srv-row-tag" + (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : "");
-                    tag.textContent = row.label;
-                    rowEl.appendChild(tag);
-                  }
+                  const tag = document.createElement("span");
+                  tag.className = "mz-mep-srv-row-tag" +
+                    (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : " is-des");
+                  tag.textContent = row.label;
+                  rowEl.appendChild(tag);
                   const chips = document.createElement("div");
                   chips.className = "koi-servers-chips mz-mep-srv-chips";
                   row.list.forEach((embed) => {
-                    // En fila SUB/DUB no repetir badge de idioma en cada chip
                     const c = makeChip(embed);
                     if (!c) return;
-                    if (row.label) {
-                      c.querySelector(".mz-mep-srv-lang")?.remove();
-                    }
+                    // El idioma ya va en la etiqueta de fila (SUB/DUB/DES)
+                    c.querySelector(".mz-mep-srv-lang")?.remove();
                     chips.appendChild(c);
                   });
                   rowEl.appendChild(chips);
