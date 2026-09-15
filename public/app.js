@@ -6006,7 +6006,14 @@ async function reproducir(embed, item) {
         // Overlay sobre el iframe: captura rueda (el iframe no burbujea wheel)
         if (!vc._mzWheelBound) {
           vc._mzWheelBound = true;
-          const bindOverlay = () => {
+          const bindOverlay = () => {              
+            // No cubrir el player HLS (<video>)
+              const vidEl = document.getElementById("player-video");
+              if (vidEl && !vidEl.classList.contains("hidden")) {
+                const old = vc.querySelector(".mz-scroll-catch");
+                if (old) { old.style.pointerEvents = "none"; old.style.display = "none"; }
+                return;
+              }
             const wrap = vc.querySelector(".player-iframe-wrapper") || vc;
             let ov = vc.querySelector(".mz-scroll-catch");
             if (!ov) {
