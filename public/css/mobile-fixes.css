@@ -95,7 +95,73 @@
   /* Botón RETROCEDER (no cierra del todo) — arriba izquierda */
   #mz-mep-back {
     display: none;
+
+       /* Ocultar año / fecha / géneros en vista episodio (siguen en detalle) */
+  body.mz-mobile-ep-playing .meta-item.year,
+  body.mz-mobile-ep-playing #details-year,
+  body.mz-mobile-ep-playing #details-release-wrap,
+  body.mz-mobile-ep-playing #details-genres,
+  body.mz-mobile-ep-playing #details-original-title {
+    display: none !important;
   }
+  /* Dejar visibles: rating IMDb, duración, estado */
+  body.mz-mobile-ep-playing #details-rating-wrap,
+  body.mz-mobile-ep-playing #details-runtime-wrap,
+  body.mz-mobile-ep-playing .meta-item.rating,
+  body.mz-mobile-ep-playing .meta-item.runtime,
+  body.mz-mobile-ep-playing #details-status-wrap {
+    display: inline-flex !important;
+  }
+
+  /* Flechas Anterior / Siguiente / Descarga más premium */
+  body.mz-mobile-ep-playing .mz-mobile-ep-nav {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr auto !important;
+    gap: 10px !important;
+    padding: 10px 0 14px !important;
+    align-items: stretch !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)) !important;
+    color: #f8fafc !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn ion-icon {
+    font-size: 20px !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn:active {
+    transform: scale(0.98);
+    background: rgba(168, 85, 247, 0.25) !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn.is-disabled,
+  body.mz-mobile-ep-playing .mz-mep-nav-btn:disabled {
+    opacity: 0.35 !important;
+    pointer-events: none !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-dl-btn {
+    width: 48px !important;
+    min-width: 48px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(168, 85, 247, 0.45) !important;
+    background: rgba(168, 85, 247, 0.2) !important;
+    color: #e9d5ff !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-dl-btn ion-icon {
+    font-size: 22px !important;
+  }
+  }
+
+   
   body.mz-mobile-ep-playing #mz-mep-back {
     display: flex !important;
     align-items: center !important;
