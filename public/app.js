@@ -1533,11 +1533,14 @@ function ensureMobileEpChrome() {
   if (!nav) {
     nav = document.createElement("div");
     nav.id = "mz-mobile-ep-nav";
-    nav.className = "mz-mobile-ep-nav hidden";
+    nav.className = "mz-mobile-ep-nav hidden";    
     nav.innerHTML =
-      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-prev" aria-label="Anterior">&lt; Anterior</button>' +
-      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">Siguiente &gt;</button>' +
-      '<button type="button" class="mz-mep-nav-btn mz-mep-dl-btn" id="mz-mep-download" aria-label="Descargas" title="Descargas">↓</button>';
+      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-prev" aria-label="Anterior">' +
+        '<ion-icon name="chevron-back-outline"></ion-icon><span>Anterior</span></button>' +
+      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">' +
+        '<span>Siguiente</span><ion-icon name="chevron-forward-outline"></ion-icon></button>' +
+      '<button type="button" class="mz-mep-nav-btn mz-mep-dl-btn" id="mz-mep-download" aria-label="Descargas" title="Descargas">' +
+        '<ion-icon name="download-outline"></ion-icon></button>';
     const vc = document.getElementById("video-player-container");
     if (vc && vc.parentNode) vc.parentNode.insertBefore(nav, vc.nextSibling);
     else document.querySelector(".mz-meta-col")?.appendChild(nav);
@@ -1759,6 +1762,43 @@ function renderMobileEpNumberGrid(item, seasonNum, epNum) {
   });
 }
 
+function aplicarServidorPreferido(embeds, item) {
+  const pref = window.__mzPreferredServer;
+  if (!pref || !Array.isArray(embeds) || !embeds.length) return false;
+  const name = String(pref.name || "").toLowerCase();
+  let match = null;
+  for (let i = 0; i < embeds.length; i++) {
+    const e = embeds[i];
+    if (!e || !e.url) continue;
+    if (pref.noAds && e.noAds) { match = e; break; }
+    const n = String(
+      detectarServidor(e.url, e.server || e.servidor || e.name) || ""
+    ).toLowerCase();
+    if (!n || (name && n.indexOf(name) === -1 && name.indexOf(n) === -1)) continue;
+    if (pref.lang && typeof idiomaDeEmbed === "function") {
+      if (idiomaDeEmbed(e) !== pref.lang) continue;
+    }
+    match = e;
+    break;
+  }
+  if (!match) return false;
+  try {
+    document.querySelectorAll(".koi-server-chip.active, .mz-mep-srv-chip.active")
+      .forEach((c) => c.classList.remove("active"));
+  } catch (_) {}
+  try {
+    const chips = document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip");
+    chips.forEach((c) => {
+      const txt = (c.textContent || "").toLowerCase();
+      if (name && txt.indexOf(name) !== -1) c.classList.add("active");
+    });
+  } catch (_) {}
+  try {
+    if (typeof reproducir === "function") reproducir(match, item);
+  } catch (_) {}
+  return true;
+}
+
 async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   if (!item || !isMobileSerieEpUI(item)) return false;
   seasonNum = Number(seasonNum || episodio?.season || 1) || 1;
@@ -1858,6 +1898,17 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   // Descargas solo por el botón ↑ (no bloque "Opciones de descarga")
   document.getElementById("downloads-section")?.classList.add("hidden");
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+
+    // Si ya eligió un servidor (ej. VOE) en otro episodio → reutilizarlo
+  try {
+    const lista = pack.embeds || [];
+    if (window.__mzPreferredServer && typeof aplicarServidorPreferido === "function") {
+      setTimeout(function () {
+        aplicarServidorPreferido(lista, item);
+      }, 120);
+    }
+  } catch (_) {}
+  
 
   try {
     requestAnimationFrame(function () {
@@ -6042,7 +6093,22 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             } else {
                 chip.innerHTML = langBadge + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             }
-            chip.addEventListener("click", () => reproducir(embed, item));
+
+          
+          chip.addEventListener("click", () => {
+              try {
+                const nombre = detectarServidor(
+                  embed.url,
+                  embed.server || embed.servidor || embed.name
+                );
+                window.__mzPreferredServer = {
+                  name: String(nombre || "").toLowerCase(),
+                  lang: typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null,
+                  noAds: !!embed.noAds
+                };
+              } catch (_) {}
+              reproducir(embed, item);
+            });
             return chip;
         };
 
