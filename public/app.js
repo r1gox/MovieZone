@@ -5024,7 +5024,18 @@ function renderEpisodios(item, season = 1) {
         const num = episodioNumero(episodio, index);
         const epNombre = episodio.nombre || `Episodio ${num}`;
         const koiCards = isKoiDesktop() && isSerieOrAnime(item);
-        btn.className = "episode-btn" + (index === 0 ? " active" : "") + (koiCards ? " koi-ep-card" : "");
+        // Móvil: cards con imagen + T1 • E1 (no altera PC)
+        const mobileCards =
+          !koiCards &&
+          typeof isSerieOrAnime === "function" &&
+          isSerieOrAnime(item) &&
+          typeof isMobileEpRangesUI === "function" &&
+          isMobileEpRangesUI();
+        btn.className =
+          "episode-btn" +
+          (index === 0 ? " active" : "") +
+          (koiCards ? " koi-ep-card" : "") +
+          (mobileCards ? " mz-mobile-ep-card" : "");
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
@@ -5038,7 +5049,6 @@ function renderEpisodios(item, season = 1) {
                 item.backdrop ||
                 PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
-            // Nombre limpio: evitar "T1E01" crudo si hay nombre mejor
             let labelName = String(epNombre || "").replace(/</g, "");
             if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
               labelName = "Episodio " + num;
@@ -5052,6 +5062,20 @@ function renderEpisodios(item, season = 1) {
                 `<span class="koi-ep-series">${safeSeries}</span>` +
                 `<span class="koi-ep-name">T${season} · ${labelName}</span>` +
                 `</span>`;
+        } else if (mobileCards) {
+            const thumb =
+                episodio.still ||
+                episodio.portada ||
+                episodio.imagen ||
+                episodio.image ||
+                episodio.thumbnail ||
+                item.portada ||
+                item.backdrop ||
+                PLACEHOLDER;
+            const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            btn.innerHTML =
+                `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
+                `<span class="mz-mep-label">T${sLab} • E${num}</span>`;
         } else {
             btn.textContent = num;
         }
