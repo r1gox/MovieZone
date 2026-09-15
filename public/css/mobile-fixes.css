@@ -233,4 +233,181 @@
     flex: 1 !important;
   }
 
+
+     /* ===== Panel descargas más limpio + X ===== */
+  #mz-mep-dl-panel.mz-mep-dl-panel {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    z-index: 100200 !important;
+    max-height: 55vh !important;
+    overflow-y: auto !important;
+    padding: 14px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: rgba(12, 10, 22, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 -12px 40px rgba(0,0,0,0.55) !important;
+  }
+  .mz-mep-dl-title-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin: 0 0 12px !important;
+  }
+  .mz-mep-dl-title-row .mz-mep-dl-title {
+    margin: 0 !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: #f8fafc !important;
+  }
+  .mz-mep-dl-close {
+    flex-shrink: 0 !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    background: rgba(255,255,255,0.08) !important;
+    color: #f8fafc !important;
+    font-size: 22px !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+  }
+  .mz-mep-dl-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .mz-mep-dl-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    background: rgba(255,255,255,0.05) !important;
+    text-decoration: none !important;
+    color: #f1f5f9 !important;
+  }
+  .mz-mep-dl-item:active {
+    background: rgba(168, 85, 247, 0.2) !important;
+  }
+  .mz-mep-dl-info {
+    min-width: 0 !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .mz-mep-dl-host {
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    color: #f8fafc !important;
+  }
+  .mz-mep-dl-meta-line {
+    font-size: 12px !important;
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+  }
+  .mz-mep-dl-arrow {
+    flex-shrink: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(168, 85, 247, 0.22) !important;
+    border: 1px solid rgba(168, 85, 247, 0.4) !important;
+    color: #e9d5ff !important;
+  }
+  .mz-mep-dl-arrow ion-icon {
+    font-size: 20px !important;
+  }
+  .mz-mep-dl-empty {
+    color: #94a3b8 !important;
+    font-size: 13px !important;
+    text-align: center !important;
+    padding: 16px 8px !important;
+  }
+
+  /* ===== Reproductores / Directos más limpios ===== */
+  body.mz-mobile-ep-playing #servers-section {
+    margin: 8px 0 16px !important;
+    padding: 0 2px !important;
+  }
+  body.mz-mobile-ep-playing .koi-servers-block.mz-mep-srv-block {
+    margin: 0 0 18px !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.03) !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-block .koi-servers-title {
+    margin: 0 0 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: #cbd5e1 !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row:last-child {
+    margin-bottom: 0 !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row-tag {
+    flex-shrink: 0 !important;
+    min-width: 40px !important;
+    margin-top: 6px !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    text-align: center !important;
+    background: rgba(255,255,255,0.08) !important;
+    color: #94a3b8 !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row-tag.is-sub {
+    background: rgba(37, 99, 235, 0.25) !important;
+    color: #93c5fd !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row-tag.is-dub {
+    background: rgba(22, 163, 74, 0.25) !important;
+    color: #86efac !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-chips {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    flex: 1 !important;
+  }
+  body.mz-mobile-ep-playing .koi-server-chip.mz-mep-srv-chip {
+    padding: 10px 12px !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: rgba(255,255,255,0.06) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+  }
+  body.mz-mobile-ep-playing .koi-server-chip.mz-mep-srv-chip.active {
+    border-color: rgba(168, 85, 247, 0.7) !important;
+    background: rgba(168, 85, 247, 0.22) !important;
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.35) !important;
+  }
 } /* fin @media */
