@@ -1537,9 +1537,7 @@ function ensureMobileEpChrome() {
     nav.innerHTML =
       '<button type="button" class="mz-mep-nav-btn" id="mz-mep-prev" aria-label="Anterior">&lt; Anterior</button>' +
       '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">Siguiente &gt;</button>' +
-      '<button type="button" class="mz-mep-nav-btn mz-mep-dl-btn" id="mz-mep-download" aria-label="Descargas" title="Descargas">' +
-      '<ion-icon name="download-outline"></ion-icon></button>' +
-      '<div id="mz-mep-dl-panel" class="mz-mep-dl-panel hidden"></div>';
+      '<button type="button" class="mz-mep-nav-btn mz-mep-dl-btn" id="mz-mep-download" aria-label="Descargas" title="Descargas">↓</button>';
     const vc = document.getElementById("video-player-container");
     if (vc && vc.parentNode) vc.parentNode.insertBefore(nav, vc.nextSibling);
     else document.querySelector(".mz-meta-col")?.appendChild(nav);
@@ -1556,31 +1554,63 @@ function ensureMobileEpChrome() {
     if (srv && srv.parentNode) srv.parentNode.insertBefore(watch, srv.nextSibling);
     else document.querySelector(".mz-meta-col")?.appendChild(watch);
   }
+  // Panel de descargas en body (evita freeze del nav)
+  let panel = document.getElementById("mz-mep-dl-panel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "mz-mep-dl-panel";
+    panel.className = "mz-mep-dl-panel hidden";
+    document.body.appendChild(panel);
+  }
   // Bind descarga (una vez)
   const dlBtn = document.getElementById("mz-mep-download");
   if (dlBtn && !dlBtn.dataset.bound) {
     dlBtn.dataset.bound = "1";
-    dlBtn.addEventListener("click", function () {
-      const panel = document.getElementById("mz-mep-dl-panel");
-      if (!panel) return;
-      panel.classList.toggle("hidden");
-      if (!panel.classList.contains("hidden")) {
-        renderMobileDownloadPanel(panel);
+    let lastToggle = 0;
+    dlBtn.addEventListener("click", function (ev) {
+      try {
+        ev.preventDefault();
+        ev.stopPropagation();
+      } catch (_) {}
+      const now = Date.now();
+      if (now - lastToggle < 280) return; // anti double-tap freeze
+      lastToggle = now;
+      const p = document.getElementById("mz-mep-dl-panel");
+      if (!p) return;
+      const opening = p.classList.contains("hidden");
+      if (opening) {
+        renderMobileDownloadPanel(p);
+        p.classList.remove("hidden");
+        document.body.classList.add("mz-mep-dl-open");
+      } else {
+        p.classList.add("hidden");
+        document.body.classList.remove("mz-mep-dl-open");
       }
-    });
+    }, { passive: false });
+    // Cerrar al tocar fuera
+    if (!document.body.dataset.mzDlOutside) {
+      document.body.dataset.mzDlOutside = "1";
+      document.addEventListener("click", function (ev) {
+        const p = document.getElementById("mz-mep-dl-panel");
+        const btn = document.getElementById("mz-mep-download");
+        if (!p || p.classList.contains("hidden")) return;
+        if (p.contains(ev.target) || (btn && btn.contains(ev.target))) return;
+        p.classList.add("hidden");
+        document.body.classList.remove("mz-mep-dl-open");
+      }, true);
+    }
   }
   return { nav, watch };
 }
 
 function renderMobileDownloadPanel(panel) {
   if (!panel) return;
-  const list = Array.isArray(window.__mzMobileDownloads) ? window.__mzMobileDownloads : [];
-  if (!list.length) {
-    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
-    return;
-  }
+  const list = Array.isArray(window.__mzMobileDownloads) ? window.__mzMobileDownloads.slice(0, 40) : [];
   function esc(s) {
-    return String(s == null ? "" : s).replace(/</g, "").replace(/"/g, "");
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/"/g, "&quot;");
   }
   function langOf(d) {
     const raw = String(d.lang || d.idioma || d.language || d.lang_code || "").toLowerCase();
@@ -1592,42 +1622,45 @@ function renderMobileDownloadPanel(panel) {
   }
   function hostOf(d) {
     const name = d.name || d.server || d.servidor || d.host || "";
-    if (name) return String(name);
+    if (name) return String(name).slice(0, 28);
     try {
       const u = d.url || d.link || "";
-      if (u) return new URL(u).hostname.replace(/^www\./, "");
+      if (u) return new URL(u).hostname.replace(/^www\./, "").slice(0, 28);
     } catch (_) {}
     return "Descarga";
   }
   function qualityOf(d) {
-    return d.calidad || d.quality || d.resolution || d.res || d.formato || "";
+    return String(d.calidad || d.quality || d.resolution || d.res || d.formato || "").slice(0, 16);
   }
   function sizeOf(d) {
-    return d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "";
+    return String(d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "").slice(0, 16);
   }
-  panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div>' + list.map(function (d, i) {
-
+  if (!list.length) {
+    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    return;
+  }
+  let html = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-list">';
+  for (let i = 0; i < list.length; i++) {
+    const d = list[i] || {};
     const url = d.url || d.link || d.href || "";
-    if (!url) return "";
+    if (!url || !/^https?:\/\//i.test(String(url))) continue;
     const host = hostOf(d);
     const lang = langOf(d);
     const q = qualityOf(d);
     const sz = sizeOf(d);
-    const bits = [];
-    if (lang) bits.push('<span class="mz-mep-dl-tag">' + esc(lang) + "</span>");
-    if (q) bits.push('<span class="mz-mep-dl-meta">' + esc(q) + "</span>");
-    if (sz) bits.push('<span class="mz-mep-dl-meta">' + esc(sz) + "</span>");
-    return (
-      '<a class="mz-mep-dl-item" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
-        '<span class="mz-mep-dl-host">' + esc(host) + "</span>" +
-        (lang ? '<span class="mz-mep-dl-tag">' + esc(lang) + "</span>" : '<span class="mz-mep-dl-tag mz-mep-dl-tag-empty"></span>') +
-        (q ? '<span class="mz-mep-dl-meta">' + esc(q) + "</span>" : '<span class="mz-mep-dl-meta"></span>') +
-        (sz ? '<span class="mz-mep-dl-meta mz-mep-dl-size">' + esc(sz) + "</span>" : '<span class="mz-mep-dl-meta mz-mep-dl-size"></span>') +
-        '<span class="mz-mep-dl-arrow" aria-hidden="true"><ion-icon name="download-outline"></ion-icon></span>' +
-      "</a>"
-    );
-  }).filter(Boolean).join("") || '<div class="mz-mep-dl-empty">No hay descargas</div>';
+    html +=
+      '<a class="mz-mep-dl-item" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer nofollow" data-mz-dl="1">' +
+      '<span class="mz-mep-dl-host">' + esc(host) + "</span>" +
+      (lang ? '<span class="mz-mep-dl-tag">' + esc(lang) + "</span>" : '<span class="mz-mep-dl-tag mz-mep-dl-tag-empty"></span>') +
+      '<span class="mz-mep-dl-meta">' + esc(q) + "</span>" +
+      '<span class="mz-mep-dl-meta mz-mep-dl-size">' + esc(sz) + "</span>" +
+      '<span class="mz-mep-dl-arrow">↓</span>' +
+      "</a>";
+  }
+  html += "</div>";
+  panel.innerHTML = html;
 }
+
 
 function actualizarMobileEpNav(ctx) {
   const prev = document.getElementById("mz-mep-prev");
@@ -6931,3 +6964,34 @@ if ("serviceWorker" in navigator) {
 window.asegurarEmbedsEpisodio = asegurarEmbedsEpisodio;
 window.streamUrlParaNoAds = streamUrlParaNoAds;
 window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
+
+
+/** Al volver de una pestaña de descarga: descongelar UI */
+(function mzRestoreAfterExternal() {
+  function restore() {
+    try {
+      const p = document.getElementById("mz-mep-dl-panel");
+      if (p) p.classList.add("hidden");
+      document.body.classList.remove("mz-mep-dl-open");
+      // Forzar repaint (iOS a veces deja capa negra)
+      const panel = document.getElementById("details-panel");
+      if (panel && !panel.classList.contains("hidden")) {
+        panel.style.transform = "translateZ(0)";
+        requestAnimationFrame(function () {
+          panel.style.transform = "";
+        });
+      }
+      document.body.style.pointerEvents = "";
+      document.documentElement.style.pointerEvents = "";
+    } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") restore();
+  });
+  window.addEventListener("pageshow", function (ev) {
+    restore();
+  });
+  window.addEventListener("focus", function () {
+    setTimeout(restore, 50);
+  });
+})();

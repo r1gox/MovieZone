@@ -9004,3 +9004,46 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     gap: 8px !important;
   }
 }
+
+
+@media (max-width: 768px) {
+  /* Panel descargas fijo (no dentro del nav → menos freezes) */
+  #mz-mep-dl-panel.mz-mep-dl-panel {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    max-height: min(52vh, 420px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    z-index: 100050 !important;
+    background: #121826 !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 14px !important;
+    padding: 12px !important;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.55) !important;
+    overscroll-behavior: contain;
+  }
+  #mz-mep-dl-panel.hidden {
+    display: none !important;
+    pointer-events: none !important;
+  }
+  body.mz-mep-dl-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 100040;
+    background: rgba(0,0,0,0.35);
+    pointer-events: auto;
+  }
+  .mz-mep-dl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mz-mep-dl-item {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
