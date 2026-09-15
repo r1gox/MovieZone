@@ -6111,6 +6111,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.type = "button";
             chip.className = "koi-server-chip" + (idTag === "lat" ? " is-dub" : idTag === "sub" ? " is-sub" : "");
             chip.dataset.index = String(idxp);
+                        
             if (mobileSrv) {
                 const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
                 const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
