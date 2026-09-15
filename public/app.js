@@ -6183,8 +6183,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         const flatForPlay = [];
         if (noAds) flatForPlay.push(noAds);
               
-      // Directos: NO ADS + StreamWish + VidHide (con stream_url)
-        // Voe NUNCA en Directos → solo Reproductores  
+        // Como en series:
+        // Reproductores = todos los embeds (iframe): StreamWish, VidHide, Voe…
+        // Directos = NO ADS + StreamWish/VidHide con stream (NO Voe)
         const isVoe = (e) => {
           if (!e) return false;
           const u = String(e.url || "").toLowerCase();
@@ -6192,28 +6193,27 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           return /voe|jilliandescribe/.test(u + " " + s);
         };
 
-        const isDirect = (e) => {
-          if (!e) return false;
-          if (isVoe(e)) return false;
-          if (e.noAds === true) return true;
-          if (e.stream_url) return true;
-          const u = String(e.url || "");
-          if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
-          if (e.direct === true || e.is_direct === true) return true;
-          return false;
-        };
-
         const allList = [];
         seccionesRender.forEach((sec) => {
-            (sec.list || []).forEach((embed) => {
-                if (!embed || !embed.url) return;
-                if (!allList.includes(embed)) allList.push(embed);
-            });
+          (sec.list || []).forEach((embed) => {
+            if (!embed || !embed.url) return;
+            if (!allList.includes(embed)) allList.push(embed);
+          });
         });
         if (noAds && !allList.includes(noAds)) allList.unshift(noAds);
 
-        let dirs = allList.filter((e) => isDirect(e));
-        let reps = allList.filter((e) => !isDirect(e));
+        // Reproductores: TODO lo que no sea NO ADS (aunque tenga stream_url)
+        let reps = allList.filter((e) => e && !e.noAds);
+
+        // Directos: NO ADS + los que tienen stream resoluble, excepto Voe
+        let dirs = [];
+        if (noAds) dirs.push(noAds);
+        allList.forEach((e) => {
+          if (!e || e.noAds) return;
+          if (isVoe(e)) return;
+          if (e.stream_url || e.direct || e.is_direct) dirs.push(e);
+          else if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(String(e.url || ""))) dirs.push(e);
+        });
 
         const groups = [];
         if (reps.length) groups.push({ label: "Reproductores", list: reps });
