@@ -4588,13 +4588,21 @@ function normalizarListaTemporadas(item) {
 }
 
 /** Rangos de episodios (animes largos tipo One Piece) — bloques de 50 */
+function isMobileEpRangesUI() {
+  try {
+    return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+  } catch (_) {
+    return typeof window !== "undefined" && window.innerWidth <= 768;
+  }
+}
+
 function construirRangosEpisodios(total, step = 50) {
     const t = parseInt(total, 10) || 0;
     if (t < 1) return [];
     const out = [];
     for (let i = 1; i <= t; i += step) {
         const hasta = Math.min(i + step - 1, t);
-        out.push({ desde: i, hasta, label: `${i} - ${hasta}` });
+        out.push({ desde: i, hasta, label: `${i}–${hasta}` });
     }
     return out;
 }
@@ -4696,20 +4704,32 @@ function renderTemporadas(item) {
         if (!item._epRangoActivo) {
             item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
         }
-        const h4 = document.querySelector("#seasons-section > h4");
-        if (h4) h4.textContent = "Episodios";
-        tabsContainer.className = "seasons-tabs mz-ep-range-tabs";
-        tabsContainer.innerHTML = rangos.map((r, i) => {
-            const act = item._epRangoActivo
-                && item._epRangoActivo.desde === r.desde
-                && item._epRangoActivo.hasta === r.hasta;
-            const lab = r.label || (r.desde + " - " + r.hasta);
-            return `<button type="button" class="season-tab mz-ep-range-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}" aria-label="Episodios ${lab}">${lab}</button>`;
-        }).join("");
+        // UI de rangos "1 - 50" solo móvil; en PC se mantiene el markup anterior
+        const mobile = typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI();
+        if (mobile) {
+            const h4 = document.querySelector("#seasons-section > h4");
+            if (h4) h4.textContent = "Episodios";
+            tabsContainer.className = "seasons-tabs mz-ep-range-tabs";
+            tabsContainer.innerHTML = rangos.map((r, i) => {
+                const act = item._epRangoActivo
+                    && item._epRangoActivo.desde === r.desde
+                    && item._epRangoActivo.hasta === r.hasta;
+                const lab = r.label || (r.desde + " - " + r.hasta);
+                return `<button type="button" class="season-tab mz-ep-range-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}" aria-label="Episodios ${lab}">${lab}</button>`;
+            }).join("");
+        } else {
+            tabsContainer.className = "seasons-tabs";
+            tabsContainer.innerHTML = rangos.map((r, i) => {
+                const act = item._epRangoActivo
+                    && item._epRangoActivo.desde === r.desde
+                    && item._epRangoActivo.hasta === r.hasta;
+                return `<button class="season-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}">${r.label || (r.desde + "–" + r.hasta)}</button>`;
+            }).join("");
+        }
     } else {
         tabsContainer.className = "seasons-tabs";
         tabsContainer.innerHTML = listaTemp.map((t, i) =>
-            `<button type="button" class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
+            `<button class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
         ).join("");
     }
 

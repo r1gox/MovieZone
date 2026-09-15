@@ -8457,52 +8457,44 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
 }
 
 
-/* Rangos de episodios (One Piece, etc.) — móvil y desktop */
-.seasons-tabs.mz-ep-range-tabs {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  gap: 8px !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  padding: 4px 0 12px !important;
-  margin: 0 0 8px !important;
-  scrollbar-width: thin;
-}
-.seasons-tabs.mz-ep-range-tabs .mz-ep-range-tab,
-.seasons-tabs.mz-ep-range-tabs .season-tab {
-  flex: 0 0 auto !important;
-  white-space: nowrap !important;
-  padding: 8px 14px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  background: rgba(255,255,255,0.06) !important;
-  color: #cbd5e1 !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  cursor: pointer;
-}
-.seasons-tabs.mz-ep-range-tabs .season-tab.active,
-.seasons-tabs.mz-ep-range-tabs .mz-ep-range-tab.active {
-  background: rgba(168, 85, 247, 0.35) !important;
-  border-color: rgba(168, 85, 247, 0.65) !important;
-  color: #fff !important;
-}
 
+
+/* Rangos 1 - 50 (One Piece, etc.) — SOLO móvil */
 @media (max-width: 768px) {
+  .seasons-tabs.mz-ep-range-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -2% 10px !important;
+    padding: 4px 2% 12px !important;
+    scrollbar-width: thin;
+  }
+  .seasons-tabs.mz-ep-range-tabs .mz-ep-range-tab,
+  .seasons-tabs.mz-ep-range-tabs .season-tab {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    padding: 10px 16px !important;
+    min-height: 40px;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: rgba(255,255,255,0.06) !important;
+    color: #cbd5e1 !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+  }
+  .seasons-tabs.mz-ep-range-tabs .season-tab.active,
+  .seasons-tabs.mz-ep-range-tabs .mz-ep-range-tab.active {
+    background: rgba(168, 85, 247, 0.35) !important;
+    border-color: rgba(168, 85, 247, 0.65) !important;
+    color: #fff !important;
+  }
   #seasons-section > h4 {
     font-size: 1.1rem !important;
     margin: 0 0 8px !important;
   }
-  .seasons-tabs.mz-ep-range-tabs {
-    margin: 0 -2% 10px !important;
-    padding: 4px 2% 12px !important;
-  }
-  .seasons-tabs.mz-ep-range-tabs .season-tab {
-    padding: 10px 16px !important;
-    font-size: 14px !important;
-    min-height: 40px;
-  }
-  /* Lista de episodios del rango activo debajo de las pestañas */
   #episodes-container.episodes-grid {
     display: flex !important;
     flex-direction: column !important;
