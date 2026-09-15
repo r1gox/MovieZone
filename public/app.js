@@ -5080,7 +5080,14 @@ function normalizarListaTemporadas(item) {
         let epsT1 = null;
         const raw0 = (item.temporadas_raw && item.temporadas_raw[0])
             || (Array.isArray(item.temporadas) && item.temporadas.find(t => t && typeof t === "object" && Number(t.temporada || t.season) === 1));
-        if (raw0 && Array.isArray(raw0.episodios)) epsT1 = raw0.episodios;
+        if (raw0 && typeof raw0 === "object") {
+            if (Array.isArray(raw0.lista) && raw0.lista.length) epsT1 = raw0.lista;
+            else if (Array.isArray(raw0.episodios) && raw0.episodios.length) epsT1 = raw0.episodios;
+        }
+        // detalle a veces trae episodios[] plano y temporadas solo [1]
+        if ((!epsT1 || !epsT1.length) && Array.isArray(item.episodios) && item.episodios.length) {
+            epsT1 = item.episodios;
+        }
         return [{ num: 1, episodios: epsT1, fromTmdb: false }];
     }
 
@@ -5236,21 +5243,37 @@ async function refrescarTotalAnimeSiHaceFalta(item) {
 }
 
 function totalEpisodiosReal(item) {
-    let total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
-    const hasta = parseInt(item.episodio_hasta || item.episode_hasta || 0, 10) || 0;
-    if (hasta > total) total = hasta;
-    const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
-    for (let i = 0; i < api.length; i++) {
-        const h = Number(api[i].hasta) || 0;
-        if (h > total) total = h;
+  let total = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
+  const hasta = parseInt(item.episodio_hasta || item.episode_hasta || 0, 10) || 0;
+  if (hasta > total) total = hasta;
+
+  const api = Array.isArray(item.rangos_episodios) ? item.rangos_episodios : [];
+  for (let i = 0; i < api.length; i++) {
+    const h = Number(api[i].hasta) || 0;
+    if (h > total) total = h;
+  }
+
+  if (Array.isArray(item.episodios)) {
+    for (const ep of item.episodios) {
+      const n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
+      if (n > total) total = n;
     }
-    if (Array.isArray(item.episodios)) {
-        for (const ep of item.episodios) {
-            const n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
-            if (n > total) total = n;
-        }
-    }
-    return total;
+    if (item.episodios.length > total) total = item.episodios.length;
+  }
+
+  // animeav1: temporadas[{ episodios: 128, lista: [...] }]
+  const raw = Array.isArray(item.temporadas_raw) && item.temporadas_raw.length
+    ? item.temporadas_raw
+    : (Array.isArray(item.temporadas) ? item.temporadas : []);
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i];
+    if (!t || typeof t !== "object") continue;
+    if (typeof t.episodios === "number" && t.episodios > total) total = t.episodios;
+    if (Array.isArray(t.lista) && t.lista.length > total) total = t.lista.length;
+    if (Array.isArray(t.episodios) && t.episodios.length > total) total = t.episodios.length;
+  }
+
+  return total;
 }
 
 function normalizarRangosEpisodios(item) {
@@ -5333,7 +5356,16 @@ function renderTemporadas(item) {
 
         // Si la fuente ya trajo episodios en temporadas[], usarlos (animeav1)
         const localT = listaTemp.find(t => t.num === seasonNum);
-        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !rangoForzado) {
+        const totalRealPre = typeof totalEpisodiosReal === "function" ? totalEpisodiosReal(item) : 0;
+        const localCorta =
+          localT &&
+          Array.isArray(localT.episodios) &&
+          localT.episodios.length &&
+          totalRealPre > 0 &&
+          localT.episodios.length + 2 < totalRealPre;
+
+        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !rangoForzado && !localCorta) {
+          
             const tmdbEps = (() => {
                 const ts = (item.temporadas_tmdb || []).find(t =>
                     Number(t.season_number || t.temporada) === Number(seasonNum)
