@@ -2062,9 +2062,13 @@ function volverDesdeEpisodioMovil() {
   document.getElementById("servers-section")?.classList.add("hidden");
   document.getElementById("close-player-btn")?.classList.remove("hidden");
   if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
+
+  // URL: /detalle/slug/1/1 → /detalle/slug (sin sumar otra entrada rara)
   try {
-    if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
+    if (item && typeof mzReplaceDetalleUrl === "function") mzReplaceDetalleUrl(item);
+    else if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
   } catch (_) {}
+
   if (item && typeof renderTemporadas === "function") {
     document.getElementById("seasons-section")?.classList.remove("hidden");
     renderTemporadas(item);
@@ -6946,6 +6950,11 @@ function mzBuildDetallePath(item, season, episode) {
   const slug = mzSlugFromItem(item);
   if (!slug) return "/";
   const base = "/detalle/" + encodeURIComponent(slug);
+  // Episodio en URL solo en móvil
+  const mobile =
+    (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
+    (typeof window !== "undefined" && window.innerWidth <= 768);
+  if (!mobile) return base;
   const s = season != null && season !== "" ? Number(season) : null;
   const e = episode != null && episode !== "" ? Number(episode) : null;
   if (s != null && e != null && !isNaN(s) && !isNaN(e) && s >= 1 && e >= 1) {
@@ -6958,9 +6967,28 @@ function mzPushDetalleUrl(item, season, episode) {
   try {
     const path = mzBuildDetallePath(item, season, episode);
     if (location.pathname === path) return;
-    history.pushState({ mz: "detalle", slug: mzSlugFromItem(item), season, episode }, "", path);
+    history.pushState(
+      { mz: "detalle", slug: mzSlugFromItem(item), season: season || null, episode: episode || null },
+      "",
+      path
+    );
   } catch (_) {}
 }
+
+/** Solo detalle (sin /s/e), sin apilar si ya estamos en detalle */
+function mzReplaceDetalleUrl(item) {
+  try {
+    const path = mzBuildDetallePath(item, null, null);
+    if (location.pathname === path) return;
+    history.replaceState(
+      { mz: "detalle", slug: mzSlugFromItem(item), season: null, episode: null },
+      "",
+      path
+    );
+  } catch (_) {}
+}
+
+
 
 function mzReplaceHomeUrl() {
   try {
@@ -7035,6 +7063,50 @@ function mzReplaceHomeUrl() {
     } catch (e) { console.warn("Deep link:", e); }
 })();
 
+
+window.addEventListener("popstate", function () {
+  try {
+    const path = location.pathname || "/";
+
+    // Inicio
+    if (path === "/" || path === "") {
+      if (document.body.classList.contains("mz-mobile-ep-playing") &&
+          typeof salirVistaMovilEpisodio === "function") {
+        salirVistaMovilEpisodio();
+      }
+      if (typeof cerrarDetalle === "function") cerrarDetalle(true);
+      return;
+    }
+
+    // /detalle/slug/1/2 → salir de episodio, quedarse en detalle
+    const epM = path.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)\/?$/i);
+    if (epM) {
+      // Aún en URL de episodio (caso raro); no forzar reload
+      return;
+    }
+
+    // /detalle/slug (sin episodio)
+    const detM = path.match(/^\/detalle\/([^\/]+)\/?$/i);
+    if (detM) {
+      if (document.body.classList.contains("mz-mobile-ep-playing")) {
+        if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
+        document.body.classList.remove("player-open", "mz-mep-dl-open");
+        document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+        document.getElementById("video-player-container")?.classList.add("hidden");
+        document.getElementById("servers-section")?.classList.add("hidden");
+        const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
+        if (item && typeof renderTemporadas === "function") {
+          document.getElementById("seasons-section")?.classList.remove("hidden");
+          renderTemporadas(item);
+        }
+        return;
+      }
+      // Si no hay detalle abierto, deep-link ya lo abre al cargar
+      return;
+    }
+  } catch (_) {}
+});
+/*
 window.addEventListener("popstate", function () {
   try {
     const path = location.pathname || "/";
@@ -7047,7 +7119,7 @@ window.addEventListener("popstate", function () {
       location.reload();
     }
   } catch (_) {}
-});
+});*/
 
 // ---------- Continuar viendo (localStorage) ----------
 let progresoTimer = null;
