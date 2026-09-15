@@ -8864,3 +8864,52 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     background: transparent !important;
   }
 }
+
+
+@media (max-width: 768px) {
+  /* Fila única: Mega | SUB | 720p | 1.2GB | ↓ */
+  .mz-mep-dl-item {
+    display: grid !important;
+    grid-template-columns: minmax(72px, 1.2fr) auto minmax(0, 0.9fr) minmax(0, 0.7fr) 40px !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 12px 10px !important;
+  }
+  .mz-mep-dl-host {
+    font-weight: 800;
+    font-size: 14px;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mz-mep-dl-tag {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: #2563eb;
+    color: #fff;
+    justify-self: start;
+  }
+  .mz-mep-dl-tag-empty {
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .mz-mep-dl-meta {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mz-mep-dl-arrow {
+    justify-self: end;
+  }
+
+  /* No cerrar el cuadro del player en vista episodio móvil */
+  body.mz-mobile-ep-playing #close-player-btn {
+    display: none !important;
+  }
+}

@@ -1619,10 +1619,10 @@ function renderMobileDownloadPanel(panel) {
     if (sz) bits.push('<span class="mz-mep-dl-meta">' + esc(sz) + "</span>");
     return (
       '<a class="mz-mep-dl-item" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
-        '<div class="mz-mep-dl-info">' +
-          '<div class="mz-mep-dl-host">' + esc(host) + "</div>" +
-          (bits.length ? '<div class="mz-mep-dl-bits">' + bits.join("") + "</div>" : "") +
-        "</div>" +
+        '<span class="mz-mep-dl-host">' + esc(host) + "</span>" +
+        (lang ? '<span class="mz-mep-dl-tag">' + esc(lang) + "</span>" : '<span class="mz-mep-dl-tag mz-mep-dl-tag-empty"></span>') +
+        (q ? '<span class="mz-mep-dl-meta">' + esc(q) + "</span>" : '<span class="mz-mep-dl-meta"></span>') +
+        (sz ? '<span class="mz-mep-dl-meta mz-mep-dl-size">' + esc(sz) + "</span>" : '<span class="mz-mep-dl-meta mz-mep-dl-size"></span>') +
         '<span class="mz-mep-dl-arrow" aria-hidden="true"><ion-icon name="download-outline"></ion-icon></span>' +
       "</a>"
     );
@@ -1738,6 +1738,9 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
     try { if (typeof destruirHls === "function") destruirHls(); } catch (_) {}
     const pt = document.getElementById("player-title");
     if (pt) pt.textContent = "Elige un reproductor";
+    // Móvil: el cuadro no se cierra (solo cambia de episodio / cierra detalle)
+    const closeBtn = document.getElementById("close-player-btn");
+    if (closeBtn) closeBtn.classList.add("hidden");
   }
 
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
