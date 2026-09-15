@@ -6186,6 +6186,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         // Como en series:
         // Reproductores = todos los embeds (iframe): StreamWish, VidHide, Voe…
         // Directos = NO ADS + StreamWish/VidHide con stream (NO Voe)
+       
         const isVoe = (e) => {
           if (!e) return false;
           const u = String(e.url || "").toLowerCase();
@@ -6195,30 +6196,62 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
         const allList = [];
         seccionesRender.forEach((sec) => {
-          (sec.list || []).forEach((embed) => {
+          const listToShow = (!esPeli && sec.id === seccionesRender[0].id && noAds)
+            ? [noAds, ...(sec.list || [])]
+            : (sec.list || []);
+          listToShow.forEach((embed) => {
             if (!embed || !embed.url) return;
             if (!allList.includes(embed)) allList.push(embed);
           });
         });
         if (noAds && !allList.includes(noAds)) allList.unshift(noAds);
 
-        // Reproductores: TODO lo que no sea NO ADS (aunque tenga stream_url)
-        let reps = allList.filter((e) => e && !e.noAds);
+        let reps, dirs, groups;
 
-        // Directos: NO ADS + los que tienen stream resoluble, excepto Voe
-        let dirs = [];
-        if (noAds) dirs.push(noAds);
-        allList.forEach((e) => {
-          if (!e || e.noAds) return;
-          if (isVoe(e)) return;
-          if (e.stream_url || e.direct || e.is_direct) dirs.push(e);
-          else if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(String(e.url || ""))) dirs.push(e);
-        });
-
-        const groups = [];
-        if (reps.length) groups.push({ label: "Reproductores", list: reps });
-        if (dirs.length) groups.push({ label: "Directos", list: dirs });
-        if (!groups.length) groups.push({ label: "Reproductores", list: allList });
+        if (esPeli) {
+          // SOLO PELÍCULAS
+          reps = allList.filter((e) => e && !e.noAds);
+          dirs = [];
+          if (noAds) dirs.push(noAds);
+          allList.forEach((e) => {
+            if (!e || e.noAds) return;
+            if (isVoe(e)) return;
+            const su = e.stream_url || (typeof streamUrlParaNoAds === "function" ? streamUrlParaNoAds(e.url) : null);
+            if (!su && !/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(String(e.url || ""))) return;
+            dirs.push({
+              ...e,
+              stream_url: su || e.stream_url || null,
+              __directHls: true,
+              server: e.server || e.servidor || e.name,
+              name: e.name || e.server || e.servidor
+            });
+          });
+          groups = [];
+          if (reps.length) groups.push({ label: "Reproductores", list: reps });
+          if (dirs.length) groups.push({ label: "Directos", list: dirs });
+          if (!groups.length) groups.push({ label: "Reproductores", list: allList });
+        } else {
+          // SERIES / ANIME: sin cambios
+          const isDirect = (e) => {
+            if (!e) return false;
+            if (e.noAds || e.direct || e.stream_url) return true;
+            const u = String(e.url || "");
+            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
+            if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
+            if (/direct|hls|m3u8|mp4|no\s*ads/.test(s)) return true;
+            if (e.download || e.is_direct) return true;
+            return false;
+          };
+          reps = allList.filter((e) => !isDirect(e));
+          dirs = allList.filter((e) => isDirect(e));
+          if (!dirs.length) {
+            dirs = allList.filter((e) => e && (e.stream_url || e.noAds || e.direct));
+            reps = allList.filter((e) => !dirs.includes(e));
+          }
+          groups = [];
+          groups.push({ label: "Reproductores", list: reps.length ? reps : allList });
+          if (dirs.length) groups.push({ label: "Directos", list: dirs });
+        }
 /*
         const isDirect = (e) => {
           if (!e) return false;
