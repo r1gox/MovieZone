@@ -4002,6 +4002,11 @@ app.get(
   ["/:tipo(serie|pelicula|anime)/:slug", "/:tipo(serie|pelicula|anime)/:slug/:season/:episode"],
   (_req, res) => sendIndex(res)
 );
+// Deep links MovieZone: /detalle/slug y /detalle/slug/1/1
+app.get(
+  ["/detalle/:slug", "/detalle/:slug/:season/:episode"],
+  (_req, res) => sendIndex(res)
+);
 app.get("/", (_req, res) => sendIndex(res));
 
 // ---------- Arranque ----------
