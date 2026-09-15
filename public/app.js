@@ -3646,29 +3646,35 @@ heroInfoBtn.addEventListener("click", () => {
 // ======================================================
 async function cargarHome() {
     if (typeof setBootLoading === "function") setBootLoading(true);
-    console.log('🟢 Iniciando cargarHome()');
+    console.log("🟢 Iniciando cargarHome()");
     try {
-        console.log('🟡 Cargando estrenos (películas, series y anime)...');
+        console.log("🟡 Cargando estrenos (películas, series y anime)...");
 
-        // Películas destacadas + hero = estrenos de la API
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 15000);
+
         const results = await Promise.allSettled([
-            fetch('/api/estrenos?tipo=peliculas&limit=24', { cache: 'no-store' }).then(r => r.json()),
+            fetch("/api/estrenos?tipo=peliculas&limit=24", {
+                cache: "no-store",
+                signal: ctrl.signal,
+            }).then((r) => r.json()),
             fetchSeccion("series", 1, 12),
-            fetchSeccion("anime", 1, 12)
+            fetchSeccion("anime", 1, 12),
         ]);
+        clearTimeout(to);
 
-        const estrenosData = results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
+        const estrenosData =
+            results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
         const peliculas = estrenosData.resultados || [];
-        const series    = results[1].status === "fulfilled" ? results[1].value : [];
-        const anime     = results[2].status === "fulfilled" ? results[2].value : [];
+        const series = results[1].status === "fulfilled" ? results[1].value : [];
+        const anime = results[2].status === "fulfilled" ? results[2].value : [];
 
-        console.log('✅ Datos:', {
+        console.log("✅ Datos:", {
             peliculas: peliculas.length,
             series: series.length,
-            anime: anime.length
+            anime: anime.length,
         });
 
-        // Destacadas = estrenos
         const destacadas = peliculas.slice(0, 12);
         renderCarousel("carousel-movies", destacadas);
         renderCarousel("carousel-series", series);
@@ -3677,27 +3683,23 @@ async function cargarHome() {
         cargarRecienAnadidos();
         cargarMiLista();
         cargarPorqueViste();
-        // peliculas, series, anime = variables que ya armas en cargarHome
-        cargarMoodsHome(
-          typeof peliculas !== "undefined" ? peliculas : [],
-          typeof series !== "undefined" ? series : [],
-          typeof anime !== "undefined" ? anime : []
-        );
-
-        // Hero ("Película recomendada") también con estrenos
+        cargarMoodsHome(peliculas, series, anime);
         iniciarHero(peliculas.length ? peliculas : series);
 
         statusBadge.classList.remove("offline");
         statusBadge.classList.add("online");
         statusBadge.querySelector(".status-text").textContent = "Online";
-        console.log('✅ Home cargado (estrenos)');
-        if (typeof setBootLoading === "function") setBootLoading(false);
+        console.log("✅ Home cargado (estrenos)");
     } catch (err) {
+        console.error("❌ Error en cargarHome:", err);
+        try {
+            statusBadge.classList.remove("online");
+            statusBadge.classList.add("offline");
+            statusBadge.querySelector(".status-text").textContent = "Offline";
+        } catch (_) {}
+    } finally {
+        // SIEMPRE quitar el loading de la página
         if (typeof setBootLoading === "function") setBootLoading(false);
-        console.error('❌ Error en cargarHome:', err);
-        statusBadge.classList.remove("online");
-        statusBadge.classList.add("offline");
-        statusBadge.querySelector(".status-text").textContent = "Offline";
     }
 }
 
