@@ -6182,7 +6182,44 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
     if (embeds.length > 0) {
         const flatForPlay = [];
         if (noAds) flatForPlay.push(noAds);
+              
+      // Directos: NO ADS + StreamWish + VidHide (con stream_url)
+        // Voe NUNCA en Directos → solo Reproductores  
+        const isVoe = (e) => {
+          if (!e) return false;
+          const u = String(e.url || "").toLowerCase();
+          const s = String(e.server || e.servidor || e.name || "").toLowerCase();
+          return /voe|jilliandescribe/.test(u + " " + s);
+        };
 
+        const isDirect = (e) => {
+          if (!e) return false;
+          if (isVoe(e)) return false;
+          if (e.noAds === true) return true;
+          if (e.stream_url) return true;
+          const u = String(e.url || "");
+          if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
+          if (e.direct === true || e.is_direct === true) return true;
+          return false;
+        };
+
+        const allList = [];
+        seccionesRender.forEach((sec) => {
+            (sec.list || []).forEach((embed) => {
+                if (!embed || !embed.url) return;
+                if (!allList.includes(embed)) allList.push(embed);
+            });
+        });
+        if (noAds && !allList.includes(noAds)) allList.unshift(noAds);
+
+        let dirs = allList.filter((e) => isDirect(e));
+        let reps = allList.filter((e) => !isDirect(e));
+
+        const groups = [];
+        if (reps.length) groups.push({ label: "Reproductores", list: reps });
+        if (dirs.length) groups.push({ label: "Directos", list: dirs });
+        if (!groups.length) groups.push({ label: "Reproductores", list: allList });
+/*
         const isDirect = (e) => {
           if (!e) return false;
           if (e.noAds || e.direct || e.stream_url) return true;
@@ -6226,8 +6263,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         groups.push({ label: "Reproductores", list: reps.length ? reps : allList });
         if (dirs.length) groups.push({ label: "Directos", list: dirs });
         else if (reps.length && reps !== allList) {
-          /* sin directos extra */
-        }
+        }*/
 
         const mobileSrv =
           (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
