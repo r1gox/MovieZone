@@ -4466,9 +4466,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 
 function cerrarDetalle(fromPop) {
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    // fromPop === true → ya venimos de popstate con path "/"
+    // fromPop === false/undefined → cerrar con X → URL a inicio
     if (!fromPop) {
-      try { mzReplaceHomeUrl(); } catch (_) {}
+      try {
+        if (typeof mzReplaceHomeUrl === "function") mzReplaceHomeUrl();
+        else history.replaceState({ mz: "home" }, "", "/");
+      } catch (_) {
+        try { history.replaceState({ mz: "home" }, "", "/"); } catch (__) {}
+      }
     }
+
+
+  
     const bgImg = document.getElementById("mz-stremio-bg-img");
     if (bgImg) { bgImg.classList.remove("is-ready"); bgImg.removeAttribute("src"); }
 
@@ -4494,8 +4504,14 @@ function cerrarDetalle(fromPop) {
 
     cargarContinuarViendo();
 }
-document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
-document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
+//document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
+//document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
+document.getElementById("btn-close-modal")?.addEventListener("click", function () {
+  cerrarDetalle(false);
+});
+document.getElementById("modal-backdrop-close")?.addEventListener("click", function () {
+  cerrarDetalle(false);
+});
 
 document.getElementById("btn-fs-player")?.addEventListener("click", () => {
     togglePantallaCompletaPlayer();
@@ -6992,9 +7008,9 @@ function mzReplaceDetalleUrl(item) {
 
 function mzReplaceHomeUrl() {
   try {
-    if (location.pathname !== "/" && location.pathname !== "") {
-      history.pushState({ mz: "home" }, "", "/");
-    }
+    if (location.pathname === "/" || location.pathname === "") return;
+    // replaceState: no deja basura de /detalle en el historial al cerrar
+    history.replaceState({ mz: "home" }, "", "/");
   } catch (_) {}
 }
 
