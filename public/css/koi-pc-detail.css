@@ -128,7 +128,7 @@
   .koi-hero-title {
     font-size: 2.8rem;
     font-weight: 900;
-    color: #060913;
+    color: #f8fafc;
     line-height: 1.1;
     margin: 0 0 12px;
     text-shadow: 0 4px 14px rgba(0, 0, 0, 0.9);
@@ -137,13 +137,18 @@
   .koi-hero-title.hidden { display: none !important; }
 
   .koi-hero-meta {
-    color: #94a3b8;
+    color: #cbd5e1 !important;
     font-size: 0.95rem;
     font-weight: 500;
     margin-bottom: 22px;
   }
+  .koi-hero-meta,
+  .koi-hero-meta span,
+  .koi-hero-meta a {
+    color: #e2e8f0 !important;
+  }
 
-  .koi-hero-meta span { color: #060913; }
+  .koi-hero-meta span { color: #e2e8f0; }
 
   .koi-hero-actions {
     display: flex;
@@ -227,7 +232,7 @@
   }
 
   .koi-extra-details.open { display: block; }
-  .koi-extra-details strong { color: #060913; }
+  .koi-extra-details strong { color: #f1f5f9; }
 
   /* ========== EPISODIOS (grid de cards) ========== */
   body.details-open.koi-desktop:not(.player-open) #seasons-section {

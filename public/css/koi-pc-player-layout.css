@@ -138,4 +138,40 @@
   body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container {
     scroll-margin-top: 16px;
   }
+
+
+  /* Meta legible en películas (evitar texto negro sobre fondo oscuro) */
+  body.details-open.koi-desktop.koi-movie .koi-hero-title {
+    color: #f8fafc !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-hero-meta,
+  body.details-open.koi-desktop.koi-movie .koi-hero-meta span,
+  body.details-open.koi-desktop.koi-movie .koi-hero-meta a {
+    color: #e2e8f0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-extra-details,
+  body.details-open.koi-desktop.koi-movie .koi-extra-details span {
+    color: #94a3b8 !important;
+  }
+  body.details-open.koi-desktop.koi-movie .koi-extra-details strong {
+    color: #f1f5f9 !important;
+  }
+  body.details-open.koi-desktop.koi-movie .meta-row,
+  body.details-open.koi-desktop.koi-movie .meta-row .meta-item,
+  body.details-open.koi-desktop.koi-movie .meta-row .meta-item span,
+  body.details-open.koi-desktop.koi-movie .details-genres,
+  body.details-open.koi-desktop.koi-movie .details-genres span {
+    color: #e2e8f0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie #details-title {
+    color: #f8fafc !important;
+  }
+
+  /* Al abrir player en peli: no tocar anchos del hero ni de meta */
+  body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
+    display: flex !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header {
+    /* si el hero sigue visible, no forzar header viejo */
+  }
 }
