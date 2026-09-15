@@ -6172,44 +6172,12 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.dataset.index = String(idxp);
                         
             if (mobileSrv) {
-                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
-                const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
-                const desL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-                const noAdsL = g.list.filter((e) => e && e.noAds);
-
-                const noAdsSub = noAdsL.filter((e) => idiomaDeEmbed(e) === "sub");
-                const noAdsDub = noAdsL.filter((e) => idiomaDeEmbed(e) === "lat");
-                const noAdsDes = noAdsL.filter((e) => idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-
-                const rows = [
-                  { key: "sub", label: "SUB", list: [...noAdsSub, ...subL] },
-                  { key: "dub", label: "DUB", list: [...noAdsDub, ...dubL] },
-                  { key: "des", label: "DES", list: [...noAdsDes, ...desL] }
-                ];
-                if (noAdsL.length && !noAdsSub.length && !noAdsDub.length && !noAdsDes.length) {
-                  rows[2].list = [...noAdsL, ...rows[2].list];
-                }
-
-                rows.forEach((row) => {
-                  if (!row.list.length) return;
-                  const rowEl = document.createElement("div");
-                  rowEl.className = "mz-mep-srv-row";
-                  const tag = document.createElement("span");
-                  tag.className = "mz-mep-srv-row-tag" +
-                    (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : " is-des");
-                  tag.textContent = row.label;
-                  rowEl.appendChild(tag);
-                  const chips = document.createElement("div");
-                  chips.className = "koi-servers-chips mz-mep-srv-chips";
-                  row.list.forEach((embed) => {
-                    const c = makeChip(embed);
-                    if (!c) return;
-                    c.querySelector(".mz-mep-srv-lang")?.remove();
-                    chips.appendChild(c);
-                  });
-                  rowEl.appendChild(chips);
-                  wrap.appendChild(rowEl);
-                });
+                const langTxt = embed.noAds ? "" :
+                  (idTag === "lat" ? "DUB" : idTag === "sub" ? "SUB" : (embed.lang || embed.idioma || ""));
+                chip.classList.add("mz-mep-srv-chip");
+                chip.innerHTML =
+                  (langTxt ? `<span class="mz-mep-srv-lang">${escapeHtml(String(langTxt).toUpperCase())}</span>` : "") +
+                  `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             } else {
                 chip.innerHTML = langBadge + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             }
