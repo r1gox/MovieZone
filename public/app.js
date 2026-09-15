@@ -1652,11 +1652,22 @@ function renderMobileDownloadPanel(panel) {
   function sizeOf(d) {
     return String(d.peso || d.size || d.filesize || d.file_size || d.tamano || d.tamaño || "").slice(0, 16);
   }
+
+  const titleRow =
+    '<div class="mz-mep-dl-title-row">' +
+      '<div class="mz-mep-dl-title">Descargas</div>' +
+      '<button type="button" class="mz-mep-dl-close" id="mz-mep-dl-close" aria-label="Cerrar">×</button>' +
+    "</div>";
+
   if (!list.length) {
-    panel.innerHTML = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    panel.innerHTML =
+      titleRow +
+      '<div class="mz-mep-dl-empty">No hay descargas para este episodio</div>';
+    bindMobileDlClose(panel);
     return;
   }
-  let html = '<div class="mz-mep-dl-title">Descargas</div><div class="mz-mep-dl-list">';
+
+  let html = titleRow + '<div class="mz-mep-dl-list">';
   for (let i = 0; i < list.length; i++) {
     const d = list[i] || {};
     const url = d.url || d.link || d.href || "";
@@ -1665,17 +1676,35 @@ function renderMobileDownloadPanel(panel) {
     const lang = langOf(d);
     const q = qualityOf(d);
     const sz = sizeOf(d);
+    const metaBits = [lang, q, sz].filter(Boolean).join(" · ");
     html +=
       '<a class="mz-mep-dl-item" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer nofollow" data-mz-dl="1">' +
-      '<span class="mz-mep-dl-host">' + esc(host) + "</span>" +
-      (lang ? '<span class="mz-mep-dl-tag">' + esc(lang) + "</span>" : '<span class="mz-mep-dl-tag mz-mep-dl-tag-empty"></span>') +
-      '<span class="mz-mep-dl-meta">' + esc(q) + "</span>" +
-      '<span class="mz-mep-dl-meta mz-mep-dl-size">' + esc(sz) + "</span>" +
-      '<span class="mz-mep-dl-arrow">↓</span>' +
+        '<div class="mz-mep-dl-info">' +
+          '<span class="mz-mep-dl-host">' + esc(host) + "</span>" +
+          (metaBits ? '<span class="mz-mep-dl-meta-line">' + esc(metaBits) + "</span>" : "") +
+        "</div>" +
+        '<span class="mz-mep-dl-arrow" aria-hidden="true">' +
+          '<ion-icon name="download-outline"></ion-icon>' +
+        "</span>" +
       "</a>";
   }
   html += "</div>";
   panel.innerHTML = html;
+  bindMobileDlClose(panel);
+}
+
+function bindMobileDlClose(panel) {
+  const btn = panel && panel.querySelector("#mz-mep-dl-close");
+  if (!btn) return;
+  btn.onclick = function (ev) {
+    try {
+      ev.preventDefault();
+      ev.stopPropagation();
+    } catch (_) {}
+    const p = document.getElementById("mz-mep-dl-panel");
+    if (p) p.classList.add("hidden");
+    document.body.classList.remove("mz-mep-dl-open");
+  };
 }
 
 
