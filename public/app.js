@@ -1541,6 +1541,20 @@ function ensureMobileEpChrome() {
     const vc = document.getElementById("video-player-container");
     if (vc && vc.parentNode) vc.parentNode.insertBefore(nav, vc.nextSibling);
     else document.querySelector(".mz-meta-col")?.appendChild(nav);
+  }  
+  let back = document.getElementById("mz-mep-back");
+  if (!back) {
+    back = document.createElement("button");
+    back.type = "button";
+    back.id = "mz-mep-back";
+    back.className = "mz-mep-back";
+    back.setAttribute("aria-label", "Volver");
+    back.innerHTML = '<ion-icon name="arrow-back-outline"></ion-icon>';
+    document.body.appendChild(back);
+    back.addEventListener("click", function (ev) {
+      try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+      if (typeof volverDesdeEpisodioMovil === "function") volverDesdeEpisodioMovil();
+    });
   }
   let watch = document.getElementById("mz-mobile-ep-watching");
   if (!watch) {
@@ -1849,11 +1863,13 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
     requestAnimationFrame(function () {
       document.getElementById("video-player-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  } catch (_) {}
+  } catch (_) {}  
+  document.getElementById("mz-mep-back")?.classList.remove("hidden");
   return true;
 }
 
 function salirVistaMovilEpisodio() {
+  document.getElementById("mz-mep-back")?.classList.add("hidden");
   document.body.classList.remove("mz-mobile-ep-playing");
   document.getElementById("mz-mobile-ep-nav")?.classList.add("hidden");
   document.getElementById("mz-mobile-ep-watching")?.classList.add("hidden");
@@ -1864,6 +1880,27 @@ function salirVistaMovilEpisodio() {
   }
 }
 
+function volverDesdeEpisodioMovil() {
+  const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
+  try {
+    const ifr = document.getElementById("player-iframe");
+    if (ifr) ifr.src = "about:blank";
+    if (typeof destruirHls === "function") destruirHls();
+  } catch (_) {}
+  document.body.classList.remove("player-open", "mz-mep-dl-open");
+  document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+  document.getElementById("video-player-container")?.classList.add("hidden");
+  document.getElementById("servers-section")?.classList.add("hidden");
+  document.getElementById("close-player-btn")?.classList.remove("hidden");
+  if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
+  try {
+    if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
+  } catch (_) {}
+  if (item && typeof renderTemporadas === "function") {
+    document.getElementById("seasons-section")?.classList.remove("hidden");
+    renderTemporadas(item);
+  }
+}
 
 /** PEGAR en app.js: reemplaza TODA la función reproducirCapituloAuto existente */
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
