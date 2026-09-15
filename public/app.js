@@ -2486,6 +2486,16 @@ async function reproducirHlsNoAds(playUrl, item) {
     playerIframe.src = "about:blank";
     vid.classList.remove("hidden");
     videoContainer.classList.remove("hidden");
+        // Quitar overlay que bloquea mouse/controles sobre el <video>
+    try {
+      document.querySelectorAll(".mz-scroll-catch").forEach((ov) => {
+        ov.style.pointerEvents = "none";
+        ov.style.display = "none";
+      });
+      vid.style.pointerEvents = "auto";
+      vid.style.zIndex = "10";
+    } catch (_) {}
+  
     mostrarBotonFullscreen(true);
     playerTitle.textContent = (item?.nombre || "NO ADS")
         .split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
@@ -6262,9 +6272,21 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           if (dirs.length) groups.push({ label: "Directos", list: dirs });
           if (!groups.length) groups.push({ label: "Reproductores", list: allList });
         } else {
-          // SERIES / ANIME: sin cambios
+          // SERIES / ANIME
+          const esAnime = !!(item && /anime/i.test(String(item.tipo || item.type || "")));
+          const isHlsLike = (e) => {
+            if (!e) return false;
+            const u = String(e.url || "").toLowerCase();
+            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
+            if (/\.m3u8(\?|$)/i.test(u)) return true;
+            if (/\bhls\b/i.test(s)) return true;
+            if (e.stream_url && /\.m3u8|\/hls|m3u8/i.test(String(e.stream_url))) return true;
+            return false;
+          };
           const isDirect = (e) => {
             if (!e) return false;
+            if (isVoe(e)) return false; // Voe nunca en Directos
+            if (esAnime && isHlsLike(e)) return false; // Anime: sin HLS en Directos
             if (e.noAds || e.direct || e.stream_url) return true;
             const u = String(e.url || "");
             const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
@@ -6276,7 +6298,12 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           reps = allList.filter((e) => !isDirect(e));
           dirs = allList.filter((e) => isDirect(e));
           if (!dirs.length) {
-            dirs = allList.filter((e) => e && (e.stream_url || e.noAds || e.direct));
+            dirs = allList.filter((e) => {
+              if (!e) return false;
+              if (isVoe(e)) return false;
+              if (esAnime && isHlsLike(e)) return false;
+              return !!(e.stream_url || e.noAds || e.direct);
+            });
             reps = allList.filter((e) => !dirs.includes(e));
           }
           groups = [];
