@@ -133,7 +133,7 @@
                     height: 64px;
 
                     padding-bottom:
-                        env(safe-area-inset-bottom);
+                        env(safe-area-inset-bottom, 0px);
 
                     background:
                         rgba(8,8,12,.97);
@@ -152,8 +152,20 @@
                         0 -8px 30px
                         rgba(0,0,0,.4);
 
-                    z-index: 99999;
+                    /* Debajo del panel de detalle/player */
+                    z-index: 8000;
 
+                }
+
+                /* Detalle o player abierto: ocultar barra inferior */
+                body.details-open #mz-mobile-bottom-nav,
+                body.player-open #mz-mobile-bottom-nav {
+                    display: none !important;
+                }
+
+                body.details-open,
+                body.player-open {
+                    padding-bottom: 0 !important;
                 }
 
 
