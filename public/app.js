@@ -4594,7 +4594,7 @@ function construirRangosEpisodios(total, step = 50) {
     const out = [];
     for (let i = 1; i <= t; i += step) {
         const hasta = Math.min(i + step - 1, t);
-        out.push({ desde: i, hasta, label: `${i}–${hasta}` });
+        out.push({ desde: i, hasta, label: `${i} - ${hasta}` });
     }
     return out;
 }
@@ -4671,7 +4671,7 @@ function normalizarRangosEpisodios(item) {
             return api.map(function (r) {
                 const d = Number(r.desde) || 1;
                 const h = Number(r.hasta) || d;
-                return { desde: d, hasta: h, label: r.label || (d + "–" + h) };
+                return { desde: d, hasta: h, label: r.label || (d + " - " + h) };
             });
         }
     }
@@ -4685,22 +4685,31 @@ function renderTemporadas(item) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10)
         || (Array.isArray(item.episodios) ? item.episodios.length : 0);
     const rangos = normalizarRangosEpisodios(item);
-    // Anime largo (1 temporada / muchos eps): pestañas = rangos 1–50, 51–100…
-    const usarRangosComoTabs = rangos.length > 1 && listaTemp.length <= 1;
+    const totalReal = typeof totalEpisodiosReal === "function" ? totalEpisodiosReal(item) : (parseInt(item.total_episodios || 0, 10) || 0);
+    // 1 temporada (o lista colapsada) + muchos episodios → pestañas 1 - 50, 51 - 100…
+    // También si hay >50 eps y solo una temp real en fuente
+    const usarRangosComoTabs =
+        rangos.length > 1 &&
+        (listaTemp.length <= 1 || totalReal > 50 && listaTemp.length <= 1);
 
     if (usarRangosComoTabs) {
         if (!item._epRangoActivo) {
             item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
         }
+        const h4 = document.querySelector("#seasons-section > h4");
+        if (h4) h4.textContent = "Episodios";
+        tabsContainer.className = "seasons-tabs mz-ep-range-tabs";
         tabsContainer.innerHTML = rangos.map((r, i) => {
             const act = item._epRangoActivo
                 && item._epRangoActivo.desde === r.desde
                 && item._epRangoActivo.hasta === r.hasta;
-            return `<button class="season-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}">${r.label || (r.desde + "–" + r.hasta)}</button>`;
+            const lab = r.label || (r.desde + " - " + r.hasta);
+            return `<button type="button" class="season-tab mz-ep-range-tab${act || (!item._epRangoActivo && i === 0) ? " active" : ""}" data-range-from="${r.desde}" data-range-to="${r.hasta}" aria-label="Episodios ${lab}">${lab}</button>`;
         }).join("");
     } else {
+        tabsContainer.className = "seasons-tabs";
         tabsContainer.innerHTML = listaTemp.map((t, i) =>
-            `<button class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
+            `<button type="button" class="season-tab${i === 0 ? " active" : ""}" data-season="${t.num}">Temporada ${t.num}</button>`
         ).join("");
     }
 
@@ -4878,9 +4887,11 @@ function renderEpisodios(item, season = 1) {
     const tabsContainer = document.getElementById("seasons-tabs-container");
     const tabsSonRangos = !!(tabsContainer && tabsContainer.querySelector("[data-range-from]"));
 
-    // Multi-temporada real (T1/T2): no usar rangos tipo One Piece
+    // Multi-temporada real corta (T1/T2): no rangos One Piece
+    // Si hay rangos 1-50 (anime largo 1 temp), SÍ usar _epRangoActivo
     const multiTemporadasUI = (typeof normalizarListaTemporadas === "function"
-      && normalizarListaTemporadas(item).length > 1);
+      && normalizarListaTemporadas(item).length > 1
+      && rangos.length <= 1);
     if (multiTemporadasUI) {
         item._epRangoActivo = null;
     } else if (!item._epRangoActivo && rangos.length > 1) {
@@ -4899,7 +4910,7 @@ function renderEpisodios(item, season = 1) {
             b.className = "episode-range-btn" + (
                 rango && rango.desde === r.desde && rango.hasta === r.hasta ? " active" : ""
             );
-            b.textContent = r.label || `${r.desde}–${r.hasta}`;
+            b.textContent = r.label || `${r.desde} - ${r.hasta}`;
             b.style.cssText = "padding:6px 10px;border-radius:8px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:12px;cursor:pointer;";
             if (rango && rango.desde === r.desde) {
                 b.style.background = "rgba(168,85,247,0.25)";
