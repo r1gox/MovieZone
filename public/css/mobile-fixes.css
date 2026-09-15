@@ -22,7 +22,7 @@
     bottom: auto !important;
   }
 
-  /* FIX DOBLE TOQUE: overlay que bloqueaba el primer touch del player */
+  /* FIX DOBLE TOQUE */
   .mz-scroll-catch {
     pointer-events: none !important;
   }
@@ -54,7 +54,7 @@
     pointer-events: none !important;
   }
 
-  /* Detalle: fondo API (no home detrás) */
+  /* Detalle: fondo API */
   body.details-open #details-panel {
     background: #0e0e14 !important;
   }
@@ -92,11 +92,30 @@
     display: none !important;
   }
 
-  /* Botón RETROCEDER (no cierra del todo) — arriba izquierda */
+  /* Botón RETROCEDER — arriba izquierda */
   #mz-mep-back {
     display: none;
+  }
+  body.mz-mobile-ep-playing #mz-mep-back {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    top: max(10px, env(safe-area-inset-top)) !important;
+    left: 10px !important;
+    z-index: 100120 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    color: #fff !important;
+    font-size: 22px !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+  }
 
-       /* Ocultar año / fecha / géneros en vista episodio (siguen en detalle) */
+  /* Ocultar año / fecha / géneros en vista episodio */
   body.mz-mobile-ep-playing .meta-item.year,
   body.mz-mobile-ep-playing #details-year,
   body.mz-mobile-ep-playing #details-release-wrap,
@@ -104,7 +123,7 @@
   body.mz-mobile-ep-playing #details-original-title {
     display: none !important;
   }
-  /* Dejar visibles: rating IMDb, duración, estado */
+  /* Visibles: rating, duración, estado */
   body.mz-mobile-ep-playing #details-rating-wrap,
   body.mz-mobile-ep-playing #details-runtime-wrap,
   body.mz-mobile-ep-playing .meta-item.rating,
@@ -113,7 +132,7 @@
     display: inline-flex !important;
   }
 
-  /* Flechas Anterior / Siguiente / Descarga más premium */
+  /* Flechas Anterior / Siguiente / Descarga */
   body.mz-mobile-ep-playing .mz-mobile-ep-nav {
     display: grid !important;
     grid-template-columns: 1fr 1fr auto !important;
@@ -159,29 +178,8 @@
   body.mz-mobile-ep-playing .mz-mep-dl-btn ion-icon {
     font-size: 22px !important;
   }
-  }
 
-   
-  body.mz-mobile-ep-playing #mz-mep-back {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: fixed !important;
-    top: max(10px, env(safe-area-inset-top)) !important;
-    left: 10px !important;
-    z-index: 100120 !important;
-    width: 42px !important;
-    height: 42px !important;
-    border-radius: 50% !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    background: rgba(0, 0, 0, 0.7) !important;
-    color: #fff !important;
-    font-size: 22px !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-  }
-
-  /* Panel descargas: título + cerrar a la derecha */
+  /* Panel descargas: título + X */
   .mz-mep-dl-title-row {
     display: flex !important;
     align-items: center !important;
@@ -208,10 +206,8 @@
     justify-content: center !important;
     cursor: pointer !important;
   }
-}
 
-
-
+  /* Filas de servidores SUB/DUB */
   .mz-mep-srv-row {
     display: flex !important;
     align-items: flex-start !important;
@@ -236,3 +232,5 @@
     gap: 8px !important;
     flex: 1 !important;
   }
+
+} /* fin @media */
