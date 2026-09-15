@@ -7022,8 +7022,7 @@ async function cargarRecienAnadidos() {
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-    navigator.serviceWor
-    ker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
 
