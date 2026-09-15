@@ -1773,7 +1773,7 @@ function actualizarMobileEpNav(ctx) {
       const p = eps[idx - 1];
       const sn = Number(p.season || p.temporada || 1);
       const en = Number(p.episode || p.episodio || 0);
-      document.querySelector('#episodes-container [data-ep="' + en + '"]')?.click();
+      window.__mzAutoPlayEp = true; // autoplay al cambiar
       abrirVistaMovilEpisodio(cur.item, p, sn, en);
     };
     next.onclick = function () {
@@ -1781,6 +1781,7 @@ function actualizarMobileEpNav(ctx) {
       const n = eps[idx + 1];
       const sn = Number(n.season || n.temporada || 1);
       const en = Number(n.episode || n.episodio || 0);
+      window.__mzAutoPlayEp = true;
       abrirVistaMovilEpisodio(cur.item, n, sn, en);
     };
   }
@@ -1848,6 +1849,28 @@ function aplicarServidorPreferido(embeds, item) {
     match = e;
     break;
   }
+
+  
+  
+  if (!match) return false;
+  try {
+    document.querySelectorAll(".koi-server-chip.active, .mz-mep-srv-chip.active")
+      .forEach(function (c) { c.classList.remove("active"); });
+  } catch (_) {}
+  try {
+    document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
+      if (name && (c.textContent || "").toLowerCase().indexOf(name) !== -1) {
+        c.classList.add("active");
+      }
+    });
+  } catch (_) {}
+  try {
+    if (typeof reproducir === "function") reproducir(match, item);
+  } catch (_) {}
+  return true;
+}
+
+  /*
   if (!match) return false;
   try {
     document.querySelectorAll(".koi-server-chip.active, .mz-mep-srv-chip.active")
@@ -1864,7 +1887,7 @@ function aplicarServidorPreferido(embeds, item) {
     if (typeof reproducir === "function") reproducir(match, item);
   } catch (_) {}
   return true;
-}
+}*/
 
 async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   if (!item || !isMobileSerieEpUI(item)) return false;
@@ -1984,13 +2007,23 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
   
 
-    // Si ya eligió un servidor (ej. VOE) en otro episodio → reutilizarlo
+  // Mismo servidor + autoplay (Siguiente/Anterior o si ya eligió uno antes)
   try {
     const lista = pack.embeds || [];
-    if (window.__mzPreferredServer && typeof aplicarServidorPreferido === "function") {
+    const quiereAuto = !!window.__mzAutoPlayEp || !!window.__mzPreferredServer;
+    window.__mzAutoPlayEp = false;
+    if (quiereAuto && lista.length) {
       setTimeout(function () {
-        aplicarServidorPreferido(lista, item);
-      }, 120);
+        var ok = false;
+        if (window.__mzPreferredServer && typeof aplicarServidorPreferido === "function") {
+          ok = !!aplicarServidorPreferido(lista, item);
+        }
+        // Si no hubo match del preferido, primer embed válido
+        if (!ok && typeof reproducir === "function") {
+          var first = lista.find(function (e) { return e && e.url; });
+          if (first) reproducir(first, item);
+        }
+      }, 280);
     }
   } catch (_) {}
   
