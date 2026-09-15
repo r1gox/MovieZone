@@ -143,3 +143,30 @@
     cursor: pointer !important;
   }
 }
+
+
+
+  .mz-mep-srv-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+  .mz-mep-srv-row-tag {
+    flex-shrink: 0 !important;
+    min-width: 42px !important;
+    margin-top: 6px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    color: #94a3b8 !important;
+  }
+  .mz-mep-srv-row-tag.is-sub { color: #38bdf8 !important; }
+  .mz-mep-srv-row-tag.is-dub { color: #a78bfa !important; }
+  .mz-mep-srv-row-tag.is-des { color: #fbbf24 !important; }
+  .mz-mep-srv-chips {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    flex: 1 !important;
+  }
