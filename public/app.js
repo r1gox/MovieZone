@@ -1515,6 +1515,242 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
 }
 
 /** Prueba servidores en orden: Latino → Sub → EN → otro; resolve primero */
+
+/** Vista móvil al elegir episodio: player + ant/sig + servers + rangos + grid números */
+function isMobileSerieEpUI(item) {
+  try {
+    if (!(typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI())) return false;
+  } catch (_) {
+    if (!(typeof window !== "undefined" && window.innerWidth <= 768)) return false;
+  }
+  return typeof isSerieOrAnime === "function"
+    ? isSerieOrAnime(item)
+    : /serie|anime|dorama/i.test(String(item?.tipo || item?.type || ""));
+}
+
+function ensureMobileEpChrome() {
+  let nav = document.getElementById("mz-mobile-ep-nav");
+  if (!nav) {
+    nav = document.createElement("div");
+    nav.id = "mz-mobile-ep-nav";
+    nav.className = "mz-mobile-ep-nav hidden";
+    nav.innerHTML =
+      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-prev" aria-label="Anterior">&lt; Anterior</button>' +
+      '<button type="button" class="mz-mep-nav-btn" id="mz-mep-next" aria-label="Siguiente">Siguiente &gt;</button>';
+    const vc = document.getElementById("video-player-container");
+    if (vc && vc.parentNode) vc.parentNode.insertBefore(nav, vc.nextSibling);
+    else document.querySelector(".mz-meta-col")?.appendChild(nav);
+  }
+  let watch = document.getElementById("mz-mobile-ep-watching");
+  if (!watch) {
+    watch = document.createElement("div");
+    watch.id = "mz-mobile-ep-watching";
+    watch.className = "mz-mobile-ep-watching hidden";
+    watch.innerHTML =
+      '<div class="mz-mep-watching-label">Estás viendo</div>' +
+      '<div class="mz-mep-watching-ep" id="mz-mep-watching-ep">T1 • E1</div>';
+    const srv = document.getElementById("servers-section");
+    if (srv && srv.parentNode) srv.parentNode.insertBefore(watch, srv.nextSibling);
+    else document.querySelector(".mz-meta-col")?.appendChild(watch);
+  }
+  return { nav, watch };
+}
+
+function actualizarMobileEpNav(ctx) {
+  const prev = document.getElementById("mz-mep-prev");
+  const next = document.getElementById("mz-mep-next");
+  if (!prev || !next) return;
+  const cur = ctx || (typeof _epPlayCtx !== "undefined" ? _epPlayCtx : null);
+  let hasPrev = false;
+  let hasNext = false;
+  if (cur && cur.item && Array.isArray(cur.item.episodios)) {
+    const eps = cur.item.episodios.slice().sort(function (a, b) {
+      const sa = Number(a.season || a.temporada || 1);
+      const sb = Number(b.season || b.temporada || 1);
+      if (sa !== sb) return sa - sb;
+      return Number(a.episode || a.episodio || 0) - Number(b.episode || b.episodio || 0);
+    });
+    const s = Number(cur.season || 1);
+    const e = Number(cur.episode || 0);
+    const idx = eps.findIndex(function (x) {
+      return Number(x.season || x.temporada || 1) === s &&
+        Number(x.episode || x.episodio || x.episode_number || 0) === e;
+    });
+    hasPrev = idx > 0;
+    hasNext = idx >= 0 && idx < eps.length - 1;
+    prev.onclick = function () {
+      if (!hasPrev) return;
+      const p = eps[idx - 1];
+      const sn = Number(p.season || p.temporada || 1);
+      const en = Number(p.episode || p.episodio || 0);
+      document.querySelector('#episodes-container [data-ep="' + en + '"]')?.click();
+      abrirVistaMovilEpisodio(cur.item, p, sn, en);
+    };
+    next.onclick = function () {
+      if (!hasNext) return;
+      const n = eps[idx + 1];
+      const sn = Number(n.season || n.temporada || 1);
+      const en = Number(n.episode || n.episodio || 0);
+      abrirVistaMovilEpisodio(cur.item, n, sn, en);
+    };
+  }
+  prev.disabled = !hasPrev;
+  next.disabled = !hasNext;
+  prev.classList.toggle("is-disabled", !hasPrev);
+  next.classList.toggle("is-disabled", !hasNext);
+}
+
+function renderMobileEpNumberGrid(item, seasonNum, epNum) {
+  const cont = document.getElementById("episodes-container");
+  if (!cont) return;
+  cont.classList.add("mz-ep-num-grid");
+  cont.classList.remove("episodes-grid");
+  // Mantener tabs de rango arriba (seasons-tabs) si existen
+  let lista = Array.isArray(item.episodios) ? item.episodios.slice() : [];
+  lista = typeof filtrarEpisodiosDeTemporada === "function"
+    ? filtrarEpisodiosDeTemporada(item, seasonNum, lista)
+    : lista;
+  const rango = item._epRangoActivo;
+  if (rango && lista.length) {
+    lista = lista.filter(function (ep, idx) {
+      const n = Number(ep.episode || ep.episodio || ep.episode_number || (idx + 1));
+      return n >= rango.desde && n <= rango.hasta;
+    });
+  }
+  if ((!lista || !lista.length) && rango) {
+    lista = [];
+    for (let n = rango.desde; n <= rango.hasta; n++) {
+      lista.push({ season: seasonNum, episode: n, nombre: "Episodio " + n });
+    }
+  }
+  cont.innerHTML = "";
+  lista.forEach(function (ep, index) {
+    const num = Number(ep.episode || ep.episodio || ep.episode_number || (index + 1)) || (index + 1);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mz-ep-num-btn" + (num === Number(epNum) ? " active" : "");
+    b.textContent = String(num);
+    b.setAttribute("data-ep", String(num));
+    b.addEventListener("click", function () {
+      const sn = Number(ep.season || ep.temporada || seasonNum || 1);
+      abrirVistaMovilEpisodio(item, ep, sn, num);
+    });
+    cont.appendChild(b);
+  });
+}
+
+async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
+  if (!item || !isMobileSerieEpUI(item)) return false;
+  seasonNum = Number(seasonNum || episodio?.season || 1) || 1;
+  epNum = Number(epNum || episodio?.episode || episodio?.episodio || 1) || 1;
+  episodio = episodio || { season: seasonNum, episode: epNum, nombre: "Episodio " + epNum };
+  episodio.season = seasonNum;
+  episodio.episode = epNum;
+
+  document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
+  document.body.classList.remove("koi-desktop", "koi-movie");
+
+  const chrome = ensureMobileEpChrome();
+  chrome.nav.classList.remove("hidden");
+  chrome.watch.classList.remove("hidden");
+  const watchEp = document.getElementById("mz-mep-watching-ep");
+  if (watchEp) watchEp.textContent = "T" + seasonNum + " • E" + epNum;
+
+  const vc = document.getElementById("video-player-container");
+  if (vc) {
+    vc.classList.remove("hidden");
+    const ifr = document.getElementById("player-iframe");
+    if (ifr) ifr.src = "about:blank";
+    try { if (typeof destruirHls === "function") destruirHls(); } catch (_) {}
+    const pt = document.getElementById("player-title");
+    if (pt) pt.textContent = "Elige un reproductor";
+  }
+
+  _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
+  actualizarMobileEpNav(_epPlayCtx);
+  try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
+
+  // Rangos visibles
+  const seasonsSec = document.getElementById("seasons-section");
+  if (seasonsSec) {
+    seasonsSec.classList.remove("hidden");
+    const h4 = seasonsSec.querySelector("h4");
+    if (h4) h4.textContent = "Episodios";
+  }
+  // Re-render tabs si hace falta
+  try {
+    if (typeof normalizarRangosEpisodios === "function") {
+      const rangos = normalizarRangosEpisodios(item);
+      if (rangos.length > 1 && !item._epRangoActivo) {
+        item._epRangoActivo = { desde: rangos[0].desde, hasta: rangos[0].hasta };
+      }
+      // Ajustar rango al episodio actual
+      if (rangos.length > 1) {
+        const hit = rangos.find(function (r) { return epNum >= r.desde && epNum <= r.hasta; });
+        if (hit) item._epRangoActivo = { desde: hit.desde, hasta: hit.hasta };
+      }
+    }
+  } catch (_) {}
+
+  // Tabs de rango (móvil)
+  const tabs = document.getElementById("seasons-tabs-container");
+  if (tabs && typeof normalizarRangosEpisodios === "function") {
+    const rangos = normalizarRangosEpisodios(item);
+    if (rangos.length > 1) {
+      tabs.className = "seasons-tabs mz-ep-range-tabs";
+      tabs.innerHTML = rangos.map(function (r) {
+        const act = item._epRangoActivo && item._epRangoActivo.desde === r.desde;
+        const lab = r.desde + " - " + r.hasta;
+        return '<button type="button" class="season-tab mz-ep-range-tab' + (act ? " active" : "") +
+          '" data-range-from="' + r.desde + '" data-range-to="' + r.hasta + '">' + lab + "</button>";
+      }).join("");
+      tabs.querySelectorAll("[data-range-from]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          item._epRangoActivo = {
+            desde: parseInt(btn.getAttribute("data-range-from"), 10),
+            hasta: parseInt(btn.getAttribute("data-range-to"), 10)
+          };
+          tabs.querySelectorAll(".season-tab").forEach(function (t) { t.classList.remove("active"); });
+          btn.classList.add("active");
+          renderMobileEpNumberGrid(item, seasonNum, epNum);
+        });
+      });
+    }
+  }
+
+  renderMobileEpNumberGrid(item, seasonNum, epNum);
+
+  // Cargar servidores (sin autoplay)
+  const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+  renderServidoresYDescargas(
+    pack.embeds || [],
+    episodio.downloads || [],
+    null,
+    item,
+    { expandido: true, noAutoplay: true }
+  );
+  document.getElementById("servers-section")?.classList.remove("hidden");
+
+  try {
+    requestAnimationFrame(function () {
+      document.getElementById("video-player-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  } catch (_) {}
+  return true;
+}
+
+function salirVistaMovilEpisodio() {
+  document.body.classList.remove("mz-mobile-ep-playing");
+  document.getElementById("mz-mobile-ep-nav")?.classList.add("hidden");
+  document.getElementById("mz-mobile-ep-watching")?.classList.add("hidden");
+  const cont = document.getElementById("episodes-container");
+  if (cont) {
+    cont.classList.remove("mz-ep-num-grid");
+    cont.classList.add("episodes-grid");
+  }
+}
+
+
 /** PEGAR en app.js: reemplaza TODA la función reproducirCapituloAuto existente */
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   // PC (≥1025) + serie/anime/dorama → vista tipo Koiflix SIN auto-reproducir
@@ -3912,6 +4148,7 @@ function cerrarDetalle() {
     detailsPanel.classList.add("hidden");
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
+    try { salirVistaMovilEpisodio(); } catch (_) {}
     document.body.classList.remove("koi-movie");
     document.body.classList.remove("details-open");
     try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
@@ -3956,6 +4193,8 @@ document.getElementById("close-player-btn").addEventListener("click", () => {
     videoContainer.classList.add("hidden");
     playerIframe.src = "about:blank";
     document.body.classList.remove("player-open");
+    try { salirVistaMovilEpisodio(); } catch (_) {}
+
     _epPlayCtx = null;
     actualizarBotonesEpPlayer();
     // Al cerrar el player vuelve a mostrarse el botón de cerrar detalle (CSS body.player-open)
@@ -5109,6 +5348,11 @@ function renderEpisodios(item, season = 1) {
             if (pc && serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
               await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+              return;
+            }
+            // Móvil serie/anime: vista dedicada (player + ant/sig + servers + grid)
+            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
+              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
               return;
             }
           }
