@@ -361,8 +361,19 @@ body.mz-koi-ep-open {
 
 /* Solo desktop: en móvil esta vista no se usa (JS no la abre) */
 @media (max-width: 1024px) {
-  #mz-koi-ep-view {
+  /* Cerrada: oculta. Abierta: pantalla completa tipo PC */
+  #mz-koi-ep-view:not(.open) {
     display: none !important;
+  }
+  #mz-koi-ep-view.open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100100 !important;
+    background: #0b1220 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 }
 
