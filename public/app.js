@@ -2019,15 +2019,15 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 
   // koi-movie = mismo layout CSS que película al Reproducir
   // koi-serie + mz-mobile-ep-playing = datos de serie (nav, estás viendo, eps)
-  document.body.classList.add(
-    "details-open",
-    "player-open",
-    "mz-mobile-ep-playing",
-    "koi-desktop",
-    "koi-serie",
-    "koi-movie"
-  );
-  document.body.classList.remove("mz-mobile-movie-playing");
+document.body.classList.add(
+  "details-open",
+  "player-open",
+  "mz-mobile-ep-playing",
+  "koi-desktop",
+  "koi-serie",
+  "koi-movie"
+);
+document.body.classList.remove("mz-mobile-movie-playing");
 
   // Forzar: ocultar hero (por si el CSS no llega)
   try {
