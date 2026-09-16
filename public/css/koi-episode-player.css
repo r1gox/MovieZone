@@ -465,9 +465,10 @@ a.mz-kp-srv-btn {
 #mz-kp-iframe.hidden,
 #mz-kp-video.hidden { display: none !important; }
 
-/* Película: info a ancho completo sin sidebar */
+/* Película: info a la izquierda, sin centrar */
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout {
-  max-width: 1100px;
+  max-width: none !important;
+  margin: 0 !important;
 }
 
 
@@ -563,5 +564,30 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout {
   background: #000; object-fit: contain;
 }
 #mz-kp-iframe.hidden, #mz-kp-video.hidden, .mz-kp-video-placeholder.hidden {
+  display: none !important;
+}
+
+
+/* Película: contenido a la izquierda (no centrado) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout,
+#mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout.mz-kp-layout-movie {
+  display: block !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 28px 4% 80px 4% !important;
+  box-sizing: border-box !important;
+  text-align: left !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
+  max-width: 720px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-sidebar {
   display: none !important;
 }
