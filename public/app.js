@@ -25,15 +25,14 @@ function isSerieOrAnime(item) {
 }
 
 /** Activa/desactiva el layout Koiflix en body */
-function setKoiMode(item) {  
   const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
-  // PC: series/anime/peli. Móvil: al menos películas (botón REPRODUCIR + vista Koi)
-  const on = !!(item && (
-    (isKoiDesktop() && (isSerieOrAnime(item) || esPeliMode)) ||
-    (!isKoiDesktop() && esPeliMode)
-  ));
+  const esSA = isSerieOrAnime(item);
+  // PC y móvil: películas, series y animes usan el hero
+  const on = !!(item && (esSA || esPeliMode));
   document.body.classList.toggle("koi-desktop", on);
   document.body.classList.toggle("koi-movie", on && esPeliMode);
+  document.body.classList.toggle("koi-serie", on && esSA);
+
   
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
@@ -155,7 +154,7 @@ function fillKoiHero(item) {
     const esSA = isSerieOrAnime(item);
     if (!esPeli && !esSA) return;
     // PC: series/anime/peli. Móvil: solo películas (hero + REPRODUCIR)
-    if (!isKoiDesktop() && !esPeli) return;
+  //  if (!isKoiDesktop() && !esPeli) return;
 
   const bg =
     item.backdrop ||
