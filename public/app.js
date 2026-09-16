@@ -370,10 +370,13 @@ function bindKoiHeroControls(handlers = {}) {
   const playBtn = document.getElementById("koi-btn-play");
   const bookmarkBtn = document.getElementById("koi-btn-bookmark");
 
+  // Siempre actualizar el handler al ítem actual
+  window.__mzKoiHandlers = handlers || {};
   if (playBtn && !playBtn.dataset.koiBound) {
     playBtn.dataset.koiBound = "1";
     playBtn.addEventListener("click", () => {
-      if (typeof handlers.onPlay === "function") handlers.onPlay();
+      const h = window.__mzKoiHandlers || {};
+      if (typeof h.onPlay === "function") h.onPlay();
       else {
         const first =
           document.querySelector("#episodes-container [data-ep]") ||
@@ -1839,13 +1842,27 @@ function aplicarServidorPreferido(embeds, item) {
   const pref = window.__mzPreferredServer;
   if (!pref || !Array.isArray(embeds) || !embeds.length) return false;
   // No auto-seleccionar al cambiar de serie/anime/peli
-  const slugNow = String(item?.slug || item?.link || item?.nombre || "");
-  if (pref.slug && slugNow && pref.slug !== slugNow) return false;
+  const slugNow = String(
+    (typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : null) ||
+    item?.slug ||
+    ""
+  ).toLowerCase();
+  const slugPref = String(pref.slug || "").toLowerCase();
+  if (
+    slugPref &&
+    slugNow &&
+    slugPref.indexOf("http") === -1 &&
+    slugNow.indexOf("http") === -1 &&
+    slugPref !== slugNow
+  ) {
+    return false;
+  }
   const name = String(pref.name || "").toLowerCase();
   let match = null;
   for (let i = 0; i < embeds.length; i++) {
     const e = embeds[i];
-    if (!e || !e.url) continue;
+        
+    if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
     // Normal: no usar noAds. Directo: solo noAds
     if (!pref.noAds && e.noAds) continue;
     if (pref.noAds && !e.noAds) continue;
@@ -1881,19 +1898,26 @@ function aplicarServidorPreferido(embeds, item) {
       }
     });
     // Fallback: primer chip cuyo texto coincide Y el grupo (noAds vs normal)
+
     if (!marked) {
-      document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
-        if (marked) return;
+      const list = document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip");
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
         const txt = (c.textContent || "").toLowerCase();
-        const inDirect = !!(c.closest && c.closest(".koi-servers-block") &&
-          /directo/i.test(c.closest(".koi-servers-block").querySelector(".koi-servers-title")?.textContent || ""));
-        if (pref.noAds && !inDirect && !/no\s*ads/i.test(txt)) return;
-        if (!pref.noAds && inDirect) return;
+        const block = c.closest(".koi-servers-block");
+        const title =
+          (block &&
+            block.querySelector(".koi-servers-title") &&
+            block.querySelector(".koi-servers-title").textContent) ||
+          "";
+        const inDirect = /directo/i.test(title);
+        if (pref.noAds && !inDirect && !/no\s*ads/i.test(txt)) continue;
+        if (!pref.noAds && inDirect) continue;
         if (name && txt.indexOf(name) !== -1) {
           c.classList.add("is-active");
-          marked = true;
+          break;
         }
-      });
+      }
     }
   } catch (_) {}
   try {
@@ -6777,12 +6801,18 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           
           chip.addEventListener("click", () => {
               try {
-                const nombre = detectarServidor(
-                  embed.url,
-                  embed.server || embed.servidor || embed.name
-                );
+                const nombre = embed.noAds
+                  ? "NO ADS"
+                  : detectarServidor(
+                      embed.url,
+                      embed.server || embed.servidor || embed.name
+                    );
                 // Solo preferir servidor dentro del mismo título (slug)
-                const slugKey = String(item?.slug || item?.link || item?.nombre || "");
+                const slugKey = String(
+                  (typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : null) ||
+                  item?.slug ||
+                  ""
+                );
                 const prefName = String(nombre || "").toLowerCase();
                 const prefLang = typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null;
                 const prefNoAds = !!embed.noAds;
