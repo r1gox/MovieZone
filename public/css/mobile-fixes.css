@@ -296,56 +296,101 @@
     display: block !important;
   }
 
-  /* Episodios más compactos en móvil */
+  /* Episodios: 2 por fila (grid) */
   body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container.episodes-grid,
   body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card {
-    display: grid !important;
-    grid-template-columns: 112px 1fr !important;
-    gap: 10px !important;
-    align-items: center !important;
-    padding: 8px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    padding: 0 !important;
     min-height: 0 !important;
     border-radius: 10px !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     background: rgba(255, 255, 255, 0.04) !important;
+    overflow: hidden !important;
+    text-align: left !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb {
-    width: 112px !important;
-    height: 64px !important;
-    min-height: 64px !important;
-    max-height: 64px !important;
-    border-radius: 8px !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border-radius: 0 !important;
     overflow: hidden !important;
+    position: relative !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb img {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    display: block !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-meta {
-    padding: 0 4px 0 0 !important;
+    padding: 0 8px 8px !important;
     min-width: 0 !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-series {
-    font-size: 0.72rem !important;
+    font-size: 0.68rem !important;
     color: #94a3b8 !important;
     margin: 0 0 2px !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-name {
-    font-size: 0.88rem !important;
+    font-size: 0.8rem !important;
     font-weight: 700 !important;
     line-height: 1.25 !important;
     color: #f1f5f9 !important;
     margin: 0 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
   }
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-dur {
-    font-size: 0.7rem !important;
-    padding: 2px 6px !important;
+    font-size: 0.65rem !important;
+    padding: 2px 5px !important;
+    position: absolute !important;
+    right: 6px !important;
+    bottom: 6px !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    border-radius: 4px !important;
+  }
+
+  /* Detalle: retroceder a la izquierda, sin X a la derecha */
+  body.details-open.koi-desktop:not(.player-open) .btn-close-modal {
+    display: none !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-btn-back,
+  body.details-open.koi-desktop:not(.player-open) #koi-btn-back {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    position: fixed !important;
+    top: max(10px, env(safe-area-inset-top)) !important;
+    left: 12px !important;
+    z-index: 100 !important;
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    color: #f8fafc !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) .koi-btn-back ion-icon,
+  body.details-open.koi-desktop:not(.player-open) #koi-btn-back ion-icon {
+    font-size: 1.15rem !important;
   }
 
   /* Película: sin episodios / servidores en detalle */
