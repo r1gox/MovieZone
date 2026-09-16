@@ -1841,11 +1841,11 @@ function renderMobileEpNumberGrid(item, seasonNum, epNum) {
 function aplicarServidorPreferido(embeds, item) {
   const pref = window.__mzPreferredServer;
   if (!pref || !Array.isArray(embeds) || !embeds.length) return false;
-  // No auto-seleccionar al cambiar de serie/anime/peli
+
   const slugNow = String(
     (typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : null) ||
-    item?.slug ||
-    ""
+      item?.slug ||
+      ""
   ).toLowerCase();
   const slugPref = String(pref.slug || "").toLowerCase();
   if (
@@ -1857,37 +1857,50 @@ function aplicarServidorPreferido(embeds, item) {
   ) {
     return false;
   }
+
   const name = String(pref.name || "").toLowerCase();
   let match = null;
+
   for (let i = 0; i < embeds.length; i++) {
     const e = embeds[i];
-        
     if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
-    // Normal: no usar noAds. Directo: solo noAds
+
+    // Normal ↔ noAds
     if (!pref.noAds && e.noAds) continue;
     if (pref.noAds && !e.noAds) continue;
-    if (pref.noAds && e.noAds) { match = e; break; }
-    const n = String(
-      detectarServidor(e.url, e.server || e.servidor || e.name) || ""
-    ).toLowerCase();
-    if (!n || (name && n.indexOf(name) === -1 && name.indexOf(n) === -1)) continue;
-    if (pref.lang && typeof idiomaDeEmbed === "function") {
-      if (idiomaDeEmbed(e) !== pref.lang) continue;
+
+    // Directo / NO ADS: primer noAds vale
+    if (pref.noAds && e.noAds) {
+      match = e;
+      break;
     }
+
+    // Normal: por nombre de servidor (sin filtrar por idioma)
+    const n = String(
+      detectarServidor(
+        e.url || e.stream_url || e.hls_resolve,
+        e.server || e.servidor || e.name
+      ) || ""
+    ).toLowerCase();
+    if (!n) continue;
+    if (name && n.indexOf(name) === -1 && name.indexOf(n) === -1) continue;
+
     match = e;
     break;
   }
 
-  
-  
   if (!match) return false;
+
+  // Un solo chip activo
   try {
     document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
       c.classList.remove("is-active", "active");
     });
     const key =
-      (pref.noAds ? "1" : "0") + "|" +
-      String(pref.name || "").toLowerCase() + "|" +
+      (pref.noAds ? "1" : "0") +
+      "|" +
+      String(pref.name || "").toLowerCase() +
+      "|" +
       String(pref.lang || "");
     let marked = false;
     document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
@@ -1897,8 +1910,6 @@ function aplicarServidorPreferido(embeds, item) {
         marked = true;
       }
     });
-    // Fallback: primer chip cuyo texto coincide Y el grupo (noAds vs normal)
-
     if (!marked) {
       const list = document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip");
       for (let i = 0; i < list.length; i++) {
@@ -1920,6 +1931,7 @@ function aplicarServidorPreferido(embeds, item) {
       }
     }
   } catch (_) {}
+
   try {
     if (match && !pref.noAds) {
       match = Object.assign({}, match, {
@@ -1930,9 +1942,9 @@ function aplicarServidorPreferido(embeds, item) {
     }
     if (typeof reproducir === "function") reproducir(match, item);
   } catch (_) {}
+
   return true;
 }
-
   /*
   if (!match) return false;
   try {
