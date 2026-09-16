@@ -571,19 +571,28 @@
 }
 
 
-/* Película detalle: bajar un poco los datos (menos vacío arriba) */
+/* Película detalle: un poco más abajo, siempre a la IZQUIERDA */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
-    min-height: 72vh !important;
-    padding: 140px 4% 56px !important;
-    display: flex !important;
-    align-items: flex-end !important;
+    min-height: auto !important;
+    padding: 120px 4% 40px 4% !important;
+    display: block !important;
+    text-align: left !important;
   }
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-content {
-    padding-bottom: 12px !important;
-    margin-top: auto !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    max-width: 720px !important;
+    width: 100% !important;
+    text-align: left !important;
+    float: none !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-body {
-    padding-top: 0 !important;
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-title,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-synopsis {
+    text-align: left !important;
+    justify-content: flex-start !important;
   }
 }
