@@ -504,9 +504,13 @@
     background: transparent !important;
   }
 
+  /* —— Vista episodio (ej. /1/1): fondo e interfaz premium —— */
   body.mz-mobile-ep-playing #details-panel,
   body.mz-mobile-movie-playing #details-panel {
-    background: linear-gradient(165deg, #0a1628 0%, #0c1a32 48%, #0f172a 100%) !important;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -20%, rgba(0, 229, 255, 0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 100% 60%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+      linear-gradient(180deg, #070b14 0%, #0a1220 40%, #0c1528 100%) !important;
   }
   body.mz-mobile-ep-playing #details-panel .mz-stremio-bg,
   body.mz-mobile-movie-playing #details-panel .mz-stremio-bg {
@@ -518,6 +522,99 @@
   body.mz-mobile-movie-playing .details-body {
     background: transparent !important;
   }
+
+  /* Player: marco limpio */
+  body.mz-mobile-ep-playing #video-player-container,
+  body.mz-mobile-movie-playing #video-player-container {
+    margin: 8px 10px 12px !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: #000 !important;
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.06),
+      0 12px 40px rgba(0, 0, 0, 0.45) !important;
+  }
+  body.mz-mobile-ep-playing .player-iframe-wrapper,
+  body.mz-mobile-ep-playing .player-video,
+  body.mz-mobile-ep-playing #video-player-container iframe {
+    border-radius: 0 !important;
+    background: #000 !important;
+  }
+
+  /* Título / meta del episodio */
+  body.mz-mobile-ep-playing #details-content,
+  body.mz-mobile-ep-playing .details-content-inner {
+    padding: 0 12px 28px !important;
+  }
+  body.mz-mobile-ep-playing .koi-player-ep-title,
+  body.mz-mobile-ep-playing #koi-player-ep-title {
+    display: block !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #f8fafc !important;
+    margin: 4px 0 8px !important;
+    line-height: 1.3 !important;
+  }
+  body.mz-mobile-ep-playing .meta-row,
+  body.mz-mobile-ep-playing .details-meta-row {
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+  body.mz-mobile-ep-playing .meta-item {
+    font-size: 0.78rem !important;
+    color: #94a3b8 !important;
+  }
+
+  /* “Estás viendo” */
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #cbd5e1 !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Servidores con más contraste */
+  body.mz-mobile-ep-playing .koi-servers-block,
+  body.mz-mobile-ep-playing .koi-servers-block.mz-mep-srv-block {
+    background: rgba(15, 23, 42, 0.65) !important;
+    border: 1px solid rgba(0, 229, 255, 0.12) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+  }
+  body.mz-mobile-ep-playing .koi-servers-title {
+    color: #67e8f9 !important;
+  }
+  body.mz-mobile-ep-playing .koi-server-chip,
+  body.mz-mobile-ep-playing .mz-mep-srv-chip {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    color: #e2e8f0 !important;
+  }
+  body.mz-mobile-ep-playing .koi-server-chip.is-active,
+  body.mz-mobile-ep-playing .mz-mep-srv-chip.is-active,
+  body.mz-mobile-ep-playing .koi-server-chip.active,
+  body.mz-mobile-ep-playing .mz-mep-srv-chip.active {
+    border-color: rgba(0, 229, 255, 0.65) !important;
+    background: rgba(0, 229, 255, 0.15) !important;
+    color: #ecfeff !important;
+    box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.25) !important;
+  }
+
+  /* Nav episodio más integrado */
+  body.mz-mobile-ep-playing .mz-mobile-ep-nav {
+    margin: 0 2px 4px !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-nav-btn:active {
+    background: rgba(0, 229, 255, 0.15) !important;
+    border-color: rgba(0, 229, 255, 0.35) !important;
+  }
+
 
   /* ---------- Retroceder episodio ---------- */
   body.mz-mobile-ep-playing .btn-close-modal {
