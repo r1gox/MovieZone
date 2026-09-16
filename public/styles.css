@@ -9047,3 +9047,35 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     touch-action: manipulation;
   }
 }
+
+
+/* Scroll / mouse sobre Directos en películas (PC) */
+@media (min-width: 901px) {
+  body.details-open.koi-movie #details-panel .details-content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  body.details-open.koi-movie #servers-section,
+  body.details-open.koi-movie #servers-container,
+  body.details-open.koi-movie .koi-servers-block,
+  body.details-open.koi-movie .koi-servers-chips {
+    position: relative !important;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+  }
+  /* El iframe del player no debe “robar” la rueda fuera de su caja */
+  body.details-open.koi-movie.player-open .video-player-container {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  body.details-open.koi-movie.player-open .player-iframe-wrapper {
+    overflow: hidden !important;
+  }
+  body.details-open.koi-movie #downloads-section {
+    position: relative !important;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+  }
+}
