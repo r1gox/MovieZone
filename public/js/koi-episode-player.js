@@ -643,13 +643,12 @@
 
     embeds.forEach(function (emb) {
       if (!emb) return;
-      // Anime: quitar Voe y HLS de todo el listado
-      if (isAnimeCtx() && (isVoeEmb(emb) || isHlsEmb(emb))) return;
 
-      // Normal: embed iframe usable (series: Voe sí puede quedar aquí)
+      // Reproductores (normal): Voe SÍ en series y anime
       if (isNormalEmbed(emb)) {
-        if (isAnimeCtx() && isVoeEmb(emb)) {
-          /* skip */
+        // Anime: quitar solo el chip llamado HLS de Reproductores (Voe se queda)
+        if (isAnimeCtx() && isHlsEmb(emb) && !isVoeEmb(emb)) {
+          /* skip HLS-named in anime reproductores */
         } else {
           var keyN = String(emb.url).split("?")[0].toLowerCase();
           if (!seenN[keyN]) {
@@ -658,8 +657,10 @@
           }
         }
       }
-      // Directo: NUNCA Voe (series ni anime)
+
+      // Directos: NUNCA Voe (series ni anime)
       if (isVoeEmb(emb)) return;
+      // Anime: sin HLS en Directos
       if (isAnimeCtx() && isHlsEmb(emb)) return;
 
       if (isDirectEmbed(emb)) {
@@ -671,7 +672,6 @@
           direct.push(emb);
         }
       } else if (isNormalEmbed(emb) && streamApiForEmbed(emb)) {
-        // Resolver a Directos solo StreamWish/VidHide/etc. — NO Voe
         if (isVoeEmb(emb)) return;
         if (isAnimeCtx() && isHlsEmb(emb)) return;
         var api = streamApiForEmbed(emb);
