@@ -2053,23 +2053,17 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
   
 
-  // Mismo servidor + autoplay (Siguiente/Anterior o si ya eligió uno antes)
+  // Mismo servidor + autoplay (Siguiente/Anterior)
   try {
-    const lista = pack.embeds || [];
-    const quiereAuto = !!window.__mzAutoPlayEp; // solo Siguiente/Anterior, no otra serie
+    const lista2 = pack.embeds || [];
+    const quiereAuto = !!window.__mzAutoPlayEp;
     window.__mzAutoPlayEp = false;
-    if (quiereAuto && lista.length) {
+    if (quiereAuto && lista2.length && window.__mzPreferredServer) {
       setTimeout(function () {
-        var ok = false;
-        if (window.__mzPreferredServer && typeof aplicarServidorPreferido === "function") {
-          ok = !!aplicarServidorPreferido(lista, item);
-        }
-        // Si no hubo match del preferido, primer embed válido
-        if (!ok && typeof reproducir === "function") {
-          var first = lista.find(function (e) { return e && e.url; });
-          if (first) reproducir(first, item);
-        }
-      }, 280);
+        var ok = typeof aplicarServidorPreferido === "function" &&
+          aplicarServidorPreferido(lista2, item);
+        if (!ok) { /* dejar chips para elegir a mano */ }
+      }, 300);
     }
   } catch (_) {}
   
@@ -6759,6 +6753,11 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.type = "button";
             chip.className = "koi-server-chip" + (idTag === "lat" ? " is-dub" : idTag === "sub" ? " is-sub" : "");
             chip.dataset.index = String(idxp);
+        
+            chip.dataset.mzPref =
+              (embed.noAds ? "1" : "0") + "|" +
+              String(nombre || "").toLowerCase() + "|" +
+              String(typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : "");
                         
             if (mobileSrv) {
                 // Solo DUB / SUB. Nunca "Desconocido" ni texto basura de idioma
