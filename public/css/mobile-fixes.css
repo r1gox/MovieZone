@@ -320,8 +320,8 @@
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb {
     width: 100% !important;
     height: auto !important;
-    aspect-ratio: 16 / 9 !important;
-    min-height: 0 !important;
+    aspect-ratio: 16 / 10 !important;
+    min-height: 150px !important;
     max-height: none !important;
     border-radius: 0 !important;
     overflow: hidden !important;
@@ -949,16 +949,17 @@
   }
 
 
+
+
   /* ============================================================
-     A) Episodios en DETALLE: más grandes, siguen 2 por fila
-     (serie/anime, sin estar en un episodio)
+     EPISODIOS DETALLE: más LARGOS (altos), 2 por fila
      ============================================================ */
   body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid,
   body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container.episodes-grid,
   body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 16px 12px !important;
+    gap: 14px 12px !important;
     width: 100% !important;
   }
 
@@ -968,7 +969,7 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 8px !important;
+    gap: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
     height: auto !important;
@@ -978,13 +979,14 @@
     overflow: hidden !important;
   }
 
+  /* Más largos = más altos (16/10 + min 150px) */
   body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb,
   body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb,
   body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb {
     display: block !important;
     width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    min-height: 112px !important;
+    aspect-ratio: 16 / 10 !important;
+    min-height: 150px !important;
     max-height: none !important;
     border-radius: 0 !important;
     overflow: hidden !important;
@@ -992,86 +994,118 @@
   }
 
   body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb img,
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img,
-  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb img {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
     display: block !important;
   }
 
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-meta,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
+    padding: 8px 10px 12px !important;
+  }
   body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-name,
   body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-series,
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label,
-  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-name,
-  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-series {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
     display: block !important;
     font-size: 13px !important;
     font-weight: 700 !important;
     color: #e2e8f0 !important;
-    line-height: 1.3 !important;
-    padding: 0 8px 10px !important;
+    line-height: 1.35 !important;
   }
 
   /* ============================================================
-     B) Vista EPISODIO móvil: layout tipo película + play
-     Conserva ant/sig, descarga, reproductores, estás viendo, nums
+     EPISODIO = misma idea que película al REPRODUCIR
+     Cuadro player arriba + datos abajo (nav, servers, viendo, eps)
      ============================================================ */
   body.mz-mobile-ep-playing #details-panel,
   body.mz-mobile-ep-playing .details-content,
   body.mz-mobile-ep-playing .details-body,
-  body.mz-mobile-ep-playing .details-content-inner {
+  body.mz-mobile-ep-playing .details-content-inner,
+  body.mz-mobile-movie-playing #details-panel,
+  body.mz-mobile-movie-playing .details-content,
+  body.mz-mobile-movie-playing .details-body {
     background: #060913 !important;
   }
   body.mz-mobile-ep-playing #details-panel .mz-stremio-bg,
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg-img {
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg-img,
+  body.mz-mobile-movie-playing #details-panel .mz-stremio-bg,
+  body.mz-mobile-movie-playing #details-panel .mz-stremio-bg-img {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
   }
 
+  /* Ocultar ficha/hero al reproducir episodio (como peli) */
+  body.mz-mobile-ep-playing .koi-hero,
+  body.mz-mobile-ep-playing .mz-stremio-header,
+  body.mz-mobile-ep-playing .details-header-card,
+  body.mz-mobile-ep-playing .mz-synopsis-section,
+  body.mz-mobile-ep-playing .koi-hero-content,
+  body.mz-mobile-ep-playing .koi-hero-overlay {
+    display: none !important;
+  }
+
   body.mz-mobile-ep-playing .mz-detail-layout {
     display: flex !important;
     flex-direction: column !important;
+    gap: 0 !important;
   }
   body.mz-mobile-ep-playing .mz-meta-col,
   body.mz-mobile-ep-playing .mz-streams-col {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
     width: 100% !important;
     max-width: 100% !important;
+    padding: 0 12px 24px !important;
+    box-sizing: border-box !important;
   }
 
+  /* Orden: player → nav → servers → watching → episodios */
   body.mz-mobile-ep-playing #video-player-container,
   body.mz-mobile-ep-playing #video-player-container.hidden {
     display: block !important;
     order: 1 !important;
     width: 100% !important;
+    max-width: 100% !important;
     aspect-ratio: 16 / 9 !important;
-    margin: 0 0 10px !important;
+    margin: 0 0 12px !important;
+    padding: 0 !important;
     background: #000 !important;
+    border-radius: 0 !important;
   }
   body.mz-mobile-ep-playing #mz-mobile-ep-nav {
     display: flex !important;
     order: 2 !important;
+    margin: 0 0 12px !important;
   }
   body.mz-mobile-ep-playing #servers-section {
     display: block !important;
     visibility: visible !important;
     order: 3 !important;
+    margin: 0 0 12px !important;
   }
   body.mz-mobile-ep-playing #mz-mobile-ep-watching {
     display: block !important;
     order: 4 !important;
+    margin: 0 0 12px !important;
   }
-  body.mz-mobile-ep-playing #seasons-section,
-  body.mz-mobile-ep-playing #episodes-container {
+  body.mz-mobile-ep-playing #seasons-section {
     display: block !important;
     order: 5 !important;
   }
+  body.mz-mobile-ep-playing #episodes-container {
+    display: grid !important;
+    order: 6 !important;
+  }
+  body.mz-mobile-ep-playing #downloads-section {
+    order: 7 !important;
+  }
 
+  /* Números al estar en episodio */
   body.mz-mobile-ep-playing #episodes-container.mz-ep-num-grid,
   body.mz-mobile-ep-playing #episodes-container.episodes-grid {
-    display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
@@ -1080,23 +1114,32 @@
     display: none !important;
   }
 
-  body.mz-mobile-ep-playing .koi-hero,
-  body.mz-mobile-ep-playing .mz-stremio-header,
-  body.mz-mobile-ep-playing .details-header-card,
-  body.mz-mobile-ep-playing .mz-synopsis-section {
+  /* ============================================================
+     Al RETROCEDER: forzar UI de detalle actual (no interfaz vieja)
+     ============================================================ */
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) .koi-hero {
+    display: flex !important;
+  }
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #video-player-container,
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #servers-section,
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #mz-mobile-ep-nav,
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #mz-mobile-ep-watching {
     display: none !important;
   }
-
-  /* ============================================================
-     C) Menos flash de UI intermedia
-     ============================================================ */
-  body.details-open.mz-booting #details-panel .mz-detail-layout,
-  body.details-open.mz-detalle-loading #details-panel .mz-detail-layout {
-    opacity: 0 !important;
-    pointer-events: none !important;
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #seasons-section,
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container {
+    display: block !important;
   }
-  body.details-open:not(.mz-booting):not(.mz-detalle-loading) #details-panel .mz-detail-layout {
-    opacity: 1 !important;
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container.episodes-grid {
+    display: grid !important;
+  }
+
+  /* Anular restos de styles.css (fondo transparente / blur viejo) */
+  body.details-open:not(.mz-mobile-ep-playing):not(.mz-mobile-movie-playing) #details-panel {
+    background: #060913 !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) #details-panel .mz-stremio-bg {
+    display: none !important;
   }
 
 
