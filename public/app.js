@@ -1869,42 +1869,59 @@ function aplicarServidorPreferido(embeds, item) {
   }
 
   let match = null;
-  for (let i = 0; i < embeds.length; i++) {
-    const e = embeds[i];
-    if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
 
-    // Misma “familia”: Directo solo con Directo, normal solo con normal
-    const isDir = esEmbedDirecto(e);
-    if (wantDirect && !isDir) continue;
-    if (!wantDirect && isDir) continue;
-
-    // NO ADS: cualquier noAds (o el que se llame igual)
-    if (pref.noAds && e.noAds) {
-      match = e;
-      break;
-    }
-
-    const n = String(
+  // Helper: ¿este embed “parece” el servidor buscado?
+  function nombreDe(e) {
+    return String(
       detectarServidor(
         e.url || e.stream_url || e.hls_resolve,
         e.server || e.servidor || e.name
       ) || ""
     ).toLowerCase();
-
-    // Nombre "no ads"
+  }
+  function nombreOk(n) {
+    if (!name) return true;
     if (name === "no ads" || name === "noads") {
-      if (e.noAds || /no\s*ads/i.test(n)) {
+      return !!(n && /no\s*ads/i.test(n));
+    }
+    return n.indexOf(name) !== -1 || name.indexOf(n) !== -1;
+  }
+
+  if (wantDirect) {
+    // 1) NO ADS explícito
+    if (pref.noAds || name === "no ads" || name === "noads") {
+      for (let i = 0; i < embeds.length; i++) {
+        const e = embeds[i];
+        if (e && e.noAds) {
+          match = e;
+          break;
+        }
+      }
+    }
+    // 2) Directo por nombre (Streamwish, VidHide, …)
+    //    En la lista cruda NO traen __directHls → no exigir isDir
+    if (!match) {
+      for (let i = 0; i < embeds.length; i++) {
+        const e = embeds[i];
+        if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
+        if (e.noAds && !(pref.noAds || name === "no ads" || name === "noads")) continue;
+        const n = nombreDe(e);
+        if (!nombreOk(n)) continue;
         match = e;
         break;
       }
-      continue;
     }
-
-    if (!n) continue;
-    if (name && n.indexOf(name) === -1 && name.indexOf(n) === -1) continue;
-
-    match = e;
-    break;
+  } else {
+    // NORMALES: solo embeds sin noAds (y sin tratarlos como directo)
+    for (let i = 0; i < embeds.length; i++) {
+      const e = embeds[i];
+      if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
+      if (e.noAds || e.__directHls || e.__forceDirect) continue;
+      const n = nombreDe(e);
+      if (!nombreOk(n)) continue;
+      match = e;
+      break;
+    }
   }
 
   if (!match) return false;
@@ -1952,11 +1969,10 @@ function aplicarServidorPreferido(embeds, item) {
 
   try {
     if (match && wantDirect) {
-      // Forzar path Directo (HLS / resolve), no iframe
       match = Object.assign({}, match, {
         __directHls: true,
         __forceDirect: true,
-        noAds: !!match.noAds || !!pref.noAds
+        noAds: !!(match.noAds || pref.noAds || name === "no ads" || name === "noads")
       });
     } else if (match && !wantDirect) {
       match = Object.assign({}, match, {
@@ -4153,76 +4169,24 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       bindKoiHeroControls({
         onPlay: async () => {
           const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
-                 
-          if (esPeli) {
-            const esMovil = window.innerWidth <= 768 ||
-              (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI());
-
-            // PC: vista Koi si existe
-            if (!esMovil) {
-              try {
-                if (typeof window.mzKoiOpenMovie === "function") {
-                  const ok = await window.mzKoiOpenMovie(item);
-                  if (ok) return;
-                }
-              } catch (e) {
-                console.warn("mzKoiOpenMovie", e);
-              }
-              // Fallback PC si Koi falla
-              try {
-                document.body.classList.add("player-open", "koi-movie");
-                const ss = document.getElementById("servers-section");
-                if (ss) {
-                  ss.classList.remove("hidden");
-                  ss.style.setProperty("display", "block", "important");
-                }
-                let embeds = item.embeds || item.reproductores || [];
-                const downloads = item.downloads || item.descargas || [];
-                if ((!embeds || !embeds.length) && item.reproductor) {
-                  embeds = [{ url: item.reproductor, server: "Servidor" }];
-                }
-                if ((!embeds || !embeds.length)) {
-                  try {
-                    const qs = new URLSearchParams();
-                    if (item.slug) qs.set("slug", item.slug);
-                    if (item.link) qs.set("link", item.link);
-                    if (item.source_id) qs.set("source_id", String(item.source_id));
-                    qs.set("tipo", "Pelicula");
-                    const r = await fetch("/api/detalle?" + qs.toString(), { cache: "no-store" });
-                    const full = await r.json();
-                    if (full) {
-                      embeds = full.embeds || full.reproductores || embeds;
-                      Object.assign(item, full);
-                    }
-                  } catch (_) {}
-                }
-                if (typeof renderServidoresYDescargas === "function") {
-                  renderServidoresYDescargas(
-                    embeds,
-                    downloads,
-                    item.reproductor,
-                    item,
-                    { expandido: true, noAutoplay: true }
-                  );
-                }
-                document.getElementById("video-player-container")?.classList.remove("hidden");
-              } catch (_) {}
-              return;
-            }
-
-            // Móvil: mostrar reproductores en el detalle
-            // Móvil: igual que PC — fetch si no hay embeds + mostrar servidores
+                    if (esPeli) {
+            // PC y móvil: misma vista Koi
             try {
-              document.body.classList.add("player-open", "koi-movie", "mz-mobile-movie-playing");
+              if (typeof window.mzKoiOpenMovie === "function") {
+                const ok = await window.mzKoiOpenMovie(item);
+                if (ok) return;
+              }
+            } catch (e) {
+              console.warn("mzKoiOpenMovie", e);
+            }
+            // Fallback si Koi no abre
+            try {
+              document.body.classList.add("player-open", "koi-movie");
               const ss = document.getElementById("servers-section");
               if (ss) {
                 ss.classList.remove("hidden");
                 ss.style.setProperty("display", "block", "important");
-                ss.style.setProperty("visibility", "visible", "important");
               }
-              const vc = document.getElementById("video-player-container");
-              if (vc) vc.classList.remove("hidden");
-
               let embeds = item.embeds || item.reproductores || [];
               let downloads = item.downloads || item.descargas || [];
               if ((!embeds || !embeds.length) && item.reproductor) {
@@ -4245,23 +4209,16 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 } catch (_) {}
               }
               if (typeof renderServidoresYDescargas === "function") {
-                renderServidoresYDescargas(
-                  embeds,
-                  downloads,
-                  item.reproductor,
-                  item,
-                  { expandido: true, noAutoplay: true }
-                );
+                renderServidoresYDescargas(embeds, downloads, item.reproductor, item, {
+                  expandido: true,
+                  noAutoplay: true
+                });
               }
-              requestAnimationFrame(() => {
-                try {
-                  (ss || document.getElementById("servers-container"))
-                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                } catch (_) {}
-              });
+              document.getElementById("video-player-container")?.classList.remove("hidden");
             } catch (_) {}
             return;
           }
+    
           const first =
             document.querySelector("#episodes-container [data-ep]") ||
             document.querySelector("#episodes-container button") ||
