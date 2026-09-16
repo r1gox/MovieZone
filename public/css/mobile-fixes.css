@@ -3,7 +3,15 @@
    Cargar DESPUÉS de styles.css
    ============================================================ */
 
+  
 @media (max-width: 768px) {
+   #mz-koi-ep-view.open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100100 !important;
+    background: #0b1220 !important;
+    overflow-y: auto !important;
+  }
 
   /* Auto: esquina superior izquierda (más arriba) */
   .mz-ep-controls {
