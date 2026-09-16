@@ -175,3 +175,16 @@
     /* si el hero sigue visible, no forzar header viejo */
   }
 }
+
+
+/* PC película: chips Directos scrolleables */
+@media (min-width: 901px) {
+  body.details-open.koi-desktop.koi-movie #servers-section {
+    position: relative !important;
+    z-index: 30 !important;
+    pointer-events: auto !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container {
+    z-index: 1 !important;
+  }
+}
