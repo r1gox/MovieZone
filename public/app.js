@@ -6336,22 +6336,36 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             (typeof window !== "undefined" && window.innerWidth <= 768);
 
           if (isMobileSrv) {
-            // —— Misma lógica que PC (koi-episode-player), solo móvil ——
-            // Reproductores = embeds iframe normales (todos, incl. Voe)
-            // Directos = noAds / stream_url del worker / clones resolubles (NO Voe; anime sin chip "HLS")
+            // —— Igual que PC (koi-episode-player.js) ——
+            // Reproductores = embeds iframe (Voe, StreamWish, VidHide…) SIN noAds
+            // Directos = noAds + stream_url/hls_resolve del worker + clones resolubles (NO Voe; anime sin "HLS")
             const isWorkerStreamApi = (url) => {
               if (!url) return false;
               const u = String(url).toLowerCase();
               if (!/workers\.dev/i.test(u)) return false;
-              return /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) || /[?&]url=/.test(u);
+              return (
+                /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) ||
+                /[?&]url=/.test(u)
+              );
             };
             const isNormalEmbed = (e) => {
               if (!e) return false;
+              if (e.noAds) return false; // NO ADS solo en Directos
               const url = e.url;
               if (!url || !/^https?:\/\//i.test(String(url))) return false;
               if (isWorkerStreamApi(url)) return false;
               if (/moviezone\.tvjz\.workers\.dev\/\d+\//i.test(String(url))) return false;
               return true;
+            };
+            const streamApi = (e) => {
+              if (!e) return null;
+              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return e.stream_url;
+              if (e.hls_resolve && isWorkerStreamApi(e.hls_resolve)) return e.hls_resolve;
+              if (typeof streamUrlParaNoAds === "function" && e.url && !isVoe(e)) {
+                const s = streamUrlParaNoAds(e.url);
+                if (s && !/\/voe\/streamurl/i.test(String(s))) return s;
+              }
+              return null;
             };
             const isDirectLike = (e) => {
               if (!e) return false;
@@ -6364,23 +6378,13 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
               if (/^directo$|no\s*ads/.test(name)) return true;
               return false;
             };
-            const streamApi = (e) => {
-              if (!e) return null;
-              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return e.stream_url;
-              if (typeof streamUrlParaNoAds === "function" && e.url) {
-                const s = streamUrlParaNoAds(e.url);
-                if (s) return s;
-              }
-              return null;
-            };
 
-            // Fuente completa: no usar solo secciones filtradas
             const pool = [];
             const seenP = new Set();
             const pushPool = (e) => {
               if (!e) return;
-              const key = String(e.url || e.stream_url || e.hls_resolve || Math.random());
-              if (seenP.has(key)) return;
+              const key = String(e.url || e.stream_url || e.hls_resolve || "") + "|" + (e.noAds ? "1" : "0");
+              if (!key || key === "|0" || seenP.has(key)) return;
               seenP.add(key);
               pool.push(e);
             };
@@ -6392,57 +6396,68 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             dirs = [];
             const seenN = new Set();
             const seenD = new Set();
+
             pool.forEach((e) => {
+              // Reproductores: embeds normales (incluye Voe)
               if (isNormalEmbed(e)) {
                 const k = String(e.url).split("?")[0].toLowerCase();
                 if (!seenN.has(k)) {
                   seenN.add(k);
-                  reps.push(e);
+                  reps.push({ ...e, noAds: false, __directHls: false });
                 }
               }
+
+              // Directos: NO ADS / ya resueltos / resolubles — nunca Voe
+              if (isVoe(e)) return;
+              if (esAnime && isHlsNamed(e)) return;
+
               if (isDirectLike(e)) {
                 let su = e.stream_url || e.hls_resolve || null;
-                if (!su && typeof streamUrlParaNoAds === "function" && e.url && !isVoe(e)) {
+                if (!su && e.noAds && typeof streamUrlParaNoAds === "function" && e.url) {
                   su = streamUrlParaNoAds(e.url);
                 }
-                if (!su && !e.noAds) return; // sin stream real no es directo
-                if (su && /\/voe\/streamurl/i.test(String(su))) return;
-                const k = String(su || e.url || "")
-                  .split("?")[0]
-                  .toLowerCase();
-                if (k && !seenD.has(k)) {
-                  seenD.add(k);
-                  dirs.push({
-                    ...e,
-                    stream_url: su || e.stream_url || null,
-                    __directHls: !e.noAds,
-                    noAds: !!e.noAds,
-                    server: e.server || e.servidor || e.name,
-                    name: e.name || e.server || e.servidor,
-                  });
-                }
-              } else if (isNormalEmbed(e) && !isVoe(e) && !(esAnime && isHlsNamed(e))) {
-                const api = streamApi(e);
-                if (api && !/\/voe\/streamurl/i.test(String(api))) {
-                  const k = String(api).split("?")[0].toLowerCase();
+                if (!su && !e.noAds) {
+                  // sin stream worker no es directo real
+                } else {
+                  const k = String(su || e.url || "noads")
+                    .split("?")[0]
+                    .toLowerCase();
                   if (!seenD.has(k)) {
                     seenD.add(k);
                     dirs.push({
                       ...e,
-                      stream_url: e.stream_url || api,
-                      __directHls: true,
-                      server: e.server || e.servidor || e.name,
-                      name: e.name || e.server || e.servidor,
+                      stream_url: su || e.stream_url || null,
+                      noAds: !!e.noAds,
+                      __directHls: !e.noAds,
+                      server: e.noAds ? "NO ADS" : e.server || e.servidor || e.name,
+                      name: e.noAds ? "NO ADS" : e.name || e.server || e.servidor,
                     });
                   }
                 }
+              } else if (isNormalEmbed(e)) {
+                // Como PC: host resoluble → entrada extra en Directos
+                const api = streamApi(e);
+                if (!api) return;
+                const k = String(api).split("?")[0].toLowerCase();
+                if (seenD.has(k)) return;
+                seenD.add(k);
+                dirs.push({
+                  ...e,
+                  stream_url: api,
+                  noAds: false,
+                  __directHls: true,
+                  server: e.server || e.servidor || e.name,
+                  name: e.name || e.server || e.servidor,
+                });
               }
             });
 
             groups = [];
             if (reps.length) groups.push({ label: "Reproductores", list: reps });
             if (dirs.length) groups.push({ label: "Directos", list: dirs });
-            if (!groups.length) groups.push({ label: "Reproductores", list: pool.length ? pool : allList });
+            if (!groups.length && pool.length) {
+              groups.push({ label: "Reproductores", list: pool.filter((e) => isNormalEmbed(e) || !e.noAds) });
+            }
           } else {
             // PC / otros: lógica previa sin cambios
             const isDirect = (e) => {
