@@ -6,16 +6,16 @@
 @media (max-width: 768px) {
 
   /* ============================================================
-     PELÍCULA MÓVIL — layout propio (no copia PC)
-     Backdrop arriba + ficha abajo + botón ancho
+     DETALLE MÓVIL (película / serie / anime)
+     Banner + ficha + botón. No copia el layout de PC.
      ============================================================ */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero {
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-end !important;
     position: relative !important;
     width: 100% !important;
-    min-height: 0 !important;
+    min-height: calc(38vh + 180px) !important;
     height: auto !important;
     max-height: none !important;
     align-items: stretch !important;
@@ -27,12 +27,9 @@
     background-repeat: no-repeat !important;
     z-index: 2 !important;
     box-sizing: border-box !important;
-    /* altura visual del banner */
-    min-height: calc(38vh + 180px) !important;
   }
 
-  /* Capa de imagen simulada: espacio superior solo banner */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero::before {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero::before {
     content: "" !important;
     display: block !important;
     width: 100% !important;
@@ -42,7 +39,7 @@
     flex-shrink: 0 !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-overlay {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-overlay {
     display: block !important;
     position: absolute !important;
     inset: 0 !important;
@@ -59,8 +56,7 @@
       ) !important;
   }
 
-  /* Ficha de contenido: “tarjeta” sobre el degradado */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-content {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-content {
     position: relative !important;
     z-index: 2 !important;
     width: 100% !important;
@@ -71,7 +67,7 @@
     box-sizing: border-box !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-logo {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-logo {
     max-width: min(180px, 55vw) !important;
     max-height: 56px !important;
     width: auto !important;
@@ -79,7 +75,7 @@
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6)) !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-title {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-title {
     font-size: 1.5rem !important;
     line-height: 1.2 !important;
     font-weight: 800 !important;
@@ -89,15 +85,14 @@
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-original {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-original {
     font-size: 0.8rem !important;
     font-weight: 500 !important;
     color: #94a3b8 !important;
     margin: 0 0 10px !important;
   }
 
-  /* Meta en pills compactas */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta {
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-meta {
     display: flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
@@ -107,9 +102,10 @@
     font-weight: 600 !important;
     color: #e2e8f0 !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta > span,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .koi-meta-badge,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .rating-badge {
+
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-meta > span,
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-meta .koi-meta-badge,
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-meta .rating-badge {
     display: inline-flex !important;
     align-items: center !important;
     gap: 4px !important;
@@ -121,12 +117,35 @@
     font-size: 0.72rem !important;
     line-height: 1.2 !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .koi-meta-sep {
+
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-meta .koi-meta-sep {
     display: none !important;
   }
 
-  /* Botones: play a ancho completo, favorito al lado */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions {
+  /* Badge IMDb (estilo series) */
+  body.details-open.koi-desktop .koi-imdb-inline {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    background: rgba(245, 197, 24, 0.12) !important;
+    border: 1px solid rgba(245, 197, 24, 0.4) !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-score {
+    font-weight: 800 !important;
+    font-size: 0.85rem !important;
+    color: #f5c518 !important;
+  }
+  body.details-open.koi-desktop .koi-imdb-tag {
+    font-weight: 800 !important;
+    font-size: 0.65rem !important;
+    letter-spacing: 0.04em !important;
+    color: #f5c518 !important;
+    text-transform: uppercase !important;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-actions {
     display: flex !important;
     flex-direction: row !important;
     align-items: stretch !important;
@@ -135,7 +154,7 @@
     width: 100% !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
+  body.details-open.koi-desktop:not(.player-open) .koi-btn-play {
     flex: 1 1 auto !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -155,11 +174,11 @@
     visibility: visible !important;
     opacity: 1 !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play ion-icon {
+  body.details-open.koi-desktop:not(.player-open) .koi-btn-play ion-icon {
     font-size: 1.2rem !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-bookmark {
+  body.details-open.koi-desktop:not(.player-open) .koi-btn-bookmark {
     flex: 0 0 48px !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -173,7 +192,8 @@
     color: #00e5ff !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-synopsis {
+  /* Sinopsis: corta por defecto */
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis.koi-syn-clamp:not(.koi-syn-open) {
     font-size: 0.88rem !important;
     line-height: 1.5 !important;
     color: #94a3b8 !important;
@@ -184,7 +204,27 @@
     overflow: hidden !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-toggle-details {
+  /* MÁS DETALLES → descripción completa */
+  body.details-open.koi-desktop .koi-hero-synopsis.koi-syn-open,
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis.koi-syn-open {
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    max-height: none !important;
+    overflow: visible !important;
+    font-size: 0.88rem !important;
+    line-height: 1.55 !important;
+    color: #cbd5e1 !important;
+    margin: 0 !important;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis {
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
+    color: #94a3b8 !important;
+    margin: 0 !important;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) .koi-toggle-details {
     margin-top: 8px !important;
     padding: 0 !important;
     font-size: 0.8rem !important;
@@ -194,36 +234,59 @@
     border: none !important;
     text-align: left !important;
   }
-
-  /* Bloque clásico duplicado → ocultar */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-stremio-header,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .details-header-card,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-stremio-poster-col,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner #details-title,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner #details-original-title,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .details-type-row,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .meta-row,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .details-genres,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-synopsis-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner #seasons-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner #servers-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner #downloads-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-meta-col,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-streams-col {
+  body.details-open.koi-desktop:not(.player-open) .koi-toggle-details.hidden {
     display: none !important;
   }
 
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-panel {
+  /* Ficha clásica duplicada → ocultar */
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .mz-stremio-header,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .details-header-card,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .mz-stremio-poster-col,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner #details-title,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner #details-original-title,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .details-type-row,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .meta-row,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .details-genres,
+  body.details-open.koi-desktop:not(.player-open) .details-content-inner .mz-synopsis-section {
+    display: none !important;
+  }
+
+  /* Series/anime: temporadas + episodios con imágenes */
+  body.details-open.koi-desktop.koi-serie:not(.player-open) #seasons-section,
+  body.details-open.koi-desktop.koi-serie:not(.player-open) .details-content-inner #seasons-section,
+  body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.details-open.koi-desktop.koi-serie:not(.player-open) #seasons-section {
+    margin: 8px 12px 24px !important;
+    padding: 0 !important;
+  }
+  body.details-open.koi-desktop.koi-serie:not(.player-open) #seasons-section > h4 {
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    color: #f1f5f9 !important;
+    margin: 0 0 12px !important;
+  }
+
+  /* Película: sin episodios / servidores en detalle */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
+    display: none !important;
+  }
+
+  body.details-open.koi-desktop:not(.player-open) #details-panel {
     background: #060913 !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-panel .mz-stremio-bg {
+  body.details-open.koi-desktop:not(.player-open) #details-panel .mz-stremio-bg {
     display: none !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-body {
+  body.details-open.koi-desktop:not(.player-open) .details-body {
     padding: 0 !important;
   }
 
-  body.details-open.koi-desktop.koi-movie .btn-close-modal {
+  body.details-open.koi-desktop .btn-close-modal {
     display: flex !important;
     z-index: 100 !important;
     top: max(10px, env(safe-area-inset-top)) !important;
@@ -235,7 +298,7 @@
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
   }
 
-  /* Vista Koi fullscreen (REPRODUCIR) */
+  /* ---------- Vista Koi fullscreen (REPRODUCIR / episodio PC-style) ---------- */
   #mz-koi-ep-view.open {
     display: flex !important;
     flex-direction: column !important;
@@ -247,6 +310,7 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
+  /* ---------- Controles overlay player ---------- */
   .mz-ep-controls {
     left: 8px !important;
     right: auto !important;
@@ -263,6 +327,7 @@
     bottom: auto !important;
   }
 
+  /* ---------- FIX doble toque ---------- */
   .mz-scroll-catch {
     pointer-events: none !important;
   }
@@ -293,6 +358,7 @@
     pointer-events: none !important;
   }
 
+  /* ---------- Fondos generales ---------- */
   body.details-open #details-panel {
     background: linear-gradient(180deg, #0b1220 0%, #0f172a 42%, #111827 100%) !important;
   }
@@ -300,6 +366,9 @@
     display: block !important;
     opacity: 0.38 !important;
     filter: saturate(1.1) brightness(0.55) !important;
+  }
+  body.details-open.koi-desktop:not(.player-open) #details-panel .mz-stremio-bg {
+    display: none !important;
   }
   body.details-open #details-panel .mz-stremio-bg-img,
   body.details-open #details-panel .mz-stremio-bg-img.is-ready {
@@ -326,6 +395,7 @@
     background: transparent !important;
   }
 
+  /* ---------- Retroceder episodio ---------- */
   body.mz-mobile-ep-playing .btn-close-modal {
     display: none !important;
   }
@@ -366,6 +436,7 @@
     display: inline-flex !important;
   }
 
+  /* Nav Anterior / Siguiente / Descarga */
   body.mz-mobile-ep-playing .mz-mobile-ep-nav {
     display: grid !important;
     grid-template-columns: 1fr 1fr auto !important;
@@ -417,6 +488,7 @@
     margin: 0 0 10px !important;
   }
 
+  /* Panel descargas */
   .mz-mep-dl-panel {
     position: fixed !important;
     left: 0 !important;
@@ -517,6 +589,7 @@
     padding: 16px 8px !important;
   }
 
+  /* Reproductores / Directos episodio */
   body.mz-mobile-ep-playing #servers-section,
   body.mz-mobile-movie-playing #servers-section {
     display: block !important;
@@ -610,6 +683,7 @@
     box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4) !important;
   }
 
+  /* Overlay Resolviendo servidor */
   .mz-player-overlay {
     position: absolute !important;
     inset: 0 !important;
