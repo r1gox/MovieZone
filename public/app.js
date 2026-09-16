@@ -4116,19 +4116,26 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     try {
       setKoiMode(item);
       bindKoiHeroControls({
-        onPlay: () => {
+        onPlay: async () => {
           const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
           if (esPeli) {
             try {
+              if (typeof window.mzKoiOpenMovie === "function") {
+                const ok = await window.mzKoiOpenMovie(item);
+                if (ok) return;
+              }
+            } catch (e) {
+              console.warn("mzKoiOpenMovie", e);
+            }
+            // Fallback (móvil / si falla Koi): mostrar servidores en detalle
+            try {
               document.getElementById("servers-section")?.classList.remove("hidden");
               document.getElementById("servers-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              const sc = document.getElementById("servers-container");
-              const tg = document.getElementById("mz-servers-toggle");
-              if (sc) {
-                sc.classList.remove("mz-collapsed-content");
-                sc.classList.add("mz-expanded-content");
+              const embeds = item.embeds || item.reproductores || [];
+              const downloads = item.downloads || item.descargas || [];
+              if (typeof renderServidoresYDescargas === "function") {
+                renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
               }
-              if (tg) tg.classList.add("open");
             } catch (_) {}
             return;
           }
@@ -4526,35 +4533,25 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
           if (sw) sw.innerHTML = "";
         } catch (_) {}
 
-        if (serversEl) serversEl.classList.remove("hidden");
+        // Película: en detalle NO listar reproductores (igual que series).
+        // Van al pulsar REPRODUCIR → vista Koi (player + título + sinopsis + servers + ← Volver)
+        if (serversEl) {
+          serversEl.classList.add("hidden");
+          serversEl.style.removeProperty("display");
+        }
+        document.getElementById("downloads-section")?.classList.add("hidden");
         document.body.classList.add("koi-movie");
         document.body.classList.remove("player-open");
-        const embeds = item.embeds || item.reproductores || [];
-        const downloads = item.downloads || item.descargas || [];
-        renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
         try {
           const vc = document.getElementById("video-player-container");
           if (vc) {
-            vc.classList.add("hidden"); // CSS de película muestra el cuadro placeholder
+            vc.classList.add("hidden");
             const ifr = document.getElementById("player-iframe");
             if (ifr) ifr.src = "about:blank";
           }
-        } catch (_) {}
-        // Forzar visibilidad por si el CSS de series ocultó el padre
-        try {
-          const metaCol = document.querySelector(".mz-meta-col");
-          if (metaCol) metaCol.style.setProperty("display", "block", "important");
-          if (serversEl) {
-            serversEl.classList.remove("hidden");
-            serversEl.style.setProperty("display", "block", "important");
-          }
           const sc = document.getElementById("servers-container");
-          if (sc) {
-            sc.style.setProperty("display", "flex", "important");
-            sc.style.setProperty("flex-wrap", "wrap", "important");
-          }
+          if (sc) sc.innerHTML = "";
         } catch (_) {}
-        // sin autoplay
     }
 }
 

@@ -9140,3 +9140,25 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     /* permitir wheel listener (no bloquea por CSS) */
   }
 }
+
+
+/* Vista película Koi (tras REPRODUCIR): sin columna episodios */
+#mz-koi-ep-view.mz-kp-movie-mode .mz-kp-sidebar,
+#mz-koi-ep-view .mz-kp-sidebar.hidden {
+  display: none !important;
+}
+#mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout,
+#mz-koi-ep-view .mz-kp-layout.mz-kp-layout-movie {
+  display: block !important;
+  max-width: 960px;
+  margin: 0 auto;
+}
+#mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
+  max-width: 100%;
+}
+/* Detalle película: ocultar bloques de servers en la ficha */
+body.details-open.koi-movie:not(.player-open) #servers-section,
+body.details-open.koi-movie:not(.player-open) #downloads-section,
+body.details-open.koi-movie:not(.player-open) #video-player-container {
+  display: none !important;
+}
