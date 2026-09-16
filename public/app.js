@@ -1846,6 +1846,9 @@ function aplicarServidorPreferido(embeds, item) {
   for (let i = 0; i < embeds.length; i++) {
     const e = embeds[i];
     if (!e || !e.url) continue;
+    // Normal: no usar noAds. Directo: solo noAds
+    if (!pref.noAds && e.noAds) continue;
+    if (pref.noAds && !e.noAds) continue;
     if (pref.noAds && e.noAds) { match = e; break; }
     const n = String(
       detectarServidor(e.url, e.server || e.servidor || e.name) || ""
@@ -1873,6 +1876,13 @@ function aplicarServidorPreferido(embeds, item) {
     });
   } catch (_) {}
   try {
+    if (match && !pref.noAds) {
+      match = Object.assign({}, match, {
+        noAds: false,
+        __directHls: false,
+        __forceDirect: false
+      });
+    }
     if (typeof reproducir === "function") reproducir(match, item);
   } catch (_) {}
   return true;
@@ -4082,6 +4092,46 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
               } catch (e) {
                 console.warn("mzKoiOpenMovie", e);
               }
+              // Fallback PC si Koi falla
+              try {
+                document.body.classList.add("player-open", "koi-movie");
+                const ss = document.getElementById("servers-section");
+                if (ss) {
+                  ss.classList.remove("hidden");
+                  ss.style.setProperty("display", "block", "important");
+                }
+                let embeds = item.embeds || item.reproductores || [];
+                const downloads = item.downloads || item.descargas || [];
+                if ((!embeds || !embeds.length) && item.reproductor) {
+                  embeds = [{ url: item.reproductor, server: "Servidor" }];
+                }
+                if ((!embeds || !embeds.length)) {
+                  try {
+                    const qs = new URLSearchParams();
+                    if (item.slug) qs.set("slug", item.slug);
+                    if (item.link) qs.set("link", item.link);
+                    if (item.source_id) qs.set("source_id", String(item.source_id));
+                    qs.set("tipo", "Pelicula");
+                    const r = await fetch("/api/detalle?" + qs.toString(), { cache: "no-store" });
+                    const full = await r.json();
+                    if (full) {
+                      embeds = full.embeds || full.reproductores || embeds;
+                      Object.assign(item, full);
+                    }
+                  } catch (_) {}
+                }
+                if (typeof renderServidoresYDescargas === "function") {
+                  renderServidoresYDescargas(
+                    embeds,
+                    downloads,
+                    item.reproductor,
+                    item,
+                    { expandido: true, noAutoplay: true }
+                  );
+                }
+                document.getElementById("video-player-container")?.classList.remove("hidden");
+              } catch (_) {}
+              return;
             }
 
             // Móvil: mostrar reproductores en el detalle
@@ -5963,6 +6013,47 @@ function renderEpisodios(item, season = 1) {
     });
     }
 
+
+function asegurarOverlayPlayer() {
+  const vc = document.getElementById("video-player-container");
+  if (!vc) return null;
+  let ov = document.getElementById("mz-player-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "mz-player-overlay";
+    ov.className = "mz-player-overlay hidden";
+    ov.innerHTML = '<div class="mz-player-overlay-box"><div class="mz-player-overlay-spin"></div><p class="mz-player-overlay-text"></p></div>';
+    vc.style.position = vc.style.position || "relative";
+    vc.appendChild(ov);
+  }
+  return ov;
+}
+
+function mostrarOverlayPlayer(texto) {
+  const ov = asegurarOverlayPlayer();
+  if (!ov) return;
+  const t = ov.querySelector(".mz-player-overlay-text");
+  if (t) t.textContent = texto || "Resolviendo servidor…";
+  ov.classList.remove("hidden", "is-error");
+}
+
+function ocultarOverlayPlayer() {
+  document.getElementById("mz-player-overlay")?.classList.add("hidden");
+}
+
+function mostrarErrorPlayer(texto) {
+  const ov = asegurarOverlayPlayer();
+  if (!ov) return;
+  const t = ov.querySelector(".mz-player-overlay-text");
+  if (t) t.textContent = texto || "No se pudo cargar";
+  ov.classList.add("is-error");
+  ov.classList.remove("hidden");
+  try {
+    const pt = document.getElementById("player-title");
+    if (pt) pt.textContent = texto || "Error";
+  } catch (_) {}
+}
+
 // ---------- Servidores y descargas ----------
 async function reproducir(embed, item) {
     if (!embed?.url && !embed?.stream_url) return;
@@ -5974,20 +6065,25 @@ async function reproducir(embed, item) {
       if (!/workers\.dev/i.test(u)) return false;
       return /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) || /[?&]url=/.test(u);
     };
-    if (
+    // Solo Directos / NO ADS explícitos (no por stream_url de un VOE normal)
+    const esDirectoExplicito = !!(
       embed.noAds ||
       embed.__directHls ||
+      embed.__forceDirect ||
       embed.server === "NO ADS" ||
       embed.name === "NO ADS" ||
-      (embed.stream_url && _isWorkerStream(embed.stream_url)) ||
-      (embed.hls_resolve && _isWorkerStream(embed.hls_resolve))
-    ) {
+      embed.server === "Directo" ||
+      /directo/i.test(String(embed.tipo || ""))
+    );
+    if (esDirectoExplicito) {
         try {
             const esNoAds = !!(embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS");
             playerTitle.textContent = esNoAds
               ? "Cargando NO ADS..."
               : "Resolviendo servidor…";
             videoContainer.classList.remove("hidden");
+            mostrarOverlayPlayer(esNoAds ? "Cargando NO ADS..." : "Resolviendo servidor…");
+          
             if (!embed.stream_url && embed.hls_resolve) {
               embed = { ...embed, stream_url: embed.hls_resolve };
             }
@@ -5999,20 +6095,12 @@ async function reproducir(embed, item) {
             }
             const playUrl = await resolverPlayUrlNoAds(embed);
             await reproducirHlsNoAds(playUrl, item);
+            ocultarOverlayPlayer();
         } catch (err) {
             console.error("Directo HLS:", err);
-            const esSerieAnime = !!(item && /serie|anime|dorama|tv|ova|ona/i.test(String(item.tipo || item.type || "")));
-            const esPeli = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
-            // Series/anime (sobre todo móvil): Directo NUNCA cae a iframe
-            if (esSerieAnime || embed.noAds || !embed.url) {
-              alert("Directo no disponible: " + (err.message || err));
-              return;
-            }
-            // Solo película puede hacer fallback a iframe si había __directHls + url
-            if (!(embed.__directHls && embed.url && esPeli)) {
-              alert("Directo no disponible: " + (err.message || err));
-              return;
-            }
+            ocultarOverlayPlayer();
+            mostrarErrorPlayer("No se pudo cargar este directo. Prueba otro servidor.");
+            return;
         }
         // Si el video HLS quedó visible, no abrir iframe
         try {
