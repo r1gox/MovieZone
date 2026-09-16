@@ -4067,16 +4067,24 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       bindKoiHeroControls({
         onPlay: async () => {
           const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+                 
           if (esPeli) {
-            try {
-              if (typeof window.mzKoiOpenMovie === "function") {
-                const ok = await window.mzKoiOpenMovie(item);
-                if (ok) return;
+            const esMovil = window.innerWidth <= 768 ||
+              (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI());
+
+            // PC: vista Koi si existe
+            if (!esMovil) {
+              try {
+                if (typeof window.mzKoiOpenMovie === "function") {
+                  const ok = await window.mzKoiOpenMovie(item);
+                  if (ok) return;
+                }
+              } catch (e) {
+                console.warn("mzKoiOpenMovie", e);
               }
-            } catch (e) {
-              console.warn("mzKoiOpenMovie", e);
             }
-            // Móvil / sin Koi: mostrar reproductores en el detalle
+
+            // Móvil: mostrar reproductores en el detalle
             try {
               document.body.classList.add("player-open", "koi-movie", "mz-mobile-movie-playing");
               const ss = document.getElementById("servers-section");
@@ -4086,8 +4094,12 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
               }
               const vc = document.getElementById("video-player-container");
               if (vc) vc.classList.remove("hidden");
-              const embeds = item.embeds || item.reproductores || [];
+
+              let embeds = item.embeds || item.reproductores || [];
               const downloads = item.downloads || item.descargas || [];
+              if ((!embeds || !embeds.length) && item.reproductor) {
+                embeds = [{ url: item.reproductor, server: "Servidor" }];
+              }
               if (typeof renderServidoresYDescargas === "function") {
                 renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
               }
@@ -6672,46 +6684,49 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             const h = document.createElement("div");
             h.className = "koi-servers-title";
             h.textContent = g.label;
-            wrap.appendChild(h);
-
-            if (mobileSrv) {
-                // Filas: NO ADS una sola vez, luego SUB / DUB / resto (sin "desconocido")
-                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
-                const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
-                const noAdsL = g.list.filter((e) => e && e.noAds);
-                const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
-                // Un solo NO ADS (dedupe)
-                const noAdsOnce = noAdsL.length ? [noAdsL[0]] : [];
-                const rows = [
-                  { key: "noads", label: "", list: noAdsOnce },
-                  { key: "sub", label: "SUB", list: subL },
-                  { key: "dub", label: "DUB", list: dubL },
-                  { key: "oth", label: "", list: otherL }
-                ];
-                rows.forEach((row) => {
-                  if (!row.list.length) return;
-                  const rowEl = document.createElement("div");
-                  rowEl.className = "mz-mep-srv-row";
-                  if (row.label) {
-                    const tag = document.createElement("span");
-                    tag.className = "mz-mep-srv-row-tag" + (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : "");
-                    tag.textContent = row.label;
-                    rowEl.appendChild(tag);
-                  }
-                  const chips = document.createElement("div");
-                  chips.className = "koi-servers-chips mz-mep-srv-chips";
-                  row.list.forEach((embed) => {
-                    // En fila SUB/DUB no repetir badge de idioma en cada chip
+            wrap.appendChild(h);             
+          if (mobileSrv) {
+                // Directos: todos los chips en una sola fila (NO ADS alineado)
+                if (String(g.label || "").toLowerCase() === "directos") {
+                  const chipWrap = document.createElement("div");
+                  chipWrap.className = "koi-servers-chips mz-mep-srv-chips";
+                  g.list.forEach((embed) => {
                     const c = makeChip(embed);
-                    if (!c) return;
-                    if (row.label) {
-                      c.querySelector(".mz-mep-srv-lang")?.remove();
-                    }
-                    chips.appendChild(c);
+                    if (c) chipWrap.appendChild(c);
                   });
-                  rowEl.appendChild(chips);
-                  wrap.appendChild(rowEl);
-                });
+                  wrap.appendChild(chipWrap);
+                } else {
+                  // Reproductores: filas SUB / DUB / resto
+                  const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
+                  const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
+                  const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+                  const rows = [
+                    { key: "sub", label: "SUB", list: subL },
+                    { key: "dub", label: "DUB", list: dubL },
+                    { key: "oth", label: "", list: otherL }
+                  ];
+                  rows.forEach((row) => {
+                    if (!row.list.length) return;
+                    const rowEl = document.createElement("div");
+                    rowEl.className = "mz-mep-srv-row";
+                    if (row.label) {
+                      const tag = document.createElement("span");
+                      tag.className = "mz-mep-srv-row-tag" + (row.key === "dub" ? " is-dub" : row.key === "sub" ? " is-sub" : "");
+                      tag.textContent = row.label;
+                      rowEl.appendChild(tag);
+                    }
+                    const chips = document.createElement("div");
+                    chips.className = "koi-servers-chips mz-mep-srv-chips";
+                    row.list.forEach((embed) => {
+                      const c = makeChip(embed);
+                      if (!c) return;
+                      if (row.label) c.querySelector(".mz-mep-srv-lang")?.remove();
+                      chips.appendChild(c);
+                    });
+                    rowEl.appendChild(chips);
+                    wrap.appendChild(rowEl);
+                  });
+                }
             } else {
                 const chipWrap = document.createElement("div");
                 chipWrap.className = "koi-servers-chips";
