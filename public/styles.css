@@ -9112,3 +9112,31 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     max-height: 100% !important;
   }
 }
+
+
+/* Scroll detalle película con Directos / player HLS */
+@media (min-width: 901px) {
+  body.details-open.koi-movie #details-panel {
+    overflow: hidden !important;
+  }
+  body.details-open.koi-movie #details-panel .details-content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    overscroll-behavior: contain;
+  }
+  body.details-open.koi-movie #details-panel .details-body {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  body.details-open.koi-movie.player-open .mz-scroll-catch {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 8 !important;
+    background: transparent !important;
+  }
+  #player-video {
+    /* permitir wheel listener (no bloquea por CSS) */
+  }
+}

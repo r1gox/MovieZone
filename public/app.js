@@ -2478,6 +2478,78 @@ async function togglePantallaCompletaPlayer() {
 }
 
 
+
+/** Contenedor real que hace scroll en el detalle (PC película) */
+function mzDetailsScrollEl() {
+  const candidates = [
+    document.querySelector("#details-panel .details-content"),
+    document.querySelector("#details-panel .details-body"),
+    document.getElementById("details-panel"),
+  ];
+  for (const el of candidates) {
+    if (!el) continue;
+    try {
+      if (el.scrollHeight > el.clientHeight + 4) return el;
+    } catch (_) {}
+  }
+  return candidates[0] || candidates[1] || null;
+}
+
+/** Rueda sobre player (iframe o <video> Directos) → scrollea el panel */
+function mzBindPlayerWheelScroll(vc) {
+  if (!vc) vc = document.getElementById("video-player-container");
+  if (!vc) return;
+  const onWheel = function (e) {
+    const sc = mzDetailsScrollEl();
+    if (!sc) return;
+    sc.scrollTop += e.deltaY;
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch (_) {}
+  };
+  if (!vc._mzWheelPageScroll) {
+    vc._mzWheelPageScroll = true;
+    vc.addEventListener("wheel", onWheel, { passive: false, capture: true });
+  }
+  const vid = document.getElementById("player-video");
+  if (vid && !vid._mzWheelPageScroll) {
+    vid._mzWheelPageScroll = true;
+    vid.addEventListener("wheel", onWheel, { passive: false, capture: true });
+  }
+  const iframe = document.getElementById("player-iframe");
+  // Overlay para iframe (cross-origin no recibe wheel en el parent)
+  let ov = vc.querySelector(".mz-scroll-catch");
+  const vidVisible = vid && !vid.classList.contains("hidden");
+  if (vidVisible) {
+    if (ov) {
+      ov.style.pointerEvents = "none";
+      ov.style.display = "none";
+    }
+    return;
+  }
+  const wrap = vc.querySelector(".player-iframe-wrapper") || vc;
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.className = "mz-scroll-catch";
+    ov.setAttribute("aria-hidden", "true");
+    wrap.style.position = wrap.style.position || "relative";
+    wrap.appendChild(ov);
+  }
+  ov.style.cssText =
+    "position:absolute;inset:0;z-index:8;background:transparent;cursor:default;display:block;pointer-events:auto;";
+  ov.onwheel = onWheel;
+  ov.onmousedown = function () {
+    ov.style.pointerEvents = "none";
+    const restore = function () {
+      ov.style.pointerEvents = "auto";
+      window.removeEventListener("mouseup", restore, true);
+    };
+    window.addEventListener("mouseup", restore, true);
+  };
+}
+
+
 async function reproducirHlsNoAds(playUrl, item) {
     destruirHls();
     const vid = ensurePlayerVideoEl();
@@ -2486,7 +2558,7 @@ async function reproducirHlsNoAds(playUrl, item) {
     playerIframe.src = "about:blank";
     vid.classList.remove("hidden");
     videoContainer.classList.remove("hidden");
-        // Quitar overlay que bloquea mouse/controles sobre el <video>
+        // Overlay no debe tapar controles del <video>, pero sí scrollear con la rueda
     try {
       document.querySelectorAll(".mz-scroll-catch").forEach((ov) => {
         ov.style.pointerEvents = "none";
@@ -2494,6 +2566,9 @@ async function reproducirHlsNoAds(playUrl, item) {
       });
       vid.style.pointerEvents = "auto";
       vid.style.zIndex = "10";
+      if (typeof mzBindPlayerWheelScroll === "function") {
+        mzBindPlayerWheelScroll(videoContainer || document.getElementById("video-player-container"));
+      }
     } catch (_) {}
   
     mostrarBotonFullscreen(true);
@@ -2525,6 +2600,9 @@ async function reproducirHlsNoAds(playUrl, item) {
     }
     iniciarSeguimientoProgreso(item || seleccionActual);
     document.body.classList.add("player-open");
+    try {
+      if (typeof mzBindPlayerWheelScroll === "function") mzBindPlayerWheelScroll(videoContainer);
+    } catch (_) {}
     requestAnimationFrame(() => {
         try { videoContainer.scrollIntoView({ behavior: "smooth", block: "center" }); }
         catch (_) { videoContainer.scrollIntoView(true); }
@@ -6004,6 +6082,7 @@ async function reproducir(embed, item) {
         if (!vc) return;
         vc.classList.remove("hidden");
         // Overlay sobre el iframe: captura rueda (el iframe no burbujea wheel)
+        try { if (typeof mzBindPlayerWheelScroll === "function") mzBindPlayerWheelScroll(vc); } catch (_) {}
         if (!vc._mzWheelBound) {
           vc._mzWheelBound = true;
           const bindOverlay = () => {              
@@ -6025,7 +6104,9 @@ async function reproducir(embed, item) {
               wrap.appendChild(ov);
             }
             const scrollDb = (dy) => {
-              const db = document.querySelector("#details-panel .details-body");
+              const db = (typeof mzDetailsScrollEl === "function" && mzDetailsScrollEl())
+                || document.querySelector("#details-panel .details-content")
+                || document.querySelector("#details-panel .details-body");
               if (db) db.scrollTop += dy;
             };
             ov.onwheel = (e) => {
