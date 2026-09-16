@@ -5,6 +5,31 @@
    ============================================================ */
 
 @media (max-width: 768px) {
+     /* Botón REPRODUCIR en películas (anula styles.css display:none) */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
+    display: flex !important;
+    position: relative !important;
+    width: 100% !important;
+    min-height: 52vh !important;
+    align-items: flex-end !important;
+    padding: 72px 4% 28px !important;
+    background-size: cover !important;
+    background-position: center 20% !important;
+    z-index: 5 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
+    min-height: 48px !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    border-radius: 8px !important;
+  }
 
   /* ---------- Vista Koi (película / episodio estilo PC) ---------- */
   #mz-koi-ep-view.open {
