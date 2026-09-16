@@ -569,3 +569,21 @@
     display: none !important;
   }
 }
+
+
+/* Película detalle: bajar un poco los datos (menos vacío arriba) */
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
+    min-height: 72vh !important;
+    padding: 140px 4% 56px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-content {
+    padding-bottom: 12px !important;
+    margin-top: auto !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-body {
+    padding-top: 0 !important;
+  }
+}
