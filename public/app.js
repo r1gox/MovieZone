@@ -5962,9 +5962,15 @@ async function reproducir(embed, item) {
             await reproducirHlsNoAds(playUrl, item);
         } catch (err) {
             console.error("Directo HLS:", err);
-            if (embed.__directHls && embed.url) {
-              // fallback iframe solo si era StreamWish/VidHide directo de película
-            } else {
+            const esSerieAnime = !!(item && /serie|anime|dorama|tv|ova|ona/i.test(String(item.tipo || item.type || "")));
+            const esPeli = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
+            // Series/anime (sobre todo móvil): Directo NUNCA cae a iframe
+            if (esSerieAnime || embed.noAds || !embed.url) {
+              alert("Directo no disponible: " + (err.message || err));
+              return;
+            }
+            // Solo película puede hacer fallback a iframe si había __directHls + url
+            if (!(embed.__directHls && embed.url && esPeli)) {
               alert("Directo no disponible: " + (err.message || err));
               return;
             }
@@ -5975,9 +5981,11 @@ async function reproducir(embed, item) {
           if (vid && !vid.classList.contains("hidden")) return;
         } catch (_) {}
         if (embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS") return;
+        // Serie/anime: no seguir a iframe aunque haya url
+        if (item && /serie|anime|dorama|tv|ova|ona/i.test(String(item.tipo || item.type || ""))) return;
         if (embed.__directHls && !embed.url) return;
         if (embed.__directHls && embed.url) {
-          // sigue al iframe de abajo como respaldo
+          // película: respaldo iframe
         } else {
           return;
         }
@@ -6336,127 +6344,130 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             (typeof window !== "undefined" && window.innerWidth <= 768);
 
           if (isMobileSrv) {
-            // —— Igual que PC (koi-episode-player.js) ——
-            // Reproductores = embeds iframe (Voe, StreamWish, VidHide…) SIN noAds
-            // Directos = noAds + stream_url/hls_resolve del worker + clones resolubles (NO Voe; anime sin "HLS")
-            const isWorkerStreamApi = (url) => {
+            // ===== MÓVIL series/anime = misma idea que PC koi-episode-player =====
+            // Reproductores: solo embeds iframe (url host real), INCLUYE Voe, EXCLUYE noAds
+            // Directos: NO ADS + stream ya del worker + clones resolubles (wish/vidhide/…), NUNCA Voe
+            const isWorkerApi = (url) => {
               if (!url) return false;
               const u = String(url).toLowerCase();
               if (!/workers\.dev/i.test(u)) return false;
-              return (
-                /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) ||
-                /[?&]url=/.test(u)
-              );
+              return /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) || /[?&]url=/.test(u);
             };
-            const isNormalEmbed = (e) => {
-              if (!e) return false;
-              if (e.noAds) return false; // NO ADS solo en Directos
+            const isIframeEmbed = (e) => {
+              if (!e || e.noAds) return false;
               const url = e.url;
               if (!url || !/^https?:\/\//i.test(String(url))) return false;
-              if (isWorkerStreamApi(url)) return false;
+              if (isWorkerApi(url)) return false;
               if (/moviezone\.tvjz\.workers\.dev\/\d+\//i.test(String(url))) return false;
               return true;
             };
-            const streamApi = (e) => {
-              if (!e) return null;
-              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return e.stream_url;
-              if (e.hls_resolve && isWorkerStreamApi(e.hls_resolve)) return e.hls_resolve;
-              if (typeof streamUrlParaNoAds === "function" && e.url && !isVoe(e)) {
+            const canResolve = (e) => {
+              if (!e || !e.url || isVoe(e)) return null;
+              if (esAnime && isHlsNamed(e)) return null;
+              // Preferir stream_url solo si ya es del worker
+              if (e.stream_url && isWorkerApi(e.stream_url) && !/\/voe\/streamurl/i.test(String(e.stream_url))) {
+                return e.stream_url;
+              }
+              if (e.hls_resolve && isWorkerApi(e.hls_resolve)) return e.hls_resolve;
+              if (typeof streamUrlParaNoAds === "function") {
                 const s = streamUrlParaNoAds(e.url);
                 if (s && !/\/voe\/streamurl/i.test(String(s))) return s;
               }
               return null;
             };
-            const isDirectLike = (e) => {
-              if (!e) return false;
-              if (isVoe(e)) return false;
-              if (esAnime && isHlsNamed(e)) return false;
-              if (e.noAds) return true;
-              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return true;
-              if (e.hls_resolve && isWorkerStreamApi(e.hls_resolve)) return true;
-              const name = String(e.server || e.servidor || e.name || "").toLowerCase();
-              if (/^directo$|no\s*ads/.test(name)) return true;
-              return false;
-            };
 
+            // Pool desde lista plana completa (embeds ya normalizados arriba)
             const pool = [];
-            const seenP = new Set();
-            const pushPool = (e) => {
+            const seenKey = new Set();
+            const add = (e) => {
               if (!e) return;
-              const key = String(e.url || e.stream_url || e.hls_resolve || "") + "|" + (e.noAds ? "1" : "0");
-              if (!key || key === "|0" || seenP.has(key)) return;
-              seenP.add(key);
+              const k = (e.noAds ? "noads|" : "") + String(e.url || e.stream_url || e.hls_resolve || "");
+              if (!k || k === "noads|" || seenKey.has(k)) return;
+              seenKey.add(k);
               pool.push(e);
             };
-            (Array.isArray(embeds) ? embeds : []).forEach(pushPool);
-            allList.forEach(pushPool);
-            if (noAds) pushPool(noAds);
+            (Array.isArray(embeds) ? embeds : []).forEach(add);
+            allList.forEach(add);
+            if (noAds) add(noAds);
 
             reps = [];
             dirs = [];
             const seenN = new Set();
             const seenD = new Set();
 
+            // 1) Reproductores = todos los iframes (Voe incluido)
             pool.forEach((e) => {
-              // Reproductores: embeds normales (incluye Voe)
-              if (isNormalEmbed(e)) {
-                const k = String(e.url).split("?")[0].toLowerCase();
-                if (!seenN.has(k)) {
-                  seenN.add(k);
-                  reps.push({ ...e, noAds: false, __directHls: false });
-                }
-              }
+              if (!isIframeEmbed(e)) return;
+              const k = String(e.url).split("?")[0].toLowerCase();
+              if (seenN.has(k)) return;
+              seenN.add(k);
+              // Quitar stream_url “falso” para que reproducir use iframe, no HLS
+              const clean = { ...e, noAds: false, __directHls: false };
+              delete clean.__directHls;
+              // No borrar stream_url del objeto original si hace falta para dirs clone;
+              // en el chip de Reproductores forzamos reproducción por url:
+              reps.push({
+                url: e.url,
+                server: e.server || e.servidor || e.name,
+                name: e.name || e.server || e.servidor,
+                lang: e.lang || e.idioma,
+                idioma: e.idioma || e.lang,
+                language: e.language,
+                // sin stream_url ni noAds → reproducir() usa iframe
+              });
+            });
 
-              // Directos: NO ADS / ya resueltos / resolubles — nunca Voe
+            // 2) Directos = NO ADS
+            const noAdsEmb = pool.find((e) => e && e.noAds) || noAds;
+            if (noAdsEmb) {
+              let su = noAdsEmb.stream_url || null;
+              if (!su && typeof streamUrlParaNoAds === "function" && noAdsEmb.url) {
+                su = streamUrlParaNoAds(noAdsEmb.url);
+              }
+              dirs.push({
+                ...noAdsEmb,
+                url: noAdsEmb.url || noAdsEmb.sourceEmbed || "",
+                stream_url: su,
+                noAds: true,
+                __directHls: false,
+                server: "NO ADS",
+                name: "NO ADS",
+              });
+              seenD.add("noads");
+            }
+
+            // 3) Directos = resolubles (no Voe), con stream_url worker + __directHls
+            pool.forEach((e) => {
+              if (!e || e.noAds) return;
               if (isVoe(e)) return;
               if (esAnime && isHlsNamed(e)) return;
-
-              if (isDirectLike(e)) {
-                let su = e.stream_url || e.hls_resolve || null;
-                if (!su && e.noAds && typeof streamUrlParaNoAds === "function" && e.url) {
-                  su = streamUrlParaNoAds(e.url);
-                }
-                if (!su && !e.noAds) {
-                  // sin stream worker no es directo real
-                } else {
-                  const k = String(su || e.url || "noads")
-                    .split("?")[0]
-                    .toLowerCase();
-                  if (!seenD.has(k)) {
-                    seenD.add(k);
-                    dirs.push({
-                      ...e,
-                      stream_url: su || e.stream_url || null,
-                      noAds: !!e.noAds,
-                      __directHls: !e.noAds,
-                      server: e.noAds ? "NO ADS" : e.server || e.servidor || e.name,
-                      name: e.noAds ? "NO ADS" : e.name || e.server || e.servidor,
-                    });
-                  }
-                }
-              } else if (isNormalEmbed(e)) {
-                // Como PC: host resoluble → entrada extra en Directos
-                const api = streamApi(e);
-                if (!api) return;
-                const k = String(api).split("?")[0].toLowerCase();
-                if (seenD.has(k)) return;
-                seenD.add(k);
-                dirs.push({
-                  ...e,
-                  stream_url: api,
-                  noAds: false,
-                  __directHls: true,
-                  server: e.server || e.servidor || e.name,
-                  name: e.name || e.server || e.servidor,
-                });
-              }
+              if (!isIframeEmbed(e) && !(e.stream_url && isWorkerApi(e.stream_url))) return;
+              const api = canResolve(e);
+              if (!api) return;
+              const k = String(api).split("?")[0].toLowerCase();
+              if (seenD.has(k)) return;
+              seenD.add(k);
+              dirs.push({
+                url: e.url || "",
+                stream_url: api,
+                __directHls: true,
+                noAds: false,
+                server: e.server || e.servidor || e.name,
+                name: e.name || e.server || e.servidor,
+                lang: e.lang || e.idioma,
+                idioma: e.idioma || e.lang,
+                language: e.language,
+              });
             });
 
             groups = [];
             if (reps.length) groups.push({ label: "Reproductores", list: reps });
             if (dirs.length) groups.push({ label: "Directos", list: dirs });
             if (!groups.length && pool.length) {
-              groups.push({ label: "Reproductores", list: pool.filter((e) => isNormalEmbed(e) || !e.noAds) });
+              groups.push({
+                label: "Reproductores",
+                list: pool.filter((e) => isIframeEmbed(e)),
+              });
             }
           } else {
             // PC / otros: lógica previa sin cambios
