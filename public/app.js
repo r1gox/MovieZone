@@ -2062,9 +2062,11 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
     if (pt) pt.textContent = "Elige un reproductor";
     // Móvil: el cuadro no se cierra (solo cambia de episodio / cierra detalle)
     const closeBtn = document.getElementById("close-player-btn");
-    if (closeBtn) closeBtn.classList.add("hidden");
-  }
-
+    if (closeBtn) {
+      closeBtn.classList.add("hidden");
+      closeBtn.style.setProperty("display", "none", "important");
+    }
+    
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
   actualizarMobileEpNav(_epPlayCtx);
   try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
@@ -2194,6 +2196,20 @@ function salirVistaMovilEpisodio() {
     cont.classList.remove("mz-ep-num-grid");
     cont.classList.add("episodes-grid");
   }
+  // Restaurar hero y X; quitar koi-movie prestado del episodio
+  try {
+    const hero = document.getElementById("koi-hero");
+    if (hero) {
+      hero.style.removeProperty("display");
+      hero.setAttribute("aria-hidden", "false");
+    }
+    const closeBtn = document.getElementById("close-player-btn");
+    if (closeBtn) {
+      closeBtn.classList.remove("hidden");
+      closeBtn.style.removeProperty("display");
+    }
+  } catch (_) {}
+  document.body.classList.remove("koi-movie");
 }
 
 function volverDesdeEpisodioMovil() {
@@ -2210,11 +2226,10 @@ function volverDesdeEpisodioMovil() {
   document.getElementById("close-player-btn")?.classList.remove("hidden");
 
   if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
-
-  // CRÍTICO: volver a poner koi-desktop + koi-serie (detalle actual)
-  try {
+    try {
     if (item && typeof setKoiMode === "function") setKoiMode(item);
   } catch (_) {}
+
 
   try {
     if (item && typeof mzReplaceDetalleUrl === "function") mzReplaceDetalleUrl(item);
