@@ -8853,15 +8853,21 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     opacity: 0.85 !important;
     filter: blur(36px) saturate(1.25) brightness(0.55) !important;
   }
-  body.mz-mobile-ep-playing #details-panel {
-    background: rgba(18, 8, 32, 0.72) !important;
+  body.mz-mobile-ep-playing #details-panel,
+  body.mz-mobile-movie-playing #details-panel {
+    background: #060913 !important;
   }
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg {
-    display: block !important;
-    opacity: 0.75 !important;
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg,
+  body.mz-mobile-movie-playing #details-panel .mz-stremio-bg,
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg-img,
+  body.mz-mobile-movie-playing #details-panel .mz-stremio-bg-img {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
   }
-  body.mz-mobile-ep-playing .details-content {
-    background: transparent !important;
+  body.mz-mobile-ep-playing .details-content,
+  body.mz-mobile-movie-playing .details-content {
+    background: #060913 !important;
   }
 }
 
