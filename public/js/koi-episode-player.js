@@ -1068,7 +1068,7 @@
   }
 
   async function openMovie(item) {
-    if (!isPc()) return false;
+//    if (!isPc()) return false;
     if (!item) return false;
     ensureDom();
     _mode = "movie";
