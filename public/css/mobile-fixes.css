@@ -491,4 +491,28 @@
     font-weight: 800 !important;
     color: #f8fafc !important;
   }
+
+     .mz-mep-srv-block .koi-servers-title {
+    width: 100%;
+    margin: 8px 0 6px;
+  }
+  .mz-mep-srv-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .mz-mep-srv-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    flex: 1;
+  }
+  .koi-server-chip.mz-mep-srv-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
 } /* fin @media */
