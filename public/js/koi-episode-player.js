@@ -343,15 +343,46 @@
    * Normal  = embed clásico para iframe (url de voe, mega, streamtape…).
    * NO marcar como directo solo porque el host “podría” resolverse.
    */
+  function isVoeEmb(emb) {
+    if (!emb) return false;
+    var u = String(emb.url || emb.stream_url || emb.hls_resolve || "").toLowerCase();
+    var s = String(emb.servidor || emb.server || emb.name || emb.nombre || "").toLowerCase();
+    return /voe|jilliandescribe/.test(u + " " + s);
+  }
+
+  function isHlsEmb(emb) {
+    if (!emb) return false;
+    var u = String(emb.url || emb.stream_url || emb.hls_resolve || "").toLowerCase();
+    var s = String(emb.servidor || emb.server || emb.name || emb.type || "").toLowerCase().trim();
+    if (s === "hls" || s === "m3u8") return true;
+    if (/\bhls\b/.test(s)) return true;
+    if (/\.m3u8(\?|$)/.test(u)) return true;
+    if (/\/voe\/streamurl|\/hls[\/?]/.test(u)) return true;
+    return false;
+  }
+
+  function isAnimeCtx() {
+    try {
+      var t = String((_ctx && _ctx.item && (_ctx.item.tipo || _ctx.item.type)) || "").toLowerCase();
+      return /anime/.test(t);
+    } catch (_) {
+      return false;
+    }
+  }
+
   function isDirectEmbed(emb) {
     if (!emb) return false;
-    if (emb.noAds) return true;
-    if (emb.stream_url && isWorkerStreamApi(emb.stream_url)) return true;
-    if (emb.hls_resolve && isWorkerStreamApi(emb.hls_resolve)) return true;
+    // Series/Anime: Voe nunca en Directos
+    if (isVoeEmb(emb)) return false;
+    // Anime: sin chip "HLS" / m3u8 en Directos
+    if (isAnimeCtx() && isHlsEmb(emb)) return false;
+    if (emb.noAds && !isVoeEmb(emb)) return true;
+    if (emb.stream_url && isWorkerStreamApi(emb.stream_url) && !isVoeEmb(emb)) return true;
+    if (emb.hls_resolve && isWorkerStreamApi(emb.hls_resolve) && !isVoeEmb(emb)) return true;
     var name = String(emb.servidor || emb.server || emb.name || "").toLowerCase();
-    if (/^directo$|no\s*ads/.test(name)) return true;
-    // "HLS" como nombre + stream del worker
-    if (/^hls$/.test(name) && (emb.stream_url || emb.hls_resolve)) return true;
+    if (/^directo$|no\s*ads/.test(name) && !isVoeEmb(emb)) return true;
+    // "HLS" como nombre — solo series (no anime)
+    if (/^hls$/.test(name) && (emb.stream_url || emb.hls_resolve) && !isAnimeCtx()) return true;
     return false;
   }
 
@@ -611,15 +642,26 @@
     var seenD = Object.create(null);
 
     embeds.forEach(function (emb) {
-      // Normal: embed iframe usable
+      if (!emb) return;
+      // Anime: quitar Voe y HLS de todo el listado
+      if (isAnimeCtx() && (isVoeEmb(emb) || isHlsEmb(emb))) return;
+
+      // Normal: embed iframe usable (series: Voe sí puede quedar aquí)
       if (isNormalEmbed(emb)) {
-        var keyN = String(emb.url).split("?")[0].toLowerCase();
-        if (!seenN[keyN]) {
-          seenN[keyN] = 1;
-          normal.push(emb);
+        if (isAnimeCtx() && isVoeEmb(emb)) {
+          /* skip */
+        } else {
+          var keyN = String(emb.url).split("?")[0].toLowerCase();
+          if (!seenN[keyN]) {
+            seenN[keyN] = 1;
+            normal.push(emb);
+          }
         }
       }
-      // Directo: stream resuelto del worker (puede ser el mismo mirror)
+      // Directo: NUNCA Voe (series ni anime)
+      if (isVoeEmb(emb)) return;
+      if (isAnimeCtx() && isHlsEmb(emb)) return;
+
       if (isDirectEmbed(emb)) {
         var keyD = String(emb.stream_url || emb.hls_resolve || emb.url || "")
           .split("?")[0]
@@ -629,9 +671,13 @@
           direct.push(emb);
         }
       } else if (isNormalEmbed(emb) && streamApiForEmbed(emb)) {
-        // Tiene embed normal pero el host se puede resolver → entrada extra en Directos
+        // Resolver a Directos solo StreamWish/VidHide/etc. — NO Voe
+        if (isVoeEmb(emb)) return;
+        if (isAnimeCtx() && isHlsEmb(emb)) return;
+        var api = streamApiForEmbed(emb);
+        if (!api || /\/voe\/streamurl/i.test(String(api))) return;
         var clone = Object.assign({}, emb, {
-          stream_url: emb.stream_url || streamApiForEmbed(emb),
+          stream_url: emb.stream_url || api,
           servidor: cleanServerName(emb),
         });
         var keyC = String(clone.stream_url).split("?")[0].toLowerCase();
