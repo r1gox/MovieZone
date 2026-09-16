@@ -1142,4 +1142,30 @@
   }
 
 
+     /* Episodio: misma cáscara que película; sinopsis → datos de serie */
+  body.mz-mobile-ep-playing.koi-movie.player-open .mz-synopsis-section,
+  body.mz-mobile-ep-playing.koi-movie.player-open #details-synopsis {
+    display: none !important;
+  }
+
+  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-watching,
+  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-nav,
+  body.mz-mobile-ep-playing.koi-movie.player-open #servers-section,
+  body.mz-mobile-ep-playing.koi-movie.player-open #seasons-section,
+  body.mz-mobile-ep-playing.koi-movie.player-open #episodes-container {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-nav {
+    display: flex !important;
+  }
+
+  /* Estás viendo sin caja, debajo del player */
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
+    background: none !important;
+    border: none !important;
+    padding: 0 12px !important;
+    margin: 8px 0 !important;
+  }
 } /* fin @media */
