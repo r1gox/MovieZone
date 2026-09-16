@@ -31,7 +31,8 @@ function setKoiMode(item) {
   // PC y móvil: películas, series y animes usan el hero
   const on = !!(item && (esSA || esPeliMode));
   document.body.classList.toggle("koi-desktop", on);
-  document.body.classList.toggle("koi-movie", on && esPeliMode);
+  const forceMovieLayout = document.body.classList.contains("mz-mobile-ep-playing");
+  document.body.classList.toggle("koi-movie", !!(on && esPeliMode) || forceMovieLayout);
   document.body.classList.toggle("koi-serie", on && esSA);
   
   const hero = document.getElementById("koi-hero");
@@ -2028,6 +2029,22 @@ document.body.classList.add(
   "koi-movie"
 );
 document.body.classList.remove("mz-mobile-movie-playing");
+  // Layout idéntico a película: player al inicio de meta-col + servers + streams visibles
+  try {
+    const meta = document.querySelector(".mz-meta-col");
+    const vc0 = document.getElementById("video-player-container");
+    if (meta && vc0) meta.insertBefore(vc0, meta.firstChild);
+    const syn = document.querySelector(".mz-synopsis-section");
+    if (syn) syn.style.setProperty("display", "none", "important");
+    const ss0 = document.getElementById("servers-section");
+    if (ss0) {
+      ss0.classList.remove("hidden");
+      ss0.style.setProperty("display", "block", "important");
+    }
+    const streams = document.querySelector(".mz-streams-col");
+    if (streams) streams.style.setProperty("display", "block", "important");
+  } catch (_) {}
+
 
   // Forzar: ocultar hero (por si el CSS no llega)
   try {
@@ -2209,6 +2226,12 @@ function salirVistaMovilEpisodio() {
       closeBtn.classList.remove("hidden");
       closeBtn.style.removeProperty("display");
     }
+  } catch (_) {}
+    try {
+    const syn = document.querySelector(".mz-synopsis-section");
+    if (syn) syn.style.removeProperty("display");
+    const streams = document.querySelector(".mz-streams-col");
+    if (streams) streams.style.removeProperty("display");
   } catch (_) {}
   document.body.classList.remove("koi-movie");
 }
