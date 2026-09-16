@@ -2018,8 +2018,16 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 
  // document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
  // document.body.classList.remove("koi-desktop", "koi-movie");
-  document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
-  document.body.classList.remove("koi-desktop", "koi-movie", "mz-mobile-movie-playing");
+  // Igual que película: se mantiene koi-desktop + modo player
+  // koi-serie = datos de serie/anime (nav, estás viendo, episodios)
+  document.body.classList.add(
+    "details-open",
+    "player-open",
+    "mz-mobile-ep-playing",
+    "koi-desktop",
+    "koi-serie"
+  );
+  document.body.classList.remove("koi-movie", "mz-mobile-movie-playing");
   try {
     const slugNow = String(item?.slug || item?.link || "");
     const pref = window.__mzPreferredServer;
@@ -2167,6 +2175,11 @@ function salirVistaMovilEpisodio() {
   document.getElementById("mz-mobile-ep-nav")?.classList.add("hidden");
   document.getElementById("mz-mobile-ep-watching")?.classList.add("hidden");
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+  try {
+    const ifr = document.getElementById("player-iframe");
+    if (ifr) ifr.src = "about:blank";
+    if (typeof destruirHls === "function") destruirHls();
+  } catch (_) {}
   const cont = document.getElementById("episodes-container");
   if (cont) {
     cont.classList.remove("mz-ep-num-grid");
@@ -2181,14 +2194,19 @@ function volverDesdeEpisodioMovil() {
     if (ifr) ifr.src = "about:blank";
     if (typeof destruirHls === "function") destruirHls();
   } catch (_) {}
-  document.body.classList.remove("player-open", "mz-mep-dl-open");
+
   document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
   document.getElementById("video-player-container")?.classList.add("hidden");
   document.getElementById("servers-section")?.classList.add("hidden");
   document.getElementById("close-player-btn")?.classList.remove("hidden");
+
   if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
 
-  // URL: /detalle/slug/1/1 → /detalle/slug (sin sumar otra entrada rara)
+  // CRÍTICO: volver a poner koi-desktop + koi-serie (detalle actual)
+  try {
+    if (item && typeof setKoiMode === "function") setKoiMode(item);
+  } catch (_) {}
+
   try {
     if (item && typeof mzReplaceDetalleUrl === "function") mzReplaceDetalleUrl(item);
     else if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
@@ -2198,6 +2216,13 @@ function volverDesdeEpisodioMovil() {
     document.getElementById("seasons-section")?.classList.remove("hidden");
     renderTemporadas(item);
   }
+
+  // Scroll al listado de episodios (detalle)
+  try {
+    requestAnimationFrame(function () {
+      document.getElementById("seasons-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  } catch (_) {}
 }
 
 /** PEGAR en app.js: reemplaza TODA la función reproducirCapituloAuto existente */
