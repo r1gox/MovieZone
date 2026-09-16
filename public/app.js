@@ -5928,13 +5928,20 @@ function renderEpisodios(item, season = 1) {
 async function reproducir(embed, item) {
     if (!embed?.url && !embed?.stream_url) return;
 
-    // Directos resueltos: NO ADS o chips de película con __directHls (StreamWish/VidHide)
-    // Series/anime: solo entra por noAds (como antes)
+    // Directos: NO ADS, __directHls, o stream_url del worker (móvil series/anime)
+    const _isWorkerStream = (url) => {
+      if (!url) return false;
+      const u = String(url).toLowerCase();
+      if (!/workers\.dev/i.test(u)) return false;
+      return /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) || /[?&]url=/.test(u);
+    };
     if (
       embed.noAds ||
       embed.__directHls ||
       embed.server === "NO ADS" ||
-      embed.name === "NO ADS"
+      embed.name === "NO ADS" ||
+      (embed.stream_url && _isWorkerStream(embed.stream_url)) ||
+      (embed.hls_resolve && _isWorkerStream(embed.hls_resolve))
     ) {
         try {
             const esNoAds = !!(embed.noAds || embed.server === "NO ADS" || embed.name === "NO ADS");
@@ -5942,6 +5949,9 @@ async function reproducir(embed, item) {
               ? "Cargando NO ADS..."
               : "Resolviendo servidor…";
             videoContainer.classList.remove("hidden");
+            if (!embed.stream_url && embed.hls_resolve) {
+              embed = { ...embed, stream_url: embed.hls_resolve };
+            }
             if (!embed.stream_url && typeof streamUrlParaNoAds === "function") {
               embed = {
                 ...embed,
@@ -6391,12 +6401,25 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 }
               }
               if (isDirectLike(e)) {
-                const k = String(e.stream_url || e.hls_resolve || e.url || "")
+                let su = e.stream_url || e.hls_resolve || null;
+                if (!su && typeof streamUrlParaNoAds === "function" && e.url && !isVoe(e)) {
+                  su = streamUrlParaNoAds(e.url);
+                }
+                if (!su && !e.noAds) return; // sin stream real no es directo
+                if (su && /\/voe\/streamurl/i.test(String(su))) return;
+                const k = String(su || e.url || "")
                   .split("?")[0]
                   .toLowerCase();
                 if (k && !seenD.has(k)) {
                   seenD.add(k);
-                  dirs.push(e);
+                  dirs.push({
+                    ...e,
+                    stream_url: su || e.stream_url || null,
+                    __directHls: !e.noAds,
+                    noAds: !!e.noAds,
+                    server: e.server || e.servidor || e.name,
+                    name: e.name || e.server || e.servidor,
+                  });
                 }
               } else if (isNormalEmbed(e) && !isVoe(e) && !(esAnime && isHlsNamed(e))) {
                 const api = streamApi(e);
@@ -6511,7 +6534,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           document.body.classList.contains("mz-mobile-ep-playing");
 
         const makeChip = (embed) => {
-            if (!embed || !embed.url) return null;
+            if (!embed || (!embed.url && !embed.stream_url)) return null;
             let idxp = flatForPlay.indexOf(embed);
             if (idxp < 0) { flatForPlay.push(embed); idxp = flatForPlay.length - 1; }
             const nombre = embed.noAds
