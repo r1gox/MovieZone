@@ -6239,7 +6239,13 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           if (!e) return false;
           const u = String(e.url || "").toLowerCase();
           const s = String(e.server || e.servidor || e.name || "").toLowerCase();
-          return /voe|jilliandescribe/.test(u + " " + s);
+          let det = "";
+          try {
+            if (typeof detectarServidor === "function") {
+              det = String(detectarServidor(e.url, e.server || e.servidor || e.name) || "").toLowerCase();
+            }
+          } catch (_) {}
+          return /voe|jilliandescribe/.test(u + " " + s + " " + det);
         };
 
         const allList = [];
@@ -6284,7 +6290,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           const isHlsLike = (e) => {
             if (!e) return false;
             const u = String(e.url || "").toLowerCase();
-            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
+            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase().trim();
+            // Nombre literal "HLS" / tipo hls
+            if (s === "hls" || s === "m3u8" || /^hls\b/.test(s)) return true;
             if (/\.m3u8(\?|$)/i.test(u)) return true;
             if (/\bhls\b/i.test(s)) return true;
             if (e.stream_url && /\.m3u8|\/hls|m3u8/i.test(String(e.stream_url))) return true;
@@ -6292,7 +6300,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           };
           const isDirect = (e) => {
             if (!e) return false;
-            if (isVoe(e)) return false; // Voe nunca en Directos
+            if (isVoe(e)) return false; // Series+Anime: Voe NUNCA en Directos
             if (esAnime && isHlsLike(e)) return false; // Anime: sin HLS en Directos
             if (e.noAds || e.direct || e.stream_url) return true;
             const u = String(e.url || "");
@@ -6304,6 +6312,13 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           };
           reps = allList.filter((e) => !isDirect(e));
           dirs = allList.filter((e) => isDirect(e));
+          // Refuerzo: quitar Voe de Directos siempre
+          dirs = dirs.filter((e) => e && !isVoe(e));
+          // Anime: quitar Voe y HLS también de Reproductores (chip "HLS" / Voe)
+          if (esAnime) {
+            reps = reps.filter((e) => e && !isVoe(e) && !isHlsLike(e));
+            dirs = dirs.filter((e) => e && !isHlsLike(e));
+          }
           if (!dirs.length) {
             dirs = allList.filter((e) => {
               if (!e) return false;
@@ -6312,10 +6327,18 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
               return !!(e.stream_url || e.noAds || e.direct);
             });
             reps = allList.filter((e) => !dirs.includes(e));
+            if (esAnime) {
+              reps = reps.filter((e) => e && !isVoe(e) && !isHlsLike(e));
+            }
           }
           groups = [];
-          groups.push({ label: "Reproductores", list: reps.length ? reps : allList });
+          groups.push({ label: "Reproductores", list: reps.length ? reps : allList.filter((e) => {
+            if (!e) return false;
+            if (esAnime && (isVoe(e) || isHlsLike(e))) return false;
+            return true;
+          }) });
           if (dirs.length) groups.push({ label: "Directos", list: dirs });
+        }
         }
 /*
         const isDirect = (e) => {
