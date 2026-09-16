@@ -1859,7 +1859,6 @@ function aplicarServidorPreferido(embeds, item) {
   }
 
   const name = String(pref.name || "").toLowerCase();
-  const name = String(pref.name || "").toLowerCase();
   const wantDirect = !!(pref.direct || pref.noAds);
 
   function esEmbedDirecto(e) {
