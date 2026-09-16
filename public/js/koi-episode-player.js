@@ -1024,6 +1024,13 @@
     view.classList.remove("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
+    // Restaurar layout serie (si antes se abrió una película)
+    try {
+      var layout = view.querySelector(".mz-kp-layout");
+      if (layout) layout.classList.remove("mz-kp-layout-movie");
+      var side = $("mz-kp-sidebar");
+      if (side) side.classList.remove("hidden");
+    } catch (_) {}
 
     seasonNum = Number(seasonNum) || seasonOf(episodio, 1);
     epNum = Number(epNum) || epNumOf(episodio, 1);
@@ -1113,6 +1120,12 @@
     view.classList.remove("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "true");
     document.body.classList.remove("mz-koi-ep-open");
+    try {
+      var layout = view.querySelector(".mz-kp-layout");
+      if (layout) layout.classList.remove("mz-kp-layout-movie");
+      var side = $("mz-kp-sidebar");
+      if (side) side.classList.remove("hidden");
+    } catch (_) {}
     destroyHls();
     _ctx = null;
   }
