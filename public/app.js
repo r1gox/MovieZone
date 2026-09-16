@@ -6237,9 +6237,32 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
        
         const isVoe = (e) => {
           if (!e) return false;
+          const u = String(e.url || e.link || "").toLowerCase();
+          const s = String(e.server || e.servidor || e.name || e.nombre || "").toLowerCase();
+          let det = "";
+          try {
+            if (typeof detectarServidor === "function") {
+              det = String(detectarServidor(e.url, e.server || e.servidor || e.name) || "").toLowerCase();
+            }
+          } catch (_) {}
+          return /voe|jilliandescribe/.test(u + " " + s + " " + det);
+        };
+        const isHlsNamed = (e) => {
+          if (!e) return false;
           const u = String(e.url || "").toLowerCase();
-          const s = String(e.server || e.servidor || e.name || "").toLowerCase();
-          return /voe|jilliandescribe/.test(u + " " + s);
+          const s = String(e.server || e.servidor || e.name || e.type || e.nombre || "").toLowerCase().trim();
+          let det = "";
+          try {
+            if (typeof detectarServidor === "function") {
+              det = String(detectarServidor(e.url, e.server || e.servidor || e.name) || "").toLowerCase();
+            }
+          } catch (_) {}
+          const blob = u + " " + s + " " + det;
+          if (s === "hls" || det === "hls") return true;
+          if (/\bhls\b/.test(blob)) return true;
+          if (/\.m3u8(\?|$)/i.test(u)) return true;
+          if (e.stream_url && /\.m3u8|\/hls|m3u8/i.test(String(e.stream_url))) return true;
+          return false;
         };
 
         const allList = [];
@@ -6255,6 +6278,8 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         if (noAds && !allList.includes(noAds)) allList.unshift(noAds);
 
         let reps, dirs, groups;
+        const esAnime = !!(item && /anime/i.test(String(item.tipo || item.type || "")));
+        const esSerie = !!(item && /serie|tv|dorama/i.test(String(item.tipo || item.type || "")));
 
         if (esPeli) {
           // SOLO PELÍCULAS
@@ -6280,20 +6305,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           if (!groups.length) groups.push({ label: "Reproductores", list: allList });
         } else {
           // SERIES / ANIME
-          const esAnime = !!(item && /anime/i.test(String(item.tipo || item.type || "")));
-          const isHlsLike = (e) => {
-            if (!e) return false;
-            const u = String(e.url || "").toLowerCase();
-            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
-            if (/\.m3u8(\?|$)/i.test(u)) return true;
-            if (/\bhls\b/i.test(s)) return true;
-            if (e.stream_url && /\.m3u8|\/hls|m3u8/i.test(String(e.stream_url))) return true;
-            return false;
-          };
           const isDirect = (e) => {
             if (!e) return false;
-            if (isVoe(e)) return false; // Voe nunca en Directos
-            if (esAnime && isHlsLike(e)) return false; // Anime: sin HLS en Directos
+            if (isVoe(e)) return false; // Series+Anime: Voe nunca en Directos
+            if (esAnime && isHlsNamed(e)) return false; // Anime: sin HLS en Directos
             if (e.noAds || e.direct || e.stream_url) return true;
             const u = String(e.url || "");
             const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
@@ -6302,21 +6317,41 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             if (e.download || e.is_direct) return true;
             return false;
           };
-          reps = allList.filter((e) => !isDirect(e));
-          dirs = allList.filter((e) => isDirect(e));
+          reps = allList.filter((e) => e && !isDirect(e));
+          dirs = allList.filter((e) => e && isDirect(e));
+          // Refuerzo Directos: sin Voe
+          dirs = dirs.filter((e) => e && !isVoe(e));
+          // Anime: quitar Voe y HLS de Reproductores y Directos
+          if (esAnime) {
+            reps = reps.filter((e) => e && !isVoe(e) && !isHlsNamed(e));
+            dirs = dirs.filter((e) => e && !isHlsNamed(e));
+          }
           if (!dirs.length) {
             dirs = allList.filter((e) => {
               if (!e) return false;
               if (isVoe(e)) return false;
-              if (esAnime && isHlsLike(e)) return false;
+              if (esAnime && isHlsNamed(e)) return false;
               return !!(e.stream_url || e.noAds || e.direct);
             });
-            reps = allList.filter((e) => !dirs.includes(e));
+            reps = allList.filter((e) => e && !dirs.includes(e));
+            if (esAnime) {
+              reps = reps.filter((e) => e && !isVoe(e) && !isHlsNamed(e));
+            }
           }
+          // Nunca hacer fallback a allList (reintroducía Voe/HLS)
           groups = [];
-          groups.push({ label: "Reproductores", list: reps.length ? reps : allList });
+          if (reps.length) groups.push({ label: "Reproductores", list: reps });
+          else {
+            const safe = allList.filter((e) => {
+              if (!e) return false;
+              if (esAnime && (isVoe(e) || isHlsNamed(e))) return false;
+              return !isDirect(e);
+            });
+            groups.push({ label: "Reproductores", list: safe.length ? safe : allList.filter((e) => e && !(esAnime && isVoe(e))) });
+          }
           if (dirs.length) groups.push({ label: "Directos", list: dirs });
         }
+
 /*
         const isDirect = (e) => {
           if (!e) return false;
@@ -6425,6 +6460,16 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
         };
 
         groups.forEach((g) => {
+            // Último filtro al pintar (por si quedó Voe/HLS)
+            const esAnimePaint = !!(item && /anime/i.test(String(item.tipo || item.type || "")));
+            const isDirGroup = /directo/i.test(String(g.label || ""));
+            g.list = (g.list || []).filter((e) => {
+              if (!e) return false;
+              if (typeof isVoe === "function" && isVoe(e) && (isDirGroup || esAnimePaint)) return false;
+              if (esAnimePaint && typeof isHlsNamed === "function" && isHlsNamed(e)) return false;
+              return true;
+            });
+            if (!g.list.length) return;
             const wrap = document.createElement("div");
             wrap.className = "koi-servers-block" + (mobileSrv ? " mz-mep-srv-block" : "");
             const h = document.createElement("div");
