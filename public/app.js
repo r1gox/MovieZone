@@ -1859,29 +1859,48 @@ function aplicarServidorPreferido(embeds, item) {
   }
 
   const name = String(pref.name || "").toLowerCase();
-  let match = null;
+  const name = String(pref.name || "").toLowerCase();
+  const wantDirect = !!(pref.direct || pref.noAds);
 
+  function esEmbedDirecto(e) {
+    if (!e) return false;
+    if (e.noAds || e.__directHls || e.__forceDirect) return true;
+    if (e.server === "NO ADS" || e.name === "NO ADS") return true;
+    return false;
+  }
+
+  let match = null;
   for (let i = 0; i < embeds.length; i++) {
     const e = embeds[i];
     if (!e || (!e.url && !e.stream_url && !e.hls_resolve)) continue;
 
-    // Normal ↔ noAds
-    if (!pref.noAds && e.noAds) continue;
-    if (pref.noAds && !e.noAds) continue;
+    // Misma “familia”: Directo solo con Directo, normal solo con normal
+    const isDir = esEmbedDirecto(e);
+    if (wantDirect && !isDir) continue;
+    if (!wantDirect && isDir) continue;
 
-    // Directo / NO ADS: primer noAds vale
+    // NO ADS: cualquier noAds (o el que se llame igual)
     if (pref.noAds && e.noAds) {
       match = e;
       break;
     }
 
-    // Normal: por nombre de servidor (sin filtrar por idioma)
     const n = String(
       detectarServidor(
         e.url || e.stream_url || e.hls_resolve,
         e.server || e.servidor || e.name
       ) || ""
     ).toLowerCase();
+
+    // Nombre "no ads"
+    if (name === "no ads" || name === "noads") {
+      if (e.noAds || /no\s*ads/i.test(n)) {
+        match = e;
+        break;
+      }
+      continue;
+    }
+
     if (!n) continue;
     if (name && n.indexOf(name) === -1 && name.indexOf(n) === -1) continue;
 
@@ -1933,7 +1952,14 @@ function aplicarServidorPreferido(embeds, item) {
   } catch (_) {}
 
   try {
-    if (match && !pref.noAds) {
+    if (match && wantDirect) {
+      // Forzar path Directo (HLS / resolve), no iframe
+      match = Object.assign({}, match, {
+        __directHls: true,
+        __forceDirect: true,
+        noAds: !!match.noAds || !!pref.noAds
+      });
+    } else if (match && !wantDirect) {
       match = Object.assign({}, match, {
         noAds: false,
         __directHls: false,
@@ -6791,9 +6817,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.dataset.index = String(idxp);
         
             chip.dataset.mzPref =
-              (embed.noAds ? "1" : "0") + "|" +
+              (embed.noAds || embed.__directHls || embed.__forceDirect ? "1" : "0") + "|" +
               String(nombre || "").toLowerCase() + "|" +
-              String(typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : "");
+              String(typeof idiomaDeEmbed === "function" ? (idiomaDeEmbed(embed) || "") : "");
                         
             if (mobileSrv) {
                 // Solo DUB / SUB. Nunca "Desconocido" ni texto basura de idioma
@@ -6828,10 +6854,18 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 const prefName = String(nombre || "").toLowerCase();
                 const prefLang = typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null;
                 const prefNoAds = !!embed.noAds;
+                const prefDirect = !!(
+                  embed.noAds ||
+                  embed.__directHls ||
+                  embed.__forceDirect ||
+                  embed.server === "NO ADS" ||
+                  embed.name === "NO ADS"
+                );
                 window.__mzPreferredServer = {
                   name: prefName,
                   lang: prefLang,
                   noAds: prefNoAds,
+                  direct: prefDirect, // true = sección Directos / NO ADS
                   slug: slugKey
                 };
                 // Una sola clase activa; limpia normales y directos
