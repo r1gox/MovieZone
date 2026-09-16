@@ -5,30 +5,165 @@
    ============================================================ */
 
 @media (max-width: 768px) {
-     /* Botón REPRODUCIR en películas (anula styles.css display:none) */
+
+     /* ========== Detalle PELÍCULA móvil (hero tipo Netflix, limpio) ========== */
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
     display: flex !important;
     position: relative !important;
     width: 100% !important;
-    min-height: 52vh !important;
+    min-height: 58vh !important;
+    max-height: 70vh !important;
     align-items: flex-end !important;
-    padding: 72px 4% 28px !important;
+    padding: max(56px, env(safe-area-inset-top)) 16px 20px !important;
+    background-color: #060913 !important;
     background-size: cover !important;
-    background-position: center 20% !important;
-    z-index: 5 !important;
+    background-position: center 15% !important;
+    background-repeat: no-repeat !important;
+    z-index: 2 !important;
+    box-sizing: border-box !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions,
+
+  /* Degradado legible (texto sobre el backdrop) */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-overlay {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+    background:
+      linear-gradient(180deg, rgba(6, 9, 19, 0.15) 0%, rgba(6, 9, 19, 0.55) 45%, #060913 100%),
+      linear-gradient(90deg, rgba(6, 9, 19, 0.75) 0%, transparent 70%) !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-content {
+    position: relative !important;
+    z-index: 2 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-logo {
+    max-width: min(220px, 70vw) !important;
+    max-height: 72px !important;
+    width: auto !important;
+    margin: 0 0 10px !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-title {
+    font-size: 1.55rem !important;
+    line-height: 1.2 !important;
+    font-weight: 800 !important;
+    margin: 0 0 8px !important;
+    color: #f8fafc !important;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85) !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-original {
+    font-size: 0.85rem !important;
+    color: #94a3b8 !important;
+    margin: 0 0 8px !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px 10px !important;
+    margin: 0 0 14px !important;
+    font-size: 0.8rem !important;
+    color: #cbd5e1 !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 0 12px !important;
+  }
+
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
     display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    min-height: 46px !important;
+    padding: 11px 18px !important;
+    font-size: 0.9rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    border-radius: 6px !important;
+    background: #00e5ff !important;
+    color: #060913 !important;
+    box-shadow: 0 6px 20px rgba(0, 229, 255, 0.35) !important;
     visibility: visible !important;
     opacity: 1 !important;
   }
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
-    min-height: 48px !important;
-    padding: 12px 20px !important;
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    border-radius: 8px !important;
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-bookmark {
+    display: inline-flex !important;
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 6px !important;
+    border: 2px solid rgba(0, 229, 255, 0.7) !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+    color: #00e5ff !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-synopsis {
+    font-size: 0.88rem !important;
+    line-height: 1.45 !important;
+    color: #cbd5e1 !important;
+    margin: 0 !important;
+    max-height: 4.2em !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-toggle-details {
+    margin-top: 8px !important;
+    font-size: 0.8rem !important;
+    color: #94a3b8 !important;
+  }
+
+  /* Ocultar bloques duplicados del detalle clásico (ya están en el hero) */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-stremio-header,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-header-card,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-title,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-original-title,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-type-row,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .meta-row,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-genres,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-stremio-poster-col,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-synopsis-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section {
+    display: none !important;
+  }
+
+  /* Panel detalle: fondo limpio bajo el hero */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-panel {
+    background: #060913 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) #details-panel .mz-stremio-bg {
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-body {
+    padding: 0 0 24px !important;
+    background: #060913 !important;
+  }
+
+  /* X cerrar visible y usable */
+  body.details-open.koi-desktop.koi-movie .btn-close-modal {
+    display: flex !important;
+    z-index: 100 !important;
+    top: max(10px, env(safe-area-inset-top)) !important;
+    right: 12px !important;
   }
 
   /* ---------- Vista Koi (película / episodio estilo PC) ---------- */
