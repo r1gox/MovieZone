@@ -1349,10 +1349,6 @@ function detectarServidor(url, serverOriginal) {
     return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Servidor";
 }
 
-}
-
-
-
 // ======================================================
 // NO ADS — stream directo vía worker (NO se guarda en Supabase)
 // Prioridad: Vimeos → Streamwish → Goodstream → Vidhide → Voe
