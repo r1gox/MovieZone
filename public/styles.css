@@ -9189,27 +9189,33 @@ body.details-open.koi-movie #mz-downloads-toggle {
 }
 
 
-/* pelicula detalle bajar datos */
+/* pelicula detalle: más padding arriba, alineado izquierda (no centro/derecha) */
 @media (min-width: 1025px) {
   body.details-open.koi-movie:not(.player-open) .koi-hero {
-    min-height: 70vh !important;
-    padding-top: 130px !important;
-    padding-bottom: 48px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-end !important;
+    min-height: auto !important;
+    padding: 120px 4% 40px 4% !important;
+    display: block !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
   }
+  body.details-open.koi-movie:not(.player-open) .koi-hero-content,
   body.details-open.koi-movie:not(.player-open) .mz-stremio-header,
-  body.details-open.koi-movie:not(.player-open) .koi-hero-content {
-    margin-top: auto !important;
+  body.details-open.koi-movie:not(.player-open) .mz-stremio-info {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    max-width: 720px !important;
+    text-align: left !important;
+  }
+  body.details-open.koi-movie:not(.player-open) .koi-hero-actions {
+    justify-content: flex-start !important;
   }
 }
 @media (max-width: 1024px) {
   body.details-open.koi-movie .koi-hero,
   body.details-open.koi-movie .mz-stremio-header {
-    padding-top: 28px !important;
-  }
-  body.details-open.koi-movie .details-body {
-    padding-top: 12px !important;
+    padding-top: 24px !important;
+    text-align: left !important;
   }
 }
