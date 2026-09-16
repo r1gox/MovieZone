@@ -188,3 +188,20 @@
     z-index: 1 !important;
   }
 }
+
+
+/* PC película + player: scroll de la página no bloqueado */
+@media (min-width: 901px) {
+  body.details-open.koi-desktop.koi-movie.player-open .details-content {
+    overflow-y: auto !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open #servers-section {
+    z-index: 40 !important;
+    pointer-events: auto !important;
+  }
+  body.details-open.koi-desktop.koi-movie.player-open .video-player-container {
+    z-index: 2 !important;
+  }
+}
