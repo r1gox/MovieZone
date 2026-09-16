@@ -9187,3 +9187,29 @@ body.details-open.koi-movie #mz-downloads-toggle {
   margin: 0 !important;
   padding: 0 !important;
 }
+
+
+/* pelicula detalle bajar datos */
+@media (min-width: 1025px) {
+  body.details-open.koi-movie:not(.player-open) .koi-hero {
+    min-height: 70vh !important;
+    padding-top: 130px !important;
+    padding-bottom: 48px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+  }
+  body.details-open.koi-movie:not(.player-open) .mz-stremio-header,
+  body.details-open.koi-movie:not(.player-open) .koi-hero-content {
+    margin-top: auto !important;
+  }
+}
+@media (max-width: 1024px) {
+  body.details-open.koi-movie .koi-hero,
+  body.details-open.koi-movie .mz-stremio-header {
+    padding-top: 28px !important;
+  }
+  body.details-open.koi-movie .details-body {
+    padding-top: 12px !important;
+  }
+}
