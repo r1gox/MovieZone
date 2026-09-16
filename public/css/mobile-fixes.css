@@ -1218,4 +1218,87 @@
   }
 
 
+
+  /* ===== /1/1 NUCLEAR: interfaz tipo película Reproducir ===== */
+  body.details-open.mz-mobile-ep-playing #koi-hero,
+  body.details-open.mz-mobile-ep-playing .koi-hero-overlay,
+  body.details-open.mz-mobile-ep-playing .koi-hero-content {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing .details-content-inner,
+  body.details-open.mz-mobile-ep-playing #details-content {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing .mz-detail-layout {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Columna que en detalle serie está oculta: aquí LLEVA el player + servers */
+  body.details-open.mz-mobile-ep-playing .details-content-inner .mz-meta-col,
+  body.details-open.mz-mobile-ep-playing .mz-meta-col {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    visibility: visible !important;
+    padding: 0 12px 12px !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing #video-player-container,
+  body.details-open.mz-mobile-ep-playing #video-player-container.hidden {
+    display: block !important;
+    width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    background: #0b0f1a !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 12px !important;
+    margin: 8px 0 12px !important;
+    overflow: hidden !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing #servers-section {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing .mz-synopsis-section {
+    display: none !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing .mz-stremio-poster-col {
+    display: none !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing .mz-streams-col {
+    display: block !important;
+    width: 100% !important;
+    visibility: visible !important;
+    padding: 0 12px 24px !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing #mz-mobile-ep-nav {
+    display: flex !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing #mz-mobile-ep-watching {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  body.details-open.mz-mobile-ep-playing #close-player-btn {
+    display: none !important;
+  }
+
+
 } /* fin @media */
