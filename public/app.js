@@ -2016,18 +2016,27 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.season = seasonNum;
   episodio.episode = epNum;
 
- // document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
- // document.body.classList.remove("koi-desktop", "koi-movie");
-  // Igual que película: se mantiene koi-desktop + modo player
-  // koi-serie = datos de serie/anime (nav, estás viendo, episodios)
+
+  // koi-movie = mismo layout CSS que película al Reproducir
+  // koi-serie + mz-mobile-ep-playing = datos de serie (nav, estás viendo, eps)
   document.body.classList.add(
     "details-open",
     "player-open",
     "mz-mobile-ep-playing",
     "koi-desktop",
-    "koi-serie"
+    "koi-serie",
+    "koi-movie"
   );
-  document.body.classList.remove("koi-movie", "mz-mobile-movie-playing");
+  document.body.classList.remove("mz-mobile-movie-playing");
+
+  // Forzar: ocultar hero (por si el CSS no llega)
+  try {
+    const hero = document.getElementById("koi-hero");
+    if (hero) {
+      hero.style.setProperty("display", "none", "important");
+      hero.setAttribute("aria-hidden", "true");
+    }
+  } catch (_) {}
   try {
     const slugNow = String(item?.slug || item?.link || "");
     const pref = window.__mzPreferredServer;
