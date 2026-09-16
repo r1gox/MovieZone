@@ -352,12 +352,23 @@
 
   function isHlsEmb(emb) {
     if (!emb) return false;
-    var u = String(emb.url || emb.stream_url || emb.hls_resolve || "").toLowerCase();
-    var s = String(emb.servidor || emb.server || emb.name || emb.type || "").toLowerCase().trim();
+    // Solo el servidor/chip llamado "HLS" — NO filtrar UPNShare ni otros m3u8
+    var s = String(emb.servidor || emb.server || emb.name || emb.type || emb.nombre || "")
+      .toLowerCase()
+      .trim();
     if (s === "hls" || s === "m3u8") return true;
-    if (/\bhls\b/.test(s)) return true;
-    if (/\.m3u8(\?|$)/.test(u)) return true;
-    if (/\/voe\/streamurl|\/hls[\/?]/.test(u)) return true;
+    if (/^hls(\s|$|\-|:)/.test(s)) return true;
+    // detectarServidor exacto
+    try {
+      if (typeof window.detectarServidor === "function") {
+        var det = String(
+          window.detectarServidor(emb.url, emb.server || emb.servidor || emb.name) || ""
+        )
+          .toLowerCase()
+          .trim();
+        if (det === "hls") return true;
+      }
+    } catch (_) {}
     return false;
   }
 
@@ -644,17 +655,12 @@
     embeds.forEach(function (emb) {
       if (!emb) return;
 
-      // Reproductores (normal): Voe SÍ en series y anime
+      // Reproductores (normal): Voe y el resto sí (HLS solo se quita de Directos)
       if (isNormalEmbed(emb)) {
-        // Anime: quitar solo el chip llamado HLS de Reproductores (Voe se queda)
-        if (isAnimeCtx() && isHlsEmb(emb) && !isVoeEmb(emb)) {
-          /* skip HLS-named in anime reproductores */
-        } else {
-          var keyN = String(emb.url).split("?")[0].toLowerCase();
-          if (!seenN[keyN]) {
-            seenN[keyN] = 1;
-            normal.push(emb);
-          }
+        var keyN = String(emb.url).split("?")[0].toLowerCase();
+        if (!seenN[keyN]) {
+          seenN[keyN] = 1;
+          normal.push(emb);
         }
       }
 
