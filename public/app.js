@@ -2016,8 +2016,10 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.season = seasonNum;
   episodio.episode = epNum;
 
+ // document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
+ // document.body.classList.remove("koi-desktop", "koi-movie");
   document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
-  document.body.classList.remove("koi-desktop", "koi-movie");
+  document.body.classList.remove("koi-desktop", "koi-movie", "mz-mobile-movie-playing");
   try {
     const slugNow = String(item?.slug || item?.link || "");
     const pref = window.__mzPreferredServer;
@@ -2159,9 +2161,12 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 
 function salirVistaMovilEpisodio() {
   document.getElementById("mz-mep-back")?.classList.add("hidden");
-  document.body.classList.remove("mz-mobile-ep-playing");
+  document.body.classList.remove("mz-mobile-ep-playing", "player-open", "mz-mep-dl-open");
+  document.getElementById("video-player-container")?.classList.add("hidden");
+  document.getElementById("servers-section")?.classList.add("hidden");
   document.getElementById("mz-mobile-ep-nav")?.classList.add("hidden");
   document.getElementById("mz-mobile-ep-watching")?.classList.add("hidden");
+  document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
   const cont = document.getElementById("episodes-container");
   if (cont) {
     cont.classList.remove("mz-ep-num-grid");
