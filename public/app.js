@@ -2009,6 +2009,108 @@ function aplicarServidorPreferido(embeds, item) {
   return true;
 }*/
 
+
+/** Forzar shell visual de PELÍCULA (Reproducir) en episodio móvil /1/1 */
+function mzForceEpLikeMovieShell(on) {
+  try {
+    const hero = document.getElementById("koi-hero");
+    const meta = document.querySelector(".mz-meta-col");
+    const streams = document.querySelector(".mz-streams-col");
+    const layout = document.querySelector(".mz-detail-layout");
+    const vc = document.getElementById("video-player-container");
+    const syn = document.querySelector(".mz-synopsis-section");
+    const ss = document.getElementById("servers-section");
+    const posterCol = document.querySelector(".mz-stremio-poster-col");
+    const headerCard = document.querySelector(".details-header-card, .mz-stremio-header");
+
+    if (!on) {
+      [hero, meta, streams, layout, vc, syn, ss, posterCol, headerCard].forEach(function (el) {
+        if (el && el.style) {
+          el.style.removeProperty("display");
+          el.style.removeProperty("visibility");
+          el.style.removeProperty("height");
+          el.style.removeProperty("min-height");
+          el.style.removeProperty("order");
+          el.style.removeProperty("width");
+          el.style.removeProperty("flex-direction");
+          el.style.removeProperty("aspect-ratio");
+          el.style.removeProperty("background");
+          el.style.removeProperty("margin");
+        }
+      });
+      if (hero) hero.setAttribute("aria-hidden", "false");
+      return;
+    }
+
+    // body classes (misma cáscara que peli)
+    document.body.classList.add(
+      "details-open",
+      "player-open",
+      "mz-mobile-ep-playing",
+      "koi-desktop",
+      "koi-serie",
+      "koi-movie"
+    );
+    document.body.classList.remove("mz-mobile-movie-playing");
+
+    if (hero) {
+      hero.style.setProperty("display", "none", "important");
+      hero.style.setProperty("height", "0", "important");
+      hero.style.setProperty("min-height", "0", "important");
+      hero.style.setProperty("visibility", "hidden", "important");
+      hero.setAttribute("aria-hidden", "true");
+    }
+    if (layout) {
+      layout.style.setProperty("display", "flex", "important");
+      layout.style.setProperty("flex-direction", "column", "important");
+      layout.style.setProperty("width", "100%", "important");
+    }
+    if (meta) {
+      meta.style.setProperty("display", "flex", "important");
+      meta.style.setProperty("flex-direction", "column", "important");
+      meta.style.setProperty("width", "100%", "important");
+      meta.style.setProperty("visibility", "visible", "important");
+    }
+    // Player arriba (como peli)
+    if (vc) {
+      vc.classList.remove("hidden");
+      if (meta) meta.insertBefore(vc, meta.firstChild);
+      vc.style.setProperty("display", "block", "important");
+      vc.style.setProperty("width", "100%", "important");
+      vc.style.setProperty("order", "-1", "important");
+      vc.style.setProperty("aspect-ratio", "16 / 9", "important");
+      vc.style.setProperty("background", "#000", "important");
+      vc.style.setProperty("margin", "8px 0 12px", "important");
+      vc.style.setProperty("border-radius", "12px", "important");
+      vc.style.setProperty("overflow", "hidden", "important");
+    }
+    // Sinopsis de peli fuera → aquí van datos de serie
+    if (syn) syn.style.setProperty("display", "none", "important");
+    if (posterCol) posterCol.style.setProperty("display", "none", "important");
+
+    if (ss) {
+      ss.classList.remove("hidden");
+      ss.style.setProperty("display", "block", "important");
+      ss.style.setProperty("visibility", "visible", "important");
+    }
+    // streams (episodios) visible aunque CSS de peli lo oculte
+    if (streams) {
+      streams.style.setProperty("display", "block", "important");
+      streams.style.setProperty("visibility", "visible", "important");
+      streams.style.setProperty("width", "100%", "important");
+    }
+
+    const closeBtn = document.getElementById("close-player-btn");
+    if (closeBtn) {
+      closeBtn.classList.add("hidden");
+      closeBtn.style.setProperty("display", "none", "important");
+    }
+  } catch (e) {
+    console.warn("mzForceEpLikeMovieShell", e);
+  }
+}
+
+
 async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   if (!item || !isMobileSerieEpUI(item)) return false;
   seasonNum = Number(seasonNum || episodio?.season || 1) || 1;
@@ -2018,32 +2120,9 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.episode = epNum;
 
 
-  // koi-movie = mismo layout CSS que película al Reproducir
-  // koi-serie + mz-mobile-ep-playing = datos de serie (nav, estás viendo, eps)
-document.body.classList.add(
-  "details-open",
-  "player-open",
-  "mz-mobile-ep-playing",
-  "koi-desktop",
-  "koi-serie",
-  "koi-movie"
-);
-document.body.classList.remove("mz-mobile-movie-playing");
-  // Layout idéntico a película: player al inicio de meta-col + servers + streams visibles
-  try {
-    const meta = document.querySelector(".mz-meta-col");
-    const vc0 = document.getElementById("video-player-container");
-    if (meta && vc0) meta.insertBefore(vc0, meta.firstChild);
-    const syn = document.querySelector(".mz-synopsis-section");
-    if (syn) syn.style.setProperty("display", "none", "important");
-    const ss0 = document.getElementById("servers-section");
-    if (ss0) {
-      ss0.classList.remove("hidden");
-      ss0.style.setProperty("display", "block", "important");
-    }
-    const streams = document.querySelector(".mz-streams-col");
-    if (streams) streams.style.setProperty("display", "block", "important");
-  } catch (_) {}
+  mzForceEpLikeMovieShell(true);
+
+  
 
 
   // Forzar: ocultar hero (por si el CSS no llega)
@@ -2192,11 +2271,13 @@ document.body.classList.remove("mz-mobile-movie-playing");
       document.getElementById("video-player-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   } catch (_) {}  
+    mzForceEpLikeMovieShell(true);
   document.getElementById("mz-mep-back")?.classList.remove("hidden");
   return true;
 }
 
 function salirVistaMovilEpisodio() {
+  try { mzForceEpLikeMovieShell(false); } catch (_) {}
   document.getElementById("mz-mep-back")?.classList.add("hidden");
   document.body.classList.remove("mz-mobile-ep-playing", "player-open", "mz-mep-dl-open");
   document.getElementById("video-player-container")?.classList.add("hidden");
@@ -7754,12 +7835,14 @@ function mzReplaceHomeUrl() {
                             if (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
                                 typeof abrirVistaMovilEpisodio === "function") {
                                 await abrirVistaMovilEpisodio(item, ep, season, episode);
+                                try { mzForceEpLikeMovieShell(true); } catch (_) {}
+                                setTimeout(function () { try { mzForceEpLikeMovieShell(true); } catch (_) {} }, 400);
                             } else {
                                 const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
                                 if (btn) btn.click();
                             }
                         } catch (e) { console.warn("deep ep", e); }
-                    }, 600);
+                    }, 900);
                 }
             }
             return;
