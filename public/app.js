@@ -150,10 +150,12 @@ function langLabel(item) {
  * Llamar después de pintar el detalle normal.
  */
 function fillKoiHero(item) {
-    if (!item || !isKoiDesktop()) return;
+    if (!item) return;
     const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
     const esSA = isSerieOrAnime(item);
     if (!esPeli && !esSA) return;
+    // PC: series/anime/peli. Móvil: solo películas (hero + REPRODUCIR)
+    if (!isKoiDesktop() && !esPeli) return;
 
   const bg =
     item.backdrop ||
