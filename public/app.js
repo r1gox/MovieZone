@@ -4474,6 +4474,12 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
           serversEl.style.removeProperty("display");
         }
         document.getElementById("downloads-section")?.classList.add("hidden");
+        try {
+          const dl = document.getElementById("downloads-list-container");
+          if (dl) dl.innerHTML = "";
+          const dlt = document.getElementById("mz-downloads-toggle");
+          if (dlt) dlt.remove();
+        } catch (_) {}
         document.body.classList.add("koi-movie");
         document.body.classList.remove("player-open");
         try {

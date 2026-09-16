@@ -9150,11 +9150,15 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
 #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-layout,
 #mz-koi-ep-view .mz-kp-layout.mz-kp-layout-movie {
   display: block !important;
-  max-width: 960px;
-  margin: 0 auto;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-left: 4% !important;
+  text-align: left !important;
 }
 #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
-  max-width: 100%;
+  max-width: 720px !important;
+  margin: 0 !important;
+  text-align: left !important;
 }
 /* Detalle película: ocultar bloques de servers en la ficha */
 body.details-open.koi-movie:not(.player-open) #servers-section,
@@ -9169,4 +9173,17 @@ body.details-open.koi-movie #downloads-section,
 body.details-open.koi-desktop:not(.mz-mobile-ep-playing) #downloads-section,
 body.mz-koi-ep-open #downloads-section {
   display: none !important;
+}
+
+
+/* force hide dl movie detail */
+body.details-open.koi-movie #downloads-section,
+body.details-open.koi-movie #downloads-list-container,
+body.details-open.koi-movie #mz-downloads-toggle {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
