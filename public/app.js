@@ -2066,7 +2066,8 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
       closeBtn.classList.add("hidden");
       closeBtn.style.setProperty("display", "none", "important");
     }
-    
+  }
+
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
   actualizarMobileEpNav(_epPlayCtx);
   try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
