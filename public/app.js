@@ -1326,6 +1326,8 @@ const SERVIDORES_CONOCIDOS = {
     "drive.google.com": "Google Drive",
     "mediafire.com": "Mediafire",
     "pixeldrain.com": "Pixeldrain",
+    "filelions.com": "FileLions", "filelions.to": "FileLions",
+    "earnvids.com": "VidHide",
     "1fichier.com": "1Fichier"
 };
 
@@ -6614,11 +6616,15 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             chip.dataset.index = String(idxp);
                         
             if (mobileSrv) {
-                const langTxt = embed.noAds ? "" :
-                  (idTag === "lat" ? "DUB" : idTag === "sub" ? "SUB" : (embed.lang || embed.idioma || ""));
+                // Solo DUB / SUB. Nunca "Desconocido" ni texto basura de idioma
+                let langTxt = "";
+                if (!embed.noAds) {
+                  if (idTag === "lat") langTxt = "DUB";
+                  else if (idTag === "sub") langTxt = "SUB";
+                }
                 chip.classList.add("mz-mep-srv-chip");
                 chip.innerHTML =
-                  (langTxt ? `<span class="mz-mep-srv-lang">${escapeHtml(String(langTxt).toUpperCase())}</span>` : "") +
+                  (langTxt ? `<span class="mz-mep-srv-lang">${langTxt}</span>` : "") +
                   `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             } else {
                 chip.innerHTML = langBadge + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
