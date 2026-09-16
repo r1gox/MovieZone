@@ -9073,3 +9073,42 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     overflow: hidden !important;
   }
 }
+
+
+/* Películas PC: poder scrollear con el player abierto (rueda sobre player/chips) */
+@media (min-width: 901px) {
+  body.details-open.koi-movie #details-panel {
+    overflow: hidden !important;
+  }
+  body.details-open.koi-movie #details-panel .details-content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.details-open.koi-movie.player-open #servers-section,
+  body.details-open.koi-movie.player-open #servers-container,
+  body.details-open.koi-movie.player-open .koi-servers-block,
+  body.details-open.koi-movie.player-open #downloads-section,
+  body.details-open.koi-movie.player-open .mz-meta-col,
+  body.details-open.koi-movie.player-open .details-body {
+    position: relative !important;
+    z-index: 40 !important;
+    pointer-events: auto !important;
+  }
+  /* iframe solo captura eventos DENTRO de su caja; no bloquea scroll de la página */
+  body.details-open.koi-movie.player-open .video-player-container {
+    position: relative !important;
+    z-index: 2 !important;
+    max-height: 56.25vw;
+  }
+  body.details-open.koi-movie.player-open .player-iframe-wrapper {
+    overflow: hidden !important;
+  }
+  body.details-open.koi-movie.player-open .player-iframe-wrapper iframe {
+    /* no expandir fuera del wrapper */
+    max-height: 100% !important;
+  }
+}

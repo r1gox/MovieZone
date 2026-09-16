@@ -6321,10 +6321,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           dirs = allList.filter((e) => e && isDirect(e));
           // Refuerzo Directos: sin Voe
           dirs = dirs.filter((e) => e && !isVoe(e));
-          // Anime: quitar Voe y HLS de Reproductores y Directos
+          // Anime: Voe se queda en Reproductores; HLS fuera de Directos (y de reps si es solo HLS)
           if (esAnime) {
-            reps = reps.filter((e) => e && !isVoe(e) && !isHlsNamed(e));
-            dirs = dirs.filter((e) => e && !isHlsNamed(e));
+            reps = reps.filter((e) => e && !isHlsNamed(e)); // Voe OK en reproductores
+            dirs = dirs.filter((e) => e && !isHlsNamed(e) && !isVoe(e));
           }
           if (!dirs.length) {
             dirs = allList.filter((e) => {
@@ -6335,7 +6335,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             });
             reps = allList.filter((e) => e && !dirs.includes(e));
             if (esAnime) {
-              reps = reps.filter((e) => e && !isVoe(e) && !isHlsNamed(e));
+              reps = reps.filter((e) => e && !isHlsNamed(e));
             }
           }
           // Nunca hacer fallback a allList (reintroducía Voe/HLS)
@@ -6344,10 +6344,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           else {
             const safe = allList.filter((e) => {
               if (!e) return false;
-              if (esAnime && (isVoe(e) || isHlsNamed(e))) return false;
+              if (esAnime && isHlsNamed(e)) return false;
               return !isDirect(e);
             });
-            groups.push({ label: "Reproductores", list: safe.length ? safe : allList.filter((e) => e && !(esAnime && isVoe(e))) });
+            groups.push({ label: "Reproductores", list: safe.length ? safe : allList.filter((e) => e && !(esAnime && isHlsNamed(e))) });
           }
           if (dirs.length) groups.push({ label: "Directos", list: dirs });
         }
@@ -6465,7 +6465,9 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             const isDirGroup = /directo/i.test(String(g.label || ""));
             g.list = (g.list || []).filter((e) => {
               if (!e) return false;
-              if (typeof isVoe === "function" && isVoe(e) && (isDirGroup || esAnimePaint)) return false;
+              // Voe solo se quita de Directos (no de Reproductores)
+              if (typeof isVoe === "function" && isVoe(e) && isDirGroup) return false;
+              // Anime: HLS fuera de cualquier grupo
               if (esAnimePaint && typeof isHlsNamed === "function" && isHlsNamed(e)) return false;
               return true;
             });
