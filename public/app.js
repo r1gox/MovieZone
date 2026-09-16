@@ -1865,15 +1865,36 @@ function aplicarServidorPreferido(embeds, item) {
   
   if (!match) return false;
   try {
-    document.querySelectorAll(".koi-server-chip.active, .mz-mep-srv-chip.active")
-      .forEach(function (c) { c.classList.remove("active"); });
-  } catch (_) {}
-  try {
     document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
-      if (name && (c.textContent || "").toLowerCase().indexOf(name) !== -1) {
-        c.classList.add("active");
+      c.classList.remove("is-active", "active");
+    });
+    const key =
+      (pref.noAds ? "1" : "0") + "|" +
+      String(pref.name || "").toLowerCase() + "|" +
+      String(pref.lang || "");
+    let marked = false;
+    document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
+      if (marked) return;
+      if (c.dataset.mzPref === key) {
+        c.classList.add("is-active");
+        marked = true;
       }
     });
+    // Fallback: primer chip cuyo texto coincide Y el grupo (noAds vs normal)
+    if (!marked) {
+      document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
+        if (marked) return;
+        const txt = (c.textContent || "").toLowerCase();
+        const inDirect = !!(c.closest && c.closest(".koi-servers-block") &&
+          /directo/i.test(c.closest(".koi-servers-block").querySelector(".koi-servers-title")?.textContent || ""));
+        if (pref.noAds && !inDirect && !/no\s*ads/i.test(txt)) return;
+        if (!pref.noAds && inDirect) return;
+        if (name && txt.indexOf(name) !== -1) {
+          c.classList.add("is-active");
+          marked = true;
+        }
+      });
+    }
   } catch (_) {}
   try {
     if (match && !pref.noAds) {
@@ -4135,23 +4156,47 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             }
 
             // Móvil: mostrar reproductores en el detalle
+            // Móvil: igual que PC — fetch si no hay embeds + mostrar servidores
             try {
               document.body.classList.add("player-open", "koi-movie", "mz-mobile-movie-playing");
               const ss = document.getElementById("servers-section");
               if (ss) {
                 ss.classList.remove("hidden");
                 ss.style.setProperty("display", "block", "important");
+                ss.style.setProperty("visibility", "visible", "important");
               }
               const vc = document.getElementById("video-player-container");
               if (vc) vc.classList.remove("hidden");
 
               let embeds = item.embeds || item.reproductores || [];
-              const downloads = item.downloads || item.descargas || [];
+              let downloads = item.downloads || item.descargas || [];
               if ((!embeds || !embeds.length) && item.reproductor) {
                 embeds = [{ url: item.reproductor, server: "Servidor" }];
               }
+              if (!embeds || !embeds.length) {
+                try {
+                  const qs = new URLSearchParams();
+                  if (item.slug) qs.set("slug", item.slug);
+                  if (item.link) qs.set("link", item.link);
+                  if (item.source_id) qs.set("source_id", String(item.source_id));
+                  qs.set("tipo", "Pelicula");
+                  const r = await fetch("/api/detalle?" + qs.toString(), { cache: "no-store" });
+                  const full = await r.json();
+                  if (full) {
+                    embeds = full.embeds || full.reproductores || embeds || [];
+                    downloads = full.downloads || full.descargas || downloads || [];
+                    Object.assign(item, full);
+                  }
+                } catch (_) {}
+              }
               if (typeof renderServidoresYDescargas === "function") {
-                renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
+                renderServidoresYDescargas(
+                  embeds,
+                  downloads,
+                  item.reproductor,
+                  item,
+                  { expandido: true, noAutoplay: true }
+                );
               }
               requestAnimationFrame(() => {
                 try {
@@ -6739,14 +6784,19 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                 );
                 // Solo preferir servidor dentro del mismo título (slug)
                 const slugKey = String(item?.slug || item?.link || item?.nombre || "");
+                const prefName = String(nombre || "").toLowerCase();
+                const prefLang = typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null;
+                const prefNoAds = !!embed.noAds;
                 window.__mzPreferredServer = {
-                  name: String(nombre || "").toLowerCase(),
-                  lang: typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null,
-                  noAds: !!embed.noAds,
+                  name: prefName,
+                  lang: prefLang,
+                  noAds: prefNoAds,
                   slug: slugKey
                 };
-                document.querySelectorAll(".koi-server-chip.is-active, .mz-mep-srv-chip.is-active")
-                  .forEach((c) => c.classList.remove("is-active"));
+                // Una sola clase activa; limpia normales y directos
+                document.querySelectorAll(".koi-server-chip, .mz-mep-srv-chip").forEach(function (c) {
+                  c.classList.remove("is-active", "active");
+                });
                 chip.classList.add("is-active");
               } catch (_) {}
               reproducir(embed, item);
