@@ -9162,3 +9162,11 @@ body.details-open.koi-movie:not(.player-open) #downloads-section,
 body.details-open.koi-movie:not(.player-open) #video-player-container {
   display: none !important;
 }
+
+
+/* Ocultar "Opciones de descarga" en la ficha (van con reproductores en Koi) */
+body.details-open.koi-movie #downloads-section,
+body.details-open.koi-desktop:not(.mz-mobile-ep-playing) #downloads-section,
+body.mz-koi-ep-open #downloads-section {
+  display: none !important;
+}

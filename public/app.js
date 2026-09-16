@@ -2086,82 +2086,16 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
     /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
   if (pc && serie && !window.__mzForceAutoPlay) {
+    // Como antes: solo la vista Koi (no mover servers/player dentro del detalle)
     try {
-      document.body.classList.add("koi-desktop", "player-open", "details-open");
-      if (typeof setKoiMode === "function") setKoiMode(item);
-
-      const epLabel = episodio.nombre || episodio.titulo || ("Episodio " + epNum);
-      setKoiPlayerEpisodeTitle("T" + (seasonNum || 1) + " · " + (epLabel || ("Episodio " + epNum)));
-
-      const titleEl = document.getElementById("details-title");
-      if (titleEl) {
-        titleEl.textContent = item.nombre || item.titulo || "";
-        titleEl.classList.add("koi-anime-link");
+      if (typeof window.mzKoiOpenEpisode === "function") {
+        await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+        return false;
       }
-
-      // Nunca poner stream en el iframe aquí
-      const iframe = document.getElementById("player-iframe");
-      if (iframe) iframe.src = "about:blank";
-      try {
-        if (typeof destruirHls === "function") destruirHls();
-      } catch (_) {}
-
-      const vc = document.getElementById("video-player-container");
-      if (vc) {
-        vc.classList.remove("hidden");
-        vc.classList.add("koi-waiting-server");
-      }
-      const pt = document.getElementById("player-title");
-      if (pt) pt.textContent = "Elige un reproductor para comenzar";
-
-      // Servidores sin pasar video (evita arranque implícito)
-      const pack = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
-      renderServidoresYDescargas(
-        pack.embeds || [],
-        episodio.downloads || [],
-        null,
-        item,
-        { expandido: true, noAutoplay: true }
-      );
-      document.getElementById("servers-section")?.classList.remove("hidden");
-
-      _epPlayCtx = {
-        item,
-        season: Number(seasonNum) || 1,
-        episode: Number(epNum) || 0,
-        episodio,
-      };
-      actualizarBotonesEpPlayer();
-
-      try {
-        if (typeof mzPushDetalleUrl === "function") {
-          mzPushDetalleUrl(item, seasonNum, epNum);
-        }
-      } catch (_) {}
-
-      try {
-        function mzScrollAReproductores() {
-          var srv = document.getElementById("servers-section");
-          if (srv) {
-            srv.classList.remove("hidden");
-            srv.style.setProperty("display", "block", "important");
-          }
-          // Abajo: título episodio + sinopsis + chips (no el mensaje del player vacío)
-          var target =
-            document.getElementById("servers-section") ||
-            document.getElementById("servers-container");
-          if (target) mzScrollPanelTo(target);
-        }
-        requestAnimationFrame(function () {
-          mzScrollAReproductores();
-          setTimeout(mzScrollAReproductores, 150);
-          setTimeout(mzScrollAReproductores, 450);
-        });
-      } catch (_) {}
     } catch (e) {
-      console.error("koi prepare ep:", e);
+      console.error("mzKoiOpenEpisode:", e);
     }
-    return false; // no autoplay
+    return false;
   }
 
   // —— Móvil / película / force: flujo original ——
@@ -6621,18 +6555,39 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 
     const downloads = Array.isArray(downloadsRaw) ? downloadsRaw : [];
     window.__mzMobileDownloads = downloads;
-    if (document.body.classList.contains("mz-mobile-ep-playing")) {
-      try { document.getElementById("downloads-section")?.classList.add("hidden"); } catch (_) {}
-    }
+    // Nunca "Opciones de descarga" sueltas en la ficha de detalle (película o serie)
+    try {
+      const ds = document.getElementById("downloads-section");
+      if (!ds) {
+        /* */
+      } else if (document.body.classList.contains("mz-mobile-ep-playing")) {
+        ds.classList.add("hidden");
+      } else if (document.body.classList.contains("mz-koi-ep-open")) {
+        ds.classList.add("hidden");
+      } else if (document.body.classList.contains("koi-movie")) {
+        ds.classList.add("hidden");
+      } else if (item && (typeof isSerieOrAnime === "function" ? isSerieOrAnime(item) : /serie|anime/i.test(String(item.tipo||"")))) {
+        ds.classList.add("hidden");
+      }
+    } catch (_) {}
 
 
 
 
     if (downloads.length > 0) {
 
-        downloadsSection.classList.remove(
-            "hidden"
-        );
+        // Solo mostrar bloque aparte si no estamos en ficha película/serie (Koi lleva descargas)
+        const hideDlBlock =
+          document.body.classList.contains("koi-movie") ||
+          document.body.classList.contains("mz-koi-ep-open") ||
+          document.body.classList.contains("mz-mobile-ep-playing") ||
+          (item && /serie|anime|dorama/i.test(String(item.tipo || item.type || "")));
+        if (hideDlBlock) {
+          downloadsSection.classList.add("hidden");
+        } else {
+          downloadsSection.classList.remove("hidden");
+        }
+
 
 
         /*
