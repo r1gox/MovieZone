@@ -1332,16 +1332,23 @@ const SERVIDORES_CONOCIDOS = {
 function detectarServidor(url, serverOriginal) {
     let host = "";
     try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ""); }
-    catch { return serverOriginal || "Servidor"; }
+    catch {
+      const raw = String(serverOriginal || "").trim();
+      if (raw && !/^(desconocido|unknown|otros?|other|n\/?a|servidor|server|online)$/i.test(raw)) return raw;
+      return "Servidor";
+    }
 
     for (const dominio in SERVIDORES_CONOCIDOS) {
         if (host === dominio || host.endsWith("." + dominio)) return SERVIDORES_CONOCIDOS[dominio];
     }
-    const generico = ["online", "server", "servidor", ""].includes((serverOriginal || "").toLowerCase().trim());
-    if (serverOriginal && !generico) return serverOriginal;
+    const so = String(serverOriginal || "").trim();
+    const generico = /^(online|server|servidor|desconocido|unknown|otros?|other|n\/?a|)$/i.test(so);
+    if (so && !generico) return so;
 
     const base = host.split(".")[0];
     return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Servidor";
+}
+
 }
 
 
@@ -1833,6 +1840,9 @@ function renderMobileEpNumberGrid(item, seasonNum, epNum) {
 function aplicarServidorPreferido(embeds, item) {
   const pref = window.__mzPreferredServer;
   if (!pref || !Array.isArray(embeds) || !embeds.length) return false;
+  // No auto-seleccionar al cambiar de serie/anime/peli
+  const slugNow = String(item?.slug || item?.link || item?.nombre || "");
+  if (pref.slug && slugNow && pref.slug !== slugNow) return false;
   const name = String(pref.name || "").toLowerCase();
   let match = null;
   for (let i = 0; i < embeds.length; i++) {
@@ -1899,6 +1909,13 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 
   document.body.classList.add("details-open", "player-open", "mz-mobile-ep-playing");
   document.body.classList.remove("koi-desktop", "koi-movie");
+  try {
+    const slugNow = String(item?.slug || item?.link || "");
+    const pref = window.__mzPreferredServer;
+    if (pref && pref.slug && slugNow && pref.slug !== slugNow) {
+      window.__mzPreferredServer = null;
+    }
+  } catch (_) {}
   try { mzPushDetalleUrl(item, seasonNum, epNum); } catch (_) {}
 
   const chrome = ensureMobileEpChrome();
@@ -2010,7 +2027,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   // Mismo servidor + autoplay (Siguiente/Anterior o si ya eligió uno antes)
   try {
     const lista = pack.embeds || [];
-    const quiereAuto = !!window.__mzAutoPlayEp || !!window.__mzPreferredServer;
+    const quiereAuto = !!window.__mzAutoPlayEp; // solo Siguiente/Anterior, no otra serie
     window.__mzAutoPlayEp = false;
     if (quiereAuto && lista.length) {
       setTimeout(function () {
@@ -4061,15 +4078,27 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             } catch (e) {
               console.warn("mzKoiOpenMovie", e);
             }
-            // Fallback (móvil / si falla Koi): mostrar servidores en detalle
+            // Móvil / sin Koi: mostrar reproductores en el detalle
             try {
-              document.getElementById("servers-section")?.classList.remove("hidden");
-              document.getElementById("servers-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              document.body.classList.add("player-open", "koi-movie", "mz-mobile-movie-playing");
+              const ss = document.getElementById("servers-section");
+              if (ss) {
+                ss.classList.remove("hidden");
+                ss.style.setProperty("display", "block", "important");
+              }
+              const vc = document.getElementById("video-player-container");
+              if (vc) vc.classList.remove("hidden");
               const embeds = item.embeds || item.reproductores || [];
               const downloads = item.downloads || item.descargas || [];
               if (typeof renderServidoresYDescargas === "function") {
                 renderServidoresYDescargas(embeds, downloads, item.reproductor, item, { expandido: true });
               }
+              requestAnimationFrame(() => {
+                try {
+                  (ss || document.getElementById("servers-container"))
+                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                } catch (_) {}
+              });
             } catch (_) {}
             return;
           }
@@ -4518,7 +4547,7 @@ function cerrarDetalle(fromPop) {
     document.body.style.overflow = "";
     document.body.classList.remove("player-open");
     try { salirVistaMovilEpisodio(); } catch (_) {}
-    document.body.classList.remove("koi-movie");
+    document.body.classList.remove("koi-movie", "mz-mobile-movie-playing");
     document.body.classList.remove("details-open");
     try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
     destruirHls();
@@ -6417,21 +6446,22 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
               });
             });
 
-            // 2) Directos = NO ADS
+            // 2) Directos = NO ADS (una sola vez)
             const noAdsEmb = pool.find((e) => e && e.noAds) || noAds;
-            if (noAdsEmb) {
+            if (noAdsEmb && !seenD.has("noads")) {
               let su = noAdsEmb.stream_url || null;
               if (!su && typeof streamUrlParaNoAds === "function" && noAdsEmb.url) {
                 su = streamUrlParaNoAds(noAdsEmb.url);
               }
               dirs.push({
-                ...noAdsEmb,
                 url: noAdsEmb.url || noAdsEmb.sourceEmbed || "",
                 stream_url: su,
                 noAds: true,
                 __directHls: false,
                 server: "NO ADS",
                 name: "NO ADS",
+                lang: noAdsEmb.lang || noAdsEmb.idioma,
+                idioma: noAdsEmb.idioma || noAdsEmb.lang,
               });
               seenD.add("noads");
             }
@@ -6605,11 +6635,17 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                   embed.url,
                   embed.server || embed.servidor || embed.name
                 );
+                // Solo preferir servidor dentro del mismo título (slug)
+                const slugKey = String(item?.slug || item?.link || item?.nombre || "");
                 window.__mzPreferredServer = {
                   name: String(nombre || "").toLowerCase(),
                   lang: typeof idiomaDeEmbed === "function" ? idiomaDeEmbed(embed) : null,
-                  noAds: !!embed.noAds
+                  noAds: !!embed.noAds,
+                  slug: slugKey
                 };
+                document.querySelectorAll(".koi-server-chip.is-active, .mz-mep-srv-chip.is-active")
+                  .forEach((c) => c.classList.remove("is-active"));
+                chip.classList.add("is-active");
               } catch (_) {}
               reproducir(embed, item);
             });
@@ -6637,20 +6673,19 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             wrap.appendChild(h);
 
             if (mobileSrv) {
-                // Filas por idioma: SUB … | DUB … | otros
-                const subL = g.list.filter((e) => e && (e.noAds ? false : idiomaDeEmbed(e) === "sub"));
+                // Filas: NO ADS una sola vez, luego SUB / DUB / resto (sin "desconocido")
+                const subL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "sub");
                 const dubL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) === "lat");
                 const noAdsL = g.list.filter((e) => e && e.noAds);
                 const otherL = g.list.filter((e) => e && !e.noAds && idiomaDeEmbed(e) !== "sub" && idiomaDeEmbed(e) !== "lat");
+                // Un solo NO ADS (dedupe)
+                const noAdsOnce = noAdsL.length ? [noAdsL[0]] : [];
                 const rows = [
-                  { key: "sub", label: "SUB", list: [...noAdsL.filter(e => idiomaDeEmbed(e) === "sub"), ...subL] },
+                  { key: "noads", label: "", list: noAdsOnce },
+                  { key: "sub", label: "SUB", list: subL },
                   { key: "dub", label: "DUB", list: dubL },
-                  { key: "oth", label: "", list: [...noAdsL.filter(e => idiomaDeEmbed(e) !== "sub"), ...otherL] }
+                  { key: "oth", label: "", list: otherL }
                 ];
-                // NO ADS sin idioma → fila propia al inicio de SUB o OTH
-                if (noAdsL.length && !subL.length) {
-                  rows[0].list = [...noAdsL, ...rows[0].list];
-                }
                 rows.forEach((row) => {
                   if (!row.list.length) return;
                   const rowEl = document.createElement("div");

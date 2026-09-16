@@ -9219,3 +9219,28 @@ body.details-open.koi-movie #mz-downloads-toggle {
     text-align: left !important;
   }
 }
+
+
+/* Chip reproductor seleccionado (móvil + PC) */
+.koi-server-chip.is-active,
+.mz-mep-srv-chip.is-active {
+  background: rgba(0, 229, 255, 0.22) !important;
+  border-color: #00e5ff !important;
+  color: #e0f7ff !important;
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.35);
+}
+.mz-mep-srv-chip.is-active .koi-chip-name,
+.koi-server-chip.is-active .koi-chip-name {
+  color: #fff !important;
+  font-weight: 700;
+}
+
+/* Película móvil: mostrar servidores al REPRODUCIR */
+body.details-open.koi-movie.mz-mobile-movie-playing #servers-section,
+body.details-open.koi-movie.player-open #servers-section {
+  display: block !important;
+  visibility: visible !important;
+}
+body.details-open.koi-movie.mz-mobile-movie-playing #video-player-container {
+  display: block !important;
+}
