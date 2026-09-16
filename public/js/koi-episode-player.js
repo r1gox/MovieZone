@@ -1072,6 +1072,12 @@
     $("mz-kp-ep-title").textContent = item.nombre || item.titulo || "Película";
 
     renderSidebar(item, 0, 0);
+    try {
+      var side = $("mz-kp-sidebar");
+      if (side) side.classList.add("hidden");
+      var layout = view.querySelector(".mz-kp-layout");
+      if (layout) layout.classList.add("mz-kp-layout-movie");
+    } catch (_) {}
     destroyHls();
     showPoster(item, "Elige un reproductor para comenzar");
     renderServers([]);
