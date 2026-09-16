@@ -26,13 +26,15 @@ function isSerieOrAnime(item) {
 
 /** Activa/desactiva el layout Koiflix en body */
 function setKoiMode(item) {  
-  const on = isKoiDesktop() && !!(item && (
-    isSerieOrAnime(item) ||
-    /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))
+  const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
+  // PC: series/anime/peli. Móvil: al menos películas (botón REPRODUCIR + vista Koi)
+  const on = !!(item && (
+    (isKoiDesktop() && (isSerieOrAnime(item) || esPeliMode)) ||
+    (!isKoiDesktop() && esPeliMode)
   ));
   document.body.classList.toggle("koi-desktop", on);
-  const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
   document.body.classList.toggle("koi-movie", on && esPeliMode);
+  
   const hero = document.getElementById("koi-hero");
   if (hero) hero.setAttribute("aria-hidden", on ? "false" : "true");
   const h4 = document.querySelector("#seasons-section > h4");
