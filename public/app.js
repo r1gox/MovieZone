@@ -6320,50 +6320,145 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
           if (!groups.length) groups.push({ label: "Reproductores", list: allList });
         } else {
           // SERIES / ANIME
-          const isDirect = (e) => {
-            if (!e) return false;
-            if (isVoe(e)) return false; // Series+Anime: Voe nunca en Directos
-            if (esAnime && isHlsNamed(e)) return false; // Anime: sin HLS en Directos
-            if (e.noAds || e.direct || e.stream_url) return true;
-            const u = String(e.url || "");
-            const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
-            if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
-            if (/direct|hls|m3u8|mp4|no\s*ads/.test(s)) return true;
-            if (e.download || e.is_direct) return true;
-            return false;
-          };
-          reps = allList.filter((e) => e && !isDirect(e));
-          dirs = allList.filter((e) => e && isDirect(e));
-          // Refuerzo Directos: sin Voe
-          dirs = dirs.filter((e) => e && !isVoe(e));
-          // Anime: Voe en Reproductores; en Directos sin Voe ni chip "HLS" (UPNShare sí)
-          if (esAnime) {
-            dirs = dirs.filter((e) => e && !isHlsNamed(e) && !isVoe(e));
-          }
-          if (!dirs.length) {
-            dirs = allList.filter((e) => {
+          const isMobileSrv =
+            document.body.classList.contains("mz-mobile-ep-playing") ||
+            (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
+            (typeof window !== "undefined" && window.innerWidth <= 768);
+
+          if (isMobileSrv) {
+            // —— Misma lógica que PC (koi-episode-player), solo móvil ——
+            // Reproductores = embeds iframe normales (todos, incl. Voe)
+            // Directos = noAds / stream_url del worker / clones resolubles (NO Voe; anime sin chip "HLS")
+            const isWorkerStreamApi = (url) => {
+              if (!url) return false;
+              const u = String(url).toLowerCase();
+              if (!/workers\.dev/i.test(u)) return false;
+              return /\/(wish|voe|vidhide|goodstream|resolve|streamurl)\b/i.test(u) || /[?&]url=/.test(u);
+            };
+            const isNormalEmbed = (e) => {
+              if (!e) return false;
+              const url = e.url;
+              if (!url || !/^https?:\/\//i.test(String(url))) return false;
+              if (isWorkerStreamApi(url)) return false;
+              if (/moviezone\.tvjz\.workers\.dev\/\d+\//i.test(String(url))) return false;
+              return true;
+            };
+            const isDirectLike = (e) => {
               if (!e) return false;
               if (isVoe(e)) return false;
               if (esAnime && isHlsNamed(e)) return false;
-              return !!(e.stream_url || e.noAds || e.direct);
+              if (e.noAds) return true;
+              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return true;
+              if (e.hls_resolve && isWorkerStreamApi(e.hls_resolve)) return true;
+              const name = String(e.server || e.servidor || e.name || "").toLowerCase();
+              if (/^directo$|no\s*ads/.test(name)) return true;
+              return false;
+            };
+            const streamApi = (e) => {
+              if (!e) return null;
+              if (e.stream_url && isWorkerStreamApi(e.stream_url)) return e.stream_url;
+              if (typeof streamUrlParaNoAds === "function" && e.url) {
+                const s = streamUrlParaNoAds(e.url);
+                if (s) return s;
+              }
+              return null;
+            };
+
+            // Fuente completa: no usar solo secciones filtradas
+            const pool = [];
+            const seenP = new Set();
+            const pushPool = (e) => {
+              if (!e) return;
+              const key = String(e.url || e.stream_url || e.hls_resolve || Math.random());
+              if (seenP.has(key)) return;
+              seenP.add(key);
+              pool.push(e);
+            };
+            (Array.isArray(embeds) ? embeds : []).forEach(pushPool);
+            allList.forEach(pushPool);
+            if (noAds) pushPool(noAds);
+
+            reps = [];
+            dirs = [];
+            const seenN = new Set();
+            const seenD = new Set();
+            pool.forEach((e) => {
+              if (isNormalEmbed(e)) {
+                const k = String(e.url).split("?")[0].toLowerCase();
+                if (!seenN.has(k)) {
+                  seenN.add(k);
+                  reps.push(e);
+                }
+              }
+              if (isDirectLike(e)) {
+                const k = String(e.stream_url || e.hls_resolve || e.url || "")
+                  .split("?")[0]
+                  .toLowerCase();
+                if (k && !seenD.has(k)) {
+                  seenD.add(k);
+                  dirs.push(e);
+                }
+              } else if (isNormalEmbed(e) && !isVoe(e) && !(esAnime && isHlsNamed(e))) {
+                const api = streamApi(e);
+                if (api && !/\/voe\/streamurl/i.test(String(api))) {
+                  const k = String(api).split("?")[0].toLowerCase();
+                  if (!seenD.has(k)) {
+                    seenD.add(k);
+                    dirs.push({
+                      ...e,
+                      stream_url: e.stream_url || api,
+                      __directHls: true,
+                      server: e.server || e.servidor || e.name,
+                      name: e.name || e.server || e.servidor,
+                    });
+                  }
+                }
+              }
             });
-            reps = allList.filter((e) => e && !dirs.includes(e));
-            if (esAnime) {
-              /* HLS solo se quita de Directos, no de Reproductores */
-            }
-          }
-          // Nunca hacer fallback a allList (reintroducía Voe/HLS)
-          groups = [];
-          if (reps.length) groups.push({ label: "Reproductores", list: reps });
-          else {
-            const safe = allList.filter((e) => {
+
+            groups = [];
+            if (reps.length) groups.push({ label: "Reproductores", list: reps });
+            if (dirs.length) groups.push({ label: "Directos", list: dirs });
+            if (!groups.length) groups.push({ label: "Reproductores", list: pool.length ? pool : allList });
+          } else {
+            // PC / otros: lógica previa sin cambios
+            const isDirect = (e) => {
               if (!e) return false;
-              return !isDirect(e);
-            });
-            groups.push({ label: "Reproductores", list: safe.length ? safe : allList });
+              if (isVoe(e)) return false;
+              if (esAnime && isHlsNamed(e)) return false;
+              if (e.noAds || e.direct || e.stream_url) return true;
+              const u = String(e.url || "");
+              const s = String(e.server || e.servidor || e.name || e.type || "").toLowerCase();
+              if (/\.m3u8(\?|$)|\.mp4(\?|$)/i.test(u)) return true;
+              if (/direct|hls|m3u8|mp4|no\s*ads/.test(s)) return true;
+              if (e.download || e.is_direct) return true;
+              return false;
+            };
+            reps = allList.filter((e) => e && !isDirect(e));
+            dirs = allList.filter((e) => e && isDirect(e));
+            dirs = dirs.filter((e) => e && !isVoe(e));
+            if (esAnime) {
+              dirs = dirs.filter((e) => e && !isHlsNamed(e) && !isVoe(e));
+            }
+            if (!dirs.length) {
+              dirs = allList.filter((e) => {
+                if (!e) return false;
+                if (isVoe(e)) return false;
+                if (esAnime && isHlsNamed(e)) return false;
+                return !!(e.stream_url || e.noAds || e.direct);
+              });
+              reps = allList.filter((e) => e && !dirs.includes(e));
+            }
+            groups = [];
+            if (reps.length) groups.push({ label: "Reproductores", list: reps });
+            else {
+              const safe = allList.filter((e) => e && !isDirect(e));
+              groups.push({ label: "Reproductores", list: safe.length ? safe : allList });
+            }
+            if (dirs.length) groups.push({ label: "Directos", list: dirs });
           }
-          if (dirs.length) groups.push({ label: "Directos", list: dirs });
         }
+
 
 /*
         const isDirect = (e) => {
