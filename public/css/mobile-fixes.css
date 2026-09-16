@@ -6,22 +6,40 @@
 @media (max-width: 768px) {
 
   /* ============================================================
-     PELÍCULA: hero + REPRODUCIR (datos una sola vez en el hero)
+     PELÍCULA MÓVIL — layout propio (no copia PC)
+     Backdrop arriba + ficha abajo + botón ancho
      ============================================================ */
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero {
     display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
     position: relative !important;
     width: 100% !important;
-    min-height: 48vh !important;
+    min-height: 0 !important;
+    height: auto !important;
     max-height: none !important;
-    align-items: flex-end !important;
-    padding: max(48px, env(safe-area-inset-top)) 16px 20px !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    margin: 0 !important;
     background-color: #060913 !important;
     background-size: cover !important;
-    background-position: center 20% !important;
+    background-position: center top !important;
     background-repeat: no-repeat !important;
     z-index: 2 !important;
     box-sizing: border-box !important;
+    /* altura visual del banner */
+    min-height: calc(38vh + 180px) !important;
+  }
+
+  /* Capa de imagen simulada: espacio superior solo banner */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero::before {
+    content: "" !important;
+    display: block !important;
+    width: 100% !important;
+    height: 38vh !important;
+    min-height: 200px !important;
+    max-height: 280px !important;
+    flex-shrink: 0 !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-overlay {
@@ -31,104 +49,153 @@
     z-index: 1 !important;
     pointer-events: none !important;
     background:
-      linear-gradient(180deg, rgba(6, 9, 19, 0.2) 0%, rgba(6, 9, 19, 0.65) 50%, #060913 100%) !important;
+      linear-gradient(
+        180deg,
+        rgba(6, 9, 19, 0.05) 0%,
+        rgba(6, 9, 19, 0.35) 28%,
+        rgba(6, 9, 19, 0.92) 55%,
+        #060913 72%,
+        #060913 100%
+      ) !important;
   }
 
+  /* Ficha de contenido: “tarjeta” sobre el degradado */
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-content {
     position: relative !important;
     z-index: 2 !important;
     width: 100% !important;
     max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 16px 20px !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing: border-box !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-logo {
-    max-width: min(200px, 65vw) !important;
-    max-height: 64px !important;
+    max-width: min(180px, 55vw) !important;
+    max-height: 56px !important;
     width: auto !important;
-    margin: 0 0 8px !important;
+    margin: 0 0 10px !important;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6)) !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-title {
-    font-size: 1.4rem !important;
-    line-height: 1.25 !important;
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
     font-weight: 800 !important;
-    margin: 0 0 6px !important;
+    letter-spacing: -0.02em !important;
+    margin: 0 0 4px !important;
     color: #f8fafc !important;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8) !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-original {
     font-size: 0.8rem !important;
+    font-weight: 500 !important;
     color: #94a3b8 !important;
-    margin: 0 0 6px !important;
-  }
-
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px 8px !important;
-    margin: 0 0 12px !important;
-    font-size: 0.78rem !important;
-    color: #cbd5e1 !important;
-  }
-
-  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
     margin: 0 0 10px !important;
   }
 
+  /* Meta en pills compactas */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin: 0 0 14px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: #e2e8f0 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta > span,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .koi-meta-badge,
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .rating-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 4px 10px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #e2e8f0 !important;
+    font-size: 0.72rem !important;
+    line-height: 1.2 !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-meta .koi-meta-sep {
+    display: none !important;
+  }
+
+  /* Botones: play a ancho completo, favorito al lado */
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin: 0 0 14px !important;
+    width: 100% !important;
+  }
+
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play {
+    flex: 1 1 auto !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
-    min-height: 44px !important;
-    padding: 10px 16px !important;
-    font-size: 0.85rem !important;
+    min-height: 48px !important;
+    padding: 12px 16px !important;
+    font-size: 0.9rem !important;
     font-weight: 800 !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: 0.04em !important;
     text-transform: uppercase !important;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 10px !important;
     background: #00e5ff !important;
     color: #060913 !important;
-    box-shadow: 0 6px 18px rgba(0, 229, 255, 0.3) !important;
+    box-shadow: 0 8px 24px rgba(0, 229, 255, 0.28) !important;
     visibility: visible !important;
     opacity: 1 !important;
   }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-play ion-icon {
+    font-size: 1.2rem !important;
+  }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-btn-bookmark {
+    flex: 0 0 48px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 44px !important;
-    height: 44px !important;
-    border-radius: 6px !important;
-    border: 2px solid rgba(0, 229, 255, 0.65) !important;
-    background: rgba(0, 0, 0, 0.35) !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 10px !important;
+    border: 1.5px solid rgba(0, 229, 255, 0.55) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
     color: #00e5ff !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-hero-synopsis {
-    font-size: 0.85rem !important;
-    line-height: 1.45 !important;
-    color: #cbd5e1 !important;
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
+    color: #94a3b8 !important;
     margin: 0 !important;
     display: -webkit-box !important;
-    -webkit-line-clamp: 4 !important;
+    -webkit-line-clamp: 3 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
   }
 
   body.details-open.koi-desktop.koi-movie:not(.player-open) .koi-toggle-details {
     margin-top: 8px !important;
-    font-size: 0.78rem !important;
-    color: #94a3b8 !important;
+    padding: 0 !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: #00e5ff !important;
+    background: none !important;
+    border: none !important;
+    text-align: left !important;
   }
 
-  /* Bloque clásico = duplicado del hero → ocultar (como en PC) */
+  /* Bloque clásico duplicado → ocultar */
   body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-stremio-header,
   body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .details-header-card,
   body.details-open.koi-desktop.koi-movie:not(.player-open) .details-content-inner .mz-stremio-poster-col,
@@ -150,12 +217,22 @@
     background: #060913 !important;
   }
   body.details-open.koi-desktop.koi-movie:not(.player-open) #details-panel .mz-stremio-bg {
-    opacity: 0.25 !important;
+    display: none !important;
+  }
+  body.details-open.koi-desktop.koi-movie:not(.player-open) .details-body {
+    padding: 0 !important;
   }
 
   body.details-open.koi-desktop.koi-movie .btn-close-modal {
     display: flex !important;
     z-index: 100 !important;
+    top: max(10px, env(safe-area-inset-top)) !important;
+    right: 12px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
   }
 
   /* Vista Koi fullscreen (REPRODUCIR) */
