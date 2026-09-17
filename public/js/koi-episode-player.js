@@ -17,6 +17,8 @@
   var _ctx = null;
   var _hls = null;
   var _mode = "episode";
+  var _openLock = false;
+  var _openToken = 0;
 
   function $(id) {
     return document.getElementById(id);
@@ -924,13 +926,10 @@
       var n = epNumOf(ep, idx + 1);
       var s = seasonOf(ep, 1);
       var playing = n === Number(currentEp) && s === Number(currentSeason);
-      var thumb =
-        ep.still ||
-        ep.portada ||
-        ep.imagen ||
-        item.portada ||
-        item.backdrop ||
-        PLACEHOLDER;
+      var isAnimeEp = /anime/i.test(String(item.tipo || item.type || ""));
+      var thumb = isAnimeEp
+        ? (ep.back_img || ep.screenshot || ep.still || ep.image || ep.imagen || ep.thumbnail || item.portada || PLACEHOLDER)
+        : (ep.back_img || ep.still || ep.image || ep.imagen || ep.thumbnail || item.backdrop || item.portada || PLACEHOLDER);
       var card = document.createElement("button");
       card.type = "button";
       card.className = "mz-kp-ep-card" + (playing ? " playing" : "");
@@ -1055,6 +1054,13 @@
 
   async function openEpisode(item, episodio, seasonNum, epNum) {
     if (!item) return false;
+    // Evitar doble apertura (bug: se superpone otro episodio)
+    var myToken = ++_openToken;
+    if (_openLock) {
+      _openToken = myToken; // última petición gana al terminar la actual
+    }
+    _openLock = true;
+    try {
     ensureDom();
     _mode = "episode";
     var view = $("mz-koi-ep-view");
@@ -1106,7 +1112,11 @@
     try {
       view.scrollTop = 0;
     } catch (_) {}
+    if (myToken !== _openToken) return false; // otra apertura más reciente
     return true;
+    } finally {
+      _openLock = false;
+    }
   }
 
   async function openMovie(item) {
