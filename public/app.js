@@ -2060,6 +2060,11 @@ function mzForceEpLikeMovieShell(on) {
         "display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;visibility:hidden!important;margin:0!important;padding:0!important;";
       hero.setAttribute("aria-hidden", "true");
     }
+    if (vc) {
+      vc.classList.remove("hidden");
+      vc.style.cssText =
+        "display:block!important;visibility:visible!important;width:100%!important;order:0!important;margin:8px 0 12px!important;border-radius:12px!important;";
+    }
     if (inner) {
       inner.classList.remove("hidden");
       inner.style.cssText = "display:block!important;visibility:visible!important;";
@@ -2073,6 +2078,14 @@ function mzForceEpLikeMovieShell(on) {
         "display:flex!important;flex-direction:column!important;width:100%!important;visibility:visible!important;padding:0 12px 16px!important;box-sizing:border-box!important;";
     }
     if (syn) syn.style.cssText = "display:none!important;";
+    try {
+      document.getElementById("details-description")?.style.setProperty("display", "none", "important");
+      document.getElementById("details-logo")?.classList.add("hidden");
+      document.querySelector(".mz-stremio-header")?.style.setProperty("display", "none", "important");
+      document.querySelectorAll(".details-actions, #mz-stremio-play-row").forEach(function (el) {
+        el.style.setProperty("display", "none", "important");
+      });
+    } catch (_) {}
     if (posterCol) posterCol.style.cssText = "display:none!important;";
 
     // Player arriba (interfaz tipo película)
@@ -2090,13 +2103,21 @@ function mzForceEpLikeMovieShell(on) {
     try {
       const item = (_epPlayCtx && _epPlayCtx.item) || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
       let head = document.getElementById("mz-ep-movie-head");
-      if (!head && meta) {
+      if (!head) {
         head = document.createElement("div");
         head.id = "mz-ep-movie-head";
         head.className = "mz-ep-movie-head";
-        if (vc && vc.nextSibling) meta.insertBefore(head, vc.nextSibling);
-        else if (vc) meta.appendChild(head);
-        else meta.insertBefore(head, meta.firstChild);
+      }
+      // Siempre justo debajo del player (como película)
+      const host = (vc && vc.parentNode) || meta || streams || layout;
+      if (host && head.parentNode !== host) {
+        if (vc && vc.parentNode === host) {
+          host.insertBefore(head, vc.nextSibling);
+        } else {
+          host.insertBefore(head, host.firstChild);
+        }
+      } else if (vc && head.previousSibling !== vc) {
+        try { vc.parentNode.insertBefore(head, vc.nextSibling); } catch (_) {}
       }
       if (head && item) {
         const title = item.nombre || item.titulo || "";
