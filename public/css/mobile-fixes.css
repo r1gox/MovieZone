@@ -1112,4 +1112,63 @@
   }
 
 
+
+
+  /* ---- Imágenes episodio visibles en detalle ---- */
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb img,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb img,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  /* ---- Vista episodio tipo película ---- */
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #mz-ep-movie-head {
+    display: block !important;
+    visibility: visible !important;
+    padding: 4px 2px 12px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-title {
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-ep {
+    font-size: 0.95rem !important;
+    color: #94a3b8 !important;
+    margin-top: 4px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-rating {
+    color: #fbbf24 !important;
+    font-weight: 700 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-imdb {
+    background: #f5c518 !important;
+    color: #000 !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-stremio-header,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #details-logo,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #details-description,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .details-actions {
+    display: none !important;
+  }
+
 } /* fin @media */
