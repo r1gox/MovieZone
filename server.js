@@ -466,6 +466,9 @@ async function guardarEnSupabase(items) {
             embeds: [],
             video: null,
             reproductor: null,
+            back_img: ep.back_img || ep.screenshot || ep.still || null,
+            still: ep.still || ep.back_img || null,
+            imagen: ep.imagen || ep.image || ep.back_img || null,
           }))
         : [],
       temporadas: Array.isArray(row.temporadas) ? row.temporadas : [],
@@ -1510,7 +1513,7 @@ function mapDetail(data, fallback = {}) {
           asegurarUrlCapitulo(
             {
               id: `${slug}-t${seasonNum}-e${epNum}`,
-              nombre: ep.titulo || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
+              nombre: ep.titulo || ep.nombre || `T${seasonNum}E${String(epNum).padStart(2, "0")}`,
               season: seasonNum,
               episode: epNum,
               video: epEmbeds[0]?.stream_url || epEmbeds[0]?.url || ep.reproductor || null,
@@ -1522,6 +1525,10 @@ function mapDetail(data, fallback = {}) {
               slug_media: ep.slug_media || temp.slug_media || slug || null,
               formato: ep.formato || temp.formato || data.formato || null,
               episode_id: ep.episode_id || null,
+              // AnimeAV1 screenshot por episodio
+              back_img: ep.back_img || ep.screenshot || ep.still || null,
+              still: ep.still || ep.back_img || null,
+              imagen: ep.imagen || ep.image || ep.back_img || null,
               url_capitulo:
                 ep.url_capitulo ||
                 ep.link ||
