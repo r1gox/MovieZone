@@ -5800,7 +5800,14 @@ function renderTemporadas(item) {
                         return null;
                     })(),
                     link: ep.link || null,
-                    source_id: ep.source_id || item.source_id
+                    source_id: ep.source_id || item.source_id,
+                    // AnimeAV1 screenshot por episodio
+                    back_img: ep.back_img || ep.screenshot || ep.still || meta?.still_path || null,
+                    still: ep.still || ep.back_img || meta?.still_path || null,
+                    imagen: ep.imagen || ep.image || ep.back_img || null,
+                    image: ep.image || ep.back_img || null,
+                    thumbnail: ep.thumbnail || ep.back_img || null,
+                    portada: ep.portada || ep.back_img || null
                 };
             });
             item._epRangoActivo = null;
@@ -5835,7 +5842,10 @@ function renderTemporadas(item) {
                     nombre: ep.nombre || ep.titulo || ep.name || ("Episodio " + num),
                     embeds: ep.embeds || ep.reproductores || [],
                     link: ep.link || null,
-                    source_id: ep.source_id || item.source_id
+                    source_id: ep.source_id || item.source_id,
+                    back_img: ep.back_img || ep.screenshot || ep.still || null,
+                    still: ep.still || ep.back_img || null,
+                    imagen: ep.imagen || ep.image || ep.back_img || null
                 });
             });
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios);
