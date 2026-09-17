@@ -1486,46 +1486,51 @@
 
   function ensureMovieDlBar() {
     try {
+      // Quitar barra antigua debajo del player
+      var oldBar = document.getElementById("mz-kp-movie-dl-bar");
+      if (oldBar) oldBar.remove();
+
       if (isPc()) {
-        var old = document.getElementById("mz-kp-movie-dl-bar");
-        if (old) old.remove();
+        var b0 = document.getElementById("mz-kp-movie-dl");
+        if (b0) b0.remove();
         return;
       }
-      var hero = document.querySelector("#mz-koi-ep-view .mz-kp-hero");
-      if (!hero || !hero.parentNode) return;
-      var bar = document.getElementById("mz-kp-movie-dl-bar");
-      if (!bar) {
-        bar = document.createElement("div");
-        bar.id = "mz-kp-movie-dl-bar";
-        bar.className = "mz-kp-movie-dl-bar";
-      }
-      bar.innerHTML =
-        '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-movie-dl" title="Descargas">' +
-        "↓ Descargas</button>";
-      if (bar.parentNode !== hero.parentNode) {
-        hero.parentNode.insertBefore(bar, hero.nextSibling);
-      } else {
-        hero.parentNode.insertBefore(bar, hero.nextSibling);
-      }
+
+      var row = document.querySelector("#mz-koi-ep-view .mz-kp-ep-title-row");
+      if (!row) return;
+      row.classList.add("mz-kp-movie-title-row");
+
       var btn = document.getElementById("mz-kp-movie-dl");
-      if (btn) {
-        btn.onclick = function (e) {
-          try {
-            e.preventDefault();
-            e.stopPropagation();
-          } catch (_) {}
-          openDownloadsPanel();
-          return false;
-        };
-        btn.ontouchend = function (e) {
-          try {
-            e.preventDefault();
-            e.stopPropagation();
-          } catch (_) {}
-          openDownloadsPanel();
-          return false;
-        };
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "mz-kp-movie-dl";
+        btn.className = "mz-kp-movie-dl-btn";
+        btn.setAttribute("title", "Descargas");
+        btn.setAttribute("aria-label", "Descargas");
+        btn.textContent = "↓";
+        row.appendChild(btn);
+      } else if (btn.parentNode !== row) {
+        row.appendChild(btn);
       }
+      btn.textContent = "↓";
+
+      btn.onclick = function (e) {
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (_) {}
+        openDownloadsPanel();
+        return false;
+      };
+      btn.ontouchend = function (e) {
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (_) {}
+        openDownloadsPanel();
+        return false;
+      };
     } catch (err) {
       console.warn("ensureMovieDlBar", err);
     }

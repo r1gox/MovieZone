@@ -1186,3 +1186,69 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
 @media (min-width: 1025px) {
   .mz-kp-movie-dl-bar { display: none !important; }
 }
+
+
+/* Película móvil: SUB azul / DUB verde (igual series) + ↓ junto al título */
+@media (max-width: 1024px) {
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-tag,
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row-tag {
+    flex: 0 0 auto !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row-tag.is-sub {
+    background: #2563eb !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row-tag.is-dub {
+    background: #16a34a !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-btn.active {
+    border-color: rgba(0, 229, 255, 0.8) !important;
+    background: rgba(0, 229, 255, 0.22) !important;
+    color: #ecfeff !important;
+  }
+
+  /* Título + flecha descarga misma fila */
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row.mz-kp-movie-title-row,
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row #mz-kp-ep-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-movie-dl,
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-movie-dl-btn {
+    flex: 0 0 auto !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(168, 85, 247, 0.5) !important;
+    background: rgba(168, 85, 247, 0.22) !important;
+    color: #e9d5ff !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+  }
+
+  /* Ocultar barra vieja si quedara */
+  .mz-kp-movie-dl-bar {
+    display: none !important;
+  }
+}
