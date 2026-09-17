@@ -2436,17 +2436,17 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
     (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
     /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-  if (pc && serie && !window.__mzForceAutoPlay) {
-    // Como antes: solo la vista Koi (no mover servers/player dentro del detalle)
+  // Serie/anime: misma interfaz Koi que película (PC y móvil), sin autoplay
+  if (serie && !window.__mzForceAutoPlay) {
     try {
       if (typeof window.mzKoiOpenEpisode === "function") {
-        await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-        return false;
+        const ok = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+        if (ok) return false;
       }
     } catch (e) {
       console.error("mzKoiOpenEpisode:", e);
     }
-    return false;
+    if (pc) return false;
   }
 
   // —— Móvil / película / force: flujo original ——
@@ -6155,12 +6155,12 @@ function renderEpisodios(item, season = 1) {
               (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
               /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-            if (pc && serie && typeof window.mzKoiOpenEpisode === "function") {
+            // PC y móvil: misma interfaz Koi que película (The Fix)
+            if (serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
-              await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-              return;
+              const okKoi = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+              if (okKoi) return;
             }
-            // Móvil serie/anime: vista dedicada (player + ant/sig + servers + grid)
             if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
               await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
               return;
@@ -7906,7 +7906,15 @@ function mzReplaceHomeUrl() {
                             }) || { season: season, episode: episode, nombre: "Episodio " + episode };
                             if (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
                                 typeof abrirVistaMovilEpisodio === "function") {
-                                await abrirVistaMovilEpisodio(item, ep, season, episode);
+                                (async function(){
+                                  let okDl = false;
+                                  if (typeof window.mzKoiOpenEpisode === "function") {
+                                    okDl = !!(await window.mzKoiOpenEpisode(item, ep, season, episode));
+                                  }
+                                  if (!okDl && typeof abrirVistaMovilEpisodio === "function") {
+                                    await abrirVistaMovilEpisodio(item, ep, season, episode);
+                                  }
+                                })();
                                 try { mzForceEpLikeMovieShell(true); } catch (_) {}
                                 setTimeout(function () { try { mzForceEpLikeMovieShell(true); } catch (_) {} }, 400);
                             } else {
