@@ -2017,7 +2017,7 @@ function aplicarServidorPreferido(embeds, item) {
 }*/
 
 
-/** Forzar shell = misma interfaz que película al Reproducir (móvil /1/1) */
+/** Forzar shell = misma interfaz que película al Reproducir (móvil) */
 function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
   try {
     const hero = document.getElementById("koi-hero");
@@ -2030,20 +2030,42 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
     const posterCol = document.querySelector(".mz-stremio-poster-col");
     const inner = document.getElementById("details-content") || document.querySelector(".details-content-inner");
     const seasons = document.getElementById("seasons-section");
+    const logo = document.getElementById("details-logo");
+    const desc = document.getElementById("details-description");
+    const stremioHeader = document.querySelector(".mz-stremio-header");
+    const playRow = document.getElementById("mz-stremio-play-row");
+
+    // Siempre limpiar timer al entrar/salir
+    if (window.__mzEpShellTimer) {
+      clearInterval(window.__mzEpShellTimer);
+      window.__mzEpShellTimer = null;
+    }
 
     if (!on) {
+      // Restaurar TODO lo que el shell tocó (si no, detalle queda vacío)
       [hero, meta, streams, layout, vc, syn, ss, posterCol, inner, seasons].forEach(function (el) {
-        if (!el || !el.style) return;
-        el.style.cssText = "";
+        if (!el) return;
+        try { el.style.cssText = ""; } catch (_) {}
       });
-      if (hero) hero.setAttribute("aria-hidden", "false");
+      try {
+        if (logo) {
+          logo.classList.remove("hidden");
+          logo.style.cssText = "";
+        }
+        if (desc) desc.style.cssText = "";
+        if (stremioHeader) stremioHeader.style.cssText = "";
+        if (playRow) playRow.style.cssText = "";
+        document.querySelectorAll(".details-actions").forEach(function (el) {
+          el.style.cssText = "";
+        });
+        if (hero) {
+          hero.style.cssText = "";
+          hero.setAttribute("aria-hidden", "false");
+        }
+      } catch (_) {}
       const head = document.getElementById("mz-ep-movie-head");
       if (head) head.remove();
-      if (window.__mzEpShellTimer) {
-        clearInterval(window.__mzEpShellTimer);
-        window.__mzEpShellTimer = null;
-      }
-      document.body.classList.remove("mz-ep-movie-shell");
+      document.body.classList.remove("mz-ep-movie-shell", "koi-movie");
       return;
     }
 
@@ -2054,54 +2076,52 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
       "mz-ep-movie-shell",
       "koi-serie"
     );
-    // NO añadir koi-desktop en móvil: desplaza episodios a la derecha
     document.body.classList.remove("mz-mobile-movie-playing");
 
+    // Ocultar hero / logo / sinopsis del detalle (solo mientras se ve el ep)
     if (hero) {
-      hero.style.cssText =
-        "display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;visibility:hidden!important;margin:0!important;padding:0!important;";
+      hero.style.setProperty("display", "none", "important");
       hero.setAttribute("aria-hidden", "true");
     }
-    if (vc) {
-      vc.classList.remove("hidden");
-      vc.style.cssText =
-        "display:block!important;visibility:visible!important;width:100%!important;order:0!important;margin:8px 0 12px!important;border-radius:12px!important;";
-    }
-    if (inner) {
-      inner.classList.remove("hidden");
-      inner.style.cssText = "display:block!important;visibility:visible!important;";
-    }
-    if (layout) {
-      layout.style.cssText =
-        "display:flex!important;flex-direction:column!important;width:100%!important;gap:0!important;";
-    }
-    if (meta) {
-      meta.style.cssText =
-        "display:flex!important;flex-direction:column!important;width:100%!important;visibility:visible!important;padding:0 12px 16px!important;box-sizing:border-box!important;";
-    }
-    if (syn) syn.style.cssText = "display:none!important;";
+    if (logo) logo.classList.add("hidden");
+    if (stremioHeader) stremioHeader.style.setProperty("display", "none", "important");
+    if (desc) desc.style.setProperty("display", "none", "important");
+    if (syn) syn.style.setProperty("display", "none", "important");
+    if (posterCol) posterCol.style.setProperty("display", "none", "important");
+    if (playRow) playRow.style.setProperty("display", "none", "important");
     try {
-      document.getElementById("details-description")?.style.setProperty("display", "none", "important");
-      document.getElementById("details-logo")?.classList.add("hidden");
-      document.querySelector(".mz-stremio-header")?.style.setProperty("display", "none", "important");
-      document.querySelectorAll(".details-actions, #mz-stremio-play-row").forEach(function (el) {
+      document.querySelectorAll(".details-actions").forEach(function (el) {
         el.style.setProperty("display", "none", "important");
       });
     } catch (_) {}
-    if (posterCol) posterCol.style.cssText = "display:none!important;";
 
-    // Player arriba (interfaz tipo película)
+    if (inner) {
+      inner.classList.remove("hidden");
+      inner.style.setProperty("display", "block", "important");
+    }
+    if (layout) {
+      layout.style.cssText =
+        "display:flex!important;flex-direction:column!important;width:100%!important;gap:0!important;padding:0 12px 24px!important;";
+    }
+    if (meta) {
+      meta.style.cssText =
+        "display:flex!important;flex-direction:column!important;width:100%!important;padding:0!important;";
+    }
+
+    // Player arriba
     if (vc) {
       vc.classList.remove("hidden");
       if (meta) {
-        if (vc.parentNode !== meta) meta.insertBefore(vc, meta.firstChild);
-        else if (meta.firstChild !== vc) meta.insertBefore(vc, meta.firstChild);
+        try {
+          if (vc.parentNode !== meta) meta.insertBefore(vc, meta.firstChild);
+          else if (meta.firstChild !== vc) meta.insertBefore(vc, meta.firstChild);
+        } catch (_) {}
       }
       vc.style.cssText =
-        "display:block!important;width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;background:#0b0f1a!important;margin:8px 0 12px!important;border-radius:12px!important;overflow:hidden!important;border:1px solid #1e293b!important;order:-1!important;position:relative!important;";
+        "display:block!important;width:100%!important;aspect-ratio:16/9!important;background:#000!important;margin:8px 0 12px!important;border-radius:12px!important;overflow:hidden!important;order:0!important;";
     }
 
-    // Cabecera tipo peli: título + rating IMDb + duración + estado (SIN descripción)
+    // Cabecera tipo película bajo el player
     try {
       let head = document.getElementById("mz-ep-movie-head");
       if (!head) {
@@ -2109,28 +2129,22 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
         head.id = "mz-ep-movie-head";
         head.className = "mz-ep-movie-head";
       }
-      // Siempre justo debajo del player (como película)
-      const host = (vc && vc.parentNode) || meta || streams || layout;
-      if (host && head.parentNode !== host) {
-        if (vc && vc.parentNode === host) {
-          host.insertBefore(head, vc.nextSibling);
-        } else {
-          host.insertBefore(head, host.firstChild);
-        }
-      } else if (vc && head.previousSibling !== vc) {
-        try { vc.parentNode.insertBefore(head, vc.nextSibling); } catch (_) {}
+      const host = (vc && vc.parentNode) || meta || layout;
+      if (host) {
+        if (vc && vc.parentNode === host) host.insertBefore(head, vc.nextSibling);
+        else if (head.parentNode !== host) host.insertBefore(head, host.firstChild);
       }
       const item =
         itemArg ||
         window.__mzCurrentItem ||
         (_epPlayCtx && _epPlayCtx.item) ||
-        (typeof seleccionActual !== "undefined" ? seleccionActual : null);
+        null;
       const epCtx = epArg || (_epPlayCtx && _epPlayCtx.episodio) || null;
       const sn = Number(snArg || (epCtx && (epCtx.season || epCtx.temporada)) || 1) || 1;
       const en = Number(enArg || (epCtx && (epCtx.episode || epCtx.episodio)) || 0) || 0;
       if (head && item) {
         const title = item.nombre || item.titulo || "";
-        const epLine = en ? ("T" + sn + " • E" + en) : "";
+        const epLine = en ? "T" + sn + " • E" + en : "";
         const rating =
           item.rating != null
             ? String(item.rating)
@@ -2159,55 +2173,27 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
             ? '<span class="mz-ep-movie-status">' + String(estado).replace(/</g, "&lt;") + "</span>"
             : "") +
           "</div>";
-        head.style.cssText = "display:block!important;width:100%!important;margin:0 0 12px!important;";
+        head.style.cssText = "display:block!important;width:100%!important;margin:0 0 14px!important;order:1!important;";
       }
     } catch (_) {}
 
     if (ss) {
       ss.classList.remove("hidden");
-      if (meta && ss.parentNode !== meta) meta.appendChild(ss);
-      ss.style.cssText =
-        "display:block!important;visibility:visible!important;width:100%!important;margin:0 0 12px!important;";
+      ss.style.cssText = "display:block!important;width:100%!important;order:3!important;";
     }
     if (streams) {
       streams.style.cssText =
-        "display:block!important;visibility:visible!important;width:100%!important;max-width:100%!important;padding:0 12px 28px!important;box-sizing:border-box!important;";
+        "display:block!important;width:100%!important;max-width:100%!important;padding:0!important;border:none!important;";
     }
     if (seasons) {
       seasons.classList.remove("hidden");
-      seasons.style.cssText = "display:block!important;width:100%!important;";
+      seasons.style.cssText = "display:block!important;width:100%!important;order:5!important;";
     }
 
     const closeBtn = document.getElementById("close-player-btn");
     if (closeBtn) {
       closeBtn.classList.add("hidden");
-      closeBtn.style.cssText = "display:none!important;";
-    }
-
-    if (!window.__mzEpShellTimer) {
-      window.__mzEpShellTimer = setInterval(function () {
-        if (!document.body.classList.contains("mz-mobile-ep-playing")) {
-          clearInterval(window.__mzEpShellTimer);
-          window.__mzEpShellTimer = null;
-          return;
-        }
-        document.body.classList.add("player-open", "koi-movie", "mz-mobile-ep-playing", "mz-ep-movie-shell");
-        var h = document.getElementById("koi-hero");
-        if (h) h.style.cssText = "display:none!important;height:0!important;visibility:hidden!important;";
-        var v = document.getElementById("video-player-container");
-        if (v) {
-          v.classList.remove("hidden");
-          v.style.display = "block";
-        }
-        var syn2 = document.querySelector(".mz-synopsis-section");
-        if (syn2) syn2.style.display = "none";
-      }, 400);
-      setTimeout(function () {
-        if (window.__mzEpShellTimer) {
-          clearInterval(window.__mzEpShellTimer);
-          window.__mzEpShellTimer = null;
-        }
-      }, 4000);
+      closeBtn.style.setProperty("display", "none", "important");
     }
   } catch (e) {
     console.warn("mzForceEpLikeMovieShell", e);
@@ -2381,9 +2367,21 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
 }
 
 function salirVistaMovilEpisodio() {
+  try {
+    if (window.__mzEpShellTimer) {
+      clearInterval(window.__mzEpShellTimer);
+      window.__mzEpShellTimer = null;
+    }
+  } catch (_) {}
   try { mzForceEpLikeMovieShell(false); } catch (_) {}
   document.getElementById("mz-mep-back")?.classList.add("hidden");
-  document.body.classList.remove("mz-mobile-ep-playing", "player-open", "mz-mep-dl-open");
+  document.body.classList.remove(
+    "mz-mobile-ep-playing",
+    "player-open",
+    "mz-mep-dl-open",
+    "mz-ep-movie-shell",
+    "koi-movie"
+  );
   document.getElementById("video-player-container")?.classList.add("hidden");
   document.getElementById("servers-section")?.classList.add("hidden");
   document.getElementById("mz-mobile-ep-nav")?.classList.add("hidden");
@@ -2399,27 +2397,46 @@ function salirVistaMovilEpisodio() {
     cont.classList.remove("mz-ep-num-grid");
     cont.classList.add("episodes-grid");
   }
-  // Restaurar hero y X; quitar koi-movie prestado del episodio
+  // Restaurar hero, logo y datos del detalle
   try {
     const hero = document.getElementById("koi-hero");
     if (hero) {
+      hero.style.cssText = "";
       hero.style.removeProperty("display");
       hero.setAttribute("aria-hidden", "false");
     }
+    const logo = document.getElementById("details-logo");
+    if (logo) {
+      logo.classList.remove("hidden");
+      logo.style.cssText = "";
+    }
+    const desc = document.getElementById("details-description");
+    if (desc) desc.style.cssText = "";
+    const header = document.querySelector(".mz-stremio-header");
+    if (header) header.style.cssText = "";
+    document.querySelectorAll(".details-actions, #mz-stremio-play-row, .mz-synopsis-section, .mz-stremio-poster-col").forEach(function (el) {
+      if (el) el.style.cssText = "";
+    });
     const closeBtn = document.getElementById("close-player-btn");
     if (closeBtn) {
       closeBtn.classList.remove("hidden");
       closeBtn.style.removeProperty("display");
     }
+    const head = document.getElementById("mz-ep-movie-head");
+    if (head) head.remove();
   } catch (_) {}
-    try {
-    const syn = document.querySelector(".mz-synopsis-section");
-    if (syn) syn.style.removeProperty("display");
-    const streams = document.querySelector(".mz-streams-col");
-    if (streams) streams.style.removeProperty("display");
+  // Re-pintar detalle si hay item actual (logo / meta)
+  try {
+    const it =
+      window.__mzCurrentItem ||
+      (typeof seleccionActual !== "undefined" ? seleccionActual : null) ||
+      (_epPlayCtx && _epPlayCtx.item);
+    if (it && typeof setKoiMode === "function") setKoiMode(it);
+    if (it && typeof fillKoiHero === "function") fillKoiHero(it);
+    else if (it && typeof pintarKoiHero === "function") pintarKoiHero(it);
   } catch (_) {}
-  document.body.classList.remove("koi-movie");
 }
+
 
 function volverDesdeEpisodioMovil() {
   const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
@@ -6147,18 +6164,43 @@ function episodioNumero(ep, index) {
 
 function renderEpisodios(item, season = 1) {
     try { mzHydrateAnimeBackImg(item); } catch (_) {}
-    // Forzar back_img en cada ep (animes largos / Serie source 4)
+    // 1) Descubrir shot id de CUALQUIER fuente (lista completa, no solo el rango visible)
+    try {
+      if (item && !item._av1ShotId) {
+        const pool = []
+          .concat(Array.isArray(item.episodios) ? item.episodios : [])
+          .concat(
+            (Array.isArray(item.temporadas_raw) ? item.temporadas_raw : []).flatMap(function (t) {
+              return (t && Array.isArray(t.lista) && t.lista) ||
+                (t && Array.isArray(t.episodios) && t.episodios) ||
+                [];
+            })
+          );
+        for (let i = 0; i < pool.length; i++) {
+          const b = pool[i] && (pool[i].back_img || pool[i].screenshot);
+          if (!b) continue;
+          const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+          if (mm) {
+            item._av1ShotId = mm[1];
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+    // 2) Forzar back_img en cada ep del rango (usar id si falta)
     try {
       if (Array.isArray(item.episodios)) {
         item.episodios = item.episodios.map(function (ep) {
           if (!ep) return ep;
           const n = Number(ep.episode || ep.episodio || 0) || 0;
-          const b =
-            ep.back_img ||
-            ep.screenshot ||
-            ep.still ||
-            (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(ep, item, n) : null);
-          if (!b || ep.back_img === b) return ep.back_img ? ep : Object.assign({}, ep, { back_img: b });
+          let b = ep.back_img || ep.screenshot || ep.still || null;
+          if (!b && item._av1ShotId && n > 0) {
+            b = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + n + ".jpg";
+          }
+          if (!b && typeof mzEpisodeThumb === "function") {
+            b = mzEpisodeThumb(ep, item, n);
+          }
+          if (!b) return ep;
           return Object.assign({}, ep, { back_img: b, still: ep.still || b });
         });
       }

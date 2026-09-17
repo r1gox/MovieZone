@@ -9501,3 +9501,94 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
   margin: 4px 0 0;
   font-weight: 600;
 }
+
+
+/* ========== FIX FINAL MÓVIL (prioridad alta, al final) ========== */
+@media (max-width: 1024px) {
+  /* Cards con imagen en detalle */
+  body.details-open #episodes-container.episodes-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px 10px !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb,
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    display: block !important;
+    width: 100% !important;
+    opacity: 1 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
+    aspect-ratio: 16 / 9 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: #111 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  /* Vista episodio tipo película — pisa reglas previas */
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #koi-hero {
+    display: none !important;
+    height: 0 !important;
+    visibility: hidden !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-stremio-header,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #details-logo,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #details-description,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-synopsis-section,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-stremio-poster-col,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .details-actions,
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #mz-stremio-play-row {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #mz-ep-movie-head {
+    display: block !important;
+    visibility: visible !important;
+    padding: 4px 0 12px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-title {
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-ep {
+    color: #94a3b8 !important;
+    font-size: 0.95rem !important;
+    margin-top: 4px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+    color: #94a3b8 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-rating {
+    color: #fbbf24 !important;
+    font-weight: 700 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-imdb {
+    background: #f5c518 !important;
+    color: #000 !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #video-player-container {
+    display: block !important;
+    width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    border-radius: 12px !important;
+    background: #000 !important;
+  }
+}
