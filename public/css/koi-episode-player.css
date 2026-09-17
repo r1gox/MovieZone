@@ -602,3 +602,34 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-sidebar {
   display: none !important;
 }
+
+
+/* Episodio móvil = UI tipo película (The Fix) */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view.mz-kp-ep-mobile.open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 10000 !important;
+    background: #0b1020 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-layout-movie {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 16px 40px !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-info { width: 100% !important; max-width: 100% !important; }
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-synopsis,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-synopsis,
+  #mz-koi-ep-view.mz-kp-ep-mobile [class*="synopsis"] { display: none !important; }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-type-label {
+    color: #22d3ee; font-size: 0.9rem; font-weight: 700; margin: 12px 0 2px;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-sidebar-mobile-ep {
+    display: block !important; width: 100% !important; margin-top: 20px !important;
+    border: none !important; background: transparent !important; padding: 0 !important;
+  }
+}
