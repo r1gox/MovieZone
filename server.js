@@ -1107,7 +1107,20 @@ function expandirEpisodiosAnime(item) {
   const eps = Array.isArray(item.episodios) ? item.episodios : [];
   if (total <= 1 || eps.length >= total) return item;
 
-  // Si hay rangos, no expandir todo (One Piece 1175); solo asegurar el bloque actual
+  // Id screenshots animeav1 (si alguna cap lo trae)
+  let shotId = null;
+  for (const e of eps) {
+    const b = e && (e.back_img || e.screenshot);
+    if (!b) continue;
+    const m = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+    if (m) {
+      shotId = m[1];
+      break;
+    }
+  }
+  const stubBack = (n) =>
+    shotId ? `https://cdn.animeav1.com/screenshots/${shotId}/${n}.jpg` : null;
+
   const rangos = item.rangos_episodios;
   if (Array.isArray(rangos) && rangos.length > 1) {
     const desde = parseInt(item.episodio_desde, 10) || (rangos[0] && rangos[0].desde) || 1;
@@ -1115,37 +1128,46 @@ function expandirEpisodiosAnime(item) {
     const byEp = new Map(eps.map((e) => [Number(e.episode || e.episodio), e]));
     const out = [];
     for (let n = desde; n <= hasta && n <= total; n++) {
-      out.push(
-        byEp.get(n) || {
+      const prev = byEp.get(n);
+      if (prev) {
+        if (!prev.back_img && stubBack(n)) prev.back_img = stubBack(n);
+        out.push(prev);
+      } else {
+        out.push({
           season: 1,
           episode: n,
           nombre: `Episodio ${n}`,
           embeds: [],
           video: null,
           source_id: item.source_id,
-        }
-      );
+          back_img: stubBack(n),
+        });
+      }
     }
     item.episodios = out;
     return item;
   }
 
-  // Anime corto/medio: expandir 1..total (máx 300 para no inflar de más)
   const maxExpand = Math.min(total, 300);
   if (eps.length >= maxExpand) return item;
   const byEp = new Map(eps.map((e) => [Number(e.episode || e.episodio), e]));
   const out = [];
   for (let n = 1; n <= maxExpand; n++) {
-    out.push(
-      byEp.get(n) || {
+    const prev = byEp.get(n);
+    if (prev) {
+      if (!prev.back_img && stubBack(n)) prev.back_img = stubBack(n);
+      out.push(prev);
+    } else {
+      out.push({
         season: 1,
         episode: n,
         nombre: `Episodio ${n}`,
         embeds: [],
         video: null,
         source_id: item.source_id,
-      }
-    );
+        back_img: stubBack(n),
+      });
+    }
   }
   item.episodios = out;
   if (!item.temporadas || !item.temporadas.length) item.temporadas = [1];
