@@ -1068,6 +1068,25 @@
     view.classList.add("open");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
+    // Cerrar shell móvil viejo para no superponer "otro" episodio
+    try {
+      document.body.classList.remove(
+        "mz-mobile-ep-playing",
+        "mz-ep-movie-shell",
+        "mz-mep-dl-open",
+        "mz-mobile-movie-playing"
+      );
+      var dp = document.getElementById("details-panel");
+      if (dp) {
+        dp.classList.add("mz-koi-hidden-under");
+        dp.style.setProperty("visibility", "hidden", "important");
+        dp.style.setProperty("pointer-events", "none", "important");
+      }
+      var nav = document.getElementById("mz-mobile-ep-nav");
+      if (nav) nav.classList.add("hidden");
+      var watch = document.getElementById("mz-mobile-ep-watching");
+      if (watch) watch.classList.add("hidden");
+    } catch (_) {}
     try {
       var layout = view.querySelector(".mz-kp-layout");
       var side = $("mz-kp-sidebar");
@@ -1129,6 +1148,15 @@
     view.classList.add("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
+    try {
+      document.body.classList.remove("mz-mobile-ep-playing", "mz-ep-movie-shell", "mz-mep-dl-open");
+      var dp2 = document.getElementById("details-panel");
+      if (dp2) {
+        dp2.classList.add("mz-koi-hidden-under");
+        dp2.style.setProperty("visibility", "hidden", "important");
+        dp2.style.setProperty("pointer-events", "none", "important");
+      }
+    } catch (_) {}
 
     _ctx = { item: item, episode: null, season: null };
 
@@ -1182,7 +1210,15 @@
       var layout = view.querySelector(".mz-kp-layout");
       if (layout) layout.classList.remove("mz-kp-layout-movie");
       var side = $("mz-kp-sidebar");
-      if (side) side.classList.remove("hidden");
+      if (side) side.classList.remove("hidden", "mz-kp-sidebar-mobile-ep");
+    } catch (_) {}
+    try {
+      var dp = document.getElementById("details-panel");
+      if (dp) {
+        dp.classList.remove("mz-koi-hidden-under");
+        dp.style.removeProperty("visibility");
+        dp.style.removeProperty("pointer-events");
+      }
     } catch (_) {}
     destroyHls();
     _ctx = null;
