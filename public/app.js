@@ -5618,9 +5618,11 @@ function mzHydrateAnimeBackImg(item) {
       if (!back) continue;
       const s = Number(ep.temporada || ep.season || t.temporada || t.season || 1) || 1;
       const n = Number(ep.episodio || ep.episode || ep.episode_number || 0) || 0;
-      if (n > 0) byKey.set(s + ":" + n, back);
-      // también por número solo (anime 1 temp)
-      if (n > 0 && !byKey.has("1:" + n)) byKey.set("1:" + n, back);
+      if (n > 0) {
+        byKey.set(s + ":" + n, back);
+        byKey.set("1:" + n, back);           // Part 2 llega como T2 en API y T1 en episodios[]
+        byKey.set("n:" + n, back);           // solo número
+      }
     }
   }
   if (!byKey.size) return item;
@@ -5630,7 +5632,11 @@ function mzHydrateAnimeBackImg(item) {
       if (ep.back_img) return ep;
       const s = Number(ep.season || ep.temporada || 1) || 1;
       const n = Number(ep.episode || ep.episodio || 0) || 0;
-      const back = byKey.get(s + ":" + n) || byKey.get("1:" + n);
+      const back =
+        byKey.get(s + ":" + n) ||
+        byKey.get("1:" + n) ||
+        byKey.get("n:" + n) ||
+        byKey.get("2:" + n);
       if (!back) return ep;
       return Object.assign({}, ep, {
         back_img: back,
