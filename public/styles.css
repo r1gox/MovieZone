@@ -9418,3 +9418,86 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
     object-fit: cover;
   }
 }
+
+
+/* Móvil: cards episodio con imagen SIEMPRE (también con body.koi-desktop erróneo) */
+@media (max-width: 1024px) {
+  body.details-open #episodes-container.episodes-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px 10px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
+    display: block !important;
+    width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: #111 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+    opacity: 1 !important;
+  }
+  body.details-open .episode-btn.mz-mobile-ep-card .mz-mep-label {
+    display: block !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #e2e8f0 !important;
+    margin-top: 6px !important;
+  }
+}
+
+/* Vista episodio móvil tipo película */
+@media (max-width: 1024px) {
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #details-panel .details-content {
+    background: #0b1020 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #mz-ep-movie-head {
+    display: block !important;
+    visibility: visible !important;
+    padding: 8px 4px 14px !important;
+    order: 1 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-title {
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+    line-height: 1.25 !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+  }
+  body.mz-mobile-ep-playing.mz-ep-movie-shell #video-player-container {
+    display: block !important;
+    width: 100% !important;
+    aspect-ratio: 16/9 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: #000 !important;
+  }
+}
+
+body.mz-mobile-ep-playing .mz-ep-movie-ep {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  margin: 4px 0 0;
+  font-weight: 600;
+}

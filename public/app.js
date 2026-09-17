@@ -30,7 +30,9 @@ function setKoiMode(item) {
   const esSA = isSerieOrAnime(item);
   // PC y móvil: películas, series y animes usan el hero
   const on = !!(item && (esSA || esPeliMode));
-  document.body.classList.toggle("koi-desktop", on);
+  // koi-desktop SOLO en PC (≥1025). En móvil rompe cards de episodios.
+  const pcKoi = typeof isKoiDesktop === "function" ? isKoiDesktop() : (window.innerWidth >= 1025);
+  document.body.classList.toggle("koi-desktop", on && pcKoi);
   const forceMovieLayout = document.body.classList.contains("mz-mobile-ep-playing");
   document.body.classList.toggle("koi-movie", !!(on && esPeliMode) || forceMovieLayout);
   document.body.classList.toggle("koi-serie", on && esSA);
@@ -2016,7 +2018,7 @@ function aplicarServidorPreferido(embeds, item) {
 
 
 /** Forzar shell = misma interfaz que película al Reproducir (móvil /1/1) */
-function mzForceEpLikeMovieShell(on) {
+function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
   try {
     const hero = document.getElementById("koi-hero");
     const meta = document.querySelector(".mz-meta-col");
@@ -2119,8 +2121,13 @@ function mzForceEpLikeMovieShell(on) {
       } else if (vc && head.previousSibling !== vc) {
         try { vc.parentNode.insertBefore(head, vc.nextSibling); } catch (_) {}
       }
+      const item = itemArg || window.__mzCurrentItem || null;
+      const epCtx = epArg || null;
+      const sn = Number(snArg || (epCtx && (epCtx.season || epCtx.temporada)) || 1) || 1;
+      const en = Number(enArg || (epCtx && (epCtx.episode || epCtx.episodio)) || 0) || 0;
       if (head && item) {
         const title = item.nombre || item.titulo || "";
+        const epLine = en ? ("T" + sn + " • E" + en) : "";
         const rating =
           item.rating != null
             ? String(item.rating)
@@ -2128,6 +2135,7 @@ function mzForceEpLikeMovieShell(on) {
               ? String(item.calificacion)
               : "";
         const dur =
+          (epCtx && (epCtx.duracion_texto || epCtx.duracion)) ||
           item.duracion_texto ||
           (item.duracion ? item.duracion + " min" : "") ||
           "";
@@ -2136,6 +2144,7 @@ function mzForceEpLikeMovieShell(on) {
           '<div class="mz-ep-movie-title">' +
           String(title).replace(/</g, "&lt;") +
           "</div>" +
+          (epLine ? '<div class="mz-ep-movie-ep">' + epLine + "</div>" : "") +
           '<div class="mz-ep-movie-meta">' +
           (rating
             ? '<span class="mz-ep-movie-rating">' +
@@ -2256,7 +2265,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   }
 
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
-  try { mzForceEpLikeMovieShell(true); } catch (_) {}
+  try { mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum); } catch (_) {}
   actualizarMobileEpNav(_epPlayCtx);
   try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
 
@@ -2363,7 +2372,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
       document.getElementById("video-player-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   } catch (_) {}  
-    mzForceEpLikeMovieShell(true);
+    mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum);
   document.getElementById("mz-mep-back")?.classList.remove("hidden");
   return true;
 }
@@ -5512,7 +5521,21 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 
 /** Rellena back_img en episodios desde temporadas_raw[].lista (AnimeAV1) */
 function mzHydrateAnimeBackImg(item) {
-  if (!item || !/anime/i.test(String(item.tipo || item.type || ""))) return item;
+  if (!item) return item;
+  // Captain Tsubasa llega como "Serie" pero es animeav1 (source 4)
+  const sid = String(item.source_id || item.fuente || item.source || "");
+  const esAv1 =
+    /anime/i.test(String(item.tipo || item.type || "")) ||
+    sid === "4" ||
+    /animeav1/i.test(sid) ||
+    /animeav1/i.test(String(item.link || item.url_extract || ""));
+  if (!esAv1) {
+    // aún así hidratar si hay lista con back_img
+    const hasLista = Array.isArray(item.temporadas_raw) && item.temporadas_raw.some(function (t) {
+      return t && Array.isArray(t.lista) && t.lista.some(function (e) { return e && e.back_img; });
+    });
+    if (!hasLista) return item;
+  }
   const byKey = new Map();
   const raws = []
     .concat(Array.isArray(item.temporadas_raw) ? item.temporadas_raw : [])
@@ -6121,6 +6144,22 @@ function episodioNumero(ep, index) {
 
 function renderEpisodios(item, season = 1) {
     try { mzHydrateAnimeBackImg(item); } catch (_) {}
+    // Forzar back_img en cada ep (animes largos / Serie source 4)
+    try {
+      if (Array.isArray(item.episodios)) {
+        item.episodios = item.episodios.map(function (ep) {
+          if (!ep) return ep;
+          const n = Number(ep.episode || ep.episodio || 0) || 0;
+          const b =
+            ep.back_img ||
+            ep.screenshot ||
+            ep.still ||
+            (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(ep, item, n) : null);
+          if (!b || ep.back_img === b) return ep.back_img ? ep : Object.assign({}, ep, { back_img: b });
+          return Object.assign({}, ep, { back_img: b, still: ep.still || b });
+        });
+      }
+    } catch (_) {}
     const episodesContainer = document.getElementById("episodes-container");
     episodesContainer.innerHTML = "";
     item._seasonActiva = season;
@@ -6266,14 +6305,12 @@ function renderEpisodios(item, season = 1) {
         const num = episodioNumero(episodio, index);
         const epNombre = episodio.nombre || `Episodio ${num}`;
         const koiCards = isKoiDesktop() && isSerieOrAnime(item);
-        // Móvil: cards con imagen + T1 • E1 (no altera PC)
-        // Móvil/tablet: siempre cards con imagen en detalle (anime/serie)
+        // Móvil/tablet: SIEMPRE cards con imagen (back_img) en detalle
         const mobileCards =
           !koiCards &&
           typeof isSerieOrAnime === "function" &&
           isSerieOrAnime(item) &&
-          (window.innerWidth <= 1024 ||
-            (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()));
+          !isKoiDesktop();
         btn.className =
           "episode-btn" +
           (index === 0 ? " active" : "") +
@@ -6296,7 +6333,7 @@ function renderEpisodios(item, season = 1) {
             }
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
             btn.innerHTML =
-                `<span class="koi-ep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.3"/>` +
+                `<span class="koi-ep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.25"/>` +
                 `<span class="koi-ep-dur">${dur ? dur : ("E" + num)}</span>` +
                 `</span>` +
                 `<span class="koi-ep-meta">` +
@@ -6320,7 +6357,7 @@ function renderEpisodios(item, season = 1) {
                   PLACEHOLDER;
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
-                  `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
+                  `<span class="mz-mep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.25"/></span>` +
                   `<span class="mz-mep-label">T${sLab} • E${num}</span>`;
             }
         } else {
@@ -8117,7 +8154,7 @@ function mzReplaceHomeUrl() {
                                     await abrirVistaMovilEpisodio(item, ep, season, episode);
                                   }
                                 })();
-                                try { mzForceEpLikeMovieShell(true); } catch (_) {}
+                                try { mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum); } catch (_) {}
                                 setTimeout(function () { try { mzForceEpLikeMovieShell(true); } catch (_) {} }, 400);
                             } else {
                                 const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
