@@ -907,3 +907,38 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
 .mz-kp-dl-panel.hidden {
   display: none !important;
 }
+
+
+/* Panel descargas — forzar visible por encima del player Koi */
+#mz-koi-ep-view #mz-kp-dl-panel.mz-kp-dl-panel,
+body #mz-kp-dl-panel.mz-kp-dl-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  background: rgba(0, 0, 0, 0.65) !important;
+  pointer-events: auto !important;
+}
+#mz-koi-ep-view #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
+body #mz-kp-dl-panel.mz-kp-dl-panel.hidden {
+  display: none !important;
+}
+#mz-kp-dl-panel .mz-kp-dl-sheet {
+  width: 100% !important;
+  max-width: 520px !important;
+  max-height: 70vh !important;
+  overflow-y: auto !important;
+  background: #0f172a !important;
+  border-radius: 18px 18px 0 0 !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom)) !important;
+  pointer-events: auto !important;
+}
+#mz-kp-ep-dl {
+  pointer-events: auto !important;
+  z-index: 20 !important;
+  position: relative !important;
+  touch-action: manipulation !important;
+}

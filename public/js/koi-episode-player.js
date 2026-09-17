@@ -853,59 +853,73 @@
   }
 
   function openDownloadsPanel() {
-    var items = window.__mzKoiDownloads || [];
-    var panel = document.getElementById("mz-kp-dl-panel");
-    if (!panel) {
-      panel = document.createElement("div");
-      panel.id = "mz-kp-dl-panel";
-      panel.className = "mz-kp-dl-panel hidden";
-      document.body.appendChild(panel);
-    }
-    var html =
-      '<div class="mz-kp-dl-sheet">' +
-        '<div class="mz-kp-dl-head">' +
-          '<span class="mz-kp-dl-title">Descargas</span>' +
-          '<button type="button" class="mz-kp-dl-close" id="mz-kp-dl-close" aria-label="Cerrar">×</button>' +
+    try {
+      var items = window.__mzKoiDownloads || [];
+      var host = document.getElementById("mz-koi-ep-view") || document.body;
+      var panel = document.getElementById("mz-kp-dl-panel");
+      if (!panel) {
+        panel = document.createElement("div");
+        panel.id = "mz-kp-dl-panel";
+        host.appendChild(panel);
+      } else if (panel.parentNode !== host) {
+        host.appendChild(panel);
+      }
+      var rows = "";
+      if (!items.length) {
+        rows = '<div class="mz-kp-dl-empty">No hay descargas para este episodio</div>';
+      } else {
+        rows = '<div class="mz-kp-dl-list">';
+        for (var i = 0; i < items.length; i++) {
+          var d = items[i];
+          if (!d) continue;
+          var name = (typeof cleanServerName === "function" ? cleanServerName(d) : null) || d.servidor || d.server || d.name || ("Descarga " + (i + 1));
+          var idioma = d.idioma || d.lang || "";
+          var idLow = String(idioma).toLowerCase();
+          var tag = "";
+          if (/lat|dub|castellano|espa/.test(idLow)) tag = "DUB";
+          else if (/sub/.test(idLow)) tag = "SUB";
+          else if (idioma) tag = String(idioma).slice(0, 6).toUpperCase();
+          var url = d.url || d.stream_url || d.link || "#";
+          rows +=
+            '<a class="mz-kp-dl-row" href="' + String(url).replace(/"/g, "&quot;") + '" target="_blank" rel="noopener noreferrer">' +
+              '<span class="mz-kp-dl-name">' + String(name).replace(/</g, "") + "</span>" +
+              (tag ? '<span class="mz-kp-dl-lang">' + tag + "</span>" : "") +
+              '<span class="mz-kp-dl-action">DESCARGAR</span>' +
+            "</a>";
+        }
+        rows += "</div>";
+      }
+      panel.className = "mz-kp-dl-panel";
+      panel.innerHTML =
+        '<div class="mz-kp-dl-sheet" role="dialog" aria-label="Descargas">' +
+          '<div class="mz-kp-dl-head">' +
+            '<span class="mz-kp-dl-title">Descargas</span>' +
+            '<button type="button" class="mz-kp-dl-close" id="mz-kp-dl-close" aria-label="Cerrar">×</button>' +
+          "</div>" +
+          rows +
         "</div>";
-    if (!items.length) {
-      html += '<div class="mz-kp-dl-empty">No hay descargas para este episodio</div>';
-    } else {
-      html += '<div class="mz-kp-dl-list">';
-      items.forEach(function (d, idx) {
-        var name = cleanServerName(d) || "Descarga " + (idx + 1);
-        var idioma = d.idioma || d.lang || "";
-        var idLow = String(idioma).toLowerCase();
-        var tag = "";
-        if (/lat|dub|castellano|espa/.test(idLow)) tag = "DUB";
-        else if (/sub/.test(idLow)) tag = "SUB";
-        else if (idioma) tag = String(idioma).slice(0, 6).toUpperCase();
-        var url = d.url || d.stream_url || "#";
-        html +=
-          '<a class="mz-kp-dl-row" href="' + String(url).replace(/"/g, "&quot;") + '" target="_blank" rel="noopener noreferrer">' +
-            '<span class="mz-kp-dl-name">' + String(name).replace(/</g, "") + "</span>" +
-            (tag ? '<span class="mz-kp-dl-lang">' + tag + "</span>" : "") +
-            '<span class="mz-kp-dl-action">DESCARGAR</span>' +
-          "</a>";
-      });
-      html += "</div>";
-    }
-    html += "</div>";
-    panel.innerHTML = html;
-    panel.classList.remove("hidden");
-    document.body.classList.add("mz-kp-dl-open");
-    var closeBtn = document.getElementById("mz-kp-dl-close");
-    if (closeBtn) {
-      closeBtn.onclick = function () {
-        panel.classList.add("hidden");
-        document.body.classList.remove("mz-kp-dl-open");
-      };
-    }
-    panel.onclick = function (ev) {
-      if (ev.target === panel) {
-        panel.classList.add("hidden");
+      panel.style.cssText =
+        "display:flex!important;position:fixed!important;inset:0!important;z-index:2147483646!important;" +
+        "background:rgba(0,0,0,.65)!important;align-items:flex-end!important;justify-content:center!important;" +
+        "pointer-events:auto!important;visibility:visible!important;opacity:1!important;";
+      document.body.classList.add("mz-kp-dl-open");
+      function closeDl() {
+        panel.className = "mz-kp-dl-panel hidden";
+        panel.style.display = "none";
         document.body.classList.remove("mz-kp-dl-open");
       }
-    };
+      var closeBtn = document.getElementById("mz-kp-dl-close");
+      if (closeBtn) closeBtn.onclick = function (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+        closeDl();
+      };
+      panel.onclick = function (ev) {
+        if (ev.target === panel) closeDl();
+      };
+    } catch (err) {
+      console.error("openDownloadsPanel", err);
+      try { alert("Descargas: " + (err && err.message ? err.message : err)); } catch (_) {}
+    }
   }
 
   function fillMetaChips(item) {
@@ -1032,6 +1046,20 @@
           if (hero && hero.parentNode) {
             if (bar.parentNode !== hero.parentNode) hero.parentNode.insertBefore(bar, hero.nextSibling);
             else hero.parentNode.insertBefore(bar, hero.nextSibling);
+          }
+          // Bind descargas de forma directa (móvil touch)
+          var dlBtn = document.getElementById("mz-kp-ep-dl");
+          if (dlBtn) {
+            dlBtn.onclick = function (e) {
+              try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+              openDownloadsPanel();
+              return false;
+            };
+            dlBtn.ontouchend = function (e) {
+              try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+              openDownloadsPanel();
+              return false;
+            };
           }
         } catch (_) {}
         if (synEl) {
