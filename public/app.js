@@ -1621,8 +1621,7 @@ function ensureMobileEpChrome() {
     watch.id = "mz-mobile-ep-watching";
     watch.className = "mz-mobile-ep-watching hidden";
     watch.innerHTML =
-      '<div class="mz-mep-watching-label">Estás viendo</div>' +
-      '<div class="mz-mep-watching-ep" id="mz-mep-watching-ep">T1 • E1</div>';
+      '<div class="mz-mep-watching-ep" id="mz-mep-watching-ep">Estás viendo T1 · Episodio 1</div>';
     const srv = document.getElementById("servers-section");
     if (srv && srv.parentNode) srv.parentNode.insertBefore(watch, srv.nextSibling);
     else document.querySelector(".mz-meta-col")?.appendChild(watch);
@@ -2234,7 +2233,34 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   chrome.nav.classList.remove("hidden");
   chrome.watch.classList.remove("hidden");
   const watchEp = document.getElementById("mz-mep-watching-ep");
-  if (watchEp) watchEp.textContent = "T" + seasonNum + " • E" + epNum;
+  if (watchEp) watchEp.textContent = "Estás viendo T" + seasonNum + " · Episodio " + epNum;
+  try {
+    const pt2 = document.getElementById("player-title");
+    if (pt2) pt2.textContent = "Estás viendo T" + seasonNum + " · Episodio " + epNum;
+  } catch (_) {}
+  // Orden DOM: player → ant/sig/descarga → estás viendo → servers
+  try {
+    const vc = document.getElementById("video-player-container");
+    const nav = document.getElementById("mz-mobile-ep-nav");
+    const watch = document.getElementById("mz-mobile-ep-watching");
+    const ss = document.getElementById("servers-section");
+    const parent = (vc && vc.parentNode) || document.querySelector(".mz-meta-col");
+    if (parent && vc) {
+      if (nav) {
+        if (nav.parentNode !== parent) parent.insertBefore(nav, vc.nextSibling);
+        else parent.insertBefore(nav, vc.nextSibling);
+      }
+      if (watch) {
+        const after = nav || vc;
+        parent.insertBefore(watch, after.nextSibling);
+      }
+      if (ss) {
+        const after2 = watch || nav || vc;
+        if (ss.parentNode !== parent) parent.appendChild(ss);
+        parent.insertBefore(ss, after2.nextSibling);
+      }
+    }
+  } catch (_) {}
 
   const vc = document.getElementById("video-player-container");
   if (vc) {
@@ -2243,7 +2269,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
     if (ifr) ifr.src = "about:blank";
     try { if (typeof destruirHls === "function") destruirHls(); } catch (_) {}
     const pt = document.getElementById("player-title");
-    if (pt) pt.textContent = "Elige un reproductor";
+    if (pt) pt.textContent = "Estás viendo T" + seasonNum + " · Episodio " + epNum;
     // Móvil: el cuadro no se cierra (solo cambia de episodio / cierra detalle)
     const closeBtn = document.getElementById("close-player-btn");
     if (closeBtn) {
@@ -2513,7 +2539,7 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   document.getElementById("details-title").textContent =
     (item.nombre || item.titulo || "") + " - " + (episodio.nombre || ("Episodio " + epNum));
   try {
-    setKoiPlayerEpisodeTitle("T" + (seasonNum || 1) + " · " + (episodio.nombre || ("Episodio " + epNum)));
+    setKoiPlayerEpisodeTitle("Estás viendo T" + (seasonNum || 1) + " · Episodio " + epNum);
     document.body.classList.add("player-open");
   } catch (_) {}
 
