@@ -1054,14 +1054,26 @@
 
   async function openEpisode(item, episodio, seasonNum, epNum) {
     if (!item) return false;
-    // Evitar doble apertura (bug: se superpone otro episodio)
     var myToken = ++_openToken;
-    if (_openLock) {
-      _openToken = myToken; // última petición gana al terminar la actual
-    }
     _openLock = true;
     try {
     ensureDom();
+    // Si ya está abierto el mismo episodio, no reiniciar (evita flicker)
+    try {
+      var view0 = $("mz-koi-ep-view");
+      if (
+        view0 &&
+        view0.classList.contains("open") &&
+        _ctx &&
+        _ctx.item &&
+        (String(_ctx.item.slug || _ctx.item.link || "") === String(item.slug || item.link || "")) &&
+        Number(_ctx.season) === Number(seasonNum || seasonOf(episodio, 1)) &&
+        Number(_ctx.episode) === Number(epNum || epNumOf(episodio, 1))
+      ) {
+        return true;
+      }
+    } catch (_) {}
+    destroyHls();
     _mode = "episode";
     var view = $("mz-koi-ep-view");
     var mobile = !isPc();
