@@ -30,9 +30,8 @@ function setKoiMode(item) {
   const esSA = isSerieOrAnime(item);
   // PC y móvil: películas, series y animes usan el hero
   const on = !!(item && (esSA || esPeliMode));
-  // koi-desktop SOLO en PC (≥1025). En móvil rompe cards de episodios.
-  const pcKoi = typeof isKoiDesktop === "function" ? isKoiDesktop() : (window.innerWidth >= 1025);
-  document.body.classList.toggle("koi-desktop", on && pcKoi);
+  // mobile-fixes.css requiere body.koi-desktop también en móvil
+  document.body.classList.toggle("koi-desktop", on);
   const forceMovieLayout = document.body.classList.contains("mz-mobile-ep-playing");
   document.body.classList.toggle("koi-movie", !!(on && esPeliMode) || forceMovieLayout);
   document.body.classList.toggle("koi-serie", on && esSA);
@@ -6349,62 +6348,52 @@ function renderEpisodios(item, season = 1) {
         const btn = document.createElement("button");
         const num = episodioNumero(episodio, index);
         const epNombre = episodio.nombre || `Episodio ${num}`;
-        const koiCards = isKoiDesktop() && isSerieOrAnime(item);
-        // Móvil/tablet: SIEMPRE cards con imagen (back_img) en detalle
-        const mobileCards =
-          !koiCards &&
-          typeof isSerieOrAnime === "function" &&
-          isSerieOrAnime(item) &&
-          !isKoiDesktop();
+        // Móvil: misma card que PC (koi-ep-card) para que mobile-fixes.css pinte la imagen
+        const epPlaying = document.body.classList.contains("mz-mobile-ep-playing");
+        const serieCards =
+          typeof isSerieOrAnime === "function" && isSerieOrAnime(item);
+        const koiCards = isKoiDesktop() && serieCards;
+        const mobileCards = !isKoiDesktop() && serieCards && !epPlaying;
+        const useImgCard = (koiCards || mobileCards) && !epPlaying;
         btn.className =
           "episode-btn" +
           (index === 0 ? " active" : "") +
-          (koiCards ? " koi-ep-card" : "") +
-          (mobileCards ? " mz-mobile-ep-card" : "");
+          (useImgCard || koiCards ? " koi-ep-card" : "") +
+          (mobileCards ? " mz-mobile-ep-card" : "") +
+          (epPlaying ? " mz-ep-num-btn" : "");
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
-        if (koiCards) {
-            const thumb =
+        if (epPlaying) {
+            // En /1/1 solo número (mobile-fixes oculta thumbs)
+            btn.textContent = String(num);
+        } else if (useImgCard) {
+            let thumb =
                 episodio.back_img ||
+                episodio.screenshot ||
+                episodio.still ||
                 (typeof mzEpisodeThumb === "function"
                   ? mzEpisodeThumb(episodio, item, num)
                   : null) ||
-                episodio.still ||
                 PLACEHOLDER;
+            if ((!thumb || thumb === PLACEHOLDER) && item && item._av1ShotId && num > 0) {
+              thumb = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + num + ".jpg";
+            }
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
             if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
               labelName = "Episodio " + num;
             }
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
+            const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
             btn.innerHTML =
-                `<span class="koi-ep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.25"/>` +
+                `<span class="koi-ep-thumb mz-mep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.3"/>` +
                 `<span class="koi-ep-dur">${dur ? dur : ("E" + num)}</span>` +
                 `</span>` +
                 `<span class="koi-ep-meta">` +
                 `<span class="koi-ep-series">${safeSeries}</span>` +
-                `<span class="koi-ep-name">T${season} · ${labelName}</span>` +
+                `<span class="koi-ep-name">T${sLab} · ${labelName}</span>` +
+                `<span class="mz-mep-label">T${sLab} • E${num}</span>` +
                 `</span>`;
-        } else if (mobileCards) {
-            // Detalle (/detalle/slug): cards con imagen
-            // Vista episodio (/detalle/slug/s/e o mz-mobile-ep-playing): solo número
-            const epPlaying = document.body.classList.contains("mz-mobile-ep-playing");
-            if (epPlaying) {
-              btn.textContent = String(num);
-              btn.classList.add("mz-ep-num-btn");
-            } else {
-              const thumb =
-                  episodio.back_img ||
-                  (typeof mzEpisodeThumb === "function"
-                    ? mzEpisodeThumb(episodio, item, num)
-                    : null) ||
-                  episodio.still ||
-                  PLACEHOLDER;
-              const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
-              btn.innerHTML =
-                  `<span class="mz-mep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.25"/></span>` +
-                  `<span class="mz-mep-label">T${sLab} • E${num}</span>`;
-            }
         } else {
             btn.textContent = num;
         }
