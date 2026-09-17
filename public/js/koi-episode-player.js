@@ -811,31 +811,63 @@
     var metaLine = $("mz-kp-meta");
     var synBox = $("mz-kp-synopsis") && $("mz-kp-synopsis").parentElement;
 
-    if (mode === "episode") {
-      // Sin título original, chips ni géneros (ya están en detalle)
+    if (mode === "episode" || mode === "episode-mobile") {
       if (origEl) {
         origEl.textContent = "";
         origEl.classList.add("hidden");
       }
-      if (chips) chips.innerHTML = "";
       if (genres) genres.innerHTML = "";
 
       var epEl = $("mz-kp-ep-title");
+      var synEl = $("mz-kp-synopsis");
+
+      if (mode === "episode-mobile") {
+        epEl.textContent = main;
+        epEl.style.display = "";
+        var subBtn = $("mz-kp-anime-title");
+        if (subBtn) subBtn.textContent = epTitleText || "";
+        try {
+          var typeLab = $("mz-kp-type-label");
+          if (!typeLab && epEl.parentNode) {
+            typeLab = document.createElement("div");
+            typeLab.id = "mz-kp-type-label";
+            typeLab.className = "mz-kp-type-label";
+            epEl.parentNode.insertBefore(typeLab, epEl);
+          }
+          if (typeLab) {
+            var tt = String(item.tipo || item.type || "Serie");
+            typeLab.textContent = /anime/i.test(tt) ? "Anime" : "Serie";
+            typeLab.classList.remove("hidden");
+          }
+        } catch (_) {}
+        if (chips) {
+          chips.innerHTML = "";
+          fillMetaChips(item);
+        }
+        if (metaLine) metaLine.textContent = "";
+        if (synEl) {
+          synEl.textContent = "";
+          if (synEl.parentElement) synEl.parentElement.classList.add("hidden");
+        }
+        return;
+      }
+
+      if (chips) chips.innerHTML = "";
       epEl.textContent = epTitleText || "Episodio";
       epEl.style.display = "";
-
       var parts = [];
       parts.push(idiomaSimple(item, episodio));
       var dur = durationOf(episodio, item) || "24m";
       parts.push(dur);
       if (metaLine) metaLine.textContent = parts.filter(Boolean).join(" · ");
-
-      // Sinopsis corta opcional del episodio/serie (se puede dejar)
-      $("mz-kp-synopsis").textContent =
-        (episodio && episodio.descripcion) ||
-        item.descripcion ||
-        item.synopsis ||
-        "";
+      if (synEl) {
+        synEl.textContent =
+          (episodio && episodio.descripcion) ||
+          item.descripcion ||
+          item.synopsis ||
+          "";
+        if (synEl.parentElement) synEl.parentElement.classList.remove("hidden");
+      }
       return;
     }
 
@@ -1022,27 +1054,38 @@
   }
 
   async function openEpisode(item, episodio, seasonNum, epNum) {
-    if (!isPc()) return false;
+    if (!item) return false;
     ensureDom();
     _mode = "episode";
     var view = $("mz-koi-ep-view");
+    var mobile = !isPc();
     view.classList.add("open");
-    view.classList.remove("mz-kp-movie-mode");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
-    // Restaurar layout serie (si antes se abrió una película)
     try {
       var layout = view.querySelector(".mz-kp-layout");
-      if (layout) layout.classList.remove("mz-kp-layout-movie");
       var side = $("mz-kp-sidebar");
-      if (side) side.classList.remove("hidden");
+      if (mobile) {
+        view.classList.add("mz-kp-movie-mode", "mz-kp-ep-mobile");
+        if (layout) layout.classList.add("mz-kp-layout-movie");
+        if (side) {
+          side.classList.remove("hidden");
+          side.classList.add("mz-kp-sidebar-mobile-ep");
+        }
+      } else {
+        view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
+        if (layout) layout.classList.remove("mz-kp-layout-movie");
+        if (side) {
+          side.classList.remove("hidden", "mz-kp-sidebar-mobile-ep");
+        }
+      }
     } catch (_) {}
 
     seasonNum = Number(seasonNum) || seasonOf(episodio, 1);
     epNum = Number(epNum) || epNumOf(episodio, 1);
     _ctx = { item: item, episodio: episodio, season: seasonNum, episode: epNum };
 
-    fillTitles(item, epLabel(episodio, epNum), "episode", episodio);
+    fillTitles(item, epLabel(episodio, epNum), mobile ? "episode-mobile" : "episode", episodio);
     renderSidebar(item, epNum, seasonNum);
     destroyHls();
     showPoster(item, "Elige un reproductor para comenzar");
@@ -1056,7 +1099,6 @@
     }
     renderServers(pack.embeds);
     renderDownloads(pack.downloads);
-    // SIN autoplay: se queda el poster hasta que elijan servidor
     showPoster(item, pack.embeds.length
       ? "Elige un reproductor para comenzar"
       : "Sin mirrors para este episodio");
@@ -1123,7 +1165,7 @@
     var view = $("mz-koi-ep-view");
     if (!view) return;
     view.classList.remove("open");
-    view.classList.remove("mz-kp-movie-mode");
+    view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
     view.setAttribute("aria-hidden", "true");
     document.body.classList.remove("mz-koi-ep-open");
     try {
