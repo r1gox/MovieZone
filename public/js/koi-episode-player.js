@@ -190,20 +190,28 @@
 
   function shareUrl(item, epNum) {
     try {
+      if (typeof window.mzBuildDetallePath === "function") {
+        var p = window.mzBuildDetallePath(item, null, epNum || null);
+        // mzBuildDetallePath necesita season+episode; si solo epNum usar path manual
+      }
+      if (typeof window.mzSlugFromItem === "function" || item.slug) {
+        var slug = (typeof window.mzSlugFromItem === "function" ? window.mzSlugFromItem(item) : item.slug) || "";
+        if (slug) {
+          var base = location.origin + "/detalle/" + encodeURIComponent(slug);
+          if (epNum) return base + "/1/" + epNum;
+          return base;
+        }
+      }
+    } catch (_) {}
+    try {
       if (typeof window.buildSharePath === "function") {
         var path = window.buildSharePath(item);
         if (path) return location.origin + path + (epNum ? "?ep=" + epNum : "");
       }
     } catch (_) {}
     var slug = item.slug || "";
-    var tipo = String(item.tipo || "").toLowerCase();
-    var pathTipo = /anime/.test(tipo)
-      ? "anime"
-      : /serie|dorama/.test(tipo)
-        ? "serie"
-        : "pelicula";
     if (slug)
-      return location.origin + "/" + pathTipo + "/" + slug + (epNum ? "?ep=" + epNum : "");
+      return location.origin + "/detalle/" + encodeURIComponent(slug) + (epNum ? "/1/" + epNum : "");
     return location.href;
   }
 
@@ -1109,6 +1117,11 @@
       }
 
       _mode = "episode";
+      try {
+        if (typeof window.mzPushDetalleUrl === "function") {
+          window.mzPushDetalleUrl(item, seasonNum, epNum);
+        }
+      } catch (_) {}
       view.classList.add("open");
       view.setAttribute("aria-hidden", "false");
       document.body.classList.add("mz-koi-ep-open");

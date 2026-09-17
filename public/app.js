@@ -4445,7 +4445,18 @@ function mostrarDetalleLoading(on) {
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
     seleccionActual = item;
-    try { if (typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item); } catch (_) {}
+    try {
+      if (typeof mzPushDetalleUrl === "function") {
+        // No pisar /detalle/slug/t/e si ya estamos en un episodio de este título
+        var keepEp = false;
+        try {
+          var pm = location.pathname.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)/i);
+          var sl = typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : (item && item.slug);
+          if (pm && sl && decodeURIComponent(pm[1]) === sl) keepEp = true;
+        } catch (_) {}
+        if (!keepEp) mzPushDetalleUrl(item);
+      }
+    } catch (_) {}
 
     detailsEmpty.classList.add("hidden");
     detailsContent.classList.remove("hidden");
@@ -6443,8 +6454,21 @@ function renderEpisodios(item, season = 1) {
               (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
               /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-            // MÓVIL: solo vista episodio móvil (estable). PC: Koi.
-            if (serie && typeof window.mzKoiOpenEpisode === "function") {
+            // URL: /detalle/slug/temporada/episodio (móvil y PC)
+            try {
+              if (typeof mzPushDetalleUrl === "function") {
+                mzPushDetalleUrl(item, seasonNum, epNum);
+              }
+            } catch (_) {}
+
+            // MÓVIL: vista episodio móvil
+            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
+              window.__mzForceAutoPlay = false;
+              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
+              return;
+            }
+            // PC: vista Koi
+            if (pc && serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
               try {
                 await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
@@ -8120,12 +8144,23 @@ function mzBuildDetallePath(item, season, episode) {
 function mzPushDetalleUrl(item, season, episode) {
   try {
     const path = mzBuildDetallePath(item, season, episode);
+    if (!path || path === "/") return;
     if (location.pathname === path) return;
-    history.pushState(
-      { mz: "detalle", slug: mzSlugFromItem(item), season: season || null, episode: episode || null },
-      "",
-      path
-    );
+    const slug = mzSlugFromItem(item);
+    const state = {
+      mz: "detalle",
+      slug: slug,
+      season: season != null && season !== "" ? Number(season) : null,
+      episode: episode != null && episode !== "" ? Number(episode) : null
+    };
+    // Si ya estamos en el mismo detalle, replace (evita perder /t/e o apilar)
+    var sameDetalle = false;
+    try {
+      var m = location.pathname.match(/^\/detalle\/([^\/]+)/i);
+      if (m && decodeURIComponent(m[1]) === slug) sameDetalle = true;
+    } catch (_) {}
+    if (sameDetalle) history.replaceState(state, "", path);
+    else history.pushState(state, "", path);
   } catch (_) {}
 }
 
@@ -8151,6 +8186,16 @@ function mzReplaceHomeUrl() {
     history.replaceState({ mz: "home" }, "", "/");
   } catch (_) {}
 }
+
+// Exportar para koi-episode-player.js (script clásico) y otros
+try {
+  window.mzSlugFromItem = mzSlugFromItem;
+  window.mzBuildDetallePath = mzBuildDetallePath;
+  window.mzPushDetalleUrl = mzPushDetalleUrl;
+  window.mzReplaceDetalleUrl = mzReplaceDetalleUrl;
+  window.mzReplaceHomeUrl = mzReplaceHomeUrl;
+} catch (_) {}
+
 
 
 // ---------- Deep link: /serie/slug  |  /?id=  |  /?link= ----------
