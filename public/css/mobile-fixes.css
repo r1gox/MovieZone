@@ -297,348 +297,170 @@
   }
 
   /* Episodios: 2 por fila (grid) */
-  body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container.episodes-grid,
-  body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container {
+
+  /* ========== Episodios detalle: 2 cols, solo imagen + T•E ========== */
+  body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid,
+  body.details-open:not(.mz-mobile-ep-playing) #episodes-container {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 12px 10px !important;
+    gap: 10px 8px !important;
     width: 100% !important;
   }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 6px !important;
+    gap: 4px !important;
     padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     min-height: 0 !important;
-    border-radius: 10px !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    background: rgba(255, 255, 255, 0.04) !important;
-    overflow: hidden !important;
+    height: auto !important;
     text-align: left !important;
   }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
+    display: block !important;
     width: 100% !important;
-    height: auto !important;
     aspect-ratio: 16 / 9 !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    border-radius: 0 !important;
+    max-height: 100px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
-    position: relative !important;
+    background: #0f172a !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
   }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb img {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
+    display: block !important;
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    opacity: 1 !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
     display: block !important;
-  }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-meta {
-    padding: 0 8px 8px !important;
-    min-width: 0 !important;
-  }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-series {
-    font-size: 0.68rem !important;
-    color: #94a3b8 !important;
-    margin: 0 0 2px !important;
-  }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-name {
-    font-size: 0.8rem !important;
+    font-size: 11px !important;
     font-weight: 700 !important;
-    line-height: 1.25 !important;
-    color: #f1f5f9 !important;
+    color: #e2e8f0 !important;
+    padding: 0 2px 2px !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card.active .mz-mep-thumb {
+    border-color: rgba(168, 85, 247, 0.7) !important;
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4) !important;
+  }
+  /* Si queda koi-ep-card en móvil: compactar y ocultar texto de más */
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-series,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-dur {
+    display: none !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb {
+    max-height: 100px !important;
+    min-height: 0 !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-name {
+    font-size: 11px !important;
+    padding: 0 6px 6px !important;
+  }
+
+  /* ========== Vista episodio tipo película ========== */
+  body.mz-mobile-ep-playing #details-panel {
+    background: linear-gradient(180deg, #070b14 0%, #0a1220 40%, #0c1528 100%) !important;
+  }
+  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing #koi-hero,
+  body.mz-mobile-ep-playing .koi-hero,
+  body.mz-mobile-ep-playing .mz-stremio-header,
+  body.mz-mobile-ep-playing .mz-synopsis-section,
+  body.mz-mobile-ep-playing .mz-stremio-poster-col,
+  body.mz-mobile-ep-playing #details-logo,
+  body.mz-mobile-ep-playing #details-description,
+  body.mz-mobile-ep-playing .details-actions,
+  body.mz-mobile-ep-playing #mz-stremio-play-row,
+  body.mz-mobile-ep-playing .details-header-card,
+  body.mz-mobile-ep-playing .btn-close-modal,
+  body.mz-mobile-ep-playing #close-player-btn {
+    display: none !important;
+    height: 0 !important;
     margin: 0 !important;
-    display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important;
-    -webkit-box-orient: vertical !important;
-    overflow: hidden !important;
-  }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-dur {
-    font-size: 0.65rem !important;
-    padding: 2px 5px !important;
-    position: absolute !important;
-    right: 6px !important;
-    bottom: 6px !important;
-    background: rgba(0, 0, 0, 0.75) !important;
-    border-radius: 4px !important;
-  }
-
-  /* Detalle: retroceder a la izquierda, sin X a la derecha */
-  body.details-open.koi-desktop:not(.player-open) .btn-close-modal {
-    display: none !important;
-  }
-  body.details-open.koi-desktop:not(.player-open) .koi-btn-back,
-  body.details-open.koi-desktop:not(.player-open) #koi-btn-back {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    position: fixed !important;
-    top: max(10px, env(safe-area-inset-top)) !important;
-    left: 12px !important;
-    z-index: 100 !important;
-    min-height: 40px !important;
-    padding: 8px 12px !important;
-    border-radius: 999px !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    background: rgba(0, 0, 0, 0.65) !important;
-    color: #f8fafc !important;
-    font-size: 0.85rem !important;
-    font-weight: 700 !important;
-    cursor: pointer !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
-  }
-  body.details-open.koi-desktop:not(.player-open) .koi-btn-back ion-icon,
-  body.details-open.koi-desktop:not(.player-open) #koi-btn-back ion-icon {
-    font-size: 1.15rem !important;
-  }
-
-  /* Película: sin episodios / servidores en detalle */
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #seasons-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
-  body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
-    display: none !important;
-  }
-
-  body.details-open.koi-desktop:not(.player-open) #details-panel {
-    background: #060913 !important;
-  }
-  body.details-open.koi-desktop:not(.player-open) #details-panel .mz-stremio-bg {
-    display: none !important;
-  }
-  body.details-open.koi-desktop:not(.player-open) .details-body {
     padding: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
   }
 
-  body.details-open.koi-desktop .btn-close-modal {
-    display: flex !important;
-    z-index: 100 !important;
-    top: max(10px, env(safe-area-inset-top)) !important;
-    right: 12px !important;
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 50% !important;
-    background: rgba(0, 0, 0, 0.55) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  }
-
-  /* ---------- Vista Koi fullscreen (REPRODUCIR / episodio PC-style) ---------- */
-  #mz-koi-ep-view.open {
-    display: flex !important;
-    flex-direction: column !important;
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 100100 !important;
-    background: #0b1220 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-
-  /* ---------- Controles overlay player ---------- */
-  .mz-ep-controls {
-    left: 8px !important;
-    right: auto !important;
-    top: 8px !important;
-    bottom: auto !important;
-    gap: 8px !important;
-    align-items: flex-start !important;
-    z-index: 100060 !important;
-  }
-  .video-player-container.is-fullscreen .mz-ep-controls {
-    left: max(8px, env(safe-area-inset-left)) !important;
-    right: auto !important;
-    top: max(8px, env(safe-area-inset-top)) !important;
-    bottom: auto !important;
-  }
-
-  /* ---------- FIX doble toque ---------- */
-  .mz-scroll-catch {
-    pointer-events: none !important;
-  }
-  body.player-open {
-    touch-action: manipulation !important;
-  }
-  .video-player-container,
-  .player-iframe-wrapper,
-  .player-iframe-wrapper iframe,
-  .player-video {
-    touch-action: manipulation !important;
-    -webkit-tap-highlight-color: transparent !important;
-    pointer-events: auto !important;
-  }
-  body.mz-mobile-ep-playing .video-player-container .player-header {
-    pointer-events: none !important;
-  }
-  body.mz-mobile-ep-playing .video-player-container .player-header button {
-    pointer-events: auto !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-controls {
-    pointer-events: none !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-controls .mz-ep-btn {
-    pointer-events: auto !important;
-  }
-  body.mz-mobile-ep-playing #details-panel .modal-backdrop-close {
-    pointer-events: none !important;
-  }
-
-  /* ---------- Fondos generales ---------- */
-  body.details-open #details-panel {
-    background: linear-gradient(180deg, #0b1220 0%, #0f172a 42%, #111827 100%) !important;
-  }
-  body.details-open #details-panel .mz-stremio-bg {
-    display: block !important;
-    opacity: 0.38 !important;
-    filter: saturate(1.1) brightness(0.55) !important;
-  }
-  body.details-open.koi-desktop:not(.player-open) #details-panel .mz-stremio-bg {
-    display: none !important;
-  }
-  body.details-open #details-panel .mz-stremio-bg-img,
-  body.details-open #details-panel .mz-stremio-bg-img.is-ready {
-    opacity: 0.5 !important;
-    object-fit: cover !important;
-  }
-  body.details-open .details-content,
-  body.details-open .details-body {
-    background: transparent !important;
-  }
-
-  /* —— Vista episodio (ej. /1/1): fondo e interfaz premium —— */
-  body.mz-mobile-ep-playing #details-panel,
-  body.mz-mobile-movie-playing #details-panel {
-    background:
-      radial-gradient(ellipse 120% 80% at 50% -20%, rgba(0, 229, 255, 0.12) 0%, transparent 55%),
-      radial-gradient(ellipse 80% 50% at 100% 60%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-      linear-gradient(180deg, #070b14 0%, #0a1220 40%, #0c1528 100%) !important;
-  }
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg,
-  body.mz-mobile-movie-playing #details-panel .mz-stremio-bg {
-    display: none !important;
-  }
   body.mz-mobile-ep-playing .details-content,
   body.mz-mobile-ep-playing .details-body,
-  body.mz-mobile-movie-playing .details-content,
-  body.mz-mobile-movie-playing .details-body {
+  body.mz-mobile-ep-playing .details-content-inner,
+  body.mz-mobile-ep-playing .mz-detail-layout,
+  body.mz-mobile-ep-playing .mz-meta-col,
+  body.mz-mobile-ep-playing .mz-streams-col {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    visibility: visible !important;
     background: transparent !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    box-sizing: border-box !important;
   }
 
-  /* Player: marco limpio */
-  body.mz-mobile-ep-playing #video-player-container,
-  body.mz-mobile-movie-playing #video-player-container {
-    margin: 8px 10px 12px !important;
-    border-radius: 14px !important;
-    overflow: hidden !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    background: #000 !important;
-    box-shadow:
-      0 0 0 1px rgba(0, 229, 255, 0.06),
-      0 12px 40px rgba(0, 0, 0, 0.45) !important;
-  }
-  body.mz-mobile-ep-playing .player-iframe-wrapper,
-  body.mz-mobile-ep-playing .player-video,
-  body.mz-mobile-ep-playing #video-player-container iframe {
-    border-radius: 0 !important;
-    background: #000 !important;
-  }
-
-  /* Título / meta del episodio */
-  body.mz-mobile-ep-playing #details-content,
-  body.mz-mobile-ep-playing .details-content-inner {
-    padding: 0 12px 28px !important;
-  }
-  body.mz-mobile-ep-playing .koi-player-ep-title,
-  body.mz-mobile-ep-playing #koi-player-ep-title {
+  body.mz-mobile-ep-playing #video-player-container {
     display: block !important;
-    font-size: 0.95rem !important;
-    font-weight: 700 !important;
-    color: #e2e8f0 !important;
-    margin: 2px 12px 4px !important;
+    width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    margin: 8px 0 10px !important;
+    border-radius: 12px !important;
+    background: #000 !important;
+    overflow: hidden !important;
+    order: 0 !important;
+  }
+  body.mz-mobile-ep-playing #mz-ep-movie-head {
+    display: block !important;
+    visibility: visible !important;
+    order: 1 !important;
+    padding: 4px 0 12px !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-title {
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
     line-height: 1.25 !important;
   }
-  body.mz-mobile-ep-playing .meta-row,
-  body.mz-mobile-ep-playing .details-meta-row {
-    gap: 8px !important;
-    margin-bottom: 10px !important;
-  }
-  body.mz-mobile-ep-playing .meta-item {
-    font-size: 0.78rem !important;
-    color: #94a3b8 !important;
-  }
-
-  /* “Estás viendo” — sin cuadro, bajo el player como título */
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
-    padding: 0 12px 6px !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    color: #e2e8f0 !important;
+  body.mz-mobile-ep-playing .mz-ep-movie-ep {
     font-size: 0.9rem !important;
-  }
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-label {
-    display: inline !important;
-    font-size: 0.75rem !important;
-    font-weight: 600 !important;
     color: #94a3b8 !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
-    margin: 0 6px 0 0 !important;
+    margin-top: 4px !important;
+    font-weight: 600 !important;
   }
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-ep {
-    display: inline !important;
-    font-size: 0.95rem !important;
+  body.mz-mobile-ep-playing .mz-ep-movie-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+    align-items: center !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-rating {
+    color: #fbbf24 !important;
     font-weight: 700 !important;
-    color: #f8fafc !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-imdb {
+    background: #f5c518 !important;
+    color: #000 !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-status {
+    color: #34d399 !important;
+    font-weight: 600 !important;
   }
 
-  /* Servidores con más contraste */
-  body.mz-mobile-ep-playing .koi-servers-block,
-  body.mz-mobile-ep-playing .koi-servers-block.mz-mep-srv-block {
-    background: rgba(15, 23, 42, 0.65) !important;
-    border: 1px solid rgba(0, 229, 255, 0.12) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-  }
-  body.mz-mobile-ep-playing .koi-servers-title {
-    color: #67e8f9 !important;
-  }
-  body.mz-mobile-ep-playing .koi-server-chip,
-  body.mz-mobile-ep-playing .mz-mep-srv-chip {
-    background: rgba(255, 255, 255, 0.07) !important;
-    border-color: rgba(255, 255, 255, 0.14) !important;
-    color: #e2e8f0 !important;
-  }
-  body.mz-mobile-ep-playing .koi-server-chip.is-active,
-  body.mz-mobile-ep-playing .mz-mep-srv-chip.is-active,
-  body.mz-mobile-ep-playing .koi-server-chip.active,
-  body.mz-mobile-ep-playing .mz-mep-srv-chip.active {
-    border-color: rgba(0, 229, 255, 0.65) !important;
-    background: rgba(0, 229, 255, 0.15) !important;
-    color: #ecfeff !important;
-    box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.25) !important;
-  }
-
-  /* Nav episodio más integrado */
-  body.mz-mobile-ep-playing .mz-mobile-ep-nav {
-    margin: 0 2px 4px !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-nav-btn {
-    background: rgba(15, 23, 42, 0.8) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-nav-btn:active {
-    background: rgba(0, 229, 255, 0.15) !important;
-    border-color: rgba(0, 229, 255, 0.35) !important;
-  }
-
-
-  /* ---------- Retroceder episodio ---------- */
-  body.mz-mobile-ep-playing .btn-close-modal {
-    display: none !important;
-  }
-  #mz-mep-back {
-    display: none;
-  }
+  /* Nav / back / watching */
+  body.mz-mobile-ep-playing .btn-close-modal { display: none !important; }
+  #mz-mep-back { display: none; }
   body.mz-mobile-ep-playing #mz-mep-back {
     display: flex !important;
     align-items: center !important;
@@ -650,36 +472,18 @@
     width: 42px !important;
     height: 42px !important;
     border-radius: 50% !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    background: rgba(0, 0, 0, 0.7) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    background: rgba(0,0,0,0.7) !important;
     color: #fff !important;
     font-size: 22px !important;
     cursor: pointer !important;
     padding: 0 !important;
   }
-
-  body.mz-mobile-ep-playing .meta-item.year,
-  body.mz-mobile-ep-playing #details-year,
-  body.mz-mobile-ep-playing #details-release-wrap,
-  body.mz-mobile-ep-playing #details-genres,
-  body.mz-mobile-ep-playing #details-original-title {
-    display: none !important;
-  }
-  body.mz-mobile-ep-playing #details-rating-wrap,
-  body.mz-mobile-ep-playing #details-runtime-wrap,
-  body.mz-mobile-ep-playing .meta-item.rating,
-  body.mz-mobile-ep-playing .meta-item.runtime,
-  body.mz-mobile-ep-playing #details-status-wrap {
-    display: inline-flex !important;
-  }
-
-  /* Nav Anterior / Siguiente / Descarga */
   body.mz-mobile-ep-playing .mz-mobile-ep-nav {
     display: grid !important;
     grid-template-columns: 1fr 1fr auto !important;
     gap: 10px !important;
     padding: 10px 0 14px !important;
-    align-items: stretch !important;
     order: 2 !important;
   }
   body.mz-mobile-ep-playing .mz-mep-nav-btn {
@@ -689,19 +493,11 @@
     gap: 8px !important;
     min-height: 48px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04)) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    background: rgba(255,255,255,0.08) !important;
     color: #f8fafc !important;
     font-weight: 800 !important;
     font-size: 14px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-nav-btn ion-icon {
-    font-size: 20px !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-nav-btn:active {
-    transform: scale(0.98);
-    background: rgba(168, 85, 247, 0.25) !important;
   }
   body.mz-mobile-ep-playing .mz-mep-nav-btn.is-disabled,
   body.mz-mobile-ep-playing .mz-mep-nav-btn:disabled {
@@ -712,17 +508,57 @@
     width: 48px !important;
     min-width: 48px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(168, 85, 247, 0.45) !important;
-    background: rgba(168, 85, 247, 0.2) !important;
+    border: 1px solid rgba(168,85,247,0.45) !important;
+    background: rgba(168,85,247,0.2) !important;
     color: #e9d5ff !important;
   }
-  body.mz-mobile-ep-playing .mz-mep-dl-btn ion-icon {
-    font-size: 22px !important;
-  }
-
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
+  body.mz-mobile-ep-playing #servers-section {
+    display: block !important;
     order: 3 !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
+    display: block !important;
+    order: 4 !important;
     margin: 0 0 10px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-label {
+    font-size: 0.75rem !important;
+    color: #94a3b8 !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-ep {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #f8fafc !important;
+  }
+  body.mz-mobile-ep-playing #seasons-section {
+    display: block !important;
+    order: 5 !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    order: 6 !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container .episode-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 44px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container .koi-ep-thumb,
+  body.mz-mobile-ep-playing #episodes-container .mz-mep-thumb,
+  body.mz-mobile-ep-playing #episodes-container img,
+  body.mz-mobile-ep-playing #episodes-container .koi-ep-meta,
+  body.mz-mobile-ep-playing #episodes-container .mz-mep-label {
+    display: none !important;
   }
 
   /* Panel descargas */
@@ -975,254 +811,45 @@
 
 
 
-  /* ============================================================
-     DETALLE serie: cards 2 cols, 16:9 (NO aplastadas)
-     ============================================================ */
-  body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid,
-  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 12px 10px !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb,
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
-    aspect-ratio: 16 / 9 !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 90px !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
-    height: auto !important;
-    min-height: 0 !important;
-    flex-direction: column !important;
-  }
 
-  /* ============================================================
-     /1/1 — misma idea que película al Reproducir (SOLO móvil)
-     ============================================================ */
-  body.mz-mobile-ep-playing #koi-hero,
-  body.mz-mobile-ep-playing #koi-hero * {
-    display: none !important;
-  }
-  body.mz-mobile-ep-playing .koi-hero {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
 
-  body.mz-mobile-ep-playing .details-content-inner,
-  body.mz-mobile-ep-playing #details-content {
-    display: block !important;
+  /* ---------- FIX doble toque ---------- */
+  .mz-scroll-catch {
+    pointer-events: none !important;
   }
-  body.mz-mobile-ep-playing .mz-detail-layout {
-    display: flex !important;
-    flex-direction: column !important;
+  body.player-open {
+    touch-action: manipulation !important;
   }
-
-  /* Esta columna está display:none en detalle serie; en /1/1 debe verse */
-  body.mz-mobile-ep-playing .mz-meta-col,
-  body.mz-mobile-ep-playing .details-content-inner .mz-meta-col {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    visibility: visible !important;
-    padding: 0 12px 8px !important;
-    box-sizing: border-box !important;
+  .video-player-container,
+  .player-iframe-wrapper,
+  .player-iframe-wrapper iframe,
+  .player-video {
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    pointer-events: auto !important;
   }
-
-  body.mz-mobile-ep-playing #video-player-container,
-  body.mz-mobile-ep-playing #video-player-container.hidden {
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    min-height: 180px !important;
-    height: auto !important;
-    margin: 8px 0 12px !important;
-    border-radius: 12px !important;
-    border: 1px solid #1e293b !important;
-    background: #0b0f1a !important;
-    overflow: hidden !important;
+  body.mz-mobile-ep-playing .video-player-container .player-header {
+    pointer-events: none !important;
   }
-
-  body.mz-mobile-ep-playing #servers-section {
-    display: block !important;
-    visibility: visible !important;
+  body.mz-mobile-ep-playing .video-player-container .player-header button {
+    pointer-events: auto !important;
   }
-
-  body.mz-mobile-ep-playing .mz-synopsis-section,
-  body.mz-mobile-ep-playing .mz-stremio-poster-col {
-    display: none !important;
+  body.mz-mobile-ep-playing .mz-ep-controls {
+    pointer-events: none !important;
   }
-
-  body.mz-mobile-ep-playing .mz-streams-col {
-    display: block !important;
-    width: 100% !important;
-    visibility: visible !important;
-    padding: 0 12px 28px !important;
+  body.mz-mobile-ep-playing .mz-ep-controls .mz-ep-btn {
+    pointer-events: auto !important;
   }
-
-  body.mz-mobile-ep-playing #mz-mobile-ep-nav {
-    display: flex !important;
-    gap: 8px !important;
-    margin: 0 0 10px !important;
-  }
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
-    display: block !important;
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 0 10px !important;
-  }
-  body.mz-mobile-ep-playing #close-player-btn {
-    display: none !important;
-  }
-
-  /* Números de episodio en /1/1: cuadrados, NO aplastados */
-  body.mz-mobile-ep-playing #episodes-container.mz-ep-num-grid,
-  body.mz-mobile-ep-playing #episodes-container {
-    display: grid !important;
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-  }
-  body.mz-mobile-ep-playing #episodes-container .episode-btn,
-  body.mz-mobile-ep-playing #episodes-container .mz-ep-num-btn {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    max-height: 48px !important;
-    aspect-ratio: auto !important;
-    padding: 0 !important;
-    border-radius: 8px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-  }
-  body.mz-mobile-ep-playing #episodes-container .mz-mep-thumb,
-  body.mz-mobile-ep-playing #episodes-container .koi-ep-thumb,
-  body.mz-mobile-ep-playing #episodes-container img {
-    display: none !important;
+  body.mz-mobile-ep-playing #details-panel .modal-backdrop-close {
+    pointer-events: none !important;
   }
 
 
 
-
-
-
-
-  /* —— Móvil detalle: cards compactas (solo imagen + T•E) —— */
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 4px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    min-height: 0 !important;
-    height: auto !important;
-    text-align: left !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
-    display: block !important;
-    width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    min-height: 0 !important;
-    max-height: 110px !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
-    background: #0f172a !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb img {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    opacity: 1 !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
-    display: block !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    color: #e2e8f0 !important;
-    padding: 0 2px 2px !important;
-    line-height: 1.2 !important;
-  }
-  /* Si aún hay koi-ep-card en móvil: ocultar título de serie (demasiado texto) */
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-series,
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-dur {
-    display: none !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb {
-    min-height: 0 !important;
-    max-height: 110px !important;
-  }
-  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-name {
-    font-size: 11px !important;
-    padding: 0 6px 6px !important;
-  }
-
-  /* —— Vista /1/1 tipo película —— */
-  body.mz-mobile-ep-playing.mz-ep-movie-shell #mz-ep-movie-head {
-    display: block !important;
-    order: 1 !important;
-    padding: 8px 4px 12px !important;
-  }
-  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-title {
-    font-size: 1.4rem !important;
-    font-weight: 800 !important;
-    color: #fff !important;
-    line-height: 1.2 !important;
-  }
-  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-ep {
-    color: #94a3b8 !important;
-    font-size: 0.9rem !important;
-    margin-top: 4px !important;
-  }
-  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-meta {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-    margin-top: 8px !important;
-    align-items: center !important;
-  }
-  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-rating {
-    color: #fbbf24 !important;
-    font-weight: 700 !important;
-  }
-  body.mz-mobile-ep-playing.mz-ep-movie-shell .mz-ep-movie-imdb {
-    background: #f5c518 !important;
-    color: #000 !important;
-    font-size: 0.65rem !important;
-    font-weight: 800 !important;
-    padding: 2px 5px !important;
-    border-radius: 3px !important;
-  }
-  body.mz-mobile-ep-playing #video-player-container {
-    order: 0 !important;
-  }
-  body.mz-mobile-ep-playing #mz-mobile-ep-nav { order: 2 !important; }
-  body.mz-mobile-ep-playing #servers-section { order: 3 !important; }
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching { order: 4 !important; }
-  body.mz-mobile-ep-playing #seasons-section { order: 5 !important; }
-
-
-
-  /* ========== LIMPIEZA: no Koi overlay en móvil ========== */
+  /* No overlay Koi en móvil */
   #mz-koi-ep-view,
   #mz-koi-ep-view.open {
     display: none !important;
-    visibility: hidden !important;
     pointer-events: none !important;
   }
   body.mz-koi-ep-open #details-panel {
@@ -1231,114 +858,6 @@
   }
   body.mz-koi-ep-open {
     overflow: auto !important;
-  }
-
-  /* ========== Vista episodio = tipo película (definitivo) ========== */
-  body.mz-mobile-ep-playing #koi-hero,
-  body.mz-mobile-ep-playing .koi-hero,
-  body.mz-mobile-ep-playing .mz-stremio-header,
-  body.mz-mobile-ep-playing .mz-synopsis-section,
-  body.mz-mobile-ep-playing .mz-stremio-poster-col,
-  body.mz-mobile-ep-playing #details-logo,
-  body.mz-mobile-ep-playing #details-description,
-  body.mz-mobile-ep-playing .details-actions,
-  body.mz-mobile-ep-playing #mz-stremio-play-row,
-  body.mz-mobile-ep-playing .details-header-card,
-  body.mz-mobile-ep-playing .btn-close-modal {
-    display: none !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-  }
-
-  body.mz-mobile-ep-playing .mz-detail-layout,
-  body.mz-mobile-ep-playing .mz-meta-col,
-  body.mz-mobile-ep-playing .mz-streams-col {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    box-sizing: border-box !important;
-  }
-
-  body.mz-mobile-ep-playing #video-player-container {
-    display: block !important;
-    width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    margin: 8px 0 12px !important;
-    border-radius: 12px !important;
-    background: #000 !important;
-    overflow: hidden !important;
-    order: 0 !important;
-  }
-
-  body.mz-mobile-ep-playing #mz-ep-movie-head {
-    display: block !important;
-    visibility: visible !important;
-    order: 1 !important;
-    padding: 4px 0 12px !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-movie-title {
-    font-size: 1.4rem !important;
-    font-weight: 800 !important;
-    color: #fff !important;
-    line-height: 1.25 !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-movie-ep {
-    font-size: 0.9rem !important;
-    color: #94a3b8 !important;
-    margin-top: 4px !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-movie-meta {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-    margin-top: 8px !important;
-    align-items: center !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-movie-rating {
-    color: #fbbf24 !important;
-    font-weight: 700 !important;
-  }
-  body.mz-mobile-ep-playing .mz-ep-movie-imdb {
-    background: #f5c518 !important;
-    color: #000 !important;
-    font-size: 0.65rem !important;
-    font-weight: 800 !important;
-    padding: 2px 5px !important;
-    border-radius: 3px !important;
-  }
-
-  body.mz-mobile-ep-playing #mz-mobile-ep-nav { order: 2 !important; display: flex !important; }
-  body.mz-mobile-ep-playing #servers-section { order: 3 !important; display: block !important; }
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching { order: 4 !important; display: block !important; }
-  body.mz-mobile-ep-playing #seasons-section { order: 5 !important; display: block !important; }
-  body.mz-mobile-ep-playing #episodes-container { order: 6 !important; }
-
-  /* Números en /1/1 */
-  body.mz-mobile-ep-playing #episodes-container {
-    display: grid !important;
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-  }
-  body.mz-mobile-ep-playing #episodes-container .episode-btn {
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 44px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-weight: 700 !important;
-  }
-  body.mz-mobile-ep-playing #episodes-container .koi-ep-thumb,
-  body.mz-mobile-ep-playing #episodes-container .mz-mep-thumb,
-  body.mz-mobile-ep-playing #episodes-container img,
-  body.mz-mobile-ep-playing #episodes-container .koi-ep-meta,
-  body.mz-mobile-ep-playing #episodes-container .mz-mep-label {
-    display: none !important;
   }
 
 } /* fin @media */
