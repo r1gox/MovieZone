@@ -729,13 +729,18 @@
       }
     });
 
-    var mobile = !isPc();
+    // Filas SUB/DUB solo en episodios móvil — películas: chips clásicos
+    var mobileEp =
+      _mode !== "movie" &&
+      (!isPc() ||
+        (document.getElementById("mz-koi-ep-view") || {}).classList &&
+          document.getElementById("mz-koi-ep-view").classList.contains("mz-kp-ep-mobile"));
 
     function appendLangRows(container, list, mode) {
       if (!container) return;
       container.innerHTML = "";
       if (!list.length) return;
-      if (!mobile) {
+      if (!mobileEp) {
         list.forEach(function (emb) {
           container.appendChild(makeServerBtn(emb, mode));
         });
@@ -1490,8 +1495,32 @@
     var view = $("mz-koi-ep-view");
     view.classList.add("open");
     view.classList.add("mz-kp-movie-mode");
+    view.classList.remove("mz-kp-ep-mobile");
     view.setAttribute("aria-hidden", "false");
     document.body.classList.add("mz-koi-ep-open");
+    // Limpiar UI de episodio móvil (no tocar series: solo al abrir película)
+    try {
+      var epBar = document.getElementById("mz-kp-ep-mobile-bar");
+      if (epBar) epBar.remove();
+      var side0 = $("mz-kp-sidebar");
+      if (side0) {
+        side0.classList.add("hidden");
+        side0.classList.remove("mz-kp-sidebar-mobile-ep");
+        side0.style.removeProperty("display");
+        side0.style.removeProperty("visibility");
+      }
+      var list0 = $("mz-kp-ep-list");
+      if (list0) {
+        list0.innerHTML = "";
+        list0.classList.remove("mz-kp-ep-num-grid");
+        list0.style.removeProperty("display");
+      }
+      // Restaurar títulos ocultos por episodio móvil
+      var epTitle = $("mz-kp-ep-title");
+      if (epTitle) epTitle.style.removeProperty("display");
+      var anTitle = $("mz-kp-anime-title");
+      if (anTitle) anTitle.style.removeProperty("display");
+    } catch (_) {}
     try {
       document.body.classList.remove("mz-mobile-ep-playing", "mz-ep-movie-shell", "mz-mep-dl-open");
       var dp2 = document.getElementById("details-panel");
