@@ -1252,3 +1252,27 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     display: none !important;
   }
 }
+
+
+/* Película: sinopsis / descripción al final (bajo reproductores) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
+  display: flex !important;
+  flex-direction: column !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-anime-link { order: 1 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-original,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-original { order: 2 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row { order: 3 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-meta-chips,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-meta-chips { order: 4 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-meta,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-meta { order: 5 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-genres,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-genres { order: 6 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-servers:not(.mz-kp-downloads-wrap) { order: 7 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-downloads-wrap { order: 8 !important; }
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-synopsis,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-synopsis {
+  order: 99 !important;
+  margin-top: 16px !important;
+}

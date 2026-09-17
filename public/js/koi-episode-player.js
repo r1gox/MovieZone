@@ -1536,6 +1536,18 @@
     }
   }
 
+
+  function mzMovieSynopsisToBottom() {
+    try {
+      if (_mode !== "movie") return;
+      var info = document.querySelector("#mz-koi-ep-view .mz-kp-info");
+      if (!info) return;
+      var syn = info.querySelector(".mz-kp-synopsis");
+      if (!syn) return;
+      info.appendChild(syn);
+    } catch (_) {}
+  }
+
   async function openMovie(item) {
 //    if (!isPc()) return false;
     if (!item) return false;
@@ -1598,6 +1610,7 @@
     renderServers([]);
     renderDownloads([]);
     try { ensureMovieDlBar(); } catch (_) {}
+    try { mzMovieSynopsisToBottom(); } catch (_) {}
 
     var pack = await fetchMoviePlayers(item);
     item = pack.item || item;
@@ -1609,6 +1622,7 @@
     renderServers(pack.embeds);
     renderDownloads(pack.downloads);
     try { ensureMovieDlBar(); } catch (_) {}
+    try { mzMovieSynopsisToBottom(); } catch (_) {}
     // SIN autoplay
     showPoster(
       item,
