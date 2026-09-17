@@ -9250,3 +9250,48 @@ body.details-open.koi-movie.player-open #servers-section {
 body.details-open.koi-movie.mz-mobile-movie-playing #video-player-container {
   display: block !important;
 }
+
+
+/* Episodio móvil: misma interfaz de reproducción que película */
+body.mz-ep-movie-shell .mz-ep-movie-head {
+  padding: 4px 0 8px;
+}
+body.mz-ep-movie-shell .mz-ep-movie-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.25;
+  margin: 0 0 8px;
+}
+body.mz-ep-movie-shell .mz-ep-movie-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+body.mz-ep-movie-shell .mz-ep-movie-rating {
+  font-weight: 700;
+  color: #fbbf24;
+}
+body.mz-ep-movie-shell .mz-ep-movie-imdb {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #f5c518;
+  background: #000;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+body.mz-ep-movie-shell .mz-ep-movie-status {
+  color: #6ee7b7;
+  font-weight: 600;
+}
+body.mz-ep-movie-shell .mz-synopsis-section,
+body.mz-ep-movie-shell #koi-hero {
+  display: none !important;
+}
+body.mz-ep-movie-shell #video-player-container {
+  border-radius: 12px !important;
+}

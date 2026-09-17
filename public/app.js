@@ -2027,17 +2027,21 @@ function mzForceEpLikeMovieShell(on) {
     const ss = document.getElementById("servers-section");
     const posterCol = document.querySelector(".mz-stremio-poster-col");
     const inner = document.getElementById("details-content") || document.querySelector(".details-content-inner");
+    const seasons = document.getElementById("seasons-section");
 
     if (!on) {
-      [hero, meta, streams, layout, vc, syn, ss, posterCol, inner].forEach(function (el) {
+      [hero, meta, streams, layout, vc, syn, ss, posterCol, inner, seasons].forEach(function (el) {
         if (!el || !el.style) return;
         el.style.cssText = "";
       });
       if (hero) hero.setAttribute("aria-hidden", "false");
+      const head = document.getElementById("mz-ep-movie-head");
+      if (head) head.remove();
       if (window.__mzEpShellTimer) {
         clearInterval(window.__mzEpShellTimer);
         window.__mzEpShellTimer = null;
       }
+      document.body.classList.remove("mz-ep-movie-shell");
       return;
     }
 
@@ -2045,51 +2049,101 @@ function mzForceEpLikeMovieShell(on) {
       "details-open",
       "player-open",
       "mz-mobile-ep-playing",
+      "mz-ep-movie-shell",
       "koi-desktop",
       "koi-serie",
       "koi-movie"
     );
     document.body.classList.remove("mz-mobile-movie-playing");
 
-    // Hero fuera (como peli al Reproducir)
     if (hero) {
-      hero.style.cssText = "display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;visibility:hidden!important;margin:0!important;padding:0!important;";
+      hero.style.cssText =
+        "display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;visibility:hidden!important;margin:0!important;padding:0!important;";
       hero.setAttribute("aria-hidden", "true");
     }
-
     if (inner) {
       inner.classList.remove("hidden");
       inner.style.cssText = "display:block!important;visibility:visible!important;";
     }
     if (layout) {
-      layout.style.cssText = "display:flex!important;flex-direction:column!important;width:100%!important;gap:0!important;";
+      layout.style.cssText =
+        "display:flex!important;flex-direction:column!important;width:100%!important;gap:0!important;";
     }
-    // Columna de info/player VISIBLE (en detalle serie suele estar oculto)
     if (meta) {
-      meta.style.cssText = "display:flex!important;flex-direction:column!important;width:100%!important;visibility:visible!important;padding:0 12px 16px!important;box-sizing:border-box!important;";
+      meta.style.cssText =
+        "display:flex!important;flex-direction:column!important;width:100%!important;visibility:visible!important;padding:0 12px 16px!important;box-sizing:border-box!important;";
     }
-
-    // Player arriba — mismo “apartado” que película
-    if (vc) {
-      vc.classList.remove("hidden");
-      if (meta && vc.parentNode !== meta) meta.insertBefore(vc, meta.firstChild);
-      else if (meta && meta.firstChild !== vc) meta.insertBefore(vc, meta.firstChild);
-      vc.style.cssText = "display:block!important;width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;background:#0b0f1a!important;margin:8px 0 12px!important;border-radius:12px!important;overflow:hidden!important;border:1px solid #1e293b!important;order:-1!important;position:relative!important;";
-    }
-
     if (syn) syn.style.cssText = "display:none!important;";
     if (posterCol) posterCol.style.cssText = "display:none!important;";
 
-    // Reproductores visibles (como peli)
+    // Player arriba (interfaz tipo película)
+    if (vc) {
+      vc.classList.remove("hidden");
+      if (meta) {
+        if (vc.parentNode !== meta) meta.insertBefore(vc, meta.firstChild);
+        else if (meta.firstChild !== vc) meta.insertBefore(vc, meta.firstChild);
+      }
+      vc.style.cssText =
+        "display:block!important;width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;background:#0b0f1a!important;margin:8px 0 12px!important;border-radius:12px!important;overflow:hidden!important;border:1px solid #1e293b!important;order:-1!important;position:relative!important;";
+    }
+
+    // Cabecera tipo peli: título + rating IMDb + duración + estado (SIN descripción)
+    try {
+      const item = (_epPlayCtx && _epPlayCtx.item) || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
+      let head = document.getElementById("mz-ep-movie-head");
+      if (!head && meta) {
+        head = document.createElement("div");
+        head.id = "mz-ep-movie-head";
+        head.className = "mz-ep-movie-head";
+        if (vc && vc.nextSibling) meta.insertBefore(head, vc.nextSibling);
+        else if (vc) meta.appendChild(head);
+        else meta.insertBefore(head, meta.firstChild);
+      }
+      if (head && item) {
+        const title = item.nombre || item.titulo || "";
+        const rating =
+          item.rating != null
+            ? String(item.rating)
+            : item.calificacion != null
+              ? String(item.calificacion)
+              : "";
+        const dur =
+          item.duracion_texto ||
+          (item.duracion ? item.duracion + " min" : "") ||
+          "";
+        const estado = item.estado || item.status || "";
+        head.innerHTML =
+          '<div class="mz-ep-movie-title">' +
+          String(title).replace(/</g, "&lt;") +
+          "</div>" +
+          '<div class="mz-ep-movie-meta">' +
+          (rating
+            ? '<span class="mz-ep-movie-rating">' +
+              rating +
+              ' <span class="mz-ep-movie-imdb">IMDb</span></span>'
+            : "") +
+          (dur ? '<span class="mz-ep-movie-dur">' + String(dur).replace(/</g, "&lt;") + "</span>" : "") +
+          (estado
+            ? '<span class="mz-ep-movie-status">' + String(estado).replace(/</g, "&lt;") + "</span>"
+            : "") +
+          "</div>";
+        head.style.cssText = "display:block!important;width:100%!important;margin:0 0 12px!important;";
+      }
+    } catch (_) {}
+
     if (ss) {
       ss.classList.remove("hidden");
       if (meta && ss.parentNode !== meta) meta.appendChild(ss);
-      ss.style.cssText = "display:block!important;visibility:visible!important;width:100%!important;margin:0 0 12px!important;";
+      ss.style.cssText =
+        "display:block!important;visibility:visible!important;width:100%!important;margin:0 0 12px!important;";
     }
-
-    // Datos serie debajo (nav / watching / episodios)
     if (streams) {
-      streams.style.cssText = "display:block!important;visibility:visible!important;width:100%!important;max-width:100%!important;padding:0 12px 28px!important;box-sizing:border-box!important;";
+      streams.style.cssText =
+        "display:block!important;visibility:visible!important;width:100%!important;max-width:100%!important;padding:0 12px 28px!important;box-sizing:border-box!important;";
+    }
+    if (seasons) {
+      seasons.classList.remove("hidden");
+      seasons.style.cssText = "display:block!important;width:100%!important;";
     }
 
     const closeBtn = document.getElementById("close-player-btn");
@@ -2098,16 +2152,14 @@ function mzForceEpLikeMovieShell(on) {
       closeBtn.style.cssText = "display:none!important;";
     }
 
-    // Re-aplicar unos segundos por si abrirDetalle/async pisa el layout
     if (!window.__mzEpShellTimer) {
-      var n = 0;
       window.__mzEpShellTimer = setInterval(function () {
         if (!document.body.classList.contains("mz-mobile-ep-playing")) {
           clearInterval(window.__mzEpShellTimer);
           window.__mzEpShellTimer = null;
           return;
         }
-        document.body.classList.add("player-open", "koi-movie", "mz-mobile-ep-playing");
+        document.body.classList.add("player-open", "koi-movie", "mz-mobile-ep-playing", "mz-ep-movie-shell");
         var h = document.getElementById("koi-hero");
         if (h) h.style.cssText = "display:none!important;height:0!important;visibility:hidden!important;";
         var v = document.getElementById("video-player-container");
@@ -2115,16 +2167,15 @@ function mzForceEpLikeMovieShell(on) {
           v.classList.remove("hidden");
           v.style.display = "block";
         }
-        var s = document.getElementById("servers-section");
-        if (s) {
-          s.classList.remove("hidden");
-          s.style.display = "block";
-        }
-        if (++n > 15) {
+        var syn2 = document.querySelector(".mz-synopsis-section");
+        if (syn2) syn2.style.display = "none";
+      }, 400);
+      setTimeout(function () {
+        if (window.__mzEpShellTimer) {
           clearInterval(window.__mzEpShellTimer);
           window.__mzEpShellTimer = null;
         }
-      }, 250);
+      }, 4000);
     }
   } catch (e) {
     console.warn("mzForceEpLikeMovieShell", e);
@@ -2185,6 +2236,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   }
 
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
+  try { mzForceEpLikeMovieShell(true); } catch (_) {}
   actualizarMobileEpNav(_epPlayCtx);
   try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
 
