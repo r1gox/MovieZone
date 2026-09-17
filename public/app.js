@@ -7916,18 +7916,39 @@ function setDetailBackdrop(item) {
   if (img) {
     if (url) {
       const safe = String(url).trim();
+      const fallbackPortada =
+        (item && (item.portada_fuente_raw || item.portada || item.poster || item.image)) || "";
+      const esMetaBg = /metahub\.space|media-amazon\.com/i.test(safe);
+
       img.onload = function () {
+        // Metahub a veces responde 200 con imagen "Missing image" (muy chica)
+        if (img.naturalWidth > 0 && img.naturalWidth < 50 && fallbackPortada && esMetaBg) {
+          img.onerror = null;
+          img.src = String(fallbackPortada).trim();
+          return;
+        }
         img.classList.add("is-ready");
       };
       img.onerror = function () {
         img.classList.remove("is-ready");
+        if (fallbackPortada && img.getAttribute("src") !== String(fallbackPortada).trim()) {
+          img.onerror = function () {
+            img.removeAttribute("src");
+          };
+          img.src = String(fallbackPortada).trim();
+          return;
+        }
         img.removeAttribute("src");
       };
       if (img.src !== safe && img.getAttribute("src") !== safe) {
         img.classList.remove("is-ready");
         img.src = safe;
       } else if (img.complete && img.naturalWidth > 0) {
-        img.classList.add("is-ready");
+        if (img.naturalWidth < 50 && fallbackPortada && esMetaBg) {
+          img.src = String(fallbackPortada).trim();
+        } else {
+          img.classList.add("is-ready");
+        }
       }
     } else {
       img.classList.remove("is-ready");
