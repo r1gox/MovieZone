@@ -2103,7 +2103,6 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
 
     // Cabecera tipo peli: título + rating IMDb + duración + estado (SIN descripción)
     try {
-      const item = (_epPlayCtx && _epPlayCtx.item) || (typeof seleccionActual !== "undefined" ? seleccionActual : null);
       let head = document.getElementById("mz-ep-movie-head");
       if (!head) {
         head = document.createElement("div");
@@ -2121,8 +2120,12 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
       } else if (vc && head.previousSibling !== vc) {
         try { vc.parentNode.insertBefore(head, vc.nextSibling); } catch (_) {}
       }
-      const item = itemArg || window.__mzCurrentItem || null;
-      const epCtx = epArg || null;
+      const item =
+        itemArg ||
+        window.__mzCurrentItem ||
+        (_epPlayCtx && _epPlayCtx.item) ||
+        (typeof seleccionActual !== "undefined" ? seleccionActual : null);
+      const epCtx = epArg || (_epPlayCtx && _epPlayCtx.episodio) || null;
       const sn = Number(snArg || (epCtx && (epCtx.season || epCtx.temporada)) || 1) || 1;
       const en = Number(enArg || (epCtx && (epCtx.episode || epCtx.episodio)) || 0) || 0;
       if (head && item) {
