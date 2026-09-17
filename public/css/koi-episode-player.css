@@ -696,16 +696,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
     margin: 0 0 8px !important;
   }
 
-  /* Reproductores / Directos: una fila con scroll */
-  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 8px !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    padding-bottom: 4px !important;
-  }
+  /* (reemplazado abajo: lista en columna, filas scroll) */
   #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list::-webkit-scrollbar {
     display: none !important;
   }
@@ -735,4 +726,125 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
     border-color: rgba(168, 85, 247, 0.8) !important;
     color: #fff !important;
   }
+}
+
+
+/* FIX filas SUB/DUB scroll + episodios número + panel descargas */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-tag {
+    flex: 0 0 auto !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-tag.is-sub {
+    background: #2563eb !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-tag.is-dub {
+    background: #16a34a !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    scrollbar-width: none !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips::-webkit-scrollbar {
+    display: none !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-btn.active {
+    border-color: rgba(0, 229, 255, 0.8) !important;
+    background: rgba(0, 229, 255, 0.22) !important;
+    color: #ecfeff !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-downloads-wrap {
+    display: none !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-sidebar,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-sidebar-mobile-ep {
+    display: block !important;
+    width: 100% !important;
+    margin-top: 16px !important;
+    visibility: visible !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-sidebar-title {
+    display: block !important;
+    margin-bottom: 8px !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-list {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-num {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #e2e8f0 !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    padding: 0 !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-num.is-playing,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-num.active {
+    background: rgba(168, 85, 247, 0.5) !important;
+    border-color: rgba(168, 85, 247, 0.9) !important;
+    color: #fff !important;
+  }
+  /* ocultar cards con imagen en móvil si quedaran */
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-card .mz-kp-ep-thumb,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-card .mz-kp-ep-info {
+    display: none !important;
+  }
+}
+
+.mz-kp-dl-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100500 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+}
+.mz-kp-dl-panel.hidden {
+  display: none !important;
 }

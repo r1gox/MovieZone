@@ -516,6 +516,7 @@
         name: String(cleanServerName(emb) || "").toLowerCase(),
         mode: mode === "direct" ? "direct" : "iframe",
         idioma: String(emb.idioma || emb.lang || "").toLowerCase(),
+        langKey: typeof langKeyOf === "function" ? langKeyOf(emb) : "",
         noAds: !!emb.noAds,
         direct: mode === "direct"
       };
@@ -792,32 +793,41 @@
       if (pref.slug && slug && String(pref.slug) !== String(slug)) return false;
       var wantName = String(pref.name || "").toLowerCase();
       var wantMode = pref.direct || pref.mode === "direct" ? "direct" : "iframe";
-      var wantLang = String(pref.idioma || "").toLowerCase();
+      var wantLang = String(pref.langKey || pref.idioma || "").toLowerCase();
+      if (wantLang.indexOf("lat") !== -1 || wantLang.indexOf("dub") !== -1) wantLang = "dub";
+      else if (wantLang.indexOf("sub") !== -1) wantLang = "sub";
       var best = null;
+      function score(e) {
+        var n = String(cleanServerName(e) || "").toLowerCase();
+        var lk = langKeyOf(e);
+        var s = 0;
+        if (wantName && n === wantName) s += 10;
+        else if (wantName && (n.indexOf(wantName) !== -1 || wantName.indexOf(n) !== -1)) s += 5;
+        if (wantLang && lk === wantLang) s += 8;
+        if (wantMode === "direct" && isDirectEmbed(e)) s += 2;
+        return s;
+      }
+      var bestScore = 0;
       for (var i = 0; i < embeds.length; i++) {
         var e = embeds[i];
         if (!e) continue;
-        var n = String(cleanServerName(e) || "").toLowerCase();
-        if (wantName && n === wantName) {
+        var sc = score(e);
+        if (sc > bestScore) {
+          bestScore = sc;
           best = e;
-          break;
         }
       }
-      if (!best && wantName) {
-        for (var j = 0; j < embeds.length; j++) {
-          var e2 = embeds[j];
-          var n2 = String(cleanServerName(e2) || "").toLowerCase();
-          if (n2.indexOf(wantName) !== -1 || wantName.indexOf(n2) !== -1) {
-            best = e2;
-            break;
-          }
-        }
-      }
-      if (!best) return false;
-      // Activar chip visual
+      // Exigir al menos nombre o (nombre parcial + idioma)
+      if (!best || bestScore < 10) return false;
+      // Activar SOLO el chip que coincide nombre + idioma
+      var bestName = String(cleanServerName(best) || "").toLowerCase();
+      var bestLk = langKeyOf(best);
       var btns = document.querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn");
       btns.forEach(function (b) {
-        b.classList.toggle("active", (b.dataset.mzName || "") === String(cleanServerName(best) || "").toLowerCase());
+        var match =
+          (b.dataset.mzName || "") === bestName &&
+          (!b.dataset.mzLang || b.dataset.mzLang === bestLk || bestLk === "oth");
+        b.classList.toggle("active", match);
       });
       var mode = wantMode;
       // Si el preferido era directo pero este embed es normal, iframe
@@ -1113,32 +1123,39 @@
         '<p style="color:#64748b;padding:8px">No hay episodios.</p>';
       return;
     }
+    var mobile = !isPc();
     eps.forEach(function (ep, idx) {
       var n = epNumOf(ep, idx + 1);
       var s = seasonOf(ep, 1);
       var playing = n === Number(currentEp) && s === Number(currentSeason);
-      var isAnimeEp = /anime/i.test(String(item.tipo || item.type || ""));
-      var thumb = isAnimeEp
-        ? (ep.back_img || ep.screenshot || ep.still || ep.image || ep.imagen || ep.thumbnail || item.portada || PLACEHOLDER)
-        : (ep.back_img || ep.still || ep.image || ep.imagen || ep.thumbnail || item.backdrop || item.portada || PLACEHOLDER);
       var card = document.createElement("button");
       card.type = "button";
-      card.className = "mz-kp-ep-card" + (playing ? " playing" : "");
-      card.innerHTML =
-        '<div class="mz-kp-ep-thumb">' +
-        (playing ? '<div class="mz-kp-badge-playing">Seleccionado</div>' : "") +
-        '<img src="' +
-        String(thumb).replace(/"/g, "") +
-        '" alt="" loading="lazy" onerror="this.style.opacity=.3"/>' +
-        '<span class="mz-kp-badge-dur">' +
-        String(durationOf(ep, item) || "24m").replace(/</g, "") +
-        "</span></div>" +
-        '<div class="mz-kp-ep-info">' +
-        '<div class="mz-kp-ep-name">' +
-        epLabel(ep, n).replace(/</g, "") +
-        "</div>" +
-        '<div class="mz-kp-ep-lang">Subtitulado</div></div>';
-      if (playing) card.classList.add("is-playing", "active");
+      if (mobile) {
+        // Cuadritos solo número
+        card.className = "mz-kp-ep-num" + (playing ? " is-playing active" : "");
+        card.textContent = String(n);
+        card.setAttribute("aria-label", "Episodio " + n);
+      } else {
+        var isAnimeEp = /anime/i.test(String(item.tipo || item.type || ""));
+        var thumb = isAnimeEp
+          ? (ep.back_img || ep.screenshot || ep.still || ep.image || ep.imagen || ep.thumbnail || item.portada || PLACEHOLDER)
+          : (ep.back_img || ep.still || ep.image || ep.imagen || ep.thumbnail || item.backdrop || item.portada || PLACEHOLDER);
+        card.className = "mz-kp-ep-card" + (playing ? " playing is-playing active" : "");
+        card.innerHTML =
+          '<div class="mz-kp-ep-thumb">' +
+          (playing ? '<div class="mz-kp-badge-playing">Seleccionado</div>' : "") +
+          '<img src="' +
+          String(thumb).replace(/"/g, "") +
+          '" alt="" loading="lazy" onerror="this.style.opacity=.3"/>' +
+          '<span class="mz-kp-badge-dur">' +
+          String(durationOf(ep, item) || "24m").replace(/</g, "") +
+          "</span></div>" +
+          '<div class="mz-kp-ep-info">' +
+          '<div class="mz-kp-ep-name">' +
+          epLabel(ep, n).replace(/</g, "") +
+          "</div>" +
+          '<div class="mz-kp-ep-lang">Subtitulado</div></div>';
+      }
       card.addEventListener("click", function () {
         if (playing) return;
         openEpisode(item, ep, s, n);
@@ -1512,6 +1529,31 @@
     var en = epNumOf(next, 1);
     openEpisode(item, next, sn, en);
   }
+  // Delegación: botón descargas (sobrevive a re-renders)
+  if (!window.__mzKpDlDelegate) {
+    window.__mzKpDlDelegate = true;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var t = ev.target;
+        if (!t) return;
+        var btn = t.closest ? t.closest("#mz-kp-ep-dl") : null;
+        if (!btn && t.id === "mz-kp-ep-dl") btn = t;
+        if (!btn) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (_) {}
+        try {
+          openDownloadsPanel();
+        } catch (e) {
+          console.warn("openDownloadsPanel", e);
+        }
+      },
+      true
+    );
+  }
+
   window.mzKoiGoPrevEpisode = function () { goAdjacentEpisode(-1); };
   window.mzKoiGoNextEpisode = function () { goAdjacentEpisode(1); };
   window.mzKoiOpenEpisode = openEpisode;
