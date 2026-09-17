@@ -848,8 +848,38 @@
         }
         if (metaLine) metaLine.textContent = "";
         if (synEl) {
-          synEl.textContent = "";
-          if (synEl.parentElement) synEl.parentElement.classList.add("hidden");
+          var sn = Number((episodio && (episodio.season || episodio.temporada)) || 1) || 1;
+          var en = Number((episodio && (episodio.episode || episodio.episodio)) || 0) || 0;
+          var dur = "";
+          try {
+            dur = (typeof durationOf === "function" ? durationOf(episodio, item) : "") ||
+              (item && (item.duracion_texto || item.duracion)) || "";
+          } catch (_) {}
+          var estado = (item && (item.estado || item.status)) || "";
+          synEl.innerHTML =
+            '<div class="mz-kp-ep-info">' +
+              '<div class="mz-kp-ep-watching">Estás viendo · T' + sn + " • E" + en + "</div>" +
+              (dur ? '<div class="mz-kp-ep-dur">' + String(dur).replace(/</g, "") + "</div>" : "") +
+              (estado ? '<div class="mz-kp-ep-status">' + String(estado).replace(/</g, "") + "</div>" : "") +
+              '<div class="mz-kp-ep-nav" id="mz-kp-ep-nav">' +
+                '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-prev">‹ Anterior</button>' +
+                '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-next">Siguiente ›</button>' +
+              "</div>" +
+            "</div>";
+          if (synEl.parentElement) synEl.parentElement.classList.remove("hidden");
+          // Bind prev/next
+          setTimeout(function () {
+            try {
+              var prev = document.getElementById("mz-kp-ep-prev");
+              var next = document.getElementById("mz-kp-ep-next");
+              if (prev) prev.onclick = function () {
+                if (typeof window.mzKoiGoPrevEpisode === "function") window.mzKoiGoPrevEpisode();
+              };
+              if (next) next.onclick = function () {
+                if (typeof window.mzKoiGoNextEpisode === "function") window.mzKoiGoNextEpisode();
+              };
+            } catch (_) {}
+          }, 0);
         }
         return;
       }
