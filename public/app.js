@@ -4554,6 +4554,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     const __posterCol = document.querySelector(".mz-stremio-poster-col");
     if (__posterEl) __posterEl.classList.add("mz-poster-hidden");
     if (__posterCol) __posterCol.classList.add("mz-hide-poster");
+    // Portada de la tarjeta/lista (no pisar luego con Metahub del detalle)
+    window.__mzPortadaLista = item.portada_fuente_raw || item.portada || null;
     if (__posterEl) __posterEl.src = item.portada || PLACEHOLDER;
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
@@ -4837,7 +4839,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 // Repintar metadatos (título principal fijo; original abajo)
                 // Repintar metadatos (título principal fijo; original abajo)
                 fijarTitulosItem(item, item.nombre);
-                document.getElementById("details-poster").src = item.portada || PLACEHOLDER;
+                (function () {
+                  const lista = window.__mzPortadaLista;
+                  const det = item.portada;
+                  const esMeta = (u) =>
+                    /metahub\.space|media-amazon\.com/i.test(String(u || ""));
+                  const final =
+                    (lista && !esMeta(lista) ? lista : null) ||
+                    (det && !esMeta(det) ? det : null) ||
+                    det ||
+                    lista ||
+                    PLACEHOLDER;
+                  item.portada = final === PLACEHOLDER ? item.portada : final;
+                  document.getElementById("details-poster").src =
+                    item.portada || PLACEHOLDER;
+                })();
                 setDetailBackdrop(item);
                 setDetalleImdb(item);
                 setDetalleLogo(item);
@@ -5402,7 +5418,15 @@ async function cambiarProveedor(item, alt) {
 
         seleccionActual = item;
         document.getElementById("details-title").textContent = item.nombre || item.titulo || "";
-        if (item.portada) document.getElementById("details-poster").src = item.portada;
+        if (item.portada) {
+          const lista = window.__mzPortadaLista;
+          const esMeta = (u) => /metahub\.space|media-amazon\.com/i.test(String(u || ""));
+          const p =
+            (lista && !esMeta(lista) ? lista : null) ||
+            (!esMeta(item.portada) ? item.portada : null) ||
+            item.portada;
+          document.getElementById("details-poster").src = p;
+        }
 
         document.getElementById("seasons-section")?.classList.remove("hidden");
         renderProveedorSwitcher(item);
