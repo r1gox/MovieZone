@@ -942,3 +942,166 @@ body #mz-kp-dl-panel.mz-kp-dl-panel.hidden {
   position: relative !important;
   touch-action: manipulation !important;
 }
+
+
+/* ========== Panel Descargas (estilo app) ========== */
+#mz-koi-ep-view #mz-kp-dl-panel.mz-kp-dl-panel,
+body #mz-kp-dl-panel.mz-kp-dl-panel,
+.mz-kp-dl-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  background: rgba(2, 6, 23, 0.72) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-sizing: border-box !important;
+}
+#mz-koi-ep-view #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
+body #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
+.mz-kp-dl-panel.hidden {
+  display: none !important;
+}
+
+.mz-kp-dl-sheet {
+  width: 100% !important;
+  max-width: 520px !important;
+  max-height: 72vh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  background: linear-gradient(180deg, #1a2438 0%, #0b1220 55%, #080e18 100%) !important;
+  border-radius: 20px 20px 0 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-bottom: none !important;
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.55) !important;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+  color: #e2e8f0 !important;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+}
+
+/* handle visual */
+.mz-kp-dl-sheet::before {
+  content: "" !important;
+  display: block !important;
+  width: 40px !important;
+  height: 4px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  margin: 4px auto 12px !important;
+}
+
+.mz-kp-dl-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin: 0 0 14px !important;
+  padding: 0 2px !important;
+}
+.mz-kp-dl-title {
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+  letter-spacing: 0.01em !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+.mz-kp-dl-close {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+  font-size: 1.35rem !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+}
+.mz-kp-dl-close:active {
+  background: rgba(255, 255, 255, 0.16) !important;
+}
+
+.mz-kp-dl-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.mz-kp-dl-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 14px 14px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #e2e8f0 !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.25 !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+.mz-kp-dl-row:active {
+  background: rgba(0, 229, 255, 0.12) !important;
+  border-color: rgba(0, 229, 255, 0.35) !important;
+}
+
+.mz-kp-dl-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: #f1f5f9 !important;
+  font-weight: 700 !important;
+}
+
+.mz-kp-dl-lang {
+  flex: 0 0 auto !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  background: #2563eb !important;
+  color: #fff !important;
+  line-height: 1.2 !important;
+}
+
+.mz-kp-dl-action {
+  flex: 0 0 auto !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  color: #67e8f9 !important;
+  text-transform: uppercase !important;
+}
+
+.mz-kp-dl-empty {
+  color: #94a3b8 !important;
+  font-size: 0.95rem !important;
+  padding: 20px 8px 12px !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
+}
