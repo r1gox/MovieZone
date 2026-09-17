@@ -1023,9 +1023,12 @@
             '<div class="mz-kp-ep-nav" id="mz-kp-ep-nav">' +
               '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-prev">‹ Anterior</button>' +
               '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-next">Siguiente ›</button>' +
-              '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-ep-dl" title="Descargas">↓</button>' +
+              '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-ep-dl" title="Descargas" onclick="try{window.mzKoiOpenDownloads&&window.mzKoiOpenDownloads()}catch(e){}">↓</button>' +
             "</div>" +
-            '<div class="mz-kp-ep-watching" id="mz-kp-ep-watching"><span class="mz-kp-watching-label">Estás viendo</span><span class="mz-kp-watching-ep">T' + sn + " · Episodio " + en + "</span></div>";
+            '<div class="mz-kp-ep-watching" id="mz-kp-ep-watching">' +
+              '<div class="mz-kp-watching-label">Estás viendo</div>' +
+              '<div class="mz-kp-watching-ep">T' + sn + " · Episodio " + en + "</div>" +
+            "</div>";
           if (hero && hero.parentNode) {
             if (bar.parentNode !== hero.parentNode) hero.parentNode.insertBefore(bar, hero.nextSibling);
             else hero.parentNode.insertBefore(bar, hero.nextSibling);
@@ -1112,6 +1115,11 @@
     side.style.display = "";
     list.innerHTML = "";
     var eps = Array.isArray(item.episodios) ? item.episodios.slice() : [];
+    if (!eps.length && Array.isArray(item.episodes)) eps = item.episodes.slice();
+    try {
+      if (!isPc()) list.classList.add("mz-kp-ep-num-grid");
+      else list.classList.remove("mz-kp-ep-num-grid");
+    } catch (_) {}
     eps.sort(function (a, b) {
       var sa = seasonOf(a, 1),
         sb = seasonOf(b, 1);
@@ -1364,6 +1372,22 @@
       } catch (e2) {
         console.warn("renderSidebar", e2);
       }
+      // Forzar sidebar visible en móvil (CSS movie-mode la ocultaba)
+      try {
+        if (mobile) {
+          var side2 = $("mz-kp-sidebar");
+          if (side2) {
+            side2.classList.remove("hidden");
+            side2.classList.add("mz-kp-sidebar-mobile-ep");
+            side2.style.setProperty("display", "block", "important");
+            side2.style.setProperty("visibility", "visible", "important");
+          }
+          var list2 = $("mz-kp-ep-list");
+          if (list2) {
+            list2.style.setProperty("display", "grid", "important");
+          }
+        }
+      } catch (_) {}
 
       destroyHls();
       showPoster(item, "Elige un reproductor para comenzar");
@@ -1554,6 +1578,7 @@
     );
   }
 
+  window.mzKoiOpenDownloads = openDownloadsPanel;
   window.mzKoiGoPrevEpisode = function () { goAdjacentEpisode(-1); };
   window.mzKoiGoNextEpisode = function () { goAdjacentEpisode(1); };
   window.mzKoiOpenEpisode = openEpisode;
