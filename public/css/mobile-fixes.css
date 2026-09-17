@@ -1178,4 +1178,33 @@
     border-radius: 3px !important;
   }
 
+
+
+  /* Koi abierto: detalle NO se ve (play + episodios debajo) */
+  body.mz-koi-ep-open #details-panel,
+  body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    z-index: 0 !important;
+  }
+  body.mz-koi-ep-open .koi-hero,
+  body.mz-koi-ep-open .koi-btn-play,
+  body.mz-koi-ep-open #seasons-section,
+  body.mz-koi-ep-open #episodes-container,
+  body.mz-koi-ep-open #servers-section {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view,
+  body.mz-koi-ep-open #mz-koi-ep-view.open {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100200 !important;
+  }
+
 } /* fin @media */
