@@ -59,12 +59,13 @@ const API_BASE = (process.env.MOVIEZONE_API || "https://moviezone.tvjz.workers.d
 // Fuente por defecto para listados de estrenos / populares (3 = pelisplushd)
 // Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=animedbs 6=doramasflix
 // Worker: 1=lamovie 2=hackstore 3=pelisplushd 4=animeav1 5=jkanime 6=doramasflix
-const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "3";
+const DEFAULT_SOURCE = process.env.MOVIEZONE_SOURCE || "9"; // se cambia a 3 si es asi o necesario
 
 function resolverSourceId(val) {
   if (val == null || val === "") return DEFAULT_SOURCE;
   const s = String(val).toLowerCase().trim();
-  if (/^[1-6]$/.test(s)) return s;
+  
+  /*if (/^[1-6]$/.test(s)) return s;
   const map = {
     lamovie: "1",
     hackstore: "2",
@@ -76,6 +77,23 @@ function resolverSourceId(val) {
     animedbs: "5", // legacy → jkanime
     doramasflix: "6",
     doramaflix: "6",
+  };*/
+    
+  if (/^[1-9]$/.test(s)) return s;
+  const map = {
+    lamovie: "1",
+    hackstore: "2",
+    pelisplushd: "3",
+    pelisplus: "3",
+    animeav1: "4",
+    jkanime: "5",
+    jk: "5",
+    animedbs: "5",
+    doramasflix: "6",
+    doramaflix: "6",
+    pelisplushd_bz: "9",
+    ppbz: "9",
+    bz: "9",
   };
   return map[s] || DEFAULT_SOURCE;
 }
@@ -1671,7 +1689,8 @@ async function obtenerPeliculasSeccion(page = 1, limit = 24) {
   try {
     let data;
     if (page === 1) {
-      data = await apiGet(`/${DEFAULT_SOURCE}/peliculas/estrenos`);
+   //   data = await apiGet(`/${DEFAULT_SOURCE}/peliculas/estrenos`); este es para pelisplushd 3
+      data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
     } else {
       data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
     }
