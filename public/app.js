@@ -2208,7 +2208,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.episode = epNum;
 
   // Vista móvil propia (sin Koi)
-  mzForceEpLikeMovieShell(true);
+  /* shell once at end */
 
   
 
@@ -2253,7 +2253,6 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   }
 
   _epPlayCtx = { item, season: seasonNum, episode: epNum, episodio };
-  try { mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum); } catch (_) {}
   actualizarMobileEpNav(_epPlayCtx);
   try { if (typeof actualizarBotonesEpPlayer === "function") actualizarBotonesEpPlayer(); } catch (_) {}
 
@@ -2360,7 +2359,8 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
       document.getElementById("video-player-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   } catch (_) {}  
-    mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum);
+    /* shell once at end */
+  try { mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum); } catch (_) {}
   document.getElementById("mz-mep-back")?.classList.remove("hidden");
   return true;
 }
@@ -8170,32 +8170,33 @@ function mzReplaceHomeUrl() {
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
                 await abrirDetalle(item);
                 if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
-                    // Esperar episodios y abrir vista (móvil o click)
+                    // Recarga en /detalle/slug/s/e: abrir episodio sin doble Koi + shell roto
                     setTimeout(async () => {
                         try {
                             const ep = (item.episodios || []).find(function (x) {
                                 return Number(x.season || x.temporada || 1) === season &&
                                   Number(x.episode || x.episodio || 0) === episode;
                             }) || { season: season, episode: episode, nombre: "Episodio " + episode };
-                            if (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI() &&
-                                typeof abrirVistaMovilEpisodio === "function") {
-                                (async function(){
-                                  let okDl = false;
-                                  if (typeof window.mzKoiOpenEpisode === "function") {
-                                    okDl = !!(await window.mzKoiOpenEpisode(item, ep, season, episode));
-                                  }
-                                  if (!okDl && typeof abrirVistaMovilEpisodio === "function") {
-                                    await abrirVistaMovilEpisodio(item, ep, season, episode);
-                                  }
-                                })();
-                                try { mzForceEpLikeMovieShell(true, item, episodio, seasonNum, epNum); } catch (_) {}
-                                setTimeout(function () { try { mzForceEpLikeMovieShell(true); } catch (_) {} }, 400);
+                            const mobile =
+                              (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
+                              (typeof window !== "undefined" && window.innerWidth <= 768);
+                            const pc =
+                              (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
+                              window.innerWidth >= 1025;
+                            if (mobile && typeof abrirVistaMovilEpisodio === "function") {
+                              // Solo vista móvil (NO Koi: se superpone y buguea al recargar)
+                              await abrirVistaMovilEpisodio(item, ep, season, episode);
+                            } else if (pc && typeof window.mzKoiOpenEpisode === "function") {
+                              await window.mzKoiOpenEpisode(item, ep, season, episode);
                             } else {
-                                const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
-                                if (btn) btn.click();
+                              const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
+                              if (btn) btn.click();
+                              else if (typeof abrirVistaMovilEpisodio === "function") {
+                                await abrirVistaMovilEpisodio(item, ep, season, episode);
+                              }
                             }
                         } catch (e) { console.warn("deep ep", e); }
-                    }, 900);
+                    }, 700);
                 }
             }
             return;
