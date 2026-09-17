@@ -2189,11 +2189,11 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.season = seasonNum;
   episodio.episode = epNum;
 
-  // Preferir Koi (misma UI que película) — evita doble vista / bug
+  // Solo Koi si existe (no mezclar con shell móvil)
   try {
     if (typeof window.mzKoiOpenEpisode === "function") {
-      const ok = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-      if (ok) return true;
+      await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+      return true;
     }
   } catch (e) {
     console.warn("abrirVista→koi", e);
@@ -2444,17 +2444,16 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
     (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
     /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-  // Serie/anime: misma interfaz Koi que película (PC y móvil), sin autoplay
+  // Serie/anime: solo Koi, sin continuar al flujo de autoplay/detalle
   if (serie && !window.__mzForceAutoPlay) {
     try {
       if (typeof window.mzKoiOpenEpisode === "function") {
-        const ok = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-        if (ok) return false;
+        await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
       }
     } catch (e) {
       console.error("mzKoiOpenEpisode:", e);
     }
-    if (pc) return false;
+    return false;
   }
 
   // —— Móvil / película / force: flujo original ——
@@ -6194,17 +6193,19 @@ function renderEpisodios(item, season = 1) {
               (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
               /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-            // PC y móvil: misma interfaz Koi que película (The Fix)
+            // Serie/anime: SOLO vista Koi (nunca detalle + koi a la vez)
             if (serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
               if (window.__mzOpeningEp) return;
               window.__mzOpeningEp = true;
               try {
-                const okKoi = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-                if (okKoi) return;
+                await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+              } catch (eK) {
+                console.error("mzKoiOpenEpisode", eK);
               } finally {
                 window.__mzOpeningEp = false;
               }
+              return; // no seguir a reproducirCapituloAuto / shell móvil
             }
             if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
               await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
