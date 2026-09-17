@@ -633,3 +633,8 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-sidebar {
     border: none !important; background: transparent !important; padding: 0 !important;
   }
 }
+
+body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
