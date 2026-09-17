@@ -320,7 +320,7 @@
   body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb {
     width: 100% !important;
     height: auto !important;
-    aspect-ratio: 16 / 10 !important;
+    aspect-ratio: 16 / 9 !important;
     min-height: 150px !important;
     max-height: none !important;
     border-radius: 0 !important;
@@ -973,33 +973,38 @@
 
 
 
-  /* ============================================================
-     FALLA REAL: el layout "Reproducir" solo existía para koi-movie.
-     Series/anime con player-open NO tenían esas reglas → se veía igual.
-     Aquí se copia el modo película para koi-serie + mz-mobile-ep-playing.
-     ============================================================ */
 
-  /* Quitar X de cerrar (solo retroceder) */
-  body.mz-mobile-ep-playing #close-player-btn,
-  body.mz-mobile-ep-playing .btn-close-player,
-  body.details-open.koi-desktop.koi-serie.player-open #close-player-btn,
-  body.details-open.koi-desktop.koi-serie.player-open .btn-close-player,
-  body.mz-mobile-ep-playing .btn-close-modal,
-  body.details-open.koi-desktop.koi-serie.player-open .btn-close-modal {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    opacity: 0 !important;
+
+  /* ============================================================
+     DETALLE serie: cards 2 cols, 16:9 (NO aplastadas)
+     ============================================================ */
+  body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid,
+  body.details-open.koi-desktop.koi-serie:not(.player-open):not(.mz-mobile-ep-playing) #episodes-container {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px 10px !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.koi-ep-card .koi-ep-thumb,
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
+    aspect-ratio: 16 / 9 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 90px !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
+    height: auto !important;
+    min-height: 0 !important;
+    flex-direction: column !important;
   }
 
-  /* Hero oculto en modo player (serie = igual que peli) */
-  body.details-open.koi-desktop.player-open .koi-hero,
-  body.details-open.koi-desktop.koi-serie.player-open .koi-hero,
-  body.mz-mobile-ep-playing .koi-hero,
-  body.mz-mobile-ep-playing .koi-hero-overlay,
-  body.mz-mobile-ep-playing .koi-hero-content {
+  /* ============================================================
+     /1/1 — misma idea que película al Reproducir (SOLO móvil)
+     ============================================================ */
+  body.mz-mobile-ep-playing #koi-hero,
+  body.mz-mobile-ep-playing #koi-hero * {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing .koi-hero {
     display: none !important;
     height: 0 !important;
     min-height: 0 !important;
@@ -1007,296 +1012,102 @@
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
-    opacity: 0 !important;
   }
 
-  /* Fondo sólido tipo película */
-  body.mz-mobile-ep-playing #details-panel,
-  body.details-open.koi-desktop.koi-serie.player-open #details-panel {
-    background: #060913 !important;
+  body.mz-mobile-ep-playing .details-content-inner,
+  body.mz-mobile-ep-playing #details-content {
+    display: block !important;
   }
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg,
-  body.mz-mobile-ep-playing #details-panel .mz-stremio-bg-img,
-  body.details-open.koi-desktop.koi-serie.player-open #details-panel .mz-stremio-bg {
+  body.mz-mobile-ep-playing .mz-detail-layout {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Esta columna está display:none en detalle serie; en /1/1 debe verse */
+  body.mz-mobile-ep-playing .mz-meta-col,
+  body.mz-mobile-ep-playing .details-content-inner .mz-meta-col {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    visibility: visible !important;
+    padding: 0 12px 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  body.mz-mobile-ep-playing #video-player-container,
+  body.mz-mobile-ep-playing #video-player-container.hidden {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    min-height: 180px !important;
+    height: auto !important;
+    margin: 8px 0 12px !important;
+    border-radius: 12px !important;
+    border: 1px solid #1e293b !important;
+    background: #0b0f1a !important;
+    overflow: hidden !important;
+  }
+
+  body.mz-mobile-ep-playing #servers-section {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.mz-mobile-ep-playing .mz-synopsis-section,
+  body.mz-mobile-ep-playing .mz-stremio-poster-col {
     display: none !important;
   }
 
-  /* Layout: player arriba + datos abajo (como koi-movie.player-open) */
-  body.mz-mobile-ep-playing .mz-detail-layout,
-  body.details-open.koi-desktop.koi-serie.player-open .mz-detail-layout {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0 !important;
-    padding: 0 0 28px !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-  }
-  body.mz-mobile-ep-playing .mz-meta-col,
-  body.details-open.koi-desktop.koi-serie.player-open .mz-meta-col {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: none !important;
+  body.mz-mobile-ep-playing .mz-streams-col {
+    display: block !important;
     width: 100% !important;
     visibility: visible !important;
-    padding: 0 !important;
-  }
-  /* En episodio NO ocultar streams (ahí van seasons/eps); en peli sí se oculta */
-  body.mz-mobile-ep-playing .mz-streams-col,
-  body.details-open.koi-desktop.koi-serie.player-open .mz-streams-col {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    visibility: visible !important;
-    padding: 0 10px !important;
-  }
-
-  /* Cuadro player — mismo criterio que película */
-  body.mz-mobile-ep-playing #video-player-container,
-  body.mz-mobile-ep-playing #video-player-container.hidden,
-  body.details-open.koi-desktop.koi-serie.player-open #video-player-container,
-  body.details-open.koi-desktop.koi-serie.player-open #video-player-container.hidden {
-    display: block !important;
-    position: relative !important;
-    width: auto !important;
-    max-width: 100% !important;
-    margin: 8px 10px 10px !important;
-    border-radius: 14px !important;
-    overflow: hidden !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    background: #000 !important;
-    aspect-ratio: 16 / 9 !important;
-    height: auto !important;
-    min-height: 0 !important;
-  }
-  body.mz-mobile-ep-playing .player-iframe-wrapper {
-    position: relative !important;
-    width: 100% !important;
-    height: 100% !important;
-    padding-bottom: 0 !important;
-    aspect-ratio: 16 / 9 !important;
-  }
-
-  /* Header del player sin X, título compacto */
-  body.mz-mobile-ep-playing .player-header {
-    display: flex !important;
-    align-items: center !important;
-    padding: 8px 12px !important;
-    gap: 8px !important;
-  }
-  body.mz-mobile-ep-playing #player-title {
-    font-size: 0.9rem !important;
-    font-weight: 700 !important;
-  }
-
-  /* Estás viendo: sin caja */
-  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
-    display: block !important;
-    margin: 0 12px 8px !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-watching-label {
-    display: inline !important;
-    font-size: 0.72rem !important;
-    color: #94a3b8 !important;
-    font-weight: 600 !important;
-    margin-right: 6px !important;
-  }
-  body.mz-mobile-ep-playing .mz-mep-watching-ep {
-    display: inline !important;
-    font-size: 0.9rem !important;
-    font-weight: 700 !important;
-    color: #f1f5f9 !important;
+    padding: 0 12px 28px !important;
   }
 
   body.mz-mobile-ep-playing #mz-mobile-ep-nav {
     display: flex !important;
-    margin: 0 10px 10px !important;
+    gap: 8px !important;
+    margin: 0 0 10px !important;
   }
-  body.mz-mobile-ep-playing #servers-section,
-  body.details-open.koi-desktop.koi-serie.player-open #servers-section {
-    display: block !important;
-    visibility: visible !important;
-    margin: 0 10px 12px !important;
-  }
-
-  /* Episodios en detalle: más anchos horizontalmente, 2 cols */
-  body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container.episodes-grid,
-  body.details-open.koi-desktop.koi-serie:not(.player-open) #episodes-container {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 12px 10px !important;
-  }
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.koi-ep-card .koi-ep-thumb,
-  body.details-open.koi-desktop.koi-serie:not(.player-open) .episode-btn.mz-mobile-ep-card .mz-mep-thumb {
-    aspect-ratio: 2.2 / 1 !important;
-    width: 100% !important;
-  }
-
-  /* Botón retroceder visible; X modal no */
-  body.mz-mobile-ep-playing #mz-mep-back {
-    display: flex !important;
-  }
-
-
-     /* Episodio: misma cáscara que película; sinopsis → datos de serie */
-  body.mz-mobile-ep-playing.koi-movie.player-open .mz-synopsis-section,
-  body.mz-mobile-ep-playing.koi-movie.player-open #details-synopsis {
-    display: none !important;
-  }
-
-  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-watching,
-  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-nav,
-  body.mz-mobile-ep-playing.koi-movie.player-open #servers-section,
-  body.mz-mobile-ep-playing.koi-movie.player-open #seasons-section,
-  body.mz-mobile-ep-playing.koi-movie.player-open #episodes-container {
-    display: block !important;
-    visibility: visible !important;
-  }
-
-  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-nav {
-    display: flex !important;
-  }
-
-  /* Estás viendo sin caja, debajo del player */
   body.mz-mobile-ep-playing #mz-mobile-ep-watching {
-    background: none !important;
+    display: block !important;
+    background: transparent !important;
     border: none !important;
-    padding: 0 12px !important;
-    margin: 8px 0 !important;
-  }
-
-  /* EPISODIO = vista PELÍCULA Reproducir + datos serie (streams visible) */
-  body.mz-mobile-ep-playing.koi-movie.player-open .koi-hero {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open .mz-meta-col {
-    display: flex !important;
-    flex-direction: column !important;
-    visibility: visible !important;
-    width: 100% !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open #video-player-container,
-  body.mz-mobile-ep-playing.koi-movie.player-open #video-player-container.hidden {
-    display: block !important;
-    width: 100% !important;
-    margin: 8px 0 12px !important;
-    border-radius: 12px !important;
-    background: #000 !important;
-    aspect-ratio: 16 / 9 !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open .mz-synopsis-section {
-    display: none !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open #servers-section {
-    display: block !important;
-    visibility: visible !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-nav {
-    display: flex !important;
-  }
-  body.mz-mobile-ep-playing.koi-movie.player-open #mz-mobile-ep-watching {
-    display: block !important;
-    background: none !important;
-    border: none !important;
-    padding: 0 12px !important;
-  }
-  /* Peli oculta streams-col; episodio la necesita */
-  body.mz-mobile-ep-playing.koi-movie.player-open .mz-streams-col {
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    padding: 0 10px 24px !important;
+    padding: 0 !important;
+    margin: 0 0 10px !important;
   }
   body.mz-mobile-ep-playing #close-player-btn {
     display: none !important;
   }
 
-
-
-  /* ===== /1/1 NUCLEAR: interfaz tipo película Reproducir ===== */
-  body.details-open.mz-mobile-ep-playing #koi-hero,
-  body.details-open.mz-mobile-ep-playing .koi-hero-overlay,
-  body.details-open.mz-mobile-ep-playing .koi-hero-content {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    overflow: hidden !important;
-    visibility: hidden !important;
-    margin: 0 !important;
+  /* Números de episodio en /1/1: cuadrados, NO aplastados */
+  body.mz-mobile-ep-playing #episodes-container.mz-ep-num-grid,
+  body.mz-mobile-ep-playing #episodes-container {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container .episode-btn,
+  body.mz-mobile-ep-playing #episodes-container .mz-ep-num-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 48px !important;
+    aspect-ratio: auto !important;
     padding: 0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
   }
-
-  body.details-open.mz-mobile-ep-playing .details-content-inner,
-  body.details-open.mz-mobile-ep-playing #details-content {
-    display: block !important;
-    visibility: visible !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing .mz-detail-layout {
-    display: flex !important;
-    flex-direction: column !important;
-  }
-
-  /* Columna que en detalle serie está oculta: aquí LLEVA el player + servers */
-  body.details-open.mz-mobile-ep-playing .details-content-inner .mz-meta-col,
-  body.details-open.mz-mobile-ep-playing .mz-meta-col {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    visibility: visible !important;
-    padding: 0 12px 12px !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing #video-player-container,
-  body.details-open.mz-mobile-ep-playing #video-player-container.hidden {
-    display: block !important;
-    width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    background: #0b0f1a !important;
-    border: 1px solid #1e293b !important;
-    border-radius: 12px !important;
-    margin: 8px 0 12px !important;
-    overflow: hidden !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing #servers-section {
-    display: block !important;
-    visibility: visible !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing .mz-synopsis-section {
-    display: none !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing .mz-stremio-poster-col {
-    display: none !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing .mz-streams-col {
-    display: block !important;
-    width: 100% !important;
-    visibility: visible !important;
-    padding: 0 12px 24px !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing #mz-mobile-ep-nav {
-    display: flex !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing #mz-mobile-ep-watching {
-    display: block !important;
-    background: transparent !important;
-    border: none !important;
-  }
-
-  body.details-open.mz-mobile-ep-playing #close-player-btn {
+  body.mz-mobile-ep-playing #episodes-container .mz-mep-thumb,
+  body.mz-mobile-ep-playing #episodes-container .koi-ep-thumb,
+  body.mz-mobile-ep-playing #episodes-container img {
     display: none !important;
   }
 
