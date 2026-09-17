@@ -2190,6 +2190,15 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.season = seasonNum;
   episodio.episode = epNum;
 
+  // Preferir Koi (misma UI que película) — evita doble vista / bug
+  try {
+    if (typeof window.mzKoiOpenEpisode === "function") {
+      const ok = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+      if (ok) return true;
+    }
+  } catch (e) {
+    console.warn("abrirVista→koi", e);
+  }
 
   mzForceEpLikeMovieShell(true);
 
@@ -5566,7 +5575,8 @@ function normalizarListaTemporadas(item) {
             nombre: ep.name || ep.titulo || ("Episodio " + (ep.episode_number || idx + 1)),
             embeds: [],
             video: null,
-            still: ep.still || null
+            still: ep.still || null,
+            back_img: ep.back_img || ep.screenshot || null
         }));
         if (!episodios.length && ts.episode_count) {
             for (let e = 1; e <= Math.min(Number(ts.episode_count) || 0, 50); e++) {
@@ -6078,16 +6088,10 @@ function renderEpisodios(item, season = 1) {
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
-            const thumb =
-                episodio.backdrop ||
-                episodio.still ||
-                episodio.imagen ||
-                episodio.image ||
-                episodio.thumbnail ||
-                item.backdrop ||
-                episodio.portada ||
-                item.portada ||
-                PLACEHOLDER;
+            const isAnimeCard = /anime/i.test(String(item.tipo || item.type || ""));
+            const thumb = isAnimeCard
+                ? (episodio.back_img || episodio.screenshot || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || episodio.portada || item.portada || PLACEHOLDER)
+                : (episodio.back_img || episodio.backdrop || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || item.backdrop || episodio.portada || item.portada || PLACEHOLDER);
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
             if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
@@ -6110,16 +6114,10 @@ function renderEpisodios(item, season = 1) {
               btn.textContent = String(num);
               btn.classList.add("mz-ep-num-btn");
             } else {
-              const thumb =
-                  episodio.backdrop ||
-                  episodio.still ||
-                  episodio.imagen ||
-                  episodio.image ||
-                  episodio.thumbnail ||
-                  item.backdrop ||
-                  episodio.portada ||
-                  item.portada ||
-                  PLACEHOLDER;
+              const isAnimeMob = /anime/i.test(String(item.tipo || item.type || ""));
+              const thumb = isAnimeMob
+                  ? (episodio.back_img || episodio.screenshot || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || episodio.portada || item.portada || PLACEHOLDER)
+                  : (episodio.back_img || episodio.backdrop || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || item.backdrop || episodio.portada || item.portada || PLACEHOLDER);
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
                   `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
