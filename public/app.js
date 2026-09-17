@@ -6348,25 +6348,45 @@ function renderEpisodios(item, season = 1) {
         const btn = document.createElement("button");
         const num = episodioNumero(episodio, index);
         const epNombre = episodio.nombre || `Episodio ${num}`;
-        // Móvil: misma card que PC (koi-ep-card) para que mobile-fixes.css pinte la imagen
+        // Cards episodio
         const epPlaying = document.body.classList.contains("mz-mobile-ep-playing");
         const serieCards =
           typeof isSerieOrAnime === "function" && isSerieOrAnime(item);
-        const koiCards = isKoiDesktop() && serieCards;
-        const mobileCards = !isKoiDesktop() && serieCards && !epPlaying;
-        const useImgCard = (koiCards || mobileCards) && !epPlaying;
+        const isPc = typeof isKoiDesktop === "function" && isKoiDesktop();
+        const koiCards = isPc && serieCards;
+        // Móvil detalle: card compacta imagen + T•E (sin título de serie)
+        const mobileCards = !isPc && serieCards && !epPlaying;
         btn.className =
           "episode-btn" +
           (index === 0 ? " active" : "") +
-          (useImgCard || koiCards ? " koi-ep-card" : "") +
+          (koiCards ? " koi-ep-card" : "") +
           (mobileCards ? " mz-mobile-ep-card" : "") +
           (epPlaying ? " mz-ep-num-btn" : "");
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
         if (epPlaying) {
-            // En /1/1 solo número (mobile-fixes oculta thumbs)
             btn.textContent = String(num);
-        } else if (useImgCard) {
+        } else if (mobileCards) {
+            let thumb =
+                episodio.back_img ||
+                episodio.screenshot ||
+                episodio.still ||
+                (typeof mzEpisodeThumb === "function"
+                  ? mzEpisodeThumb(episodio, item, num)
+                  : null);
+            if (!thumb && item && item._av1ShotId && num > 0) {
+              thumb = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + num + ".jpg";
+            }
+            if (!thumb) thumb = PLACEHOLDER;
+            const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            btn.innerHTML =
+                '<span class="mz-mep-thumb"><img src="' +
+                String(thumb).replace(/"/g, "") +
+                '" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.src=\'' +
+                String(PLACEHOLDER).replace(/'/g, "") +
+                '\'"/></span>' +
+                '<span class="mz-mep-label">T' + sLab + " • E" + num + "</span>";
+        } else if (koiCards) {
             let thumb =
                 episodio.back_img ||
                 episodio.screenshot ||
@@ -6386,17 +6406,25 @@ function renderEpisodios(item, season = 1) {
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
             btn.innerHTML =
-                `<span class="koi-ep-thumb mz-mep-thumb"><img src="${String(thumb || "").replace(/"/g, "")}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.onerror=null;this.style.opacity=0.3"/>` +
-                `<span class="koi-ep-dur">${dur ? dur : ("E" + num)}</span>` +
-                `</span>` +
-                `<span class="koi-ep-meta">` +
-                `<span class="koi-ep-series">${safeSeries}</span>` +
-                `<span class="koi-ep-name">T${sLab} · ${labelName}</span>` +
-                `<span class="mz-mep-label">T${sLab} • E${num}</span>` +
-                `</span>`;
+                '<span class="koi-ep-thumb"><img src="' +
+                String(thumb).replace(/"/g, "") +
+                '" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.style.opacity=0.3"/>' +
+                '<span class="koi-ep-dur">' +
+                (dur ? dur : "E" + num) +
+                "</span></span>" +
+                '<span class="koi-ep-meta">' +
+                '<span class="koi-ep-series">' +
+                safeSeries +
+                "</span>" +
+                '<span class="koi-ep-name">T' +
+                sLab +
+                " · " +
+                labelName +
+                "</span></span>";
         } else {
             btn.textContent = num;
         }
+
         if (!tieneVideo) btn.style.opacity = "0.55";
 
         btn.addEventListener("click", async () => {
