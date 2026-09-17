@@ -4652,6 +4652,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     }
                     if (Array.isArray(completo.episodios) && completo.episodios.length) {
                         item.episodios = completo.episodios;
+                        try { mzHydrateAnimeBackImg(item); } catch (_) {}
                     }
                     // Restaurar meta (no dejar que API ponga slug / inglés)
                     Object.keys(keepMeta).forEach(function (k) {
@@ -5486,7 +5487,48 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 
 
 
-/** Imagen de episodio: back_img API o screenshot AnimeAV1 desde covers/{id} */
+/** Imagen de episodio anime: back_img de lista o screenshots/{id}/{n}.jpg */
+
+/** Rellena back_img en episodios desde temporadas_raw[].lista (AnimeAV1) */
+function mzHydrateAnimeBackImg(item) {
+  if (!item || !/anime/i.test(String(item.tipo || item.type || ""))) return item;
+  const byKey = new Map();
+  const raws = []
+    .concat(Array.isArray(item.temporadas_raw) ? item.temporadas_raw : [])
+    .concat(Array.isArray(item.temporadas) ? item.temporadas.filter((t) => t && typeof t === "object") : []);
+  for (const t of raws) {
+    const lista = (t && (t.lista || (Array.isArray(t.episodios) ? t.episodios : null))) || [];
+    if (!Array.isArray(lista)) continue;
+    for (const ep of lista) {
+      if (!ep || typeof ep !== "object") continue;
+      const back = ep.back_img || ep.screenshot || ep.still || null;
+      if (!back) continue;
+      const s = Number(ep.temporada || ep.season || t.temporada || t.season || 1) || 1;
+      const n = Number(ep.episodio || ep.episode || ep.episode_number || 0) || 0;
+      if (n > 0) byKey.set(s + ":" + n, back);
+      // también por número solo (anime 1 temp)
+      if (n > 0 && !byKey.has("1:" + n)) byKey.set("1:" + n, back);
+    }
+  }
+  if (!byKey.size) return item;
+  if (Array.isArray(item.episodios)) {
+    item.episodios = item.episodios.map((ep) => {
+      if (!ep) return ep;
+      if (ep.back_img) return ep;
+      const s = Number(ep.season || ep.temporada || 1) || 1;
+      const n = Number(ep.episode || ep.episodio || 0) || 0;
+      const back = byKey.get(s + ":" + n) || byKey.get("1:" + n);
+      if (!back) return ep;
+      return Object.assign({}, ep, {
+        back_img: back,
+        still: ep.still || back,
+        imagen: ep.imagen || back,
+      });
+    });
+  }
+  return item;
+}
+
 function mzEpisodeThumb(episodio, item, num) {
   if (!episodio) episodio = {};
   const n = Number(num || episodio.episode || episodio.episodio || 0) || 0;
@@ -5498,23 +5540,66 @@ function mzEpisodeThumb(episodio, item, num) {
     episodio.image ||
     episodio.thumbnail ||
     null;
-  if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
-  // AnimeAV1: portada covers/ID.jpg → screenshots/ID/N.jpg
-  const port = String(
-    item && (item.portada_fuente_raw || item.portada_fuente || item.portada || item.poster || "")
-  );
-  let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
-  if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
-  if (m && n > 0) {
-    return "https://cdn.animeav1.com/screenshots/" + m[1] + "/" + n + ".jpg";
+  if (direct && /^https?:\/\//i.test(String(direct))) {
+    // Guardar id animeav1 para hermanos sin back_img
+    try {
+      const mm = String(direct).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+      if (mm && item) item._av1ShotId = mm[1];
+    } catch (_) {}
+    return String(direct);
   }
-  // media id guardado
-  const mid = item && (item.animeav1_id || item.media_id || item.av1_id);
-  if (mid && n > 0 && /^\d+$/.test(String(mid))) {
+  // Id cacheado desde otra cap
+  let mid =
+    (item && (item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id)) || null;
+  if (!mid) {
+    const port = String(
+      (item &&
+        (item.portada_fuente_raw ||
+          item.portada_fuente ||
+          item.portada ||
+          item.poster ||
+          "")) ||
+        ""
+    );
+    let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+    if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+    if (m) mid = m[1];
+  }
+  // Buscar id en cualquier episodio de la temporada
+  if (!mid && item && Array.isArray(item.episodios)) {
+    for (let i = 0; i < item.episodios.length; i++) {
+      const b = item.episodios[i] && item.episodios[i].back_img;
+      if (!b) continue;
+      const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+      if (mm) {
+        mid = mm[1];
+        item._av1ShotId = mid;
+        break;
+      }
+    }
+  }
+  if (!mid && item && Array.isArray(item.temporadas)) {
+    outer: for (let t = 0; t < item.temporadas.length; t++) {
+      const lista = item.temporadas[t] && (item.temporadas[t].lista || item.temporadas[t].episodios);
+      if (!Array.isArray(lista)) continue;
+      for (let j = 0; j < lista.length; j++) {
+        const b = lista[j] && lista[j].back_img;
+        if (!b) continue;
+        const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+        if (mm) {
+          mid = mm[1];
+          item._av1ShotId = mid;
+          break outer;
+        }
+      }
+    }
+  }
+  if (mid && n > 0) {
     return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
   }
+  // Solo anime: no usar backdrop de serie (se ve igual en todos)
   if (/anime/i.test(String((item && (item.tipo || item.type)) || ""))) {
-    return episodio.portada || (item && item.portada) || null;
+    return null;
   }
   return (
     episodio.backdrop ||
@@ -5799,6 +5884,7 @@ function renderTemporadas(item) {
         ).join("");
     }
 
+    try { mzHydrateAnimeBackImg(item); } catch (_) {}
     const loadSeason = async (season, rangoForzado) => {
         const seasonNum = parseInt(season, 10) || 1;
         const episodesContainer = document.getElementById("episodes-container");
@@ -5879,6 +5965,15 @@ function renderTemporadas(item) {
                 item._epRangoActivo = null;
             }
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, mapped);
+            // Cache animeav1 screenshot id
+            try {
+              for (const e of item.episodios || []) {
+                if (e && e.back_img) {
+                  const mm = String(e.back_img).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+                  if (mm) { item._av1ShotId = mm[1]; break; }
+                }
+              }
+            } catch (_) {}
             if (item.totalEpisodios && !item.total_episodios) item.total_episodios = item.totalEpisodios;
             renderEpisodios(item, seasonNum);
             return;
@@ -6004,6 +6099,7 @@ function episodioNumero(ep, index) {
 }
 
 function renderEpisodios(item, season = 1) {
+    try { mzHydrateAnimeBackImg(item); } catch (_) {}
     const episodesContainer = document.getElementById("episodes-container");
     episodesContainer.innerHTML = "";
     item._seasonActiva = season;
@@ -6150,12 +6246,13 @@ function renderEpisodios(item, season = 1) {
         const epNombre = episodio.nombre || `Episodio ${num}`;
         const koiCards = isKoiDesktop() && isSerieOrAnime(item);
         // Móvil: cards con imagen + T1 • E1 (no altera PC)
+        // Móvil/tablet: siempre cards con imagen en detalle (anime/serie)
         const mobileCards =
           !koiCards &&
           typeof isSerieOrAnime === "function" &&
           isSerieOrAnime(item) &&
-          typeof isMobileEpRangesUI === "function" &&
-          isMobileEpRangesUI();
+          (window.innerWidth <= 1024 ||
+            (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()));
         btn.className =
           "episode-btn" +
           (index === 0 ? " active" : "") +
@@ -6165,12 +6262,11 @@ function renderEpisodios(item, season = 1) {
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
             const thumb =
+                episodio.back_img ||
                 (typeof mzEpisodeThumb === "function"
                   ? mzEpisodeThumb(episodio, item, num)
                   : null) ||
-                episodio.back_img ||
                 episodio.still ||
-                item.portada ||
                 PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
@@ -6195,12 +6291,11 @@ function renderEpisodios(item, season = 1) {
               btn.classList.add("mz-ep-num-btn");
             } else {
               const thumb =
+                  episodio.back_img ||
                   (typeof mzEpisodeThumb === "function"
                     ? mzEpisodeThumb(episodio, item, num)
                     : null) ||
-                  episodio.back_img ||
                   episodio.still ||
-                  item.portada ||
                   PLACEHOLDER;
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
