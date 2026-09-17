@@ -1057,94 +1057,125 @@
     var myToken = ++_openToken;
     _openLock = true;
     try {
-    ensureDom();
-    // Si ya está abierto el mismo episodio, no reiniciar (evita flicker)
-    try {
-      var view0 = $("mz-koi-ep-view");
+      ensureDom();
+      seasonNum = Number(seasonNum) || seasonOf(episodio, 1) || 1;
+      epNum = Number(epNum) || epNumOf(episodio, 1) || 1;
+      episodio = episodio || { season: seasonNum, episode: epNum };
+
+      var view = $("mz-koi-ep-view");
+      var mobile = !isPc();
+
+      // Mismo episodio ya abierto → no reiniciar
       if (
-        view0 &&
-        view0.classList.contains("open") &&
+        view &&
+        view.classList.contains("open") &&
         _ctx &&
         _ctx.item &&
-        (String(_ctx.item.slug || _ctx.item.link || "") === String(item.slug || item.link || "")) &&
-        Number(_ctx.season) === Number(seasonNum || seasonOf(episodio, 1)) &&
-        Number(_ctx.episode) === Number(epNum || epNumOf(episodio, 1))
+        String(_ctx.item.slug || _ctx.item.link || "") === String(item.slug || item.link || "") &&
+        Number(_ctx.season) === seasonNum &&
+        Number(_ctx.episode) === epNum
       ) {
         return true;
       }
-    } catch (_) {}
-    destroyHls();
-    _mode = "episode";
-    var view = $("mz-koi-ep-view");
-    var mobile = !isPc();
-    view.classList.add("open");
-    view.setAttribute("aria-hidden", "false");
-    document.body.classList.add("mz-koi-ep-open");
-    // Cerrar shell móvil viejo para no superponer "otro" episodio
-    try {
-      document.body.classList.remove(
-        "mz-mobile-ep-playing",
-        "mz-ep-movie-shell",
-        "mz-mep-dl-open",
-        "mz-mobile-movie-playing"
-      );
-      var dp = document.getElementById("details-panel");
-      if (dp) {
-        dp.classList.add("mz-koi-hidden-under");
-        dp.style.setProperty("visibility", "hidden", "important");
-        dp.style.setProperty("pointer-events", "none", "important");
-      }
-      var nav = document.getElementById("mz-mobile-ep-nav");
-      if (nav) nav.classList.add("hidden");
-      var watch = document.getElementById("mz-mobile-ep-watching");
-      if (watch) watch.classList.add("hidden");
-    } catch (_) {}
-    try {
-      var layout = view.querySelector(".mz-kp-layout");
-      var side = $("mz-kp-sidebar");
-      if (mobile) {
-        view.classList.add("mz-kp-movie-mode", "mz-kp-ep-mobile");
-        if (layout) layout.classList.add("mz-kp-layout-movie");
-        if (side) {
-          side.classList.remove("hidden");
-          side.classList.add("mz-kp-sidebar-mobile-ep");
+
+      _mode = "episode";
+      view.classList.add("open");
+      view.setAttribute("aria-hidden", "false");
+      document.body.classList.add("mz-koi-ep-open");
+
+      // Quitar shell móvil / detalle debajo (evita doble vista)
+      try {
+        document.body.classList.remove(
+          "mz-mobile-ep-playing",
+          "mz-ep-movie-shell",
+          "mz-mep-dl-open",
+          "mz-mobile-movie-playing",
+          "player-open"
+        );
+        var dp = document.getElementById("details-panel");
+        if (dp) {
+          dp.classList.add("mz-koi-hidden-under");
+          dp.style.setProperty("visibility", "hidden", "important");
+          dp.style.setProperty("pointer-events", "none", "important");
         }
-      } else {
-        view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
-        if (layout) layout.classList.remove("mz-kp-layout-movie");
-        if (side) {
-          side.classList.remove("hidden", "mz-kp-sidebar-mobile-ep");
+        ["mz-mobile-ep-nav", "mz-mobile-ep-watching", "mz-mep-dl-panel"].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.classList.add("hidden");
+        });
+        var vcOld = document.getElementById("video-player-container");
+        if (vcOld) {
+          vcOld.classList.add("hidden");
+          var ifr = document.getElementById("player-iframe");
+          if (ifr) ifr.src = "about:blank";
         }
+        if (typeof window.destruirHls === "function") window.destruirHls();
+      } catch (_) {}
+
+      try {
+        var layout = view.querySelector(".mz-kp-layout");
+        var side = $("mz-kp-sidebar");
+        if (mobile) {
+          view.classList.add("mz-kp-movie-mode", "mz-kp-ep-mobile");
+          if (layout) layout.classList.add("mz-kp-layout-movie");
+          if (side) {
+            side.classList.remove("hidden");
+            side.classList.add("mz-kp-sidebar-mobile-ep");
+          }
+        } else {
+          view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
+          if (layout) layout.classList.remove("mz-kp-layout-movie");
+          if (side) {
+            side.classList.remove("hidden", "mz-kp-sidebar-mobile-ep");
+          }
+        }
+      } catch (_) {}
+
+      _ctx = { item: item, episodio: episodio, season: seasonNum, episode: epNum };
+
+      try {
+        fillTitles(item, epLabel(episodio, epNum), mobile ? "episode-mobile" : "episode", episodio);
+      } catch (e1) {
+        console.warn("fillTitles", e1);
       }
-    } catch (_) {}
+      try {
+        renderSidebar(item, epNum, seasonNum);
+      } catch (e2) {
+        console.warn("renderSidebar", e2);
+      }
 
-    seasonNum = Number(seasonNum) || seasonOf(episodio, 1);
-    epNum = Number(epNum) || epNumOf(episodio, 1);
-    _ctx = { item: item, episodio: episodio, season: seasonNum, episode: epNum };
+      destroyHls();
+      showPoster(item, "Elige un reproductor para comenzar");
+      renderServers([]);
+      renderDownloads([]);
 
-    fillTitles(item, epLabel(episodio, epNum), mobile ? "episode-mobile" : "episode", episodio);
-    renderSidebar(item, epNum, seasonNum);
-    destroyHls();
-    showPoster(item, "Elige un reproductor para comenzar");
-    renderServers([]);
-    renderDownloads([]);
+      // Cargar servers sin tumbar la vista si falla
+      try {
+        var pack = await fetchCapitulo(item, seasonNum, epNum);
+        if (myToken !== _openToken) return true; // otra apertura más nueva
+        if (episodio) {
+          episodio.embeds = pack.embeds;
+          episodio.downloads = pack.downloads;
+        }
+        renderServers(pack.embeds || []);
+        renderDownloads(pack.downloads || []);
+        showPoster(
+          item,
+          pack.embeds && pack.embeds.length
+            ? "Elige un reproductor para comenzar"
+            : "Sin mirrors para este episodio"
+        );
+      } catch (eFetch) {
+        console.warn("fetchCapitulo", eFetch);
+        showPoster(item, "No se pudieron cargar servidores");
+      }
 
-    var pack = await fetchCapitulo(item, seasonNum, epNum);
-    if (episodio) {
-      episodio.embeds = pack.embeds;
-      episodio.downloads = pack.downloads;
-    }
-    renderServers(pack.embeds);
-    renderDownloads(pack.downloads);
-    showPoster(item, pack.embeds.length
-      ? "Elige un reproductor para comenzar"
-      : "Sin mirrors para este episodio");
-
-    try {
-      view.scrollTop = 0;
-    } catch (_) {}
-    if (myToken !== _openToken) return false; // otra apertura más reciente
-    return true;
+      try {
+        view.scrollTop = 0;
+      } catch (_) {}
+      return true;
+    } catch (e) {
+      console.error("openEpisode", e);
+      return false;
     } finally {
       _openLock = false;
     }
