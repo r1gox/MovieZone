@@ -790,6 +790,9 @@
     if (direct.length && boxD) {
       boxD.style.removeProperty("display");
       boxD.style.removeProperty("min-height");
+      boxD.classList.remove("mz-kp-empty");
+    } else if (boxD) {
+      boxD.classList.add("mz-kp-empty");
     }
 
     if (!normal.length && !direct.length) {
@@ -1514,7 +1517,8 @@
           "mz-ep-movie-shell",
           "mz-mep-dl-open",
           "mz-mobile-movie-playing",
-          "player-open"
+          "player-open",
+          "koi-movie"
         );
         var dp = document.getElementById("details-panel");
         if (dp) {
@@ -1810,7 +1814,18 @@
     view.classList.remove("open");
     view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
     view.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("mz-koi-ep-open");
+    document.body.classList.remove("mz-koi-ep-open", "koi-movie", "player-open", "mz-mobile-movie-playing");
+    try {
+      var bn = document.getElementById("mz-kp-servers");
+      var bd = document.getElementById("mz-kp-servers-direct");
+      var ld = document.getElementById("mz-kp-direct-label");
+      if (bn) bn.innerHTML = "";
+      if (bd) {
+        bd.innerHTML = "";
+        bd.classList.add("mz-kp-empty");
+      }
+      if (ld) ld.classList.add("hidden");
+    } catch (_) {}
     try {
       var layout = view.querySelector(".mz-kp-layout");
       if (layout) layout.classList.remove("mz-kp-layout-movie");

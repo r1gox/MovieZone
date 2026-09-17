@@ -1118,13 +1118,13 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-k
   overflow: visible !important;
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row {
-  display: contents !important;
+  /* was contents */ display: flex !important;
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-tag {
   display: none !important;
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-chips {
-  display: contents !important;
+  /* was contents */ display: flex !important;
 }
 
 
@@ -1362,7 +1362,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-syno
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pan-x !important;
   }
   #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-hero,
   #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-video-wrap {
@@ -1472,4 +1472,107 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-tag {
   display: inline-flex !important;
+}
+
+
+/* ========== NUCLEAR FIX: scroll chips + sin cuadrito + película→episodio ========== */
+@media (max-width: 1024px) {
+  /* Vista: permitir scroll vertical y horizontal en hijos */
+  #mz-koi-ep-view.open.mz-kp-ep-mobile,
+  #mz-koi-ep-view.open.mz-kp-movie-mode.mz-kp-ep-mobile {
+    touch-action: pan-y pan-x !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  /* Contenedor de filas: columna, sin cortar el scroll del hijo */
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+    pointer-events: auto !important;
+  }
+
+  /* Fila SUB/DUB */
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row,
+  #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important; /* el scroll está en chips */
+    pointer-events: auto !important;
+  }
+
+  /* Chips: AQUÍ se desplaza horizontal */
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips,
+  #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row-chips {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 1 0% !important;
+    width: 0 !important; /* truco: fuerza shrink + overflow-x */
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: scroll !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    pointer-events: auto !important;
+    scrollbar-width: none !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips::-webkit-scrollbar,
+  #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-row-chips::-webkit-scrollbar {
+    display: none !important;
+    height: 0 !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-btn,
+  #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-srv-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    pointer-events: auto !important;
+  }
+
+  /* Sin cuadrito vacío bajo Directos / descargas */
+  #mz-koi-ep-view #mz-kp-direct-label.hidden {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    border: none !important;
+  }
+  #mz-koi-ep-view #mz-kp-servers-direct:empty,
+  #mz-koi-ep-view #mz-kp-servers-direct.mz-kp-empty {
+    display: none !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  #mz-koi-ep-view #mz-kp-downloads-wrap,
+  #mz-koi-ep-view .mz-kp-downloads-wrap {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
 }
