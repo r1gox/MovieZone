@@ -9295,3 +9295,58 @@ body.mz-ep-movie-shell #koi-hero {
 body.mz-ep-movie-shell #video-player-container {
   border-radius: 12px !important;
 }
+
+
+/* Koi abierto: ocultar detalle de abajo (evita "sale otro") */
+body.mz-koi-ep-open #details-panel.mz-koi-hidden-under,
+body.mz-koi-ep-open #details-panel {
+  /* no forzar hidden total si koi no marcó — solo con clase */
+}
+body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Episodios en detalle MÓVIL: anchos y a la izquierda (no a la derecha) */
+@media (max-width: 900px) {
+  #details-panel .mz-streams-col,
+  #details-panel #seasons-section,
+  #details-panel #episodes-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    float: none !important;
+    align-self: stretch !important;
+  }
+  #details-panel .mz-detail-layout {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  #details-panel #episodes-container.episodes-grid {
+    justify-items: stretch !important;
+    justify-content: start !important;
+    margin-left: 0 !important;
+  }
+  #details-panel .episode-btn.mz-mobile-ep-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+  /* No aplicar layout PC koi-desktop en móvil */
+  body.details-open.koi-desktop .mz-streams-col {
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+}
+@media (max-width: 768px) {
+  body.details-open #seasons-section,
+  body.details-open #episodes-container {
+    text-align: left !important;
+  }
+  body.details-open .season-tabs {
+    justify-content: flex-start !important;
+  }
+}

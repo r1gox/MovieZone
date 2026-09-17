@@ -2050,10 +2050,9 @@ function mzForceEpLikeMovieShell(on) {
       "player-open",
       "mz-mobile-ep-playing",
       "mz-ep-movie-shell",
-      "koi-desktop",
-      "koi-serie",
-      "koi-movie"
+      "koi-serie"
     );
+    // NO añadir koi-desktop en móvil: desplaza episodios a la derecha
     document.body.classList.remove("mz-mobile-movie-playing");
 
     if (hero) {
@@ -6156,8 +6155,14 @@ function renderEpisodios(item, season = 1) {
             // PC y móvil: misma interfaz Koi que película (The Fix)
             if (serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
-              const okKoi = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-              if (okKoi) return;
+              if (window.__mzOpeningEp) return;
+              window.__mzOpeningEp = true;
+              try {
+                const okKoi = await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+                if (okKoi) return;
+              } finally {
+                window.__mzOpeningEp = false;
+              }
             }
             if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
               await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
