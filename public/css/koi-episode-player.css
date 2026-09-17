@@ -1276,3 +1276,38 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-synopsis {
   order: 99 !important;
   margin-top: 16px !important;
 }
+
+
+/* "Película" / tipo: esquina izquierda, no centrado */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-anime-link,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-anime-title {
+  display: inline-block !important;
+  text-align: left !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  align-self: flex-start !important;
+  justify-self: start !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+}
+
+/* Título película: tamaño estable (no se agranda al cambiar de modo) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-ep-title {
+  font-size: 1.45rem !important;
+  line-height: 1.25 !important;
+  text-align: left !important;
+}
+
+/* Info movie: todo alineado a la izquierda */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+/* Al cerrar / serie: no heredar filas de título de película */
+#mz-koi-ep-view:not(.mz-kp-movie-mode) .mz-kp-movie-title-row #mz-kp-movie-dl {
+  display: none !important;
+}

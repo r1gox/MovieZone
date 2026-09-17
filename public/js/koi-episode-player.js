@@ -1322,12 +1322,104 @@
     return { embeds: embeds, downloads: downloads, item: item };
   }
 
+
+  /** Limpia residuos al pasar película ↔ serie/anime */
+  function resetKoiChrome(mode) {
+    try {
+      var view = $("mz-koi-ep-view");
+      if (!view) return;
+
+      // Botón descarga de película solo en movie
+      var movieDl = document.getElementById("mz-kp-movie-dl");
+      var movieBar = document.getElementById("mz-kp-movie-dl-bar");
+      if (mode !== "movie") {
+        if (movieDl) movieDl.remove();
+        if (movieBar) movieBar.remove();
+      }
+      var titleRow = document.querySelector("#mz-koi-ep-view .mz-kp-ep-title-row");
+      if (titleRow) {
+        if (mode !== "movie") titleRow.classList.remove("mz-kp-movie-title-row");
+      }
+
+      // Barra episodio solo en episode
+      var epBar = document.getElementById("mz-kp-ep-mobile-bar");
+      if (mode === "movie" && epBar) epBar.remove();
+
+      // Quitar estilos inline que quedan colgados
+      [
+        "mz-kp-ep-title",
+        "mz-kp-anime-title",
+        "mz-kp-sidebar",
+        "mz-kp-ep-list",
+        "mz-kp-synopsis",
+        "mz-kp-original",
+        "mz-kp-meta-chips",
+        "mz-kp-genres",
+        "mz-kp-meta",
+      ].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.removeProperty("display");
+        el.style.removeProperty("visibility");
+        el.style.removeProperty("font-size");
+        el.style.removeProperty("text-align");
+        el.style.removeProperty("width");
+        el.style.removeProperty("order");
+      });
+
+      var an = $("mz-kp-anime-title");
+      if (an) {
+        an.style.setProperty("text-align", "left");
+        an.style.setProperty("display", "inline-block");
+        an.style.setProperty("width", "auto");
+        an.style.setProperty("align-self", "flex-start");
+      }
+
+      var side = $("mz-kp-sidebar");
+      if (side) {
+        side.classList.remove("mz-kp-sidebar-mobile-ep");
+        if (mode === "movie") {
+          side.classList.add("hidden");
+        } else {
+          side.classList.remove("hidden");
+        }
+      }
+
+      var list = $("mz-kp-ep-list");
+      if (list && mode === "movie") {
+        list.innerHTML = "";
+        list.classList.remove("mz-kp-ep-num-grid");
+      }
+
+      // Botones play del detalle (evitar doble "Reproducir")
+      try {
+        document.querySelectorAll(".koi-btn-play, #koi-btn-play, .mz-play-btn").forEach(function (b) {
+          b.style.removeProperty("visibility");
+          b.style.removeProperty("pointer-events");
+          b.style.removeProperty("display");
+          b.style.removeProperty("font-size");
+        });
+      } catch (_) {}
+
+      // Panel descargas cerrado
+      var panel = document.getElementById("mz-kp-dl-panel");
+      if (panel) {
+        panel.classList.add("hidden");
+        panel.style.display = "none";
+      }
+      document.body.classList.remove("mz-kp-dl-open", "mz-mep-dl-open");
+    } catch (e) {
+      console.warn("resetKoiChrome", e);
+    }
+  }
+
   async function openEpisode(item, episodio, seasonNum, epNum) {
     if (!item) return false;
     var myToken = ++_openToken;
     _openLock = true;
     try {
       ensureDom();
+      try { resetKoiChrome("episode"); } catch (_) {}
       seasonNum = Number(seasonNum) || seasonOf(episodio, 1) || 1;
       epNum = Number(epNum) || epNumOf(episodio, 1) || 1;
       episodio = episodio || { season: seasonNum, episode: epNum };
@@ -1552,6 +1644,7 @@
 //    if (!isPc()) return false;
     if (!item) return false;
     ensureDom();
+    try { resetKoiChrome("movie"); } catch (_) {}
     _mode = "movie";
     var view = $("mz-koi-ep-view");
     view.classList.add("open");
@@ -1640,6 +1733,15 @@
   function closeView() {
     var view = $("mz-koi-ep-view");
     if (!view) return;
+    try { resetKoiChrome("episode"); } catch (_) {}
+    try {
+      var movieDl = document.getElementById("mz-kp-movie-dl");
+      if (movieDl) movieDl.remove();
+      var epBar = document.getElementById("mz-kp-ep-mobile-bar");
+      if (epBar) epBar.remove();
+      var titleRow = document.querySelector("#mz-koi-ep-view .mz-kp-ep-title-row");
+      if (titleRow) titleRow.classList.remove("mz-kp-movie-title-row");
+    } catch (_) {}
     view.classList.remove("open");
     view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
     view.setAttribute("aria-hidden", "true");
