@@ -832,49 +832,52 @@
       var synEl = $("mz-kp-synopsis");
 
       if (mode === "episode-mobile") {
-        epEl.textContent = main;
-        epEl.style.display = "";
+        // Sin título de serie ni "Serie/Anime" (pedido)
+        if (epEl) {
+          epEl.textContent = "";
+          epEl.style.display = "none";
+        }
         var subBtn = $("mz-kp-anime-title");
-        if (subBtn) subBtn.textContent = epTitleText || "";
+        if (subBtn) {
+          subBtn.textContent = "";
+          subBtn.style.display = "none";
+        }
         try {
           var typeLab = $("mz-kp-type-label");
-          if (!typeLab && epEl.parentNode) {
-            typeLab = document.createElement("div");
-            typeLab.id = "mz-kp-type-label";
-            typeLab.className = "mz-kp-type-label";
-            epEl.parentNode.insertBefore(typeLab, epEl);
-          }
           if (typeLab) {
-            var tt = String(item.tipo || item.type || "Serie");
-            typeLab.textContent = /anime/i.test(tt) ? "Anime" : "Serie";
-            typeLab.classList.remove("hidden");
+            typeLab.textContent = "";
+            typeLab.classList.add("hidden");
+            typeLab.style.display = "none";
           }
         } catch (_) {}
-        if (chips) {
-          chips.innerHTML = "";
-          fillMetaChips(item);
-        }
+        if (chips) chips.innerHTML = "";
         if (metaLine) metaLine.textContent = "";
+        var sn = Number((episodio && (episodio.season || episodio.temporada)) || 1) || 1;
+        var en = Number((episodio && (episodio.episode || episodio.episodio)) || 0) || 0;
+        // Barra bajo el player: ant / sig / descarga + estás viendo
+        try {
+          var hero = document.querySelector("#mz-koi-ep-view .mz-kp-hero");
+          var bar = document.getElementById("mz-kp-ep-mobile-bar");
+          if (!bar) {
+            bar = document.createElement("div");
+            bar.id = "mz-kp-ep-mobile-bar";
+            bar.className = "mz-kp-ep-mobile-bar";
+          }
+          bar.innerHTML =
+            '<div class="mz-kp-ep-nav" id="mz-kp-ep-nav">' +
+              '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-prev">‹ Anterior</button>' +
+              '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-next">Siguiente ›</button>' +
+              '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-ep-dl" title="Descargas">↓</button>' +
+            "</div>" +
+            '<div class="mz-kp-ep-watching" id="mz-kp-ep-watching">Estás viendo T' + sn + " · Episodio " + en + "</div>";
+          if (hero && hero.parentNode) {
+            if (bar.parentNode !== hero.parentNode) hero.parentNode.insertBefore(bar, hero.nextSibling);
+            else hero.parentNode.insertBefore(bar, hero.nextSibling);
+          }
+        } catch (_) {}
         if (synEl) {
-          var sn = Number((episodio && (episodio.season || episodio.temporada)) || 1) || 1;
-          var en = Number((episodio && (episodio.episode || episodio.episodio)) || 0) || 0;
-          var dur = "";
-          try {
-            dur = (typeof durationOf === "function" ? durationOf(episodio, item) : "") ||
-              (item && (item.duracion_texto || item.duracion)) || "";
-          } catch (_) {}
-          var estado = (item && (item.estado || item.status)) || "";
-          synEl.innerHTML =
-            '<div class="mz-kp-ep-info">' +
-              '<div class="mz-kp-ep-watching">Estás viendo · T' + sn + " • E" + en + "</div>" +
-              (dur ? '<div class="mz-kp-ep-dur">' + String(dur).replace(/</g, "") + "</div>" : "") +
-              (estado ? '<div class="mz-kp-ep-status">' + String(estado).replace(/</g, "") + "</div>" : "") +
-              '<div class="mz-kp-ep-nav" id="mz-kp-ep-nav">' +
-                '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-prev">‹ Anterior</button>' +
-                '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-next">Siguiente ›</button>' +
-              "</div>" +
-            "</div>";
-          if (synEl.parentElement) synEl.parentElement.classList.remove("hidden");
+          synEl.innerHTML = "";
+          if (synEl.parentElement) synEl.parentElement.classList.add("hidden");
           // Bind prev/next
           setTimeout(function () {
             try {
@@ -885,6 +888,16 @@
               };
               if (next) next.onclick = function () {
                 if (typeof window.mzKoiGoNextEpisode === "function") window.mzKoiGoNextEpisode();
+              };
+              var dl = document.getElementById("mz-kp-ep-dl");
+              if (dl) dl.onclick = function () {
+                try {
+                  var w = document.getElementById("mz-kp-downloads-wrap");
+                  if (w) {
+                    w.hidden = false;
+                    w.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }
+                } catch (_) {}
               };
             } catch (_) {}
           }, 0);
@@ -1326,6 +1339,37 @@
     _ctx = null;
   }
 
+  function listEpisodes(item) {
+    var eps = (item && (item.episodios || item.episodes)) || [];
+    if (!Array.isArray(eps)) return [];
+    return eps.slice().sort(function (a, b) {
+      var sa = seasonOf(a, 1), sb = seasonOf(b, 1);
+      if (sa !== sb) return sa - sb;
+      return epNumOf(a, 0) - epNumOf(b, 0);
+    });
+  }
+  function goAdjacentEpisode(dir) {
+    if (!_ctx || !_ctx.item) return;
+    var item = _ctx.item;
+    var list = listEpisodes(item);
+    if (!list.length) return;
+    var curS = Number(_ctx.season) || 1;
+    var curE = Number(_ctx.episode) || 1;
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) {
+      if (seasonOf(list[i], 1) === curS && epNumOf(list[i], 0) === curE) {
+        idx = i;
+        break;
+      }
+    }
+    var next = list[idx + dir];
+    if (!next) return;
+    var sn = seasonOf(next, 1);
+    var en = epNumOf(next, 1);
+    openEpisode(item, next, sn, en);
+  }
+  window.mzKoiGoPrevEpisode = function () { goAdjacentEpisode(-1); };
+  window.mzKoiGoNextEpisode = function () { goAdjacentEpisode(1); };
   window.mzKoiOpenEpisode = openEpisode;
   window.mzKoiOpenMovie = openMovie;
   window.mzKoiCloseEpisode = closeView;

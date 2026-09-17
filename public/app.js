@@ -1791,7 +1791,7 @@ function actualizarMobileEpNav(ctx) {
       const sn = Number(p.season || p.temporada || 1);
       const en = Number(p.episode || p.episodio || 0);
       window.__mzAutoPlayEp = true; // autoplay al cambiar
-      abrirVistaMovilEpisodio(cur.item, p, sn, en);
+      if (typeof window.mzKoiOpenEpisode === "function") window.mzKoiOpenEpisode(cur.item, p, sn, en); else abrirVistaMovilEpisodio(cur.item, p, sn, en);
     };
     next.onclick = function () {
       if (!hasNext) return;
@@ -1799,7 +1799,7 @@ function actualizarMobileEpNav(ctx) {
       const sn = Number(n.season || n.temporada || 1);
       const en = Number(n.episode || n.episodio || 0);
       window.__mzAutoPlayEp = true;
-      abrirVistaMovilEpisodio(cur.item, n, sn, en);
+      if (typeof window.mzKoiOpenEpisode === "function") window.mzKoiOpenEpisode(cur.item, n, sn, en); else abrirVistaMovilEpisodio(cur.item, n, sn, en);
     };
   }
   prev.disabled = !hasPrev;
@@ -6454,27 +6454,26 @@ function renderEpisodios(item, season = 1) {
               (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
               /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-            // URL: /detalle/slug/temporada/episodio (móvil y PC)
+            // URL + misma vista que al recargar /detalle/slug/t/e (tipo película Koi)
             try {
               if (typeof mzPushDetalleUrl === "function") {
                 mzPushDetalleUrl(item, seasonNum, epNum);
               }
             } catch (_) {}
 
-            // MÓVIL: vista episodio móvil
-            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
-              window.__mzForceAutoPlay = false;
-              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
-              return;
-            }
-            // PC: vista Koi
-            if (pc && serie && typeof window.mzKoiOpenEpisode === "function") {
+            if (serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
               try {
                 await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
               } catch (eK) {
                 console.error("mzKoiOpenEpisode", eK);
               }
+              return;
+            }
+            // Fallback móvil si Koi no está
+            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
+              window.__mzForceAutoPlay = false;
+              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
               return;
             }
           }

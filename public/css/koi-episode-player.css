@@ -650,3 +650,89 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
 body.mz-koi-ep-open #mz-koi-ep-view.open {
   z-index: 100200 !important;
 }
+
+
+/* === Móvil episodio tipo película: UI pedida === */
+@media (max-width: 768px) {
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-title,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-ep-title,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-anime-title,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-type-label,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-type-label,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-meta-chips,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-original,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-genres,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-meta {
+    display: none !important;
+  }
+
+  #mz-kp-ep-mobile-bar {
+    display: block !important;
+    padding: 10px 12px 4px !important;
+  }
+  #mz-kp-ep-mobile-bar .mz-kp-ep-nav {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+  #mz-kp-ep-mobile-bar .mz-kp-ep-nav-btn {
+    flex: 1 1 auto !important;
+    min-height: 42px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: rgba(255,255,255,0.06) !important;
+    color: #e2e8f0 !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+  }
+  #mz-kp-ep-mobile-bar .mz-kp-ep-dl {
+    flex: 0 0 48px !important;
+    min-width: 48px !important;
+  }
+  #mz-kp-ep-mobile-bar .mz-kp-ep-watching {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #f1f5f9 !important;
+    margin: 0 0 8px !important;
+  }
+
+  /* Reproductores / Directos: una fila con scroll */
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 4px !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list::-webkit-scrollbar {
+    display: none !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list .koi-server-chip,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-servers-list button {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Episodios: cuadritos */
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-list {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-list > * {
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-list .active,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-ep-list [aria-current="true"] {
+    background: rgba(168, 85, 247, 0.45) !important;
+    border-color: rgba(168, 85, 247, 0.8) !important;
+    color: #fff !important;
+  }
+}
