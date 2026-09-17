@@ -729,12 +729,8 @@
       }
     });
 
-    // Filas SUB/DUB solo en episodios móvil — películas: chips clásicos
-    var mobileEp =
-      _mode !== "movie" &&
-      (!isPc() ||
-        (document.getElementById("mz-koi-ep-view") || {}).classList &&
-          document.getElementById("mz-koi-ep-view").classList.contains("mz-kp-ep-mobile"));
+        // Filas SUB/DUB en móvil (series, anime y películas)
+    var mobileEp = !isPc();
 
     function appendLangRows(container, list, mode) {
       if (!container) return;
@@ -1487,6 +1483,54 @@
     }
   }
 
+
+  function ensureMovieDlBar() {
+    try {
+      if (isPc()) {
+        var old = document.getElementById("mz-kp-movie-dl-bar");
+        if (old) old.remove();
+        return;
+      }
+      var hero = document.querySelector("#mz-koi-ep-view .mz-kp-hero");
+      if (!hero || !hero.parentNode) return;
+      var bar = document.getElementById("mz-kp-movie-dl-bar");
+      if (!bar) {
+        bar = document.createElement("div");
+        bar.id = "mz-kp-movie-dl-bar";
+        bar.className = "mz-kp-movie-dl-bar";
+      }
+      bar.innerHTML =
+        '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-movie-dl" title="Descargas">' +
+        "↓ Descargas</button>";
+      if (bar.parentNode !== hero.parentNode) {
+        hero.parentNode.insertBefore(bar, hero.nextSibling);
+      } else {
+        hero.parentNode.insertBefore(bar, hero.nextSibling);
+      }
+      var btn = document.getElementById("mz-kp-movie-dl");
+      if (btn) {
+        btn.onclick = function (e) {
+          try {
+            e.preventDefault();
+            e.stopPropagation();
+          } catch (_) {}
+          openDownloadsPanel();
+          return false;
+        };
+        btn.ontouchend = function (e) {
+          try {
+            e.preventDefault();
+            e.stopPropagation();
+          } catch (_) {}
+          openDownloadsPanel();
+          return false;
+        };
+      }
+    } catch (err) {
+      console.warn("ensureMovieDlBar", err);
+    }
+  }
+
   async function openMovie(item) {
 //    if (!isPc()) return false;
     if (!item) return false;
@@ -1548,6 +1592,7 @@
     showPoster(item, "Elige un reproductor para comenzar");
     renderServers([]);
     renderDownloads([]);
+    try { ensureMovieDlBar(); } catch (_) {}
 
     var pack = await fetchMoviePlayers(item);
     item = pack.item || item;
@@ -1558,6 +1603,7 @@
 
     renderServers(pack.embeds);
     renderDownloads(pack.downloads);
+    try { ensureMovieDlBar(); } catch (_) {}
     // SIN autoplay
     showPoster(
       item,
@@ -1642,8 +1688,10 @@
       function (ev) {
         var t = ev.target;
         if (!t) return;
-        var btn = t.closest ? t.closest("#mz-kp-ep-dl") : null;
-        if (!btn && t.id === "mz-kp-ep-dl") btn = t;
+        var btn = t.closest
+          ? t.closest("#mz-kp-ep-dl, #mz-kp-movie-dl")
+          : null;
+        if (!btn && (t.id === "mz-kp-ep-dl" || t.id === "mz-kp-movie-dl")) btn = t;
         if (!btn) return;
         try {
           ev.preventDefault();

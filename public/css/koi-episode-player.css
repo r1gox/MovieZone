@@ -1107,19 +1107,7 @@ body #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
 }
 
 
-/* === Películas: restaurar layout clásico (sin tocar episodio móvil) === */
-body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-sidebar {
-  display: none !important;
-  visibility: hidden !important;
-}
-body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-ep-mobile-bar {
-  display: none !important;
-}
-body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-ep-title,
-body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-ep-title,
-body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-anime-title {
-  display: revert !important;
-}
+
 /* Chips clásicos en película (no forzar filas de episodio) */
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-servers,
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-servers-direct {
@@ -1137,4 +1125,64 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-chips {
   display: contents !important;
+}
+
+
+/* Película móvil: filas SUB/DUB como series + botón descargas (sin UI de episodio) */
+@media (max-width: 1024px) {
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-servers,
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-servers-direct {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-tag {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-chips {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-sidebar {
+    display: none !important;
+  }
+  body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-ep-mobile-bar {
+    display: none !important;
+  }
+
+  .mz-kp-movie-dl-bar {
+    display: flex !important;
+    justify-content: flex-end !important;
+    padding: 8px 12px 4px !important;
+  }
+  .mz-kp-movie-dl-bar .mz-kp-ep-dl {
+    flex: 0 0 auto !important;
+    min-height: 42px !important;
+    padding: 0 14px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(168, 85, 247, 0.45) !important;
+    background: rgba(168, 85, 247, 0.2) !important;
+    color: #e9d5ff !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mz-kp-movie-dl-bar { display: none !important; }
 }
