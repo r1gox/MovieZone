@@ -2189,16 +2189,7 @@ async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
   episodio.season = seasonNum;
   episodio.episode = epNum;
 
-  // Solo Koi si existe (no mezclar con shell móvil)
-  try {
-    if (typeof window.mzKoiOpenEpisode === "function") {
-      await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
-      return true;
-    }
-  } catch (e) {
-    console.warn("abrirVista→koi", e);
-  }
-
+  // Vista móvil propia (sin Koi)
   mzForceEpLikeMovieShell(true);
 
   
@@ -2444,16 +2435,27 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
     (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
     /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-  // Serie/anime: solo Koi, sin continuar al flujo de autoplay/detalle
+  // PC serie/anime → Koi. Móvil → no Koi (usa abrirVistaMovilEpisodio).
   if (serie && !window.__mzForceAutoPlay) {
-    try {
-      if (typeof window.mzKoiOpenEpisode === "function") {
+    const isMobile =
+      (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
+      (typeof window !== "undefined" && window.innerWidth <= 768);
+    if (!isMobile && typeof window.mzKoiOpenEpisode === "function") {
+      try {
         await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
+      } catch (e) {
+        console.error("mzKoiOpenEpisode:", e);
       }
-    } catch (e) {
-      console.error("mzKoiOpenEpisode:", e);
+      return false;
     }
-    return false;
+    if (isMobile && typeof abrirVistaMovilEpisodio === "function") {
+      try {
+        await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
+      } catch (e) {
+        console.error("abrirVistaMovilEpisodio:", e);
+      }
+      return false;
+    }
   }
 
   // —— Móvil / película / force: flujo original ——
@@ -5483,6 +5485,45 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 }
 
 
+
+/** Imagen de episodio: back_img API o screenshot AnimeAV1 desde covers/{id} */
+function mzEpisodeThumb(episodio, item, num) {
+  if (!episodio) episodio = {};
+  const n = Number(num || episodio.episode || episodio.episodio || 0) || 0;
+  const direct =
+    episodio.back_img ||
+    episodio.screenshot ||
+    episodio.still ||
+    episodio.imagen ||
+    episodio.image ||
+    episodio.thumbnail ||
+    null;
+  if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
+  // AnimeAV1: portada covers/ID.jpg → screenshots/ID/N.jpg
+  const port = String(
+    item && (item.portada_fuente_raw || item.portada_fuente || item.portada || item.poster || "")
+  );
+  let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+  if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+  if (m && n > 0) {
+    return "https://cdn.animeav1.com/screenshots/" + m[1] + "/" + n + ".jpg";
+  }
+  // media id guardado
+  const mid = item && (item.animeav1_id || item.media_id || item.av1_id);
+  if (mid && n > 0 && /^\d+$/.test(String(mid))) {
+    return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
+  }
+  if (/anime/i.test(String((item && (item.tipo || item.type)) || ""))) {
+    return episodio.portada || (item && item.portada) || null;
+  }
+  return (
+    episodio.backdrop ||
+    episodio.portada ||
+    (item && (item.backdrop || item.portada)) ||
+    null
+  );
+}
+
 function normalizarListaTemporadas(item) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
     const tieneRangos = Array.isArray(item.rangos_episodios) && item.rangos_episodios.length > 1;
@@ -5770,15 +5811,23 @@ function renderTemporadas(item) {
         // Si la fuente ya trajo episodios en temporadas[], usarlos (animeav1)
         const localT = listaTemp.find(t => t.num === seasonNum);
         const totalRealPre = typeof totalEpisodiosReal === "function" ? totalEpisodiosReal(item) : 0;
+        const localHasBack = !!(
+          localT &&
+          Array.isArray(localT.episodios) &&
+          localT.episodios.some(function (e) {
+            return e && (e.back_img || e.screenshot);
+          })
+        );
         const localCorta =
           localT &&
           Array.isArray(localT.episodios) &&
           localT.episodios.length &&
           totalRealPre > 0 &&
-          localT.episodios.length + 2 < totalRealPre;
+          localT.episodios.length + 2 < totalRealPre &&
+          !localHasBack; // si trae back_img, no descartar
 
         // Usar lista local (con back_img) aunque haya rango 1–50 / 51–100
-        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !localCorta) {
+        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && (!localCorta || localHasBack)) {
             const tmdbEps = (() => {
                 const ts = (item.temporadas_tmdb || []).find(t =>
                     Number(t.season_number || t.temporada) === Number(seasonNum)
@@ -5793,7 +5842,9 @@ function renderTemporadas(item) {
                     ep.screenshot ||
                     ep.still ||
                     meta?.still_path ||
-                    null;
+                    (typeof mzEpisodeThumb === "function"
+                      ? mzEpisodeThumb(ep, item, num)
+                      : null);
                 return {
                     season: seasonNum,
                     temporada: seasonNum,
@@ -6113,17 +6164,13 @@ function renderEpisodios(item, season = 1) {
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
-            // back_img del episodio primero (AnimeAV1 screenshots)
             const thumb =
+                (typeof mzEpisodeThumb === "function"
+                  ? mzEpisodeThumb(episodio, item, num)
+                  : null) ||
                 episodio.back_img ||
-                episodio.screenshot ||
                 episodio.still ||
-                episodio.imagen ||
-                episodio.image ||
-                episodio.thumbnail ||
-                (/anime/i.test(String(item.tipo || item.type || ""))
-                  ? (episodio.portada || item.portada)
-                  : (episodio.backdrop || item.backdrop || episodio.portada || item.portada)) ||
+                item.portada ||
                 PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
@@ -6148,15 +6195,12 @@ function renderEpisodios(item, season = 1) {
               btn.classList.add("mz-ep-num-btn");
             } else {
               const thumb =
+                  (typeof mzEpisodeThumb === "function"
+                    ? mzEpisodeThumb(episodio, item, num)
+                    : null) ||
                   episodio.back_img ||
-                  episodio.screenshot ||
                   episodio.still ||
-                  episodio.imagen ||
-                  episodio.image ||
-                  episodio.thumbnail ||
-                  (/anime/i.test(String(item.tipo || item.type || ""))
-                    ? (episodio.portada || item.portada)
-                    : (episodio.backdrop || item.backdrop || episodio.portada || item.portada)) ||
+                  item.portada ||
                   PLACEHOLDER;
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
@@ -6193,22 +6237,18 @@ function renderEpisodios(item, season = 1) {
               (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) ||
               /serie|anime|dorama|tv|ova|ona/i.test(String(item?.tipo || item?.type || ""));
 
-            // Serie/anime: SOLO vista Koi (nunca detalle + koi a la vez)
-            if (serie && typeof window.mzKoiOpenEpisode === "function") {
+            // MÓVIL: solo vista episodio móvil (estable). PC: Koi.
+            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
+              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
+              return;
+            }
+            if (pc && serie && typeof window.mzKoiOpenEpisode === "function") {
               window.__mzForceAutoPlay = false;
-              if (window.__mzOpeningEp) return;
-              window.__mzOpeningEp = true;
               try {
                 await window.mzKoiOpenEpisode(item, episodio, seasonNum, epNum);
               } catch (eK) {
                 console.error("mzKoiOpenEpisode", eK);
-              } finally {
-                window.__mzOpeningEp = false;
               }
-              return; // no seguir a reproducirCapituloAuto / shell móvil
-            }
-            if (!pc && serie && typeof abrirVistaMovilEpisodio === "function") {
-              await abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum);
               return;
             }
           }
