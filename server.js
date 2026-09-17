@@ -890,28 +890,22 @@ function esPortadaValida(url) {
   return /^https?:\/\//i.test(u);
 }
 
-/** Preferir la mejor portada disponible (TMDB > pelisplus > lamovie > resto) */
+/** Fuente primero; Metahub/IMDb/TMDB solo respaldo */
 function elegirPortada(a, b, sourcePreferido) {
   const candidatos = [a, b].filter(esPortadaValida);
   if (!candidatos.length) return a || b || null;
   const score = (u) => {
     let s = 0;
-    if (/media-amazon\.com|imdb\.com/i.test(u)) s += 45;
-    if (/image\.tmdb\.org/i.test(u)) {
-      s += 50;
-      if (/\/original\//i.test(u)) s += 15;
-      else if (/\/w780\//i.test(u)) s += 12;
-      else if (/\/w500\//i.test(u)) s += 10;
-      else if (/\/w342\//i.test(u)) s += 6;
-    }
-    if (/pelisplushd|\/poster\//i.test(u)) s += 35;
-    if (/lamovie\.org/i.test(u)) {
-      s += 25;
-      if (/_hd\.|thumbs\//i.test(u)) s += 5;
-    }
-    if (/myanimelist|cdn\.myanimelist|anilist|kitsu/i.test(u)) s += 30;
-    if (/animeav1|webp$/i.test(u)) s += 15;
-    if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(u)) s += 3;
+    const url = String(u || "");
+    if (/pelisplushd\.(to|bz|la)|\/poster\//i.test(url)) s += 100;
+    if (/lamovie\.org/i.test(url)) s += 95;
+    if (/animeav1|cdn\.animeav1/i.test(url)) s += 95;
+    if (/jkanime|jkdesa|cdn\.jkdesa/i.test(url)) s += 95;
+    if (/hackstore/i.test(url)) s += 90;
+    if (/image\.tmdb\.org/i.test(url)) s += 40;
+    if (/media-amazon\.com|imdb\.com/i.test(url)) s += 25;
+    if (/metahub\.space/i.test(url)) s += 15;
+    if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) s += 3;
     return s;
   };
   candidatos.sort((x, y) => score(y) - score(x));
@@ -1427,13 +1421,22 @@ function mapListItem(r) {
     calificacion = null;
   }
 
+  const esMetaPortada = (u) =>
+    /metahub\.space|media-amazon\.com|m\.media-amazon/i.test(String(u || ""));
+
+  const portadaFuente =
+    r.portada_fuente_raw ||
+    (r.portada && !esMetaPortada(r.portada) ? r.portada : null) ||
+    (r.image && !esMetaPortada(r.image) ? r.image : null);
+
   const portada =
+    portadaFuente ||
     r.portada ||
     r.image ||
-    (r.imdb && r.imdb.portada) ||
-    (r.tmdb && r.tmdb.portada) ||
     r.portada_imdb ||
+    (r.imdb && r.imdb.portada) ||
     r.portada_tmdb ||
+    (r.tmdb && r.tmdb.portada) ||
     null;
 
   return {
@@ -2358,7 +2361,15 @@ function preferApiMeta(apiItem, cached) {
   // Descripción: preferir español (elegirMejorDescripcion ya prioriza ES)
   out.descripcion = elegirMejorDescripcion(apiItem.descripcion, cached.descripcion);
   // Portada API si es válida
-  if (apiItem.portada && esPortadaValida(apiItem.portada)) out.portada = apiItem.portada;
+  // Portada: fuente de la API primero; no dejar que Metahub de cache gane
+  out.portada = elegirPortada(
+    apiItem.portada_fuente_raw || apiItem.portada,
+    out.portada_fuente_raw || out.portada,
+    out.source_id
+  );
+  if (apiItem.portada_fuente_raw) {
+    out.portada_fuente_raw = apiItem.portada_fuente_raw;
+  }
   // Players: el que tenga más
   if (apiItem.embeds && apiItem.embeds.length) {
     out.embeds = apiItem.embeds;
