@@ -1311,3 +1311,76 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-info {
 #mz-koi-ep-view:not(.mz-kp-movie-mode) .mz-kp-movie-title-row #mz-kp-movie-dl {
   display: none !important;
 }
+
+
+/* ========== FIX: película descripción abajo + anime scroll estable ========== */
+
+/* Sinopsis visible SOLO en película (no episodio móvil) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-synopsis,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-synopsis {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  order: 99 !important;
+  margin-top: 18px !important;
+  margin-bottom: 24px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-synopsis p,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-synopsis {
+  display: block !important;
+  color: #cbd5e1 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+}
+
+/* Orders de película NO deben aplicar a animes/series (ep-mobile) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile .mz-kp-info > * {
+  order: unset !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile .mz-kp-synopsis,
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-synopsis {
+  display: none !important;
+}
+
+/* Anime/serie móvil: un solo scroll, sin “rebote” del fondo */
+@media (max-width: 1024px) {
+  body.mz-koi-ep-open {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: manipulation;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile.open,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile.open {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-hero,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-video-wrap {
+    flex-shrink: 0 !important;
+    max-width: 100% !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-layout,
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-layout-movie {
+    overflow: visible !important;
+    min-height: 0 !important;
+  }
+}
+
+/* Película puro: también scroll contenido estable */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile).open {
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}

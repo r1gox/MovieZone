@@ -1637,6 +1637,14 @@
       var syn = info.querySelector(".mz-kp-synopsis");
       if (!syn) return;
       info.appendChild(syn);
+      syn.style.removeProperty("display");
+      syn.style.setProperty("display", "block", "important");
+      syn.style.setProperty("visibility", "visible", "important");
+      var p = syn.querySelector("p") || document.getElementById("mz-kp-synopsis");
+      if (p) {
+        p.style.removeProperty("display");
+        p.style.setProperty("display", "block", "important");
+      }
     } catch (_) {}
   }
 
