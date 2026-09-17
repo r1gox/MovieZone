@@ -1207,4 +1207,136 @@
     z-index: 100200 !important;
   }
 
+
+  /* ============================================================
+     /1/1 móvil: orden y UI pedida
+     player → ant/sig/descarga → estás viendo → servers scroll → eps
+     ============================================================ */
+  body.mz-mobile-ep-playing #video-player-container { order: 1 !important; }
+  body.mz-mobile-ep-playing #mz-mobile-ep-nav {
+    display: flex !important;
+    order: 2 !important;
+    margin: 0 0 10px !important;
+    gap: 8px !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching {
+    display: block !important;
+    order: 3 !important;
+    margin: 0 0 10px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-ep {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #f1f5f9 !important;
+  }
+  body.mz-mobile-ep-playing #mz-mobile-ep-watching .mz-mep-watching-label {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing #servers-section {
+    display: block !important;
+    order: 4 !important;
+  }
+  body.mz-mobile-ep-playing #seasons-section,
+  body.mz-mobile-ep-playing #episodes-container {
+    order: 5 !important;
+  }
+
+  /* Quitar título / nombre / tipo Serie */
+  body.mz-mobile-ep-playing .mz-ep-movie-title,
+  body.mz-mobile-ep-playing #details-title,
+  body.mz-mobile-ep-playing #details-original-title,
+  body.mz-mobile-ep-playing #details-type,
+  body.mz-mobile-ep-playing .media-type-badge,
+  body.mz-mobile-ep-playing .details-type-row,
+  body.mz-mobile-ep-playing #koi-player-ep-title,
+  body.mz-mobile-ep-playing .koi-player-ep-title {
+    display: none !important;
+  }
+  /* player-header: solo texto "Estás viendo…" (sin X) */
+  body.mz-mobile-ep-playing .player-header {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 10px !important;
+  }
+  body.mz-mobile-ep-playing #player-title {
+    display: block !important;
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+    color: #e2e8f0 !important;
+  }
+  body.mz-mobile-ep-playing #close-player-btn {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-head .mz-ep-movie-ep,
+  body.mz-mobile-ep-playing .mz-ep-movie-meta {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing .mz-ep-movie-head {
+    display: none !important;
+  }
+
+  /* Reproductores / Directos: una fila horizontal desplazable + tag SUB/DUB */
+  body.mz-mobile-ep-playing .mz-mep-srv-block {
+    margin: 0 0 12px !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 0 10px !important;
+    overflow: hidden !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-row-tag {
+    flex: 0 0 auto !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-chips,
+  body.mz-mobile-ep-playing .koi-servers-chips {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  body.mz-mobile-ep-playing .mz-mep-srv-chips::-webkit-scrollbar,
+  body.mz-mobile-ep-playing .koi-servers-chips::-webkit-scrollbar {
+    display: none !important;
+  }
+  body.mz-mobile-ep-playing .koi-server-chip,
+  body.mz-mobile-ep-playing .mz-mep-srv-chip {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Episodios: cuadritos, activo resaltado */
+  body.mz-mobile-ep-playing #episodes-container.mz-ep-num-grid,
+  body.mz-mobile-ep-playing #episodes-container {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container .episode-btn,
+  body.mz-mobile-ep-playing #episodes-container .mz-ep-num-btn {
+    height: 44px !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+  }
+  body.mz-mobile-ep-playing #episodes-container .episode-btn.active,
+  body.mz-mobile-ep-playing #episodes-container .mz-ep-num-btn.active {
+    background: rgba(168, 85, 247, 0.45) !important;
+    border-color: rgba(168, 85, 247, 0.8) !important;
+    color: #fff !important;
+  }
+
+
 } /* fin @media */
