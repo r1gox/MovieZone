@@ -5778,20 +5778,28 @@ function renderTemporadas(item) {
           totalRealPre > 0 &&
           localT.episodios.length + 2 < totalRealPre;
 
-        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !rangoForzado && !localCorta) {
-          
+        // Usar lista local (con back_img) aunque haya rango 1–50 / 51–100
+        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && !localCorta) {
             const tmdbEps = (() => {
                 const ts = (item.temporadas_tmdb || []).find(t =>
                     Number(t.season_number || t.temporada) === Number(seasonNum)
                 );
                 return Array.isArray(ts?.episodios) ? ts.episodios : [];
             })();
-            item.episodios = localT.episodios.map((ep, idx) => {
-                const num = ep.episodio || ep.episode || ep.episode_number || (idx + 1);
+            let mapped = localT.episodios.map((ep, idx) => {
+                const num = Number(ep.episodio || ep.episode || ep.episode_number || (idx + 1)) || (idx + 1);
                 const meta = tmdbEps.find(t => Number(t.episode_number || t.episodio) === Number(num));
+                const back =
+                    ep.back_img ||
+                    ep.screenshot ||
+                    ep.still ||
+                    meta?.still_path ||
+                    null;
                 return {
                     season: seasonNum,
+                    temporada: seasonNum,
                     episode: num,
+                    episodio: num,
                     nombre: meta?.name || ep.titulo || ep.nombre || ep.name || ("Episodio " + num),
                     embeds: ep.embeds || ep.reproductores || [],
                     video: (() => {
@@ -5801,17 +5809,26 @@ function renderTemporadas(item) {
                     })(),
                     link: ep.link || null,
                     source_id: ep.source_id || item.source_id,
-                    // AnimeAV1 screenshot por episodio
-                    back_img: ep.back_img || ep.screenshot || ep.still || meta?.still_path || null,
-                    still: ep.still || ep.back_img || meta?.still_path || null,
-                    imagen: ep.imagen || ep.image || ep.back_img || null,
-                    image: ep.image || ep.back_img || null,
-                    thumbnail: ep.thumbnail || ep.back_img || null,
-                    portada: ep.portada || ep.back_img || null
+                    back_img: back,
+                    still: ep.still || back,
+                    imagen: ep.imagen || ep.image || back,
+                    image: ep.image || back,
+                    thumbnail: ep.thumbnail || back,
+                    portada: ep.portada || back
                 };
             });
-            item._epRangoActivo = null;
-            item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, item.episodios);
+            // Filtrar por rango activo (1-50, 51-100…) sin perder back_img
+            const rango = rangoForzado || item._epRangoActivo;
+            if (rango && rango.desde && rango.hasta) {
+                mapped = mapped.filter((ep) => {
+                    const n = Number(ep.episode || ep.episodio || 0);
+                    return n >= rango.desde && n <= rango.hasta;
+                });
+                item._epRangoActivo = { desde: rango.desde, hasta: rango.hasta };
+            } else {
+                item._epRangoActivo = null;
+            }
+            item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, mapped);
             if (item.totalEpisodios && !item.total_episodios) item.total_episodios = item.totalEpisodios;
             renderEpisodios(item, seasonNum);
             return;
@@ -6097,10 +6114,18 @@ function renderEpisodios(item, season = 1) {
         btn.title = epNombre;
         btn.setAttribute("data-ep", String(num));
         if (koiCards) {
-            const isAnimeCard = /anime/i.test(String(item.tipo || item.type || ""));
-            const thumb = isAnimeCard
-                ? (episodio.back_img || episodio.screenshot || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || episodio.portada || item.portada || PLACEHOLDER)
-                : (episodio.back_img || episodio.backdrop || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || item.backdrop || episodio.portada || item.portada || PLACEHOLDER);
+            // back_img del episodio primero (AnimeAV1 screenshots)
+            const thumb =
+                episodio.back_img ||
+                episodio.screenshot ||
+                episodio.still ||
+                episodio.imagen ||
+                episodio.image ||
+                episodio.thumbnail ||
+                (/anime/i.test(String(item.tipo || item.type || ""))
+                  ? (episodio.portada || item.portada)
+                  : (episodio.backdrop || item.backdrop || episodio.portada || item.portada)) ||
+                PLACEHOLDER;
             const dur = episodio.duracion || episodio.runtime || episodio.duration || "";
             let labelName = String(epNombre || "").replace(/</g, "");
             if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
@@ -6123,10 +6148,17 @@ function renderEpisodios(item, season = 1) {
               btn.textContent = String(num);
               btn.classList.add("mz-ep-num-btn");
             } else {
-              const isAnimeMob = /anime/i.test(String(item.tipo || item.type || ""));
-              const thumb = isAnimeMob
-                  ? (episodio.back_img || episodio.screenshot || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || episodio.portada || item.portada || PLACEHOLDER)
-                  : (episodio.back_img || episodio.backdrop || episodio.still || episodio.imagen || episodio.image || episodio.thumbnail || item.backdrop || episodio.portada || item.portada || PLACEHOLDER);
+              const thumb =
+                  episodio.back_img ||
+                  episodio.screenshot ||
+                  episodio.still ||
+                  episodio.imagen ||
+                  episodio.image ||
+                  episodio.thumbnail ||
+                  (/anime/i.test(String(item.tipo || item.type || ""))
+                    ? (episodio.portada || item.portada)
+                    : (episodio.backdrop || item.backdrop || episodio.portada || item.portada)) ||
+                  PLACEHOLDER;
               const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
               btn.innerHTML =
                   `<span class="mz-mep-thumb"><img src="${String(thumb).replace(/"/g, "")}" alt="" loading="lazy" onerror="this.style.opacity=0.35"/></span>` +
