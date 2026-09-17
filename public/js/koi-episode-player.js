@@ -508,6 +508,18 @@
   async function playEmbed(emb, mode) {
     mode = mode || "auto";
     hidePoster();
+    // Guardar preferido para autoselección al cambiar de episodio
+    try {
+      var slug = (_ctx && _ctx.item && (_ctx.item.slug || _ctx.item.link)) || "";
+      window.__mzPreferredServer = {
+        slug: String(slug),
+        name: String(cleanServerName(emb) || "").toLowerCase(),
+        mode: mode === "direct" ? "direct" : "iframe",
+        idioma: String(emb.idioma || emb.lang || "").toLowerCase(),
+        noAds: !!emb.noAds,
+        direct: mode === "direct"
+      };
+    } catch (_) {}
 
     // --- FORZAR IFRAME (reproductores normales) ---
     if (mode === "iframe") {
@@ -606,30 +618,42 @@
     return out;
   }
 
-  function makeServerBtn(emb, mode) {
+  function langKeyOf(emb) {
+    var idioma = String((emb && (emb.idioma || emb.lang || emb.language)) || "").toLowerCase();
+    if (/lat|dub|castellano|espanol|españ|espa/.test(idioma)) return "dub";
+    if (/sub/.test(idioma)) return "sub";
+    if (/eng|ingl/.test(idioma)) return "eng";
+    return "oth";
+  }
+
+  function makeServerBtn(emb, mode, opts) {
     mode = mode || "iframe";
+    opts = opts || {};
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mz-kp-srv-btn";
     var name = cleanServerName(emb);
-    var idioma = emb.idioma || emb.lang || emb.language || "";
-    var idLow = String(idioma).toLowerCase();
+    var lk = langKeyOf(emb);
+    if (lk === "dub") btn.classList.add("is-dub");
+    if (lk === "sub") btn.classList.add("is-sub");
     var badge = "";
-    if (/lat|dub|castellano|espanol|espa/.test(idLow)) {
-      badge = '<span class="koi-lang-badge koi-lang-dub">DUB</span>';
-      btn.classList.add("is-dub");
-    } else if (/sub/.test(idLow)) {
-      badge = '<span class="koi-lang-badge koi-lang-sub">SUB</span>';
-      btn.classList.add("is-sub");
-    } else if (/eng|ingl/.test(idLow)) {
-      badge = '<span class="koi-lang-badge koi-lang-eng">ENG</span>';
-    } else if (idioma) {
-      badge = '<span class="koi-lang-badge koi-lang-other">' + String(idioma).slice(0, 6).toUpperCase() + '</span>';
+    // Badge por chip solo si no es fila con tag SUB/DUB (móvil)
+    if (!opts.noBadge) {
+      if (lk === "dub") badge = '<span class="koi-lang-badge koi-lang-dub">DUB</span>';
+      else if (lk === "sub") badge = '<span class="koi-lang-badge koi-lang-sub">SUB</span>';
+      else if (lk === "eng") badge = '<span class="koi-lang-badge koi-lang-eng">ENG</span>';
+      else {
+        var idioma = emb.idioma || emb.lang || "";
+        if (idioma) badge = '<span class="koi-lang-badge koi-lang-other">' + String(idioma).slice(0, 6).toUpperCase() + '</span>';
+      }
     }
     btn.innerHTML = badge + '<span class="koi-chip-name">' + name + '</span>';
+    btn.dataset.mzName = String(name || "").toLowerCase();
+    btn.dataset.mzLang = lk;
+    btn.dataset.mzMode = mode;
     btn.addEventListener("click", function () {
       document
-        .querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn")
+        .querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn, #mz-kp-servers .mz-kp-srv-row .mz-kp-srv-btn")
         .forEach(function (b) {
           b.classList.remove("active");
         });
@@ -704,52 +728,174 @@
       }
     });
 
-    normal.forEach(function (emb) {
-      boxN.appendChild(makeServerBtn(emb, "iframe"));
-    });
+    var mobile = !isPc();
+
+    function appendLangRows(container, list, mode) {
+      if (!container) return;
+      container.innerHTML = "";
+      if (!list.length) return;
+      if (!mobile) {
+        list.forEach(function (emb) {
+          container.appendChild(makeServerBtn(emb, mode));
+        });
+        return;
+      }
+      // Móvil: filas SUB / DUB / resto — tag al inicio, chips sin badge
+      var groups = [
+        { key: "sub", label: "SUB", list: list.filter(function (e) { return langKeyOf(e) === "sub"; }) },
+        { key: "dub", label: "DUB", list: list.filter(function (e) { return langKeyOf(e) === "dub"; }) },
+        { key: "oth", label: "", list: list.filter(function (e) { return langKeyOf(e) !== "sub" && langKeyOf(e) !== "dub"; }) }
+      ];
+      groups.forEach(function (g) {
+        if (!g.list.length) return;
+        var row = document.createElement("div");
+        row.className = "mz-kp-srv-row" + (g.key === "dub" ? " is-dub" : g.key === "sub" ? " is-sub" : "");
+        if (g.label) {
+          var tag = document.createElement("span");
+          tag.className = "mz-kp-srv-row-tag" + (g.key === "dub" ? " is-dub" : " is-sub");
+          tag.textContent = g.label;
+          row.appendChild(tag);
+        }
+        var chips = document.createElement("div");
+        chips.className = "mz-kp-srv-row-chips";
+        g.list.forEach(function (emb) {
+          chips.appendChild(makeServerBtn(emb, mode, { noBadge: true }));
+        });
+        row.appendChild(chips);
+        container.appendChild(row);
+      });
+    }
+
+    appendLangRows(boxN, normal, "iframe");
 
     if (direct.length && boxD) {
       if (labD) labD.classList.remove("hidden");
-      direct.forEach(function (emb) {
-        boxD.appendChild(makeServerBtn(emb, "direct"));
-      });
+      appendLangRows(boxD, direct, "direct");
+    } else if (labD) {
+      labD.classList.add("hidden");
     }
 
     if (!normal.length && !direct.length) {
       boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Sin mirrors válidos</span>';
     } else if (!normal.length && direct.length) {
-      // Solo directos: mostrarlos arriba también etiquetados como Directos abajo
       boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Sin embeds clásicos</span>';
+    }
+  }
+
+  function tryAutoSelectPreferred(embeds) {
+    try {
+      var pref = window.__mzPreferredServer;
+      if (!pref || !embeds || !embeds.length) return false;
+      var slug = (_ctx && _ctx.item && (_ctx.item.slug || _ctx.item.link)) || "";
+      if (pref.slug && slug && String(pref.slug) !== String(slug)) return false;
+      var wantName = String(pref.name || "").toLowerCase();
+      var wantMode = pref.direct || pref.mode === "direct" ? "direct" : "iframe";
+      var wantLang = String(pref.idioma || "").toLowerCase();
+      var best = null;
+      for (var i = 0; i < embeds.length; i++) {
+        var e = embeds[i];
+        if (!e) continue;
+        var n = String(cleanServerName(e) || "").toLowerCase();
+        if (wantName && n === wantName) {
+          best = e;
+          break;
+        }
+      }
+      if (!best && wantName) {
+        for (var j = 0; j < embeds.length; j++) {
+          var e2 = embeds[j];
+          var n2 = String(cleanServerName(e2) || "").toLowerCase();
+          if (n2.indexOf(wantName) !== -1 || wantName.indexOf(n2) !== -1) {
+            best = e2;
+            break;
+          }
+        }
+      }
+      if (!best) return false;
+      // Activar chip visual
+      var btns = document.querySelectorAll("#mz-kp-servers .mz-kp-srv-btn, #mz-kp-servers-direct .mz-kp-srv-btn");
+      btns.forEach(function (b) {
+        b.classList.toggle("active", (b.dataset.mzName || "") === String(cleanServerName(best) || "").toLowerCase());
+      });
+      var mode = wantMode;
+      // Si el preferido era directo pero este embed es normal, iframe
+      if (mode === "direct" && !isDirectEmbed(best) && isNormalEmbed(best)) mode = "iframe";
+      playEmbed(best, mode);
+      return true;
+    } catch (err) {
+      console.warn("tryAutoSelectPreferred", err);
+      return false;
     }
   }
 
   function renderDownloads(list) {
     var wrap = $("mz-kp-downloads-wrap");
     var box = $("mz-kp-downloads");
-    if (!wrap || !box) return;
-    box.innerHTML = "";
     var items = normalizeList(list).filter(function (d) {
       return (d.url || d.stream_url) && !isWorkerStreamApi(d.url || d.stream_url);
     });
-    if (!items.length) {
-      wrap.hidden = true;
-      return;
+    window.__mzKoiDownloads = items;
+    // No mostrar fila de descargas abajo (solo panel al pulsar ↓)
+    if (wrap) wrap.hidden = true;
+    if (box) box.innerHTML = "";
+  }
+
+  function openDownloadsPanel() {
+    var items = window.__mzKoiDownloads || [];
+    var panel = document.getElementById("mz-kp-dl-panel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "mz-kp-dl-panel";
+      panel.className = "mz-kp-dl-panel hidden";
+      document.body.appendChild(panel);
     }
-    wrap.hidden = false;
-    items.forEach(function (d, idx) {
-      var a = document.createElement("a");
-      a.className = "mz-kp-srv-btn";
-      a.href = d.url || d.stream_url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      var name = cleanServerName(d) || "Descarga " + (idx + 1);
-      var idioma = d.idioma || d.lang || "";
-      a.textContent = idioma ? name + " · " + idioma : name;
-      box.appendChild(a);
-    });
-    if (!box.children.length) wrap.hidden = true;
+    var html =
+      '<div class="mz-kp-dl-sheet">' +
+        '<div class="mz-kp-dl-head">' +
+          '<span class="mz-kp-dl-title">Descargas</span>' +
+          '<button type="button" class="mz-kp-dl-close" id="mz-kp-dl-close" aria-label="Cerrar">×</button>' +
+        "</div>";
+    if (!items.length) {
+      html += '<div class="mz-kp-dl-empty">No hay descargas para este episodio</div>';
+    } else {
+      html += '<div class="mz-kp-dl-list">';
+      items.forEach(function (d, idx) {
+        var name = cleanServerName(d) || "Descarga " + (idx + 1);
+        var idioma = d.idioma || d.lang || "";
+        var idLow = String(idioma).toLowerCase();
+        var tag = "";
+        if (/lat|dub|castellano|espa/.test(idLow)) tag = "DUB";
+        else if (/sub/.test(idLow)) tag = "SUB";
+        else if (idioma) tag = String(idioma).slice(0, 6).toUpperCase();
+        var url = d.url || d.stream_url || "#";
+        html +=
+          '<a class="mz-kp-dl-row" href="' + String(url).replace(/"/g, "&quot;") + '" target="_blank" rel="noopener noreferrer">' +
+            '<span class="mz-kp-dl-name">' + String(name).replace(/</g, "") + "</span>" +
+            (tag ? '<span class="mz-kp-dl-lang">' + tag + "</span>" : "") +
+            '<span class="mz-kp-dl-action">DESCARGAR</span>' +
+          "</a>";
+      });
+      html += "</div>";
+    }
+    html += "</div>";
+    panel.innerHTML = html;
+    panel.classList.remove("hidden");
+    document.body.classList.add("mz-kp-dl-open");
+    var closeBtn = document.getElementById("mz-kp-dl-close");
+    if (closeBtn) {
+      closeBtn.onclick = function () {
+        panel.classList.add("hidden");
+        document.body.classList.remove("mz-kp-dl-open");
+      };
+    }
+    panel.onclick = function (ev) {
+      if (ev.target === panel) {
+        panel.classList.add("hidden");
+        document.body.classList.remove("mz-kp-dl-open");
+      }
+    };
   }
 
   function fillMetaChips(item) {
@@ -869,7 +1015,7 @@
               '<button type="button" class="mz-kp-ep-nav-btn" id="mz-kp-ep-next">Siguiente ›</button>' +
               '<button type="button" class="mz-kp-ep-nav-btn mz-kp-ep-dl" id="mz-kp-ep-dl" title="Descargas">↓</button>' +
             "</div>" +
-            '<div class="mz-kp-ep-watching" id="mz-kp-ep-watching">Estás viendo T' + sn + " · Episodio " + en + "</div>";
+            '<div class="mz-kp-ep-watching" id="mz-kp-ep-watching"><span class="mz-kp-watching-label">Estás viendo</span><span class="mz-kp-watching-ep">T' + sn + " · Episodio " + en + "</span></div>";
           if (hero && hero.parentNode) {
             if (bar.parentNode !== hero.parentNode) hero.parentNode.insertBefore(bar, hero.nextSibling);
             else hero.parentNode.insertBefore(bar, hero.nextSibling);
@@ -891,13 +1037,7 @@
               };
               var dl = document.getElementById("mz-kp-ep-dl");
               if (dl) dl.onclick = function () {
-                try {
-                  var w = document.getElementById("mz-kp-downloads-wrap");
-                  if (w) {
-                    w.hidden = false;
-                    w.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                  }
-                } catch (_) {}
+                try { openDownloadsPanel(); } catch (_) {}
               };
             } catch (_) {}
           }, 0);
@@ -998,6 +1138,7 @@
         epLabel(ep, n).replace(/</g, "") +
         "</div>" +
         '<div class="mz-kp-ep-lang">Subtitulado</div></div>';
+      if (playing) card.classList.add("is-playing", "active");
       card.addEventListener("click", function () {
         if (playing) return;
         openEpisode(item, ep, s, n);
@@ -1222,12 +1363,15 @@
         }
         renderServers(pack.embeds || []);
         renderDownloads(pack.downloads || []);
-        showPoster(
-          item,
-          pack.embeds && pack.embeds.length
-            ? "Elige un reproductor para comenzar"
-            : "Sin mirrors para este episodio"
-        );
+        var autoOk = tryAutoSelectPreferred(pack.embeds || []);
+        if (!autoOk) {
+          showPoster(
+            item,
+            pack.embeds && pack.embeds.length
+              ? "Elige un reproductor para comenzar"
+              : "Sin mirrors para este episodio"
+          );
+        }
       } catch (eFetch) {
         console.warn("fetchCapitulo", eFetch);
         showPoster(item, "No se pudieron cargar servidores");
