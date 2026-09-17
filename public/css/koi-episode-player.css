@@ -1349,7 +1349,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-syno
   body.mz-koi-ep-open {
     overflow: hidden !important;
     overscroll-behavior: none !important;
-    touch-action: manipulation;
+    
   }
   #mz-koi-ep-view.mz-kp-ep-mobile.open,
   #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile.open {
@@ -1383,4 +1383,93 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-syno
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
   }
+}
+
+
+/* FIX scroll horizontal chips + sin cuadrito vacío + transición película→episodio */
+@media (max-width: 1024px) {
+  body.mz-koi-ep-open {
+    touch-action: auto !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile .mz-kp-srv-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile .mz-kp-srv-row-chips {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    scrollbar-width: none !important;
+  }
+
+  #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-btn,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile .mz-kp-srv-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    pointer-events: auto !important;
+  }
+
+  /* Ocultar directos vacíos / descargas residuales */
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-direct-label.hidden,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct:empty {
+    display: none !important;
+  }
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-downloads-wrap,
+  #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-downloads-wrap {
+    display: none !important;
+  }
+}
+
+/* Película: no usar display:contents (rompe filas al volver a episodio) */
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-chips {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+}
+body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-tag {
+  display: inline-flex !important;
 }

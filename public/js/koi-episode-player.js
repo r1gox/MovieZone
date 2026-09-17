@@ -771,10 +771,25 @@
     appendLangRows(boxN, normal, "iframe");
 
     if (direct.length && boxD) {
-      if (labD) labD.classList.remove("hidden");
+      if (labD) {
+        labD.classList.remove("hidden");
+        labD.style.removeProperty("display");
+      }
       appendLangRows(boxD, direct, "direct");
-    } else if (labD) {
-      labD.classList.add("hidden");
+    } else {
+      if (labD) {
+        labD.classList.add("hidden");
+        labD.style.setProperty("display", "none", "important");
+      }
+      if (boxD) {
+        boxD.innerHTML = "";
+        boxD.style.setProperty("display", "none", "important");
+        boxD.style.setProperty("min-height", "0", "important");
+      }
+    }
+    if (direct.length && boxD) {
+      boxD.style.removeProperty("display");
+      boxD.style.removeProperty("min-height");
     }
 
     if (!normal.length && !direct.length) {
@@ -1408,6 +1423,38 @@
         panel.style.display = "none";
       }
       document.body.classList.remove("mz-kp-dl-open", "mz-mep-dl-open");
+
+      // Limpiar servers residuales (película → episodio)
+      try {
+        var boxN = document.getElementById("mz-kp-servers");
+        var boxD = document.getElementById("mz-kp-servers-direct");
+        var labD = document.getElementById("mz-kp-direct-label");
+        var dlW = document.getElementById("mz-kp-downloads-wrap");
+        if (boxN) {
+          boxN.innerHTML = "";
+          boxN.style.removeProperty("display");
+          boxN.style.removeProperty("overflow");
+          boxN.style.removeProperty("pointer-events");
+        }
+        if (boxD) {
+          boxD.innerHTML = "";
+          boxD.style.removeProperty("display");
+          boxD.style.removeProperty("min-height");
+        }
+        if (labD) {
+          labD.classList.add("hidden");
+          labD.style.removeProperty("display");
+        }
+        if (dlW) {
+          dlW.hidden = true;
+          dlW.style.setProperty("display", "none", "important");
+        }
+        var view = document.getElementById("mz-koi-ep-view");
+        if (view) {
+          view.style.removeProperty("pointer-events");
+          view.style.removeProperty("touch-action");
+        }
+      } catch (_) {}
     } catch (e) {
       console.warn("resetKoiChrome", e);
     }
@@ -1449,6 +1496,16 @@
       view.classList.add("open");
       view.setAttribute("aria-hidden", "false");
       document.body.classList.add("mz-koi-ep-open");
+      // Quitar residuos de película
+      try {
+        var md = document.getElementById("mz-kp-movie-dl");
+        if (md) md.remove();
+        var tr = view.querySelector(".mz-kp-ep-title-row");
+        if (tr) tr.classList.remove("mz-kp-movie-title-row");
+        view.style.removeProperty("pointer-events");
+        document.body.style.removeProperty("touch-action");
+        document.body.style.removeProperty("pointer-events");
+      } catch (_) {}
 
       // Quitar shell móvil / detalle debajo (evita doble vista)
       try {
