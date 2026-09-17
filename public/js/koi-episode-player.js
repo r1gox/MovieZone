@@ -1127,7 +1127,15 @@
           dp.classList.add("mz-koi-hidden-under");
           dp.style.setProperty("visibility", "hidden", "important");
           dp.style.setProperty("pointer-events", "none", "important");
+          dp.style.setProperty("opacity", "0", "important");
+          dp.style.setProperty("z-index", "0", "important");
         }
+        try {
+          document.querySelectorAll(".koi-btn-play, #koi-btn-play").forEach(function (b) {
+            b.style.setProperty("visibility", "hidden", "important");
+            b.style.setProperty("pointer-events", "none", "important");
+          });
+        } catch (_) {}
         ["mz-mobile-ep-nav", "mz-mobile-ep-watching", "mz-mep-dl-panel"].forEach(function (id) {
           var el = document.getElementById(id);
           if (el) el.classList.add("hidden");
@@ -1291,7 +1299,15 @@
         dp.classList.remove("mz-koi-hidden-under");
         dp.style.removeProperty("visibility");
         dp.style.removeProperty("pointer-events");
+        dp.style.removeProperty("opacity");
+        dp.style.removeProperty("z-index");
       }
+      try {
+        document.querySelectorAll(".koi-btn-play, #koi-btn-play").forEach(function (b) {
+          b.style.removeProperty("visibility");
+          b.style.removeProperty("pointer-events");
+        });
+      } catch (_) {}
     } catch (_) {}
     destroyHls();
     _ctx = null;
