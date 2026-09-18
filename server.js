@@ -2288,7 +2288,14 @@ async function refreshAnimeMetaFromSource4(cached, id) {
   const slugsTry = [...new Set([cached.slug, id?.slug, baseSlug].filter(Boolean))];
   let bestMeta = null;
   for (const s of slugsTry) {
-    const item = await fetchDetailFromSource("4", "anime", s, { slug: s, tipo: "Anime" });
+    // Pasar la portada ya buena en caché como fallback: si no, mapDetail()
+    // no tiene con qué competir contra la de la fuente 4 y puede traer una
+    // rota (el score de fuente le gana a TMDB aunque esté caída).
+    const item = await fetchDetailFromSource("4", "anime", s, {
+      slug: s,
+      tipo: "Anime",
+      portada: cached.portada,
+    });
     if (!item) continue;
     const better =
       !bestMeta ||
@@ -2319,6 +2326,9 @@ async function refreshAnimeMetaFromSource4(cached, id) {
   }
 
   let merged = mergeItems(cached, bestMeta);
+  // Esta función solo refresca episodios/temporadas, no la portada: si ya
+  // había una válida en caché, se conserva tal cual (no competir por score).
+  if (esPortadaValida(cached.portada)) merged.portada = cached.portada;
   // Preferir fuente 4 y slug sin año cuando aporta más episodios/temps
   merged.source_id = "4";
   merged.slug = bestMeta.slug || baseSlug || merged.slug;
