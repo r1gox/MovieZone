@@ -828,13 +828,7 @@
     // Nunca mostrar bloque de descargas embebido (solo panel ↓)
     try {
       var dlW = document.getElementById("mz-kp-downloads-wrap");
-      if (dlW) {
-        dlW.hidden = true;
-        dlW.setAttribute("hidden", "");
-        dlW.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;overflow:hidden!important;";
-      }
-      var dlBox = document.getElementById("mz-kp-downloads");
-      if (dlBox) dlBox.innerHTML = "";
+      if (dlW) dlW.remove();
     } catch (_) {}
   }
 
@@ -921,7 +915,7 @@
 .mz-kp-dl-title{font-size:1.15rem!important;font-weight:800!important;color:#f8fafc!important;margin:0!important}
 .mz-kp-dl-close{width:40px!important;height:40px!important;border-radius:12px!important;border:1px solid rgba(255,255,255,.14)!important;background:rgba(255,255,255,.08)!important;color:#f1f5f9!important;font-size:1.35rem!important;line-height:1!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important}
 .mz-kp-dl-list{display:flex!important;flex-direction:column!important;gap:10px!important}
-.mz-kp-dl-row{display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;box-sizing:border-box!important;padding:14px!important;border-radius:14px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.05)!important;color:#e2e8f0!important;text-decoration:none!important;font-weight:600!important;font-size:.95rem!important}
+.mz-kp-dl-row{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;width:100%!important;box-sizing:border-box!important;padding:14px!important;border-radius:14px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.05)!important;color:#e2e8f0!important;text-decoration:none!important;font-weight:600!important;font-size:.95rem!important}
 .mz-kp-dl-name{flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#f1f5f9!important;font-weight:700!important}
 .mz-kp-dl-lang{flex:0 0 auto!important;font-size:11px!important;font-weight:800!important;padding:3px 8px!important;border-radius:6px!important;background:#2563eb!important;color:#fff!important}
 .mz-kp-dl-action{flex:0 0 auto!important;font-size:11px!important;font-weight:800!important;letter-spacing:.06em!important;color:#67e8f9!important;text-transform:uppercase!important}

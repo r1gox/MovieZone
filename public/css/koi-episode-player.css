@@ -790,7 +790,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     flex: 1 1 auto !important;
-    min-width: 100% !important;
+    min-width: 0 !important;
     scrollbar-width: none !important;
   }
   #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips::-webkit-scrollbar {
@@ -1069,7 +1069,8 @@ body #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
 
 .mz-kp-dl-name {
   flex: 1 1 auto !important;
-  min-width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -1873,5 +1874,58 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     height: 42px !important;
     margin-left: auto !important;
     margin-right: 0 !important;
+  }
+}
+
+
+/* ===== SERIES/ANIME only: panel descargas alineado + sin cuadrito ===== */
+/* SUB + DESCARGAR en la misma fila, sin empujar a la derecha */
+.mz-kp-dl-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+}
+.mz-kp-dl-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.mz-kp-dl-lang,
+.mz-kp-dl-action {
+  flex: 0 0 auto !important;
+  margin-left: 0 !important;
+}
+
+/* Cuadrito: display:flex antiguo en #mz-kp-servers-direct vacío */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct[hidden],
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct.mz-kp-empty,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct:empty,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct[hidden],
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct.mz-kp-empty,
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct:empty,
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-direct-label.hidden {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    gap: 0 !important;
+  }
+
+  /* Solo aplicar flex a directos cuando HAY contenido */
+  #mz-koi-ep-view.mz-kp-ep-mobile #mz-kp-servers-direct:not([hidden]):not(.mz-kp-empty):not(:empty),
+  #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-servers-direct:not([hidden]):not(.mz-kp-empty):not(:empty) {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
