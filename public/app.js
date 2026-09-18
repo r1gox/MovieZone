@@ -294,22 +294,15 @@ function fillKoiHero(item) {
     const cert = item.certificacion || (item.imdb && item.imdb.certificacion) || null;
     if (cert) push("<span>" + String(cert) + "</span>");
 
-    // Estado: En emisión / Finalizado
-    let statusLabel = null;
-    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
-      statusLabel = "Finalizado";
-    } else if (
-      item.en_emision === true ||
-      /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))
-    ) {
-      statusLabel = "En emisión";
-    } else if (item.estado) {
-      statusLabel = String(item.estado);
-    }
+    // Estado: En emisión / Finalizado (Continuing, ended, Concluido…)
+    const _stK = typeof mzNormEstado === "function" ? mzNormEstado(item) : null;
+    let statusLabel = _stK ? _stK.label : null;
+    if (!statusLabel && item.estado) statusLabel = String(item.estado);
     if (statusLabel) {
+      const kind = (_stK && _stK.kind) || (/emis|continuing|airing/i.test(statusLabel) ? "air" : "end");
       push(
         '<span class="koi-meta-status' +
-          (/emis/i.test(statusLabel) ? " koi-meta-air" : " koi-meta-end") +
+          (kind === "air" ? " koi-meta-air" : kind === "end" ? " koi-meta-end" : "") +
           '">' +
           statusLabel +
           "</span>"
@@ -976,6 +969,29 @@ function ratingBadgeHtml(item) {
 
 
 /** Rellena meta del panel de detalle (rating IMDb preferido, géneros, duración, cert, votos, título original) */
+
+/** Normaliza estado API (Continuing, ended, Concluido…) → etiqueta ES + clase */
+function mzNormEstado(item) {
+  if (!item) return { label: null, kind: null };
+  const raw = String(item.estado || item.status || "").trim();
+  const low = raw.toLowerCase();
+  const fin =
+    item.finalizado === true ||
+    /^(ended|finalizado|concluido|completed?|finished|cancel+ed)$/i.test(raw) ||
+    /final|ended|complet|conclu|finished|cancel/i.test(low);
+  const air =
+    item.en_emision === true ||
+    /^(continuing|returning series|airing|ongoing|en emisi[oó]n|en curso|returning)$/i.test(raw) ||
+    /emisi|airing|ongoing|continuing|returning|en curso/i.test(low);
+  if (fin && !air) return { label: "Finalizado", kind: "end" };
+  if (air) return { label: "En emisión", kind: "air" };
+  // Si solo dice "Concluido" etc.
+  if (/concluido|finalizado|ended/i.test(raw)) return { label: "Finalizado", kind: "end" };
+  if (/continuing|emisi/i.test(raw)) return { label: "En emisión", kind: "air" };
+  if (raw) return { label: raw, kind: "other" };
+  return { label: null, kind: null };
+}
+
 function rellenarMetaDetalle(item) {
     if (!item) return;
 
@@ -1057,36 +1073,30 @@ function rellenarMetaDetalle(item) {
         else votosWrap.classList.add("hidden");
     }
 
-    // Estado: En emisión / Finalizado (series, anime; también si la API trae estado)
+    // Estado: En emisión / Finalizado (normaliza Continuing, ended, Concluido…)
     const statusEl = document.getElementById("details-status");
     const statusWrap = document.getElementById("details-status-wrap");
-    let statusLabel = null;
     const tipoLow = String(item.tipo || "").toLowerCase();
     const esSerieTipo = /serie|anime|dorama|tv/.test(tipoLow);
-    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
-        statusLabel = "Finalizado";
-    } else if (item.en_emision === true || /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))) {
-        statusLabel = "En emisión";
-    } else if (item.estado) {
-        statusLabel = String(item.estado);
-    }
-    // En películas solo mostrar si hay estado claro; en series/anime siempre si hay dato
-    if (!esSerieTipo && statusLabel && statusLabel !== "Finalizado" && statusLabel !== "En emisión") {
-        // películas raramente tienen "en emisión"; mantener si viene de API
+    const st = typeof mzNormEstado === "function" ? mzNormEstado(item) : { label: item.estado || null, kind: null };
+    let statusLabel = st.label;
+    // Películas: solo si es etiqueta clara
+    if (!esSerieTipo && statusLabel && st.kind === "other") {
+      statusLabel = null;
     }
     if (statusEl) {
-        statusEl.textContent = statusLabel || "—";
+        statusEl.textContent = statusLabel || "";
         statusEl.classList.remove("mz-status-air", "mz-status-end", "mz-status-other");
-        if (statusLabel === "En emisión") statusEl.classList.add("mz-status-air");
-        else if (statusLabel === "Finalizado") statusEl.classList.add("mz-status-end");
+        if (st.kind === "air") statusEl.classList.add("mz-status-air");
+        else if (st.kind === "end") statusEl.classList.add("mz-status-end");
         else if (statusLabel) statusEl.classList.add("mz-status-other");
     }
     if (statusWrap) {
-        statusWrap.classList.remove("mz-status-air", "mz-status-end", "is-air", "is-end");
+        statusWrap.classList.remove("mz-status-air", "mz-status-end", "mz-status-other", "is-air", "is-end", "hidden");
         if (statusLabel) {
-            statusWrap.classList.remove("hidden");
-            if (statusLabel === "En emisión") statusWrap.classList.add("mz-status-air", "is-air");
-            else if (statusLabel === "Finalizado") statusWrap.classList.add("mz-status-end", "is-end");
+            if (st.kind === "air") statusWrap.classList.add("mz-status-air", "is-air");
+            else if (st.kind === "end") statusWrap.classList.add("mz-status-end", "is-end");
+            else statusWrap.classList.add("mz-status-other");
         } else {
             statusWrap.classList.add("hidden");
         }
