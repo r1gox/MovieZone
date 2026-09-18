@@ -1457,3 +1457,91 @@ body #details-status {
   letter-spacing: 0.05em !important;
   text-transform: uppercase !important;
 }
+
+/* Estado serie/anime: chip tipo IMDb (mismo tamaño/forma, colores propios) */
+
+#details-status-wrap.meta-item.status,
+#details-panel #details-status-wrap.meta-item.status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#details-status-wrap.hidden {
+  display: none !important;
+}
+
+/* Ocultar icono radio: el chip basta (como IMDb) */
+#details-status-wrap > ion-icon {
+  display: none !important;
+}
+
+#details-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  border: none !important;
+}
+
+/* En emisión — verde, misma “caja” que IMDb amarillo */
+#details-status.mz-status-air,
+#details-status-wrap.mz-status-air #details-status,
+#details-status-wrap.is-air #details-status {
+  background: #10b981 !important;
+  color: #04150f !important;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+
+/* Finalizado — gris neutro */
+#details-status.mz-status-end,
+#details-status-wrap.mz-status-end #details-status,
+#details-status-wrap.is-end #details-status {
+  background: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+/* Otro estado */
+#details-status.mz-status-other,
+#details-status-wrap.mz-status-other #details-status {
+  background: #818cf8 !important;
+  color: #0f172a !important;
+}
+
+/* Koi hero meta */
+.koi-meta-status.koi-meta-air {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  background: #10b981 !important;
+  color: #04150f !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  border: none !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em;
+}
+.koi-meta-status.koi-meta-end {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  background: #94a3b8 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  border: none !important;
+  text-transform: none !important;
+}
