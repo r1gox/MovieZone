@@ -1477,12 +1477,13 @@
         }
         if (boxD) {
           boxD.innerHTML = "";
-          boxD.style.removeProperty("display");
-          boxD.style.removeProperty("min-height");
+          boxD.classList.add("mz-kp-empty");
+          boxD.setAttribute("hidden", "");
+          boxD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;min-height:0!important;";
         }
         if (labD) {
           labD.classList.add("hidden");
-          labD.style.removeProperty("display");
+          labD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;";
         }
         if (dlW) {
           dlW.hidden = true;
@@ -1849,8 +1850,13 @@
       if (bd) {
         bd.innerHTML = "";
         bd.classList.add("mz-kp-empty");
+        bd.setAttribute("hidden", "");
+        bd.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;";
       }
-      if (ld) ld.classList.add("hidden");
+      if (ld) {
+        ld.classList.add("hidden");
+        ld.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;";
+      }
     } catch (_) {}
     try {
       var layout = view.querySelector(".mz-kp-layout");

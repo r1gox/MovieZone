@@ -1929,3 +1929,16 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     flex-direction: column !important;
   }
 }
+
+
+/* Residuo película → anime: Directos vacío no debe verse */
+#mz-koi-ep-view #mz-kp-servers-direct.mz-kp-empty,
+#mz-koi-ep-view #mz-kp-servers-direct[hidden],
+#mz-koi-ep-view #mz-kp-servers-direct:empty {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
