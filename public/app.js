@@ -4749,7 +4749,20 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.postId) params.set("postId", item.postId);
             if (item.link) params.set("link", item.link);
             if (item.slug) params.set("slug", item.slug);
-            if (item.source_id) params.set("source_id", item.source_id);
+            // Fuente del listado (JK=5 / AV1=4) — no dejar que el backend cambie a 4
+            let sidDet = item.source_id != null ? String(item.source_id) : "";
+            if (!sidDet && item.link) {
+              const m = String(item.link).match(/\/([45])\/(?:anime|serie)\//i);
+              if (m) sidDet = m[1];
+            }
+            if (!sidDet && item.url) {
+              const m = String(item.url).match(/\/([45])\/(?:anime|serie)\//i);
+              if (m) sidDet = m[1];
+            }
+            if (sidDet) {
+              params.set("source_id", sidDet);
+              item.source_id = sidDet;
+            }
             if (item.tipo) params.set("tipo", item.tipo);
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
@@ -4811,6 +4824,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         duracion: item.duracion,
                         duracion_texto: item.duracion_texto,
                         certificacion: item.certificacion,
+                        source_id: item.source_id,
+                        link: item.link,
+                        slug: item.slug,
                     };
                     if (Array.isArray(completo.embeds) && completo.embeds.length) {
                         item.embeds = completo.embeds;
@@ -4845,6 +4861,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         item.portada_fuente_raw = window.__mzPortadaLista;
                     } else if (keepMeta.portada) {
                         item.portada = keepMeta.portada;
+                    }
+                    // Mantener fuente del listado (JK no debe pasar a AV1)
+                    if (keepMeta.source_id) {
+                      item.source_id = String(keepMeta.source_id);
+                      if (item.slug && (item.source_id === "5" || item.source_id === "4")) {
+                        item.link = "https://moviezone.tvjz.workers.dev/" + item.source_id + "/anime/" + item.slug;
+                      }
                     }
                     // Descripción: si completo trae español mejor, usarla
                     if (completo.descripcion && String(completo.descripcion).length > 40) {
@@ -4894,6 +4917,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         }
                     });
 
+                    // Fuente del listado (JK=5) nunca se pisa por AV1
+                    if (keep.source_id) {
+                      item.source_id = String(keep.source_id);
+                      if (keep.link) item.link = keep.link;
+                    }
                     // Portada del listado nunca se pisa
                     if (window.__mzPortadaLista) {
                       item.portada = window.__mzPortadaLista;
