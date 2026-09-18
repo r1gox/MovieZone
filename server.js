@@ -2574,6 +2574,12 @@ async function obtenerDetalleInterno(params) {
     throw new Error("No se pudo identificar la película/serie");
   }
 
+  // Si el cliente pide fuente 5 (JK) o 4 (AV1), no usar caché de la otra fuente
+  const sidPedido = source_id != null && source_id !== "" ? String(resolverSourceId(source_id)) : null;
+  if (cached && sidPedido && String(resolverSourceId(cached.source_id || "")) !== sidPedido) {
+    cached = null;
+  }
+
   const esAnimeKind = id.kind === "anime" || /anime/i.test(String(tipo || cached?.tipo || ""));
 
   // Si ya tenemos contenido válido y no force → devolver cache
@@ -2748,13 +2754,23 @@ async function obtenerDetalleInterno(params) {
     itemTieneContenidoValido(cached) &&
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
-  // Anime → solo fuentes de anime (4). Serie/dorama → NUNCA fuente 4 (animeav1 inventa Anime con el mismo slug)
-  const sourcesToTry = esAnimeKind
-    ? [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i)
-    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4");
-  const ordenFuentes = esAnimeKind ? ["5", "4"] : ["6", "3", "1", "2"];
-  for (const s of ordenFuentes) {
-    if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+  // Anime: si el usuario eligió JK(5) o AV1(4), SOLO esa fuente (no mezclar)
+  let sourcesToTry;
+  const sidForce = sidPedido || (id.source_id != null ? String(resolverSourceId(id.source_id)) : null);
+  if (esAnimeKind && (sidForce === "5" || sidForce === "jkanime")) {
+    sourcesToTry = ["5"];
+  } else if (esAnimeKind && (sidForce === "4" || sidForce === "animeav1")) {
+    sourcesToTry = ["4"];
+  } else if (esAnimeKind) {
+    sourcesToTry = [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i);
+    for (const s of ["5", "4"]) {
+      if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+    }
+  } else {
+    sourcesToTry = [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4");
+    for (const s of ["6", "3", "1", "2"]) {
+      if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+    }
   }
   const fuentes = soloMeta && !esAnimeKind ? sourcesToTry.slice(0, 1) : sourcesToTry;
 
@@ -2971,24 +2987,28 @@ async function obtenerDetalleInterno(params) {
   // Anime: totales / rangos; preferir fuente 4
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
-    best._prefer_source_anime = "4";
+    // Preferencia de fuente: respetar JK (5) si se pidió
+    best._prefer_source_anime = (sidPedido === "5" || sidPedido === "jkanime") ? "5" : (sidPedido === "4" ? "4" : (String(best.source_id || "4")));
     const nEps = Number(best.total_episodios) || 0;
     const tieneRangos = Array.isArray(best.rangos_episodios) && best.rangos_episodios.length > 1;
-    // One Piece: muchos eps → forzar 1 temporada (el front usa rangos 1–50…)
-    if (nEps > 50 || tieneRangos) {
+    // One Piece AV1: muchos eps → 1 temporada (rangos). No aplicar a JK.
+    if ((nEps > 50 || tieneRangos) && sidPedido !== "5" && sidPedido !== "jkanime") {
       best.temporadas = [1];
       best.total_temporadas = 1;
       best.source_id = "4";
       if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
-    } else {
+    } else if (sidPedido !== "5" && sidPedido !== "jkanime") {
       const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
       if (nTemps > 1 || nEps > 24) {
         best.source_id = "4";
         if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
       }
     }
+    if (sidPedido === "5" || sidPedido === "jkanime") {
+      best.source_id = "5";
+      best._prefer_source_anime = "5";
+    }
   }
-
   const sinPortada = !best.portada || String(best.portada).includes("placeholder");
   const sinContenido = !best.tiene_player;
   const esSerieOAnime = best.tipo === "Serie" || best.tipo === "Anime";
@@ -2999,7 +3019,14 @@ async function obtenerDetalleInterno(params) {
     best._sin_players = true;
     best = preferApiMeta(best, cached);
     if (best.link && (best.descripcion || best.portada || best.calificacion)) {
-      try { await guardarEnSupabase([best]); } catch (_) {}
+      try { if (sidPedido) {
+      best.source_id = sidPedido;
+      // Asegurar link de la fuente pedida
+      if (best.slug && (sidPedido === "5" || sidPedido === "4")) {
+        best.link = `https://moviezone.tvjz.workers.dev/${sidPedido}/anime/${best.slug}`;
+      }
+    }
+    await guardarEnSupabase([best]); } catch (_) {}
     }
     return best;
   }
@@ -3640,32 +3667,32 @@ app.get("/api/episodios", async (req, res) => {
     const slug = req.query.slug || null;
     const tipo = req.query.tipo || "Serie";
     const isAnime = tipo === "Anime" || /anime/i.test(String(tipo));
-    // Anime → preferir fuente 4 (animeav1); doramas → 6
+    // Respetar source_id del cliente (JK=5, AV1=4)
     const source_id = req.query.source_id || (isAnime ? "4" : DEFAULT_SOURCE);
+    const sidEps = String(resolverSourceId(source_id));
     const loadPlayers = req.query.players === "1";
     const epFrom = parseInt(req.query.ep_from, 10) || null;
     const epTo = parseInt(req.query.ep_to, 10) || null;
 
     let item = null;
     try {
-      // Si piden rango (animeav1), ir directo a esa fuente con ep_from/ep_to
-      if (isAnime && slug && (epFrom || epTo || ["4", "5"].includes(String(resolverSourceId(source_id))))) {
+      if (isAnime && slug && (epFrom || epTo || ["4", "5"].includes(sidEps))) {
         const from = epFrom || 1;
         const to = epTo || (epFrom ? epFrom + 99 : 100);
-        item = await fetchDetailFromSource("4", "anime", slug, {
+        // Usar la fuente pedida (5=JK, 4=AV1), no forzar siempre 4
+        item = await fetchDetailFromSource(sidEps, "anime", slug, {
           ep_from: from,
           ep_to: to,
           tipo: "Anime",
           slug,
         });
         if (item) {
-          // Complementar con otras fuentes (más episodios / meta) sin perder la lista
           try {
             const full = await obtenerDetalle({
               link,
               postId,
               slug,
-              source_id: "4",
+              source_id: sidEps,
               tipo: "Anime",
               force: false,
             });
@@ -3677,7 +3704,7 @@ app.get("/api/episodios", async (req, res) => {
         }
       }
       if (!item) {
-        item = await obtenerDetalle({ link, postId, slug, source_id, tipo });
+        item = await obtenerDetalle({ link, postId, slug, source_id: sidEps, tipo });
       }
     } catch (err) {
       console.warn("episodios detalle:", err.message);
