@@ -6725,6 +6725,14 @@ function renderEpisodios(item, season = 1) {
           if (!b && item._av1ShotId && n > 0) {
             b = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + n + ".jpg";
           }
+          // JK / cualquier fuente: Metahub still si hay imdb y falta thumb
+          if (!b && n > 0) {
+            const imdb = String(item.imdb_id || item.imdb || "").replace(/^.*?(tt\d+).*$/i, "$1");
+            if (/^tt\d+$/i.test(imdb)) {
+              const s = Number(ep.season || ep.temporada || item._seasonActiva || 1) || 1;
+              b = "https://episodes.metahub.space/" + imdb + "/" + s + "/" + n + "/w780.jpg";
+            }
+          }
           if (!b && typeof mzEpisodeThumb === "function") {
             b = mzEpisodeThumb(ep, item, n);
           }
