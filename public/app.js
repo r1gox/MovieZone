@@ -4685,6 +4685,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.tipo) params.set("tipo", item.tipo);
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
+            // Portada ya buena del listado: que el backend la respete siempre
+            // y no la pise con la del detalle de la fuente (a veces rota).
+            if (window.__mzPortadaLista) params.set("portada", window.__mzPortadaLista);
+            else if (item.portada) params.set("portada", item.portada);
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
