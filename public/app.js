@@ -6325,9 +6325,9 @@ function renderEpisodios(item, season = 1) {
         var t = temps[ti];
         if (!t || typeof t !== "object") continue;
         var tn = Number(t.temporada || t.season || t.num || 1) || 1;
-        var lista = t.lista || (Array.isArray(t.episodios) ? t.episodios : null) || [];
-        if (!Array.isArray(lista)) continue;
-        for (var li = 0; li < lista.length; li++) addMap(lista[li], tn);
+        var listaMap = t.lista || (Array.isArray(t.episodios) ? t.episodios : null) || [];
+        if (!Array.isArray(listaMap)) continue;
+        for (var li = 0; li < listaMap.length; li++) addMap(listaMap[li], tn);
       }
       if (Array.isArray(item.episodios)) {
         item.episodios = item.episodios.map(function (ep) {
