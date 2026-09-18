@@ -1152,6 +1152,8 @@ let seleccionActual = null;
 let vistaActual = "home"; // home | grid
 let gridModo = "categoria"; // categoria | search | favoritos
 let gridSeccion = "movie";
+/** Fuente anime activa: "av1" | "jk" */
+let animeFuente = "av1";
 let gridTermino = "";
 let gridPage = 1;
 let gridCargando = false;
@@ -3802,15 +3804,18 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     resultsGrid.innerHTML = "";
     resultsEmpty.classList.add("hidden");
     scrollSentinel.classList.add("hidden");
+    try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     cargarPaginaGrid();
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
 
 // ======================================================
 // CARGA DE DATOS (conectado a tu server.js real)
 // ======================================================
 async function fetchSeccion(seccion, page, limit = LIMIT) {
-    const data = await getCatalog(seccion, page, limit);
+    const opts = seccion === "anime" ? { animeSource: animeFuente } : {};
+    const data = await getCatalog(seccion, page, limit, opts);
     const lista = data.resultados || [];
 
     // Películas: 761 páginas del worker (1 = estrenos)
@@ -3831,12 +3836,21 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
+    // Chip AV1/JK activo → la búsqueda va solo a esa fuente
+    const animeOpts = { animeSource: animeFuente || "av1" };
     let data;
     try {
-        data = await searchCatalog(termino, src, page, limit);
+        data = await searchCatalog(termino, src, page, limit, animeOpts);
     } catch (e) {
         // Fallback directo al backend si el módulo falla
         const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
+        if (animeOpts.animeSource === "jk") {
+          q.set("anime_source", "jk");
+          q.set("source_id", "5");
+        } else if (animeOpts.animeSource === "av1") {
+          q.set("anime_source", "av1");
+          q.set("source_id", "4");
+        }
         const res = await fetch("/api/buscar?" + q.toString(), { cache: "no-store" });
         data = await res.json();
     }
@@ -8041,6 +8055,50 @@ searchForm.addEventListener("submit", (e) => {
 });
 
 // ======================================================
+
+function syncAnimeSourceChips() {
+  try {
+    const g = document.getElementById("mz-anime-src-group");
+    if (!g) return;
+    // Visible en sección Anime y en cualquier búsqueda
+    const show = gridSeccion === "anime" || gridModo === "search" || vistaActual === "grid";
+    g.classList.toggle("hidden", !show);
+    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+      const v = btn.getAttribute("data-anime-src");
+      btn.classList.toggle("active", v === animeFuente);
+    });
+  } catch (_) {}
+}
+
+function bindAnimeSourceChips() {
+  const g = document.getElementById("mz-anime-src-group");
+  if (!g || g.dataset.bound === "1") return;
+  g.dataset.bound = "1";
+  g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const v = btn.getAttribute("data-anime-src") || "av1";
+      if (animeFuente === v) return;
+      animeFuente = v === "jk" ? "jk" : "av1";
+      syncAnimeSourceChips();
+      // Recargar grid o búsqueda
+      try {
+        gridPage = 1;
+        if (gridModo === "search" && gridTermino) {
+          cargarPaginaGrid();
+        } else {
+          // Catálogo anime con la fuente elegida
+          gridSeccion = "anime";
+          gridTypeFilter = "anime";
+          mostrarGrid({ modo: "categoria", seccion: "anime" });
+        }
+      } catch (e) {
+        console.warn("anime src chip", e);
+        try { cargarPaginaGrid(); } catch (_) {}
+      }
+    });
+  });
+}
+
 // NAVEGACIÓN (nav-links, filter-tabs, filter-chips)
 // ======================================================
 document.getElementById("nav-link-home").addEventListener("click", (e) => {
@@ -8062,22 +8120,25 @@ document.querySelectorAll(".filter-tab").forEach(tab => {
 
 document.querySelectorAll(".filter-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-        document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+        // Chips AV1/JK tienen su propio handler
+        if (chip.classList.contains("mz-anime-src") || chip.closest("#mz-anime-src-group")) return;
+
+        document.querySelectorAll(".filter-chip:not(.mz-anime-src)").forEach(c => c.classList.remove("active"));
         chip.classList.add("active");
         gridTypeFilter = chip.dataset.type || "all";
 
-        // Si estamos en búsqueda o favoritos → solo filtramos lo que ya hay
         if (gridModo === "search" || gridModo === "favoritos") {
             if (vistaActual === "grid") cargarPaginaGrid();
+            try { syncAnimeSourceChips(); } catch (_) {}
             return;
         }
 
-        // Si es categoría normal → cambiamos de sección
         if (gridTypeFilter === "all") {
             mostrarGrid({ modo: "categoria", seccion: "movie" });
         } else {
             mostrarGrid({ modo: "categoria", seccion: gridTypeFilter });
         }
+        try { syncAnimeSourceChips(); } catch (_) {}
     });
 });
 
@@ -8318,6 +8379,7 @@ initBrowserWarn();
 
 initProfilesUi();
 initNotifyBtn();
+try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
 cargarHome();
 initTvUi();
 initAutoplayEpUi();
