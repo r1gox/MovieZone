@@ -1679,6 +1679,67 @@ async function apiGet(path) {
 }
 
 const PELIS_CATALOG_PAGES = 761; // worker /3/peliculas
+// OJO: a diferencia de /peliculas, el worker /9/series?page=N por ahora
+// IGNORA el page (siempre devuelve la misma página 1). Dejamos esto listo
+// para cuando el Worker soporte paginación real; mientras tanto, si migras
+// /api/series a esta función, todas las páginas mostrarán lo mismo.
+const SERIES_CATALOG_PAGES = 200; // ajustar si el worker confirma el total real
+
+async function obtenerSeriesSeccion(page = 1, limit = 24) {
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(48, Math.max(12, parseInt(limit, 10) || 24));
+  await ensureMoviesDB().catch(() => {});
+
+  try {
+    const data = await apiGet(`/${DEFAULT_SOURCE}/series?page=${page}`);
+
+    let lista = (data.results || data.resultados || [])
+      .map(mapListItem)
+      .filter(Boolean)
+      .slice(0, limit);
+
+    lista = lista.map((item) => {
+      const local = moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug)
+      );
+      if (!local) return item;
+      return mergeItems(item, {
+        tiene_player: local.tiene_player,
+        descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
+        calificacion: local.calificacion || item.calificacion,
+        portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
+      });
+    });
+
+    lista = filtrarDescartados(lista);
+    guardarEnSupabase(lista).catch(() => {});
+
+    return {
+      resultados: lista,
+      page,
+      limit,
+      total: SERIES_CATALOG_PAGES * limit,
+      totalPages: SERIES_CATALOG_PAGES,
+      pages: SERIES_CATALOG_PAGES,
+      fuente: data.fuente || "pelisplushd_bz",
+      modo: page === 1 ? "estrenos" : "catalogo",
+    };
+  } catch (err) {
+    console.error("obtenerSeriesSeccion:", err.message);
+    return {
+      resultados: [],
+      page,
+      limit,
+      total: 0,
+      totalPages: SERIES_CATALOG_PAGES,
+      pages: SERIES_CATALOG_PAGES,
+      error: err.message,
+    };
+  }
+}
+
 
 /**
  * Sección Películas:
@@ -3412,7 +3473,7 @@ app.get("/api/series", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    const data = await catalogoPaginado("series", "Serie", page, limit);
+    const data = await obtenerSeriesSeccion(page, limit);
     res.json(data);
   } catch (err) {
     console.error("/api/series", err.message);
