@@ -1174,19 +1174,45 @@ function obtenerFavoritos() {
 function guardarFavoritos(lista) {
     localStorage.setItem(pk("favoritos"), JSON.stringify(lista || []));
 }
-function esFavorito(link) {
-    return obtenerFavoritos().some(f => f.link === link);
+function mzFavKey(item) {
+    if (!item) return "";
+    if (item.link) return "link:" + String(item.link);
+    const sid = item.source_id != null ? String(item.source_id) : "";
+    const slug = item.slug ? String(item.slug) : "";
+    if (sid && slug) return "ss:" + sid + "/" + slug;
+    if (slug) return "slug:" + slug;
+    return "n:" + String(item.nombre || item.titulo || "");
+}
+function esFavorito(linkOrItem) {
+    const favs = obtenerFavoritos();
+    if (linkOrItem && typeof linkOrItem === "object") {
+      const k = mzFavKey(linkOrItem);
+      return favs.some(function (f) { return mzFavKey(f) === k; });
+    }
+    const link = linkOrItem;
+    return favs.some(function (f) { return f && f.link && f.link === link; });
 }
 function toggleFavoritoItem(item) {
+    if (!item) return false;
     let favoritos = obtenerFavoritos();
-    const existe = favoritos.findIndex(f => f.link === item.link);
+    const k = mzFavKey(item);
+    const existe = favoritos.findIndex(function (f) { return mzFavKey(f) === k; });
     if (existe >= 0) {
         favoritos.splice(existe, 1);
     } else {
-        favoritos.unshift(item);
+        // Guardar copia ligera
+        favoritos.unshift({
+          link: item.link || null,
+          slug: item.slug || null,
+          source_id: item.source_id != null ? String(item.source_id) : null,
+          nombre: item.nombre || item.titulo || "",
+          portada: item.portada || null,
+          tipo: item.tipo || null,
+          year: item.year || null,
+        });
     }
     guardarFavoritos(favoritos);
-    return existe < 0; // true si quedó agregado
+    return existe < 0;
 }
 
 // ======================================================
@@ -3819,6 +3845,15 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
     gridTermino = termino;
     gridPage = 1;
     gridSinMasResultados = false;
+    // Evitar que el filtro de Anime (o JK) deje vacías Series/Películas
+    if (modo === "categoria") {
+      gridTypeFilter = seccion === "movie" || seccion === "series" || seccion === "anime" ? seccion : "all";
+    } else if (modo === "search") {
+      // búsqueda global: no forzar tipo anime salvo que seccion sea anime
+      if (seccion === "anime") gridTypeFilter = "anime";
+      else if (seccion === "series" || seccion === "movie") gridTypeFilter = seccion;
+      else gridTypeFilter = "all";
+    }
 
     // Si NO es búsqueda → ocultar “Buscar online”
     if (modo !== "search") {
@@ -3885,13 +3920,13 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
-    // Chip AV1/JK → búsqueda solo en esa fuente
-    const animeOpts = { animeSource: animeFuente || "av1" };
+    // AV1/JK SOLO en sección Anime (no vaciar Series/Películas)
+    const enAnime = gridSeccion === "anime" || gridTypeFilter === "anime";
+    const animeOpts = enAnime ? { animeSource: animeFuente || "av1" } : {};
     let data;
     try {
         data = await searchCatalog(termino, src, page, limit, animeOpts);
     } catch (e) {
-        // Fallback directo al backend si el módulo falla
         const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
         if (animeOpts.animeSource === "jk") {
           q.set("anime_source", "jk");
@@ -5267,16 +5302,28 @@ function setDetalleImdb(item) {
 function actualizarBotonFavorito() {
     const btn = document.getElementById("btn-favorito");
     const icon = document.getElementById("btn-favorito-icon");
-    if (!seleccionActual) return;
-    const activo = esFavorito(seleccionActual.link);
-    icon.setAttribute("name", activo ? "heart" : "heart-outline");
+    if (!btn) return;
+    if (!seleccionActual) {
+      btn.style.color = "";
+      if (icon) icon.setAttribute("name", "heart-outline");
+      return;
+    }
+    const activo = esFavorito(seleccionActual);
+    if (icon) icon.setAttribute("name", activo ? "heart" : "heart-outline");
     btn.style.color = activo ? "#e50914" : "";
+    btn.setAttribute("aria-pressed", activo ? "true" : "false");
 }
-document.getElementById("btn-favorito").addEventListener("click", () => {
+(function bindFavoritoBtn() {
+  const btn = document.getElementById("btn-favorito");
+  if (!btn || btn.dataset.mzFavBound === "1") return;
+  btn.dataset.mzFavBound = "1";
+  btn.addEventListener("click", function (e) {
+    try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
     if (!seleccionActual) return;
     toggleFavoritoItem(seleccionActual);
     actualizarBotonFavorito();
-});
+  });
+})();
 
 // ---------- Links cortos compartibles: /serie/slug ----------
 function tipoPathFromItem(item) {
@@ -5753,6 +5800,38 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 }
 
 
+
+
+/** Si falla still de episodio (metahub "missing"), usar backdrop de la serie */
+function mzEpBackdropFallback(item) {
+  if (!item) return PLACEHOLDER;
+  if (item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) return String(item.backdrop);
+  const imdb =
+    item.imdb_id ||
+    (item.imdb && (item.imdb.id || item.imdb.imdb_id)) ||
+    null;
+  if (imdb) {
+    const tt = String(imdb).startsWith("tt") ? String(imdb) : "tt" + String(imdb);
+    return "https://images.metahub.space/background/medium/" + tt + "/img";
+  }
+  return item.portada || PLACEHOLDER;
+}
+window.mzEpImgErr = function (img) {
+  try {
+    if (!img || img.dataset.mzFb === "1") {
+      if (img) { img.onerror = null; img.style.opacity = "0.35"; }
+      return;
+    }
+    img.dataset.mzFb = "1";
+    const fb = img.getAttribute("data-fallback") || PLACEHOLDER;
+    img.onerror = function () {
+      this.onerror = null;
+      this.src = PLACEHOLDER;
+      this.style.opacity = "0.35";
+    };
+    img.src = fb;
+  } catch (_) {}
+};
 
 /** Normaliza still/back_img de episodio (TMDB path → URL completa) */
 function mzNormEpBackImg(u) {
@@ -6736,9 +6815,11 @@ function renderEpisodios(item, season = 1) {
             }
             if (!thumb) thumb = PLACEHOLDER;
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            const fbThumb = mzEpBackdropFallback(item);
             btn.innerHTML =
               '<span class="mz-mep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.opacity=0.35"/></span>' +
+              '" alt="" loading="lazy" decoding="async" data-fallback="' + String(fbThumb).replace(/"/g, "") +
+              '" onerror="window.mzEpImgErr&&window.mzEpImgErr(this)"/></span>' +
               '<span class="mz-mep-label">T' + sLab + " • E" + num + "</span>";
         } else if (koiCards) {
             let thumb =
@@ -6757,9 +6838,11 @@ function renderEpisodios(item, season = 1) {
             }
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            const fbThumb2 = mzEpBackdropFallback(item);
             btn.innerHTML =
               '<span class="koi-ep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" onerror="this.onerror=null;this.style.opacity=0.35"/>' +
+              '" alt="" loading="lazy" data-fallback="' + String(fbThumb2).replace(/"/g, "") +
+              '" onerror="window.mzEpImgErr&&window.mzEpImgErr(this)"/>' +
               '<span class="koi-ep-dur">' + (dur || ("E" + num)) + "</span></span>" +
               '<span class="koi-ep-meta"><span class="koi-ep-series">' + safeSeries +
               '</span><span class="koi-ep-name">T' + sLab + " · " + labelName + "</span></span>";
