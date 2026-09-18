@@ -2122,7 +2122,7 @@ function dedupeSearchResults(lista) {
   return Array.isArray(lista) ? lista.slice() : [];
 }
 
-async function buscarOnline(termino, page = 1, limit = 48) {
+async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   const qRaw = String(termino || "").trim();
   if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
 
@@ -2134,15 +2134,43 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     return [];
   }
 
+  // Chip anime: AV1=4 / JK=5
+  let forceSid = null;
+  if (animeSource === "jk" || animeSource === "5" || animeSource === "jkanime") forceSid = "5";
+  if (animeSource === "av1" || animeSource === "4" || animeSource === "animeav1") forceSid = "4";
+
   let raw = [];
   try {
-    // limit alto para no truncar animes (Worker default 40)
-    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-    raw = extraerLista(data);
+    if (forceSid === "5") {
+      // Solo JKanime
+      let data = null;
+      try {
+        data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      } catch (_) {
+        try {
+          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
+        } catch (__) {}
+      }
+      raw = extraerLista(data);
+    } else if (forceSid === "4") {
+      let data = null;
+      try {
+        data = await apiGet(`/4/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      } catch (_) {
+        try {
+          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=animeav1&limit=${Math.min(80, Math.max(limit, 40))}`);
+        } catch (__) {}
+      }
+      raw = extraerLista(data);
+    } else {
+      // limit alto para no truncar animes (Worker default 40)
+      const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      raw = extraerLista(data);
+    }
   } catch (err) {
     console.warn("search:", err.message);
   }
-  if (!raw.length) {
+  if (!raw.length && !forceSid) {
     try {
       const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`);
       raw = extraerLista(dataS);
@@ -3409,6 +3437,20 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
     const type = req.query.type || null;
+    // Chip AV1/JK: anime_source=av1|jk o source_id=4|5
+    let animeSource =
+      req.query.anime_source ||
+      req.query.animeSource ||
+      null;
+    const sidQ = String(req.query.source_id || "").trim();
+    if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
+    if (!animeSource && (sidQ === "4" || sidQ === "animeav1")) animeSource = "av1";
+    // No confundir source=local/online con source_id
+    if (!animeSource && req.query.source && !["local", "online", "1"].includes(String(req.query.source))) {
+      const s = String(req.query.source);
+      if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
+      if (s === "4" || /animeav1|av1/i.test(s)) animeSource = "av1";
+    }
 
     if (!termino) {
       return res.status(400).json({ error: "Escribe algo para buscar" });
@@ -3420,7 +3462,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     }
 
     try {
-      const data = await buscarOnline(termino, page, limit);
+      const data = await buscarOnline(termino, page, limit, animeSource);
       return res.json(data);
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
