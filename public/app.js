@@ -8068,42 +8068,69 @@ searchForm.addEventListener("submit", (e) => {
 
 function syncAnimeSourceChips() {
   try {
+    // Mostrar solo en Anime o al buscar
+    const show = gridSeccion === "anime" || gridModo === "search";
     const g = document.getElementById("mz-anime-src-group");
-    if (!g) return;
-    const show = gridSeccion === "anime" || gridModo === "search" || vistaActual === "grid";
-    g.classList.toggle("hidden", !show);
-    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
-      const v = btn.getAttribute("data-anime-src");
-      btn.classList.toggle("active", v === animeFuente);
-    });
+    const nav = document.getElementById("nav-anime-src-li");
+    if (g) {
+      g.classList.toggle("hidden", !show);
+      if (show) g.style.display = "inline-flex";
+      else g.style.display = "none";
+      g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+        const v = btn.getAttribute("data-anime-src");
+        btn.classList.toggle("active", v === animeFuente);
+      });
+    }
+    if (nav) {
+      nav.classList.toggle("hidden", !show);
+      if (show) nav.style.display = "inline-flex";
+      else nav.style.display = "none";
+      nav.querySelectorAll(".mz-nav-src-btn").forEach(function (btn) {
+        const v = btn.getAttribute("data-anime-src");
+        btn.classList.toggle("active", v === animeFuente);
+      });
+    }
   } catch (_) {}
 }
 
+function onAnimeSrcClick(ev) {
+  try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+  const btn = ev.currentTarget;
+  const v = (btn && btn.getAttribute("data-anime-src")) || "av1";
+  animeFuente = v === "jk" ? "jk" : "av1";
+  syncAnimeSourceChips();
+  try {
+    gridPage = 1;
+    if (gridModo === "search" && gridTermino) {
+      cargarPaginaGrid();
+    } else {
+      gridSeccion = "anime";
+      gridTypeFilter = "anime";
+      mostrarGrid({ modo: "categoria", seccion: "anime" });
+    }
+  } catch (e) {
+    console.warn("anime src chip", e);
+    try { cargarPaginaGrid(); } catch (_) {}
+  }
+}
+
 function bindAnimeSourceChips() {
+  // Toolbar
   const g = document.getElementById("mz-anime-src-group");
-  if (!g || g.dataset.bound === "1") return;
-  g.dataset.bound = "1";
-  g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
-    btn.addEventListener("click", function (ev) {
-      try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
-      const v = btn.getAttribute("data-anime-src") || "av1";
-      animeFuente = v === "jk" ? "jk" : "av1";
-      syncAnimeSourceChips();
-      try {
-        gridPage = 1;
-        if (gridModo === "search" && gridTermino) {
-          cargarPaginaGrid();
-        } else {
-          gridSeccion = "anime";
-          gridTypeFilter = "anime";
-          mostrarGrid({ modo: "categoria", seccion: "anime" });
-        }
-      } catch (e) {
-        console.warn("anime src chip", e);
-        try { cargarPaginaGrid(); } catch (_) {}
-      }
+  if (g && g.dataset.bound !== "1") {
+    g.dataset.bound = "1";
+    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+      btn.addEventListener("click", onAnimeSrcClick);
     });
-  });
+  }
+  // Navbar
+  const nav = document.getElementById("nav-anime-src-li");
+  if (nav && nav.dataset.bound !== "1") {
+    nav.dataset.bound = "1";
+    nav.querySelectorAll(".mz-nav-src-btn").forEach(function (btn) {
+      btn.addEventListener("click", onAnimeSrcClick);
+    });
+  }
 }
 
 // NAVEGACIÓN (nav-links, filter-tabs, filter-chips)
