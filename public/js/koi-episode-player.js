@@ -671,10 +671,16 @@
     var labD = $("mz-kp-direct-label");
     if (!boxN) return;
     boxN.innerHTML = "";
-    if (boxD) boxD.innerHTML = "";
+    if (boxD) {
+      boxD.innerHTML = "";
+      boxD.classList.add("mz-kp-empty");
+      boxD.setAttribute("hidden", "");
+      boxD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;";
+    }
     if (labD) {
       labD.classList.add("hidden");
       labD.textContent = "Directos";
+      labD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;";
     }
 
     if (!embeds || !embeds.length) {
@@ -792,13 +798,16 @@
     if (direct.length && boxD) {
       if (labD) {
         labD.classList.remove("hidden");
-        labD.style.removeProperty("display");
+        labD.style.cssText = "";
       }
+      boxD.removeAttribute("hidden");
+      boxD.classList.remove("mz-kp-empty");
+      boxD.style.cssText = "";
       appendLangRows(boxD, direct, "direct");
     } else {
       if (labD) {
         labD.classList.add("hidden");
-        labD.style.setProperty("display", "none", "important");
+        labD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;";
       }
       if (boxD) {
         boxD.innerHTML = "";
@@ -806,11 +815,6 @@
         boxD.setAttribute("hidden", "");
         boxD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;min-height:0!important;";
       }
-    }
-    if (direct.length && boxD) {
-      boxD.removeAttribute("hidden");
-      boxD.classList.remove("mz-kp-empty");
-      boxD.style.cssText = "";
     }
 
     if (!normal.length && !direct.length) {
@@ -1688,6 +1692,12 @@
       var row = document.querySelector("#mz-koi-ep-view .mz-kp-ep-title-row");
       if (!row) return;
       row.classList.add("mz-kp-movie-title-row");
+      row.style.cssText = "display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;width:100%!important;";
+
+      var title = document.getElementById("mz-kp-ep-title");
+      if (title) {
+        title.style.cssText = "flex:1 1 auto!important;min-width:0!important;margin:0!important;text-align:left!important;";
+      }
 
       var btn = document.getElementById("mz-kp-movie-dl");
       if (!btn) {
@@ -1698,11 +1708,11 @@
         btn.setAttribute("title", "Descargas");
         btn.setAttribute("aria-label", "Descargas");
         btn.textContent = "↓";
-        row.appendChild(btn);
-      } else if (btn.parentNode !== row) {
-        row.appendChild(btn);
       }
       btn.textContent = "↓";
+      btn.style.cssText = "flex:0 0 auto!important;width:42px!important;height:42px!important;margin-left:auto!important;border-radius:12px!important;border:1px solid rgba(168,85,247,.5)!important;background:rgba(168,85,247,.22)!important;color:#e9d5ff!important;font-size:1.15rem!important;font-weight:700!important;";
+      if (btn.parentNode !== row) row.appendChild(btn);
+      else row.appendChild(btn); // al final de la fila
 
       btn.onclick = function (e) {
         try {

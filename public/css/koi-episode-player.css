@@ -1728,3 +1728,69 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     border: 0 !important;
   }
 }
+
+
+/* --- Solo: cuadrito, película no se mueve, ↓ en el título --- */
+#mz-koi-ep-view #mz-kp-servers-direct[hidden],
+#mz-koi-ep-view #mz-kp-servers-direct.mz-kp-empty,
+#mz-koi-ep-view #mz-kp-servers-direct:empty,
+#mz-koi-ep-view #mz-kp-direct-label.hidden,
+#mz-koi-ep-view #mz-kp-downloads-wrap,
+#mz-koi-ep-view .mz-kp-downloads-wrap {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Película: scroll normal, sin “empujar” la pantalla */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile).open {
+    position: fixed !important;
+    inset: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.mz-koi-ep-open:has(#mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile).open) {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    position: relative !important;
+    touch-action: auto !important;
+  }
+
+  /* ↓ junto al título (derecha) */
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-ep-title-row,
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-ep-title-row.mz-kp-movie-title-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-ep-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    text-align: left !important;
+  }
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) #mz-kp-movie-dl,
+  #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-movie-dl-btn {
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    margin-left: auto !important;
+    order: 99 !important;
+  }
+}
