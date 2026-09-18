@@ -5586,25 +5586,24 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 
 
 
-/** Imagen de episodio anime: back_img de lista o screenshots/{id}/{n}.jpg */
+/** Normaliza still/back_img de episodio (TMDB path → URL completa) */
+function mzNormEpBackImg(u) {
+  if (!u) return null;
+  u = String(u).trim();
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u)) {
+    // Preferir w500 en TMDB si viene otra talla
+    return u.replace(/\/t\/p\/w\d+\//i, "/t/p/w500/");
+  }
+  if (u.charAt(0) === "/") {
+    return "https://image.tmdb.org/t/p/w500" + u;
+  }
+  return u;
+}
 
-/** Rellena back_img en episodios desde temporadas_raw[].lista (AnimeAV1) */
+/** Rellena back_img en episodios desde temporadas/lista (anime, series, doramas) */
 function mzHydrateAnimeBackImg(item) {
   if (!item) return item;
-  // Captain Tsubasa llega como "Serie" pero es animeav1 (source 4)
-  const sid = String(item.source_id || item.fuente || item.source || "");
-  const esAv1 =
-    /anime/i.test(String(item.tipo || item.type || "")) ||
-    sid === "4" ||
-    /animeav1/i.test(sid) ||
-    /animeav1/i.test(String(item.link || item.url_extract || ""));
-  if (!esAv1) {
-    // aún así hidratar si hay lista con back_img
-    const hasLista = Array.isArray(item.temporadas_raw) && item.temporadas_raw.some(function (t) {
-      return t && Array.isArray(t.lista) && t.lista.some(function (e) { return e && e.back_img; });
-    });
-    if (!hasLista) return item;
-  }
   const byKey = new Map();
   const raws = []
     .concat(Array.isArray(item.temporadas_raw) ? item.temporadas_raw : [])
@@ -5614,35 +5613,78 @@ function mzHydrateAnimeBackImg(item) {
     if (!Array.isArray(lista)) continue;
     for (const ep of lista) {
       if (!ep || typeof ep !== "object") continue;
-      const back = ep.back_img || ep.screenshot || ep.still || null;
+      const back = mzNormEpBackImg(
+        ep.back_img || ep.screenshot || ep.still || ep.still_path || ep.imagen || ep.thumbnail || null
+      );
       if (!back) continue;
       const s = Number(ep.temporada || ep.season || t.temporada || t.season || 1) || 1;
       const n = Number(ep.episodio || ep.episode || ep.episode_number || 0) || 0;
       if (n > 0) {
         byKey.set(s + ":" + n, back);
-        byKey.set("1:" + n, back);           // Part 2 llega como T2 en API y T1 en episodios[]
-        byKey.set("n:" + n, back);           // solo número
+        byKey.set("1:" + n, back);
+        byKey.set("n:" + n, back);
+      }
+    }
+  }
+  // También indexar episodios[] si ya traen back_img
+  if (Array.isArray(item.episodios)) {
+    for (const ep of item.episodios) {
+      if (!ep) continue;
+      const back = mzNormEpBackImg(
+        ep.back_img || ep.screenshot || ep.still || ep.still_path || null
+      );
+      if (!back) continue;
+      const s = Number(ep.season || ep.temporada || 1) || 1;
+      const n = Number(ep.episode || ep.episodio || 0) || 0;
+      if (n > 0) {
+        byKey.set(s + ":" + n, back);
+        byKey.set("n:" + n, back);
       }
     }
   }
   if (!byKey.size) return item;
+
+  function paintEp(ep) {
+    if (!ep || typeof ep !== "object") return ep;
+    const s = Number(ep.season || ep.temporada || 1) || 1;
+    const n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
+    const fromSelf = mzNormEpBackImg(
+      ep.back_img || ep.screenshot || ep.still || ep.still_path || ep.imagen || null
+    );
+    const back =
+      fromSelf ||
+      (n > 0
+        ? byKey.get(s + ":" + n) || byKey.get("1:" + n) || byKey.get("n:" + n) || byKey.get("2:" + n)
+        : null);
+    if (!back) return ep;
+    if (ep.back_img === back) return ep;
+    return Object.assign({}, ep, {
+      back_img: back,
+      still: ep.still || back,
+      imagen: ep.imagen || back,
+    });
+  }
+
   if (Array.isArray(item.episodios)) {
-    item.episodios = item.episodios.map((ep) => {
-      if (!ep) return ep;
-      if (ep.back_img) return ep;
-      const s = Number(ep.season || ep.temporada || 1) || 1;
-      const n = Number(ep.episode || ep.episodio || 0) || 0;
-      const back =
-        byKey.get(s + ":" + n) ||
-        byKey.get("1:" + n) ||
-        byKey.get("n:" + n) ||
-        byKey.get("2:" + n);
-      if (!back) return ep;
-      return Object.assign({}, ep, {
-        back_img: back,
-        still: ep.still || back,
-        imagen: ep.imagen || back,
-      });
+    item.episodios = item.episodios.map(paintEp);
+  }
+  // Pintar también listas dentro de temporadas (detalle series/doramas)
+  if (Array.isArray(item.temporadas)) {
+    item.temporadas = item.temporadas.map(function (t) {
+      if (!t || typeof t !== "object") return t;
+      const out = Object.assign({}, t);
+      if (Array.isArray(t.lista)) out.lista = t.lista.map(paintEp);
+      if (Array.isArray(t.episodios)) out.episodios = t.episodios.map(paintEp);
+      return out;
+    });
+  }
+  if (Array.isArray(item.temporadas_raw)) {
+    item.temporadas_raw = item.temporadas_raw.map(function (t) {
+      if (!t || typeof t !== "object") return t;
+      const out = Object.assign({}, t);
+      if (Array.isArray(t.lista)) out.lista = t.lista.map(paintEp);
+      if (Array.isArray(t.episodios)) out.episodios = t.episodios.map(paintEp);
+      return out;
     });
   }
   return item;
@@ -5651,14 +5693,20 @@ function mzHydrateAnimeBackImg(item) {
 function mzEpisodeThumb(episodio, item, num) {
   if (!episodio) episodio = {};
   const n = Number(num || episodio.episode || episodio.episodio || 0) || 0;
-  const direct =
+  let direct =
     episodio.back_img ||
     episodio.screenshot ||
     episodio.still ||
+    episodio.still_path ||
     episodio.imagen ||
     episodio.image ||
     episodio.thumbnail ||
     null;
+  if (direct && typeof mzNormEpBackImg === "function") {
+    direct = mzNormEpBackImg(direct);
+  } else if (direct && String(direct).charAt(0) === "/") {
+    direct = "https://image.tmdb.org/t/p/w500" + String(direct);
+  }
   if (direct && /^https?:\/\//i.test(String(direct))) {
     // Guardar id animeav1 para hermanos sin back_img
     try {
@@ -5716,8 +5764,9 @@ function mzEpisodeThumb(episodio, item, num) {
   if (mid && n > 0) {
     return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
   }
-  // Solo anime: no usar backdrop de serie (se ve igual en todos)
-  if (/anime/i.test(String((item && (item.tipo || item.type)) || ""))) {
+  // Anime / serie / dorama: no reutilizar backdrop de la ficha (mismo en todos)
+  const tipo = String((item && (item.tipo || item.type)) || "");
+  if (/anime|serie|dorama|tv/i.test(tipo)) {
     return null;
   }
   return (
