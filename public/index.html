@@ -42,6 +42,7 @@
   <meta name="theme-color" content="#0a0611">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/css/mz-anime-src.css">
 </head>
 <body>
   <div id="mz-boot-loading" class="mz-boot-loading" aria-live="polite">
@@ -72,10 +73,6 @@
         <li id="nav-item-movies"><a class="filter-tab" data-type="movie">Películas</a></li>
         <li id="nav-item-series"><a class="filter-tab" data-type="series">Series</a></li>
         <li id="nav-item-anime"><a class="filter-tab" data-type="anime">Anime</a></li>
-        <li id="nav-anime-src-li" class="mz-nav-anime-src hidden" title="Fuente anime">
-          <button type="button" class="mz-nav-src-btn active" data-anime-src="av1">AV1</button>
-          <button type="button" class="mz-nav-src-btn" data-anime-src="jk">JK</button>
-        </li>
         <li id="nav-item-favoritos"><a id="nav-link-favoritos">
           <ion-icon name="heart-outline" style="font-size:14px; vertical-align:-2px;"></ion-icon> Favoritos
         </a></li>
@@ -314,10 +311,6 @@
         <button class="filter-chip" data-type="series">📺 Series</button>
         <button class="filter-chip" data-type="anime">⛩️ Anime</button>
       </div>
-      <div class="filter-group mz-anime-src-group" id="mz-anime-src-group" title="Fuente de anime">
-        <button type="button" class="filter-chip mz-anime-src active" data-anime-src="av1">AV1</button>
-        <button type="button" class="filter-chip mz-anime-src" data-anime-src="jk">JK</button>
-      </div>
       <div class="filter-group sort-group">
         <label for="sort-select" class="sort-label">Ordenar:</label>
         <select id="sort-select" class="sort-select">
@@ -329,8 +322,14 @@
     </div>
 
     <div class="grid-header">
-      <h2 id="results-title">Resultados</h2>
-      <span class="results-count" id="results-count">0 items</span>
+      <div class="mz-grid-title-row" id="mz-grid-title-row">
+        <h2 id="results-title">Resultados</h2>
+        <div class="mz-anime-src-group hidden" id="mz-anime-src-group" title="Fuente de anime">
+          <button type="button" class="mz-anime-src active" data-anime-src="av1">AV1</button>
+          <button type="button" class="mz-anime-src" data-anime-src="jk">JK</button>
+        </div>
+        <span class="results-count" id="results-count">0 items</span>
+      </div>
     </div>
 
     <div class="loading-state hidden" id="results-loading">

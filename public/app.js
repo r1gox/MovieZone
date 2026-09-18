@@ -2503,6 +2503,27 @@ function volverDesdeEpisodioMovil() {
 }
 
 /** PEGAR en app.js: reemplaza TODA la función reproducirCapituloAuto existente */
+
+/** Anime JK (source 5): ir directo a JKPlayer, sin lista de servidores */
+function esAnimeJk(item) {
+  if (!item) return false;
+  const s = String(item.source_id || item.fuente || item.source || "");
+  return s === "5" || /jkanime|^jk$/i.test(s);
+}
+
+function pickJkPlayer(embeds) {
+  const list = Array.isArray(embeds) ? embeds : [];
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (!e) continue;
+    const blob = String((e.server || "") + " " + (e.tipo || "") + " " + (e.name || "") + " " + (e.url || "") + " " + (e.embed || "")).toLowerCase();
+    if (blob.indexOf("jkplayer") !== -1 || /jkanime\.net\/jkplayer/i.test(blob)) return e;
+  }
+  // Si solo hay uno, usarlo
+  if (list.length === 1) return list[0];
+  return list[0] || null;
+}
+
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   // PC (≥1025) + serie/anime/dorama → vista tipo Koiflix SIN auto-reproducir
   const pc =
@@ -2520,6 +2541,19 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       } catch (e) {
         console.error("mzKoiOpenEpisode:", e);
       }
+      // JK: al abrir episodio, ir directo a JKPlayer
+      if (esAnimeJk(item)) {
+        try {
+          const packJk = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+          const jk = pickJkPlayer(packJk.embeds || []);
+          if (jk && typeof reproducir === "function") {
+            await reproducir(jk, item);
+            return true;
+          }
+        } catch (eJk) {
+          console.warn("JK auto koi", eJk);
+        }
+      }
       return false;
     }
   }
@@ -2529,6 +2563,20 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   let embeds = ordenarEmbedsAuto(pack.embeds || []);
   const conNoAds = insertarNoAdsEnLista(embeds);
   embeds = ordenarEmbedsAuto(conNoAds);
+
+  // JK: primer intento siempre JKPlayer
+  if (esAnimeJk(item)) {
+    const jk = pickJkPlayer(embeds);
+    if (jk) {
+      try {
+        await reproducir(jk, item);
+        engancharEndedAutoplay();
+        return true;
+      } catch (eJk2) {
+        console.warn("JK auto", eJk2);
+      }
+    }
+  }
 
   _epPlayCtx = {
     item,
@@ -6851,13 +6899,32 @@ function renderEpisodios(item, season = 1) {
                     }
                 } else {
                     // Pasar embeds crudos + fallback: el render ya no debe vaciar por allowlist estricta
-                    renderServidoresYDescargas(
-                        validos.length ? validos : episodio.embeds,
-                        episodio.downloads,
-                        episodio.video,
-                        item,
-                        { expandido: true }
-                    );
+                    // JK: reproducir JKPlayer al instante, sin elegir servidor
+                    if (esAnimeJk(item)) {
+                      const pack = validos.length ? validos : (episodio.embeds || []);
+                      const jk = pickJkPlayer(pack);
+                      if (jk && typeof reproducir === "function") {
+                        try {
+                          if (serversContainer) {
+                            serversContainer.innerHTML = '<p style="color:#94a3b8;padding:10px;font-size:0.9rem">JKPlayer</p>';
+                          }
+                          await reproducir(jk, item);
+                        } catch (eJk) {
+                          console.warn("JKPlayer auto", eJk);
+                          renderServidoresYDescargas(pack, episodio.downloads, episodio.video, item, { expandido: true });
+                        }
+                      } else {
+                        renderServidoresYDescargas(pack, episodio.downloads, episodio.video, item, { expandido: true });
+                      }
+                    } else {
+                      renderServidoresYDescargas(
+                          validos.length ? validos : episodio.embeds,
+                          episodio.downloads,
+                          episodio.video,
+                          item,
+                          { expandido: true }
+                      );
+                    }
                     expandirServidores();
                     await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 }
@@ -8068,28 +8135,16 @@ searchForm.addEventListener("submit", (e) => {
 
 function syncAnimeSourceChips() {
   try {
-    // Mostrar solo en Anime o al buscar
+    // Solo en sección Anime o búsqueda
     const show = gridSeccion === "anime" || gridModo === "search";
     const g = document.getElementById("mz-anime-src-group");
-    const nav = document.getElementById("nav-anime-src-li");
-    if (g) {
-      g.classList.toggle("hidden", !show);
-      if (show) g.style.display = "inline-flex";
-      else g.style.display = "none";
-      g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
-        const v = btn.getAttribute("data-anime-src");
-        btn.classList.toggle("active", v === animeFuente);
-      });
-    }
-    if (nav) {
-      nav.classList.toggle("hidden", !show);
-      if (show) nav.style.display = "inline-flex";
-      else nav.style.display = "none";
-      nav.querySelectorAll(".mz-nav-src-btn").forEach(function (btn) {
-        const v = btn.getAttribute("data-anime-src");
-        btn.classList.toggle("active", v === animeFuente);
-      });
-    }
+    if (!g) return;
+    g.classList.toggle("hidden", !show);
+    g.style.display = show ? "inline-flex" : "none";
+    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+      const v = btn.getAttribute("data-anime-src");
+      btn.classList.toggle("active", v === animeFuente);
+    });
   } catch (_) {}
 }
 
@@ -8115,22 +8170,12 @@ function onAnimeSrcClick(ev) {
 }
 
 function bindAnimeSourceChips() {
-  // Toolbar
   const g = document.getElementById("mz-anime-src-group");
-  if (g && g.dataset.bound !== "1") {
-    g.dataset.bound = "1";
-    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
-      btn.addEventListener("click", onAnimeSrcClick);
-    });
-  }
-  // Navbar
-  const nav = document.getElementById("nav-anime-src-li");
-  if (nav && nav.dataset.bound !== "1") {
-    nav.dataset.bound = "1";
-    nav.querySelectorAll(".mz-nav-src-btn").forEach(function (btn) {
-      btn.addEventListener("click", onAnimeSrcClick);
-    });
-  }
+  if (!g || g.dataset.bound === "1") return;
+  g.dataset.bound = "1";
+  g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+    btn.addEventListener("click", onAnimeSrcClick);
+  });
 }
 
 // NAVEGACIÓN (nav-links, filter-tabs, filter-chips)
