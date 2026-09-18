@@ -2210,11 +2210,16 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     if (forceSid === "5") {
       let data = null;
       try {
-        data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+        // JKanime: /5?q= (no mezclar con AV1)
+        data = await apiGet(`/5?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
       } catch (_) {
         try {
-          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
-        } catch (__) {}
+          data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+        } catch (__) {
+          try {
+            data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
+          } catch (___) {}
+        }
       }
       raw = extraerLista(data);
     } else if (forceSid === "4") {
