@@ -6509,7 +6509,7 @@ function renderTemporadas(item) {
                     portada: ep.portada || back
                 };
             });
-            // Filtrar por rango activo (1-50, 51-100…) sin perder back_img
+            // Filtrar por rango activo (1-50, 51-100… 1001+) sin perder back_img
             const rango = rangoForzado || item._epRangoActivo;
             if (rango && rango.desde && rango.hasta) {
                 mapped = mapped.filter((ep) => {
@@ -6517,8 +6517,20 @@ function renderTemporadas(item) {
                     return n >= rango.desde && n <= rango.hasta;
                 });
                 item._epRangoActivo = { desde: rango.desde, hasta: rango.hasta };
-            } else {
-                item._epRangoActivo = null;
+                // Si el API solo traía 1–50 y pedimos 1001+, rellenar stubs del rango
+                if (!mapped.length) {
+                  for (let n = rango.desde; n <= rango.hasta; n++) {
+                    mapped.push({
+                      season: seasonNum,
+                      temporada: seasonNum,
+                      episode: n,
+                      episodio: n,
+                      nombre: "Episodio " + n,
+                      embeds: [],
+                      video: null
+                    });
+                  }
+                }
             }
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, mapped);
             // Cache animeav1 screenshot id
@@ -6841,26 +6853,64 @@ function renderEpisodios(item, season = 1) {
     const seasonNum = Number(season) || 1;
     // Solo la temporada activa (campo season o rango absoluto T1 1–12 / T2 13–24)
     lista = filtrarEpisodiosDeTemporada(item, seasonNum, lista);
+
+    // Rango activo (One Piece 1–50, 51–100… 1151–1178)
+    let rangoAct = rango || item._epRangoActivo || null;
+    const totalReal = (typeof totalEpisodiosReal === "function" ? totalEpisodiosReal(item) : 0)
+      || parseInt(item.total_episodios || item.totalEpisodios || totalEps || 0, 10) || 0;
+    if (!rangoAct && totalReal > 50) {
+      try {
+        const rs = typeof normalizarRangosEpisodios === "function" ? normalizarRangosEpisodios(item) : [];
+        if (rs && rs.length) {
+          rangoAct = rs[0];
+          item._epRangoActivo = { desde: rs[0].desde, hasta: rs[0].hasta };
+        }
+      } catch (_) {}
+    }
+
     // Filtrar por rango activo si aplica
-    if (rango && lista.length) {
+    if (rangoAct && lista.length) {
         lista = lista.filter((ep, idx) => {
             const n = episodioNumero(ep, idx);
-            return n >= rango.desde && n <= rango.hasta;
+            return n >= rangoAct.desde && n <= rangoAct.hasta;
         });
     }
-    // Si no hay lista pero hay total + rango → generar stubs
-    if ((!lista || !lista.length) && rango) {
+
+    // Si el rango no está en item.episodios (ej. 1001–1050 con lista solo 1–50) → stubs
+    if ((!lista || !lista.length) && totalReal > 0) {
+        const desde = rangoAct && rangoAct.desde ? rangoAct.desde : 1;
+        const hasta = rangoAct && rangoAct.hasta
+          ? rangoAct.hasta
+          : Math.min(50, totalReal);
         lista = [];
-        for (let n = rango.desde; n <= rango.hasta; n++) {
-            lista.push({ season: season, episode: n, nombre: "Episodio " + n, embeds: [], video: null });
+        for (let n = desde; n <= hasta && n <= totalReal; n++) {
+            lista.push({
+              season: seasonNum,
+              temporada: seasonNum,
+              episode: n,
+              episodio: n,
+              nombre: "Episodio " + n,
+              embeds: [],
+              video: null
+            });
         }
+        // Guardar en item para clicks posteriores
+        try {
+          const byN = new Map((item.episodios || []).map(function (e) {
+            return [Number(e.episode || e.episodio || 0), e];
+          }));
+          lista.forEach(function (ep) {
+            if (!byN.has(ep.episode)) byN.set(ep.episode, ep);
+          });
+          item.episodios = Array.from(byN.values());
+        } catch (_) {}
     }
 
     if (!lista || lista.length === 0) {
         const msg = document.createElement("p");
         msg.style.color = "var(--text-muted)";
-        msg.textContent = totalEps
-            ? `Hay ${totalEps} episodios. Elige un rango arriba.`
+        msg.textContent = totalReal
+            ? ("Hay " + totalReal + " episodios. Elige un rango arriba (1–50, 51–100…).")
             : "No hay episodios en esta temporada.";
         episodesContainer.appendChild(msg);
         return;
