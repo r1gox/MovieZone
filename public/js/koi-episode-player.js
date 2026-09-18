@@ -934,7 +934,8 @@
     mzEnsureDlStyles();
     try {
       var items = window.__mzKoiDownloads || [];
-      var host = document.getElementById("mz-koi-ep-view") || document.body;
+      // Siempre en body (si va dentro de #mz-koi-ep-view el fixed se desaline a)
+      var host = document.body;
       var panel = document.getElementById("mz-kp-dl-panel");
       if (!panel) {
         panel = document.createElement("div");
@@ -978,9 +979,10 @@
           rows +
         "</div>";
       panel.style.cssText =
-        "display:flex!important;position:fixed!important;inset:0!important;z-index:2147483646!important;" +
-        "background:rgba(0,0,0,.65)!important;align-items:flex-end!important;justify-content:center!important;" +
-        "pointer-events:auto!important;visibility:visible!important;opacity:1!important;";
+        "display:flex;position:fixed;left:0;right:0;top:0;bottom:0;z-index:2147483646;" +
+        "align-items:flex-end;justify-content:center;margin:0;padding:0;" +
+        "background:rgba(2,6,23,0.72);pointer-events:auto;visibility:visible;opacity:1;" +
+        "transform:none;inset:auto;";
       document.body.classList.add("mz-kp-dl-open");
       function closeDl() {
         panel.className = "mz-kp-dl-panel hidden";
@@ -1679,54 +1681,38 @@
 
   function ensureMovieDlBar() {
     try {
-      // Quitar barra antigua debajo del player
       var oldBar = document.getElementById("mz-kp-movie-dl-bar");
       if (oldBar) oldBar.remove();
-
       if (isPc()) {
         var b0 = document.getElementById("mz-kp-movie-dl");
         if (b0) b0.remove();
         return;
       }
-
-      var row = document.querySelector("#mz-koi-ep-view .mz-kp-ep-title-row");
+      var row = document.querySelector("#mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row");
       if (!row) return;
       row.classList.add("mz-kp-movie-title-row");
-      row.style.cssText = "display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;width:100%!important;";
-
-      var title = document.getElementById("mz-kp-ep-title");
-      if (title) {
-        title.style.cssText = "flex:1 1 auto!important;min-width:0!important;margin:0!important;text-align:left!important;";
-      }
-
       var btn = document.getElementById("mz-kp-movie-dl");
       if (!btn) {
         btn = document.createElement("button");
         btn.type = "button";
         btn.id = "mz-kp-movie-dl";
         btn.className = "mz-kp-movie-dl-btn";
-        btn.setAttribute("title", "Descargas");
+        btn.title = "Descargas";
         btn.setAttribute("aria-label", "Descargas");
         btn.textContent = "↓";
       }
       btn.textContent = "↓";
-      btn.style.cssText = "flex:0 0 auto!important;width:42px!important;height:42px!important;margin-left:auto!important;border-radius:12px!important;border:1px solid rgba(168,85,247,.5)!important;background:rgba(168,85,247,.22)!important;color:#e9d5ff!important;font-size:1.15rem!important;font-weight:700!important;";
+      // Solo al final de la fila del título
       if (btn.parentNode !== row) row.appendChild(btn);
-      else row.appendChild(btn); // al final de la fila
+      else if (row.lastElementChild !== btn) row.appendChild(btn);
 
       btn.onclick = function (e) {
-        try {
-          e.preventDefault();
-          e.stopPropagation();
-        } catch (_) {}
+        try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
         openDownloadsPanel();
         return false;
       };
       btn.ontouchend = function (e) {
-        try {
-          e.preventDefault();
-          e.stopPropagation();
-        } catch (_) {}
+        try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
         openDownloadsPanel();
         return false;
       };
