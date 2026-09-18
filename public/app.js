@@ -2516,11 +2516,13 @@ function pickJkPlayer(embeds) {
   for (let i = 0; i < list.length; i++) {
     const e = list[i];
     if (!e) continue;
-    const blob = String((e.server || "") + " " + (e.tipo || "") + " " + (e.name || "") + " " + (e.url || "") + " " + (e.embed || "")).toLowerCase();
+    const blob = String((e.server || "") + " " + (e.tipo || "") + " " + (e.name || "") + " " + (e.servidor || "") + " " + (e.url || "") + " " + (e.embed || "")).toLowerCase();
     if (blob.indexOf("jkplayer") !== -1 || /jkanime\.net\/jkplayer/i.test(blob)) return e;
   }
-  // Si solo hay uno, usarlo
-  if (list.length === 1) return list[0];
+  for (let j = 0; j < list.length; j++) {
+    const e2 = list[j];
+    if (e2 && e2.url && /jkanime\.net/i.test(String(e2.url))) return e2;
+  }
   return list[0] || null;
 }
 
@@ -6927,24 +6929,32 @@ function renderEpisodios(item, season = 1) {
                     }
                 } else {
                     // Pasar embeds crudos + fallback: el render ya no debe vaciar por allowlist estricta
-                    // JK: reproducir JKPlayer al instante, sin elegir servidor
+                    // JK (fuente 5): SOLO JKPlayer, sin lista de reproductores
                     if (esAnimeJk(item)) {
                       const pack = validos.length ? validos : (episodio.embeds || []);
                       const jk = pickJkPlayer(pack);
+                      try {
+                        const ss = document.getElementById("servers-section");
+                        if (ss) {
+                          ss.classList.add("hidden");
+                          ss.style.setProperty("display", "none", "important");
+                        }
+                        if (serversContainer) {
+                          serversContainer.innerHTML = "";
+                        }
+                      } catch (_) {}
                       if (jk && typeof reproducir === "function") {
                         try {
-                          if (serversContainer) {
-                            serversContainer.innerHTML = '<p style="color:#94a3b8;padding:10px;font-size:0.9rem">JKPlayer</p>';
-                          }
                           await reproducir(jk, item);
                         } catch (eJk) {
                           console.warn("JKPlayer auto", eJk);
-                          renderServidoresYDescargas(pack, episodio.downloads, episodio.video, item, { expandido: true });
                         }
-                      } else {
-                        renderServidoresYDescargas(pack, episodio.downloads, episodio.video, item, { expandido: true });
                       }
                     } else {
+                      try {
+                        const ss = document.getElementById("servers-section");
+                        if (ss) ss.style.removeProperty("display");
+                      } catch (_) {}
                       renderServidoresYDescargas(
                           validos.length ? validos : episodio.embeds,
                           episodio.downloads,
