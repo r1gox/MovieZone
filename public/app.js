@@ -4555,8 +4555,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     if (__posterEl) __posterEl.classList.add("mz-poster-hidden");
     if (__posterCol) __posterCol.classList.add("mz-hide-poster");
     // Portada de la tarjeta/lista (no pisar luego con Metahub del detalle)
+    // Portada del listado/búsqueda (TMDB etc.): fijar al abrir y no actualizar
     window.__mzPortadaLista = item.portada_fuente_raw || item.portada || null;
-    if (__posterEl) __posterEl.src = item.portada || PLACEHOLDER;
+    item._portadaLocked = true;
+    if (window.__mzPortadaLista) {
+      item.portada = window.__mzPortadaLista;
+      item.portada_fuente_raw = window.__mzPortadaLista;
+    }
+    if (__posterEl) __posterEl.src = item.portada || window.__mzPortadaLista || PLACEHOLDER;
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
@@ -4735,6 +4741,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     Object.keys(keepMeta).forEach(function (k) {
                         if (keepMeta[k] != null && keepMeta[k] !== "") item[k] = keepMeta[k];
                     });
+                    // Portada del listado siempre gana
+                    if (window.__mzPortadaLista) {
+                        item.portada = window.__mzPortadaLista;
+                        item.portada_fuente_raw = window.__mzPortadaLista;
+                    } else if (keepMeta.portada) {
+                        item.portada = keepMeta.portada;
+                    }
                     // Descripción: si completo trae español mejor, usarla
                     if (completo.descripcion && String(completo.descripcion).length > 40) {
                         const esComp = /[áéíóúñ¿¡]/i.test(completo.descripcion) ||
@@ -4840,19 +4853,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 // Repintar metadatos (título principal fijo; original abajo)
                 fijarTitulosItem(item, item.nombre);
                 (function () {
-                  const lista = window.__mzPortadaLista;
-                  const det = item.portada;
-                  const esMeta = (u) =>
-                    /metahub\.space|media-amazon\.com/i.test(String(u || ""));
-                  const final =
-                    (lista && !esMeta(lista) ? lista : null) ||
-                    (det && !esMeta(det) ? det : null) ||
-                    det ||
-                    lista ||
-                    PLACEHOLDER;
-                  item.portada = final === PLACEHOLDER ? item.portada : final;
-                  document.getElementById("details-poster").src =
-                    item.portada || PLACEHOLDER;
+                  // Portada FIJA del listado/búsqueda — no cambiar al cargar detalle
+                  const lista = window.__mzPortadaLista || item.portada_fuente_raw || null;
+                  if (lista && String(lista).indexOf("placeholder") === -1) {
+                    item.portada = lista;
+                    item.portada_fuente_raw = lista;
+                  }
+                  const posterEl = document.getElementById("details-poster");
+                  if (posterEl) posterEl.src = item.portada || lista || PLACEHOLDER;
                 })();
                 setDetailBackdrop(item);
                 setDetalleImdb(item);
@@ -4977,6 +4985,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 }
 
 function cerrarDetalle(fromPop) {
+    try {
+      window.__mzPortadaLista = null;
+    } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
     // fromPop === true → ya venimos de popstate con path "/"
     // fromPop === false/undefined → cerrar con X → URL a inicio
@@ -5418,14 +5429,14 @@ async function cambiarProveedor(item, alt) {
 
         seleccionActual = item;
         document.getElementById("details-title").textContent = item.nombre || item.titulo || "";
-        if (item.portada) {
-          const lista = window.__mzPortadaLista;
-          const esMeta = (u) => /metahub\.space|media-amazon\.com/i.test(String(u || ""));
-          const p =
-            (lista && !esMeta(lista) ? lista : null) ||
-            (!esMeta(item.portada) ? item.portada : null) ||
-            item.portada;
-          document.getElementById("details-poster").src = p;
+        // Portada del listado/búsqueda siempre
+        {
+          const p = window.__mzPortadaLista || item.portada;
+          if (p) {
+            item.portada = p;
+            const el = document.getElementById("details-poster");
+            if (el) el.src = p;
+          }
         }
 
         document.getElementById("seasons-section")?.classList.remove("hidden");
@@ -6080,8 +6091,8 @@ function renderTemporadas(item) {
           localT.episodios.length + 2 < totalRealPre &&
           !localHasBack; // si trae back_img, no descartar
 
-        // Usar lista local (con back_img) aunque haya rango 1–50 / 51–100
-        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && (!localCorta || localHasBack)) {
+        // Usar lista local si tiene caps (prioridad si traen back_img)
+        if (localT && Array.isArray(localT.episodios) && localT.episodios.length && (!localCorta || localHasBack || localT.episodios.some(function(e){ return e && (e.back_img || e.still); }))) {
             const tmdbEps = (() => {
                 const ts = (item.temporadas_tmdb || []).find(t =>
                     Number(t.season_number || t.temporada) === Number(seasonNum)
@@ -6276,6 +6287,40 @@ function episodioNumero(ep, index) {
 
 function renderEpisodios(item, season = 1) {
     try { mzHydrateAnimeBackImg(item); } catch (_) {}
+    // Mapear back_img desde temporadas[].lista por T/E (series/doramas)
+    try {
+      var mapBack = Object.create(null);
+      function addMap(ep, tFallback) {
+        if (!ep) return;
+        var s = Number(ep.temporada || ep.season || tFallback || 1) || 1;
+        var n = Number(ep.episodio || ep.episode || ep.episode_number || 0) || 0;
+        var b = ep.back_img || ep.screenshot || ep.still || ep.still_path || ep.imagen || ep.thumbnail || null;
+        if (b && typeof mzNormEpBackImg === "function") b = mzNormEpBackImg(b);
+        if (!b || !n) return;
+        mapBack[s + ":" + n] = b;
+        mapBack["n:" + n] = b;
+      }
+      var temps = [].concat(item.temporadas_raw || [], item.temporadas || []);
+      for (var ti = 0; ti < temps.length; ti++) {
+        var t = temps[ti];
+        if (!t || typeof t !== "object") continue;
+        var tn = Number(t.temporada || t.season || t.num || 1) || 1;
+        var lista = t.lista || (Array.isArray(t.episodios) ? t.episodios : null) || [];
+        if (!Array.isArray(lista)) continue;
+        for (var li = 0; li < lista.length; li++) addMap(lista[li], tn);
+      }
+      if (Array.isArray(item.episodios)) {
+        item.episodios = item.episodios.map(function (ep) {
+          if (!ep) return ep;
+          var s = Number(ep.season || ep.temporada || season || 1) || 1;
+          var n = Number(ep.episode || ep.episodio || 0) || 0;
+          var b = ep.back_img || mapBack[s + ":" + n] || mapBack["n:" + n] || null;
+          if (b && typeof mzNormEpBackImg === "function") b = mzNormEpBackImg(b);
+          if (!b) return ep;
+          return Object.assign({}, ep, { back_img: b, still: ep.still || b, imagen: ep.imagen || b });
+        });
+      }
+    } catch (_) {}
     // 1) Descubrir shot id de CUALQUIER fuente (lista completa, no solo el rango visible)
     try {
       if (item && !item._av1ShotId) {
