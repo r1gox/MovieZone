@@ -2379,10 +2379,10 @@ async function refreshAnimeMetaFromSource4(cached, id) {
 }
 
 async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
-  // animeav1 (4): puede paginar episodios con ep_from/ep_to
+  // animeav1 (4) y jkanime (5): paginar episodios con ep_from/ep_to
   let path = `/${sourceId}/${kind}/${slug}`;
   const qs = [];
-  if (String(sourceId) === "4" && kind === "anime") {
+  if ((String(sourceId) === "4" || String(sourceId) === "5") && kind === "anime") {
     if (fallback.ep_from) qs.push(`ep_from=${encodeURIComponent(fallback.ep_from)}`);
     if (fallback.ep_to) qs.push(`ep_to=${encodeURIComponent(fallback.ep_to)}`);
   }
