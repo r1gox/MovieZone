@@ -396,9 +396,15 @@ function bindKoiHeroControls(handlers = {}) {
     bookmarkBtn.dataset.koiBound = "1";
     bookmarkBtn.addEventListener("click", () => {
       const fav = document.getElementById("btn-favorito");
-      if (fav) fav.click();
-      try { actualizarBotonFavorito(); } catch (_) {}
-      else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
+      if (fav) {
+        fav.click();
+        try { actualizarBotonFavorito(); } catch (_) {}
+      } else if (typeof handlers !== "undefined" && typeof handlers.onBookmark === "function") {
+        handlers.onBookmark();
+      } else {
+        const h = window.__mzKoiHandlers || {};
+        if (typeof h.onBookmark === "function") h.onBookmark();
+      }
     });
   }
 
