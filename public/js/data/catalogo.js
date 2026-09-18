@@ -3,7 +3,7 @@ import { get } from '../core/http.js';
 
 /**
  * type: 'movie' | 'series' | 'anime'
- * opts.animeSource: 'av1' | 'jk' | null  → source_id 4 o 5
+ * opts.animeSource: 'av1' | 'jk' | null
  */
 export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
   let path = '/catalogo';
@@ -21,16 +21,12 @@ export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
 
   const data = await get(path, params);
   let lista = data.resultados || data.results || [];
-  // Filtro cliente por si el backend aún no filtra
   if (type === 'anime' && opts.animeSource === 'jk') {
     lista = lista.filter((it) => {
-      const s = String(it.source_id || it.fuente || it.source || '');
-      return s === '5' || /jkanime|jk/i.test(s);
-    });
-  } else if (type === 'anime' && opts.animeSource === 'av1') {
-    lista = lista.filter((it) => {
-      const s = String(it.source_id || it.fuente || it.source || '');
-      return s === '4' || /animeav1|av1/i.test(s) || (!s && !/jkanime/i.test(String(it.link || '')));
+      const s = String(it.source_id || it.fuente || it.source || '').toLowerCase();
+      const link = String(it.link || it.url || '').toLowerCase();
+      if (!s && !link) return true;
+      return s === '5' || s === 'jkanime' || s === 'jk' || link.includes('jkanime') || link.includes('/5/');
     });
   }
   return {
@@ -42,11 +38,8 @@ export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
 }
 
 /**
- * @param {string} termino
- * @param {string} source online|local
- * @param {number} page
- * @param {number} limit
- * @param {object} opts { animeSource: 'av1'|'jk'|null }
+ * Búsqueda. animeSource jk → /api/buscar con source_id=5 (Worker /5?q=)
+ * sin animeSource → búsqueda general
  */
 export async function searchCatalog(termino, source = 'online', page = 1, limit = 28, opts = {}) {
   const src = source === 'local' ? 'local' : 'online';
@@ -64,20 +57,8 @@ export async function searchCatalog(termino, source = 'online', page = 1, limit 
     params.anime_source = 'av1';
   }
   const data = await get('/buscar', params);
+  // No filtrar agresivo: el server ya limitó por fuente
   let lista = data.resultados || data.results || [];
-  if (opts.animeSource === 'jk') {
-    lista = lista.filter((it) => {
-      const s = String(it.source_id || it.fuente || it.source || '');
-      const link = String(it.link || it.url || '');
-      return s === '5' || /jkanime|\/5\//i.test(s + link);
-    });
-  } else if (opts.animeSource === 'av1') {
-    lista = lista.filter((it) => {
-      const s = String(it.source_id || it.fuente || it.source || '');
-      const link = String(it.link || it.url || '');
-      return s === '4' || /animeav1|\/4\//i.test(s + link);
-    });
-  }
   return {
     resultados: lista,
     total: data.total ?? data.count ?? lista.length,
