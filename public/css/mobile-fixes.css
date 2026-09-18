@@ -1339,4 +1339,12 @@
   }
 
 
+ #btn-favorito.is-fav,
+#btn-favorito.is-fav ion-icon {
+  color: #e50914 !important;
+}
+#btn-favorito.is-fav ion-icon {
+  /* corazón relleno (name=heart ya lo pone JS) */
+  filter: drop-shadow(0 0 4px rgba(229, 9, 20, 0.45));
+}
 } /* fin @media */
