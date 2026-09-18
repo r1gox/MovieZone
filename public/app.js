@@ -8346,11 +8346,10 @@ searchForm.addEventListener("submit", (e) => {
 
 function syncAnimeSourceChips() {
   try {
-    // Chips Todo/JK eliminados: Anime = AV1, JK = sección propia
     const g = document.getElementById("mz-anime-src-group");
     if (!g) return;
     g.classList.add("hidden");
-    g.style.display = "none";
+    g.style.cssText = "display:none!important;visibility:hidden;height:0;overflow:hidden";
     g.setAttribute("hidden", "hidden");
   } catch (_) {}
 }
@@ -9068,8 +9067,7 @@ async function cargarRecienAnadidos() {
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-    navigator.serviceWor
-    ker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
 
