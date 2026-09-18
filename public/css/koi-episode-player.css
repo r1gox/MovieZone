@@ -1576,3 +1576,104 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     overflow: hidden !important;
   }
 }
+
+
+/* ========== FIX DEFINITIVO chips + cuadrito (descargas/directos vacíos) ========== */
+@media (max-width: 1024px) {
+  /* El cuadrito transparente = bloque de descargas residual o directos vacío */
+  #mz-koi-ep-view #mz-kp-downloads-wrap,
+  #mz-koi-ep-view .mz-kp-downloads-wrap,
+  #mz-koi-ep-view #mz-kp-downloads,
+  body.mz-koi-ep-open #mz-kp-downloads-wrap {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+  }
+
+  #mz-koi-ep-view #mz-kp-direct-label.hidden,
+  #mz-koi-ep-view #mz-kp-servers-direct.mz-kp-empty,
+  #mz-koi-ep-view #mz-kp-servers-direct:empty {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    min-height: 0 !important;
+  }
+
+  /* Info / servers: no recortar chips */
+  #mz-koi-ep-view .mz-kp-info,
+  #mz-koi-ep-view .mz-kp-servers,
+  #mz-koi-ep-view .mz-kp-layout,
+  #mz-koi-ep-view .mz-kp-layout-movie {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Lista de servers = columna de filas */
+  #mz-koi-ep-view #mz-kp-servers,
+  #mz-koi-ep-view #mz-kp-servers-direct {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  /* Fila: tag + chips */
+  #mz-koi-ep-view .mz-kp-srv-row {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  #mz-koi-ep-view .mz-kp-srv-row-tag {
+    flex: 0 0 auto !important;
+  }
+
+  /* Chips scrolleables — sin width:0 (eso cortaba el pedazo visible) */
+  #mz-koi-ep-view .mz-kp-srv-row-chips {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    scrollbar-width: thin !important;
+    padding-bottom: 4px !important;
+  }
+
+  #mz-koi-ep-view .mz-kp-srv-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+}

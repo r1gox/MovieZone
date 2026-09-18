@@ -802,6 +802,18 @@
       boxN.innerHTML =
         '<span style="color:#64748b;font-size:0.85rem">Sin embeds clásicos</span>';
     }
+
+    // Nunca mostrar bloque de descargas embebido (solo panel ↓)
+    try {
+      var dlW = document.getElementById("mz-kp-downloads-wrap");
+      if (dlW) {
+        dlW.hidden = true;
+        dlW.setAttribute("hidden", "");
+        dlW.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;overflow:hidden!important;";
+      }
+      var dlBox = document.getElementById("mz-kp-downloads");
+      if (dlBox) dlBox.innerHTML = "";
+    } catch (_) {}
   }
 
   function tryAutoSelectPreferred(embeds) {
