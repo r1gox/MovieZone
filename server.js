@@ -1721,6 +1721,10 @@ async function obtenerPeliculasSeccion(page = 1, limit = 24) {
     });
 
     lista = filtrarDescartados(lista);
+    // Guardar en Supabase (antes no se hacía en esta sección): sin esto, el
+    // detalle de una peli vista solo aquí nunca tenía un fallback de portada
+    // buena en caché y terminaba usando la del detalle (a veces rota).
+    guardarEnSupabase(lista).catch(() => {});
 
     return {
       resultados: lista,
@@ -2413,7 +2417,27 @@ function fueSincronizadoHoy(item) {
   );
 }
 
+/**
+ * Wrapper: garantiza que si el cliente (o el listado) nos pasó una portada ya
+ * conocida/buena (ej. TMDB del listado), esa SIEMPRE gane sobre lo que el
+ * detalle de la fuente traiga (ej. Metahub roto). "Siempre" = override duro,
+ * no scoring, para no depender de que elegirPortada() adivine bien.
+ */
 async function obtenerDetalle(params) {
+  const portadaListado =
+    params.portada && esPortadaValida(params.portada) ? params.portada : null;
+  const out = await obtenerDetalleInterno(params);
+  if (out && portadaListado) {
+    out.portada = portadaListado;
+    out.portada_fuente_raw = portadaListado;
+    // Persistir para que la próxima vez (deep-link directo, sin listado) ya
+    // salga cacheada correctamente en Supabase.
+    try { await guardarEnSupabase([out]); } catch (_) {}
+  }
+  return out;
+}
+
+async function obtenerDetalleInterno(params) {
   const { link, postId, source_id, slug, tipo } = params;
   const force = params.force === "1" || params.force === true;
 
@@ -3309,7 +3333,11 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
           row.nombre = local.nombre;
         }
-        if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
+        // No pisar ciegamente con la de caché: dejar que compitan por score
+        // (así una Metahub vieja cacheada no le gana a un TMDB fresco del listado).
+        if (local.portada && esPortadaValida(local.portada)) {
+          row.portada = elegirPortada(item.portada, local.portada, item.source_id || local.source_id);
+        }
         if (local.duracion) row.duracion = local.duracion;
         if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
         if (local.certificacion) row.certificacion = local.certificacion;
@@ -3477,13 +3505,16 @@ app.get("/api/detalle", async (req, res) => {
     const slug = req.query.slug || null;
     const source_id = req.query.source_id || req.query.source || null;
     const tipo = req.query.tipo || null;
+    // Portada ya conocida por el cliente (la del listado/tarjeta). Si viene,
+    // manda siempre sobre lo que traiga el detalle de la fuente.
+    const portada = req.query.portada || req.query.portada_listado || null;
 
     if (!link && !postId && !slug) {
       return res.status(400).json({ error: "Falta link, postId o slug" });
     }
 
     const force = req.query.force === "1";
-    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force });
+    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force, portada });
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
