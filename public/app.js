@@ -6069,7 +6069,7 @@ function renderTemporadas(item) {
           localT &&
           Array.isArray(localT.episodios) &&
           localT.episodios.some(function (e) {
-            return e && (e.back_img || e.screenshot);
+            return e && (e.back_img || e.screenshot || e.still || e.still_path || e.imagen || e.thumbnail);
           })
         );
         const localCorta =
@@ -6091,14 +6091,20 @@ function renderTemporadas(item) {
             let mapped = localT.episodios.map((ep, idx) => {
                 const num = Number(ep.episodio || ep.episode || ep.episode_number || (idx + 1)) || (idx + 1);
                 const meta = tmdbEps.find(t => Number(t.episode_number || t.episodio) === Number(num));
-                const back =
+                let back =
                     ep.back_img ||
                     ep.screenshot ||
                     ep.still ||
+                    ep.still_path ||
                     meta?.still_path ||
+                    meta?.still ||
                     (typeof mzEpisodeThumb === "function"
                       ? mzEpisodeThumb(ep, item, num)
                       : null);
+                if (back && typeof mzNormEpBackImg === "function") back = mzNormEpBackImg(back);
+                else if (back && String(back).charAt(0) === "/") {
+                  back = "https://image.tmdb.org/t/p/w500" + String(back);
+                }
                 return {
                     season: seasonNum,
                     temporada: seasonNum,
@@ -6173,7 +6179,9 @@ function renderTemporadas(item) {
                     embeds: ep.embeds || ep.reproductores || [],
                     link: ep.link || null,
                     source_id: ep.source_id || item.source_id,
-                    back_img: ep.back_img || ep.screenshot || ep.still || null,
+                    back_img: (typeof mzNormEpBackImg === "function"
+                      ? mzNormEpBackImg(ep.back_img || ep.screenshot || ep.still || ep.still_path || null)
+                      : (ep.back_img || ep.screenshot || ep.still || null)),
                     still: ep.still || ep.back_img || null,
                     imagen: ep.imagen || ep.image || ep.back_img || null
                 });
@@ -6473,7 +6481,9 @@ function renderEpisodios(item, season = 1) {
               episodio.back_img ||
               episodio.screenshot ||
               episodio.still ||
+              episodio.still_path ||
               (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(episodio, item, num) : null);
+            if (thumb && typeof mzNormEpBackImg === "function") thumb = mzNormEpBackImg(thumb);
             if (!thumb && item && item._av1ShotId && num > 0) {
               thumb = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + num + ".jpg";
             }
@@ -6481,14 +6491,18 @@ function renderEpisodios(item, season = 1) {
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
             btn.innerHTML =
               '<span class="mz-mep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async" onerror="this.style.opacity=0.3"/></span>' +
+              '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.opacity=0.35"/></span>' +
               '<span class="mz-mep-label">T' + sLab + " • E" + num + "</span>";
         } else if (koiCards) {
             let thumb =
               episodio.back_img ||
               episodio.still ||
+              episodio.still_path ||
               (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(episodio, item, num) : null) ||
               PLACEHOLDER;
+            if (thumb && thumb !== PLACEHOLDER && typeof mzNormEpBackImg === "function") {
+              thumb = mzNormEpBackImg(thumb);
+            }
             const dur = episodio.duracion || episodio.runtime || "";
             let labelName = String(epNombre || "").replace(/</g, "");
             if (!labelName || /^T\d+E\d+$/i.test(labelName) || labelName === String(num)) {
@@ -6498,7 +6512,7 @@ function renderEpisodios(item, season = 1) {
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
             btn.innerHTML =
               '<span class="koi-ep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.opacity=0.3"/>' +
+              '" alt="" loading="lazy" onerror="this.onerror=null;this.style.opacity=0.35"/>' +
               '<span class="koi-ep-dur">' + (dur || ("E" + num)) + "</span></span>" +
               '<span class="koi-ep-meta"><span class="koi-ep-series">' + safeSeries +
               '</span><span class="koi-ep-name">T' + sLab + " · " + labelName + "</span></span>";
