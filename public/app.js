@@ -4253,14 +4253,20 @@ heroInfoBtn.addEventListener("click", () => {
 async function cargarHome() {
     if (typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
+    const withTimeout = (p, ms) => Promise.race([
+      p,
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout " + ms + "ms")), ms))
+    ]);
     try {
         console.log('🟡 Cargando estrenos (películas, series y anime)...');
 
-        // Películas destacadas + hero = estrenos de la API
         const results = await Promise.allSettled([
-            fetch('/api/estrenos?tipo=peliculas&limit=24', { cache: 'no-store' }).then(r => r.json()),
-            fetchSeccion("series", 1, 12),
-            fetchSeccion("anime", 1, 12)
+            withTimeout(
+              fetch('/api/estrenos?tipo=peliculas&limit=24', { cache: 'no-store' }).then(r => r.json()),
+              20000
+            ),
+            withTimeout(fetchSeccion("series", 1, 12), 20000),
+            withTimeout(fetchSeccion("anime", 1, 12), 20000)
         ]);
 
         const estrenosData = results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
@@ -4274,36 +4280,50 @@ async function cargarHome() {
             anime: anime.length
         });
 
-        // Destacadas = estrenos
-        const destacadas = peliculas.slice(0, 12);
-        renderCarousel("carousel-movies", destacadas);
-        renderCarousel("carousel-series", series);
-        renderCarousel("carousel-anime", anime);
-        cargarContinuarViendo();
-        cargarRecienAnadidos();
-        cargarMiLista();
-        cargarPorqueViste();
-        // peliculas, series, anime = variables que ya armas en cargarHome
-        cargarMoodsHome(
-          typeof peliculas !== "undefined" ? peliculas : [],
-          typeof series !== "undefined" ? series : [],
-          typeof anime !== "undefined" ? anime : []
-        );
+        try { renderCarousel("carousel-movies", peliculas.slice(0, 12)); } catch (e) { console.warn(e); }
+        try { renderCarousel("carousel-series", series); } catch (e) { console.warn(e); }
+        try { renderCarousel("carousel-anime", anime); } catch (e) { console.warn(e); }
+        try { cargarContinuarViendo(); } catch (_) {}
+        try { cargarRecienAnadidos(); } catch (_) {}
+        try { cargarMiLista(); } catch (_) {}
+        try { cargarPorqueViste(); } catch (_) {}
+        try {
+          cargarMoodsHome(
+            typeof peliculas !== "undefined" ? peliculas : [],
+            typeof series !== "undefined" ? series : [],
+            typeof anime !== "undefined" ? anime : []
+          );
+        } catch (_) {}
 
-        // Hero ("Película recomendada") también con estrenos
-        iniciarHero(peliculas.length ? peliculas : series);
+        try { iniciarHero(peliculas.length ? peliculas : series); } catch (_) {}
 
-        statusBadge.classList.remove("offline");
-        statusBadge.classList.add("online");
-        statusBadge.querySelector(".status-text").textContent = "Online";
+        try {
+          if (statusBadge) {
+            statusBadge.classList.remove("offline");
+            statusBadge.classList.add("online");
+            const st = statusBadge.querySelector(".status-text");
+            if (st) st.textContent = "Online";
+          }
+        } catch (_) {}
         console.log('✅ Home cargado (estrenos)');
-        if (typeof setBootLoading === "function") setBootLoading(false);
     } catch (err) {
-        if (typeof setBootLoading === "function") setBootLoading(false);
         console.error('❌ Error en cargarHome:', err);
-        statusBadge.classList.remove("online");
-        statusBadge.classList.add("offline");
-        statusBadge.querySelector(".status-text").textContent = "Offline";
+        try {
+          if (statusBadge) {
+            statusBadge.classList.remove("online");
+            statusBadge.classList.add("offline");
+            const st = statusBadge.querySelector(".status-text");
+            if (st) st.textContent = "Offline";
+          }
+        } catch (_) {}
+    } finally {
+        // Nunca dejar el overlay de "Cargando..." colgado
+        if (typeof setBootLoading === "function") setBootLoading(false);
+        try {
+          document.body.classList.remove("mz-booting");
+          const boot = document.getElementById("mz-boot-loading");
+          if (boot) boot.classList.add("hidden");
+        } catch (_) {}
     }
 }
 
