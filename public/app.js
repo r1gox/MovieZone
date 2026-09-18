@@ -4347,9 +4347,6 @@ async function abrirDesdeProgreso(mini) {
         if (mini.source_id) params.set("source_id", mini.source_id);
         if (mini.tipo) params.set("tipo", mini.tipo);
         if (mini.id && !mini.postId) params.set("postId", mini.id);
-        // No perder la portada ya buena de "mini" al pedir el detalle completo
-        const portadaMini = window.__mzPortadaLista || mini.portada || mini.portada_fuente_raw || null;
-        if (portadaMini) params.set("portada", portadaMini);
 
         if (![...params.keys()].length) return;
 
@@ -4357,11 +4354,7 @@ async function abrirDesdeProgreso(mini) {
         if (!res.ok) return;
         const completo = await res.json();
         if (completo && (completo.nombre || completo.link)) {
-            // Reabrir con datos completos (servidores, sinopsis, etc.); conservar la portada buena
-            if (portadaMini) {
-                completo.portada = portadaMini;
-                completo.portada_fuente_raw = portadaMini;
-            }
+            // Reabrir con datos completos (servidores, sinopsis, etc.)
             await abrirDetalle({ ...completo, tiene_player: true }, false, false);
         }
     } catch (err) {
@@ -4692,10 +4685,6 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.tipo) params.set("tipo", item.tipo);
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
-            // Portada ya buena del listado: que el backend la respete siempre
-            // y no la pise con la del detalle de la fuente (a veces rota).
-            if (window.__mzPortadaLista) params.set("portada", window.__mzPortadaLista);
-            else if (item.portada) params.set("portada", item.portada);
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
