@@ -3941,15 +3941,16 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
-    // Sección Anime → AV1/JK según chip
-    // Búsqueda global + chip JK → solo JKanime (no universal)
+    // Anime section: chip Todo/AV1 → fuente 4; JK → fuente 5 (/5?q=)
+    // Búsqueda global: Todo = universal (sin forzar); JK = solo jkanime source 5
     const enAnime = gridSeccion === "anime" || gridTypeFilter === "anime";
     let animeOpts = {};
-    if (enAnime) {
-      animeOpts = { animeSource: animeFuente || "av1" };
-    } else if (gridModo === "search" && animeFuente === "jk") {
+    if (animeFuente === "jk") {
       animeOpts = { animeSource: "jk" };
+    } else if (enAnime && animeFuente === "av1") {
+      animeOpts = { animeSource: "av1" };
     }
+    // búsqueda global + "Todo" → sin animeOpts (API universal)
     let data;
     try {
         data = await searchCatalog(termino, src, page, limit, animeOpts);
@@ -5429,7 +5430,7 @@ function nombreProveedor(sid, fuente, index) {
     if (index != null && index >= 0) return String(index + 1);
     const s = String(sid || fuente || "").toLowerCase();
     if (s === "5" || s.includes("jkanime") || s === "jk") return "JK";
-    if (s === "4" || s.includes("animeav1")) return "AV1";
+    if (s === "4" || s.includes("animeav1")) return "Anime";
     if (s === "6" || s.includes("dorama")) return "1";
     if (s === "3" || s.includes("pelis")) return "2";
     if (s === "2" || s.includes("hack")) return "3";
@@ -8308,6 +8309,16 @@ function onAnimeSrcClick(ev) {
   try {
     gridPage = 1;
     if (gridModo === "search" && gridTermino) {
+      // JK solo trae anime → no filtrar por Películas/Series
+      if (animeFuente === "jk") gridTypeFilter = "anime";
+      else gridTypeFilter = "all";
+      // sincronizar chips de tipo
+      try {
+        document.querySelectorAll(".filter-chip:not(.mz-anime-src)").forEach(function (c) {
+          const t = c.dataset.type || "all";
+          c.classList.toggle("active", t === gridTypeFilter || (gridTypeFilter === "all" && t === "all"));
+        });
+      } catch (_) {}
       cargarPaginaGrid();
     } else {
       gridSeccion = "anime";
