@@ -1608,10 +1608,12 @@ function mapDetail(data, fallback = {}) {
     tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
     formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
-    // Portada: la de la API (fuente/IMDb) primero
+    // Portada: NO dejar que "data.portada" (a veces Metahub roto) gane por defecto
+    // sobre la portada ya buena del listado (fallback, ej. TMDB). Se dejan competir
+    // ambos candidatos reales en elegirPortada() para que el scoring decida.
     portada: elegirPortada(
-      data.portada || fallback.portada || null,
-      data.portada_imdb || data.portada_tmdb || data.tmdb_poster || null,
+      fallback.portada || null,
+      data.portada || data.portada_imdb || data.portada_tmdb || data.tmdb_poster || null,
       sourceId
     ),
     portada_tmdb: data.portada_tmdb || null,
