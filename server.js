@@ -1608,10 +1608,12 @@ function mapDetail(data, fallback = {}) {
     tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
     formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
-    // Portada: la de la API (fuente/IMDb) primero
+    // Portada: NO dejar que "data.portada" (a veces Metahub roto) gane por defecto
+    // sobre la portada ya buena del listado (fallback, ej. TMDB). Se dejan competir
+    // ambos candidatos reales en elegirPortada() para que el scoring decida.
     portada: elegirPortada(
-      data.portada || fallback.portada || null,
-      data.portada_imdb || data.portada_tmdb || data.tmdb_poster || null,
+      fallback.portada || null,
+      data.portada || data.portada_imdb || data.portada_tmdb || data.tmdb_poster || null,
       sourceId
     ),
     portada_tmdb: data.portada_tmdb || null,
@@ -1677,6 +1679,67 @@ async function apiGet(path) {
 }
 
 const PELIS_CATALOG_PAGES = 761; // worker /3/peliculas
+// OJO: a diferencia de /peliculas, el worker /9/series?page=N por ahora
+// IGNORA el page (siempre devuelve la misma página 1). Dejamos esto listo
+// para cuando el Worker soporte paginación real; mientras tanto, si migras
+// /api/series a esta función, todas las páginas mostrarán lo mismo.
+const SERIES_CATALOG_PAGES = 200; // ajustar si el worker confirma el total real
+
+async function obtenerSeriesSeccion(page = 1, limit = 24) {
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(48, Math.max(12, parseInt(limit, 10) || 24));
+  await ensureMoviesDB().catch(() => {});
+
+  try {
+    const data = await apiGet(`/${DEFAULT_SOURCE}/series?page=${page}`);
+
+    let lista = (data.results || data.resultados || [])
+      .map(mapListItem)
+      .filter(Boolean)
+      .slice(0, limit);
+
+    lista = lista.map((item) => {
+      const local = moviesDB.find(
+        (m) =>
+          (item.link && m.link === item.link) ||
+          (item.slug && m.slug === item.slug)
+      );
+      if (!local) return item;
+      return mergeItems(item, {
+        tiene_player: local.tiene_player,
+        descripcion: elegirMejorDescripcion(item.descripcion, local.descripcion),
+        calificacion: local.calificacion || item.calificacion,
+        portada: elegirPortada(item.portada, local.portada, item.source_id || local.source_id),
+      });
+    });
+
+    lista = filtrarDescartados(lista);
+    guardarEnSupabase(lista).catch(() => {});
+
+    return {
+      resultados: lista,
+      page,
+      limit,
+      total: SERIES_CATALOG_PAGES * limit,
+      totalPages: SERIES_CATALOG_PAGES,
+      pages: SERIES_CATALOG_PAGES,
+      fuente: data.fuente || "pelisplushd_bz",
+      modo: page === 1 ? "estrenos" : "catalogo",
+    };
+  } catch (err) {
+    console.error("obtenerSeriesSeccion:", err.message);
+    return {
+      resultados: [],
+      page,
+      limit,
+      total: 0,
+      totalPages: SERIES_CATALOG_PAGES,
+      pages: SERIES_CATALOG_PAGES,
+      error: err.message,
+    };
+  }
+}
+
 
 /**
  * Sección Películas:
@@ -1719,6 +1782,10 @@ async function obtenerPeliculasSeccion(page = 1, limit = 24) {
     });
 
     lista = filtrarDescartados(lista);
+    // Guardar en Supabase (antes no se hacía en esta sección): sin esto, el
+    // detalle de una peli vista solo aquí nunca tenía un fallback de portada
+    // buena en caché y terminaba usando la del detalle (a veces rota).
+    guardarEnSupabase(lista).catch(() => {});
 
     return {
       resultados: lista,
@@ -2122,7 +2189,7 @@ function dedupeSearchResults(lista) {
   return Array.isArray(lista) ? lista.slice() : [];
 }
 
-async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
+async function buscarOnline(termino, page = 1, limit = 48) {
   const qRaw = String(termino || "").trim();
   if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
 
@@ -2134,43 +2201,15 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     return [];
   }
 
-  // Chip anime: AV1=4 / JK=5
-  let forceSid = null;
-  if (animeSource === "jk" || animeSource === "5" || animeSource === "jkanime") forceSid = "5";
-  if (animeSource === "av1" || animeSource === "4" || animeSource === "animeav1") forceSid = "4";
-
   let raw = [];
   try {
-    if (forceSid === "5") {
-      // Solo JKanime
-      let data = null;
-      try {
-        data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      } catch (_) {
-        try {
-          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
-        } catch (__) {}
-      }
-      raw = extraerLista(data);
-    } else if (forceSid === "4") {
-      let data = null;
-      try {
-        data = await apiGet(`/4/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      } catch (_) {
-        try {
-          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=animeav1&limit=${Math.min(80, Math.max(limit, 40))}`);
-        } catch (__) {}
-      }
-      raw = extraerLista(data);
-    } else {
-      // limit alto para no truncar animes (Worker default 40)
-      const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      raw = extraerLista(data);
-    }
+    // limit alto para no truncar animes (Worker default 40)
+    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+    raw = extraerLista(data);
   } catch (err) {
     console.warn("search:", err.message);
   }
-  if (!raw.length && !forceSid) {
+  if (!raw.length) {
     try {
       const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`);
       raw = extraerLista(dataS);
@@ -2249,7 +2288,14 @@ async function refreshAnimeMetaFromSource4(cached, id) {
   const slugsTry = [...new Set([cached.slug, id?.slug, baseSlug].filter(Boolean))];
   let bestMeta = null;
   for (const s of slugsTry) {
-    const item = await fetchDetailFromSource("4", "anime", s, { slug: s, tipo: "Anime" });
+    // Pasar la portada ya buena en caché como fallback: si no, mapDetail()
+    // no tiene con qué competir contra la de la fuente 4 y puede traer una
+    // rota (el score de fuente le gana a TMDB aunque esté caída).
+    const item = await fetchDetailFromSource("4", "anime", s, {
+      slug: s,
+      tipo: "Anime",
+      portada: cached.portada,
+    });
     if (!item) continue;
     const better =
       !bestMeta ||
@@ -2280,6 +2326,9 @@ async function refreshAnimeMetaFromSource4(cached, id) {
   }
 
   let merged = mergeItems(cached, bestMeta);
+  // Esta función solo refresca episodios/temporadas, no la portada: si ya
+  // había una válida en caché, se conserva tal cual (no competir por score).
+  if (esPortadaValida(cached.portada)) merged.portada = cached.portada;
   // Preferir fuente 4 y slug sin año cuando aporta más episodios/temps
   merged.source_id = "4";
   merged.slug = bestMeta.slug || baseSlug || merged.slug;
@@ -2439,7 +2488,27 @@ function fueSincronizadoHoy(item) {
   );
 }
 
+/**
+ * Wrapper: garantiza que si el cliente (o el listado) nos pasó una portada ya
+ * conocida/buena (ej. TMDB del listado), esa SIEMPRE gane sobre lo que el
+ * detalle de la fuente traiga (ej. Metahub roto). "Siempre" = override duro,
+ * no scoring, para no depender de que elegirPortada() adivine bien.
+ */
 async function obtenerDetalle(params) {
+  const portadaListado =
+    params.portada && esPortadaValida(params.portada) ? params.portada : null;
+  const out = await obtenerDetalleInterno(params);
+  if (out && portadaListado) {
+    out.portada = portadaListado;
+    out.portada_fuente_raw = portadaListado;
+    // Persistir para que la próxima vez (deep-link directo, sin listado) ya
+    // salga cacheada correctamente en Supabase.
+    try { await guardarEnSupabase([out]); } catch (_) {}
+  }
+  return out;
+}
+
+async function obtenerDetalleInterno(params) {
   const { link, postId, source_id, slug, tipo } = params;
   const force = params.force === "1" || params.force === true;
 
@@ -3335,7 +3404,11 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         if (local.nombre && String(local.nombre).toLowerCase() !== String(local.slug || "").toLowerCase()) {
           row.nombre = local.nombre;
         }
-        if (local.portada && esPortadaValida(local.portada)) row.portada = local.portada;
+        // No pisar ciegamente con la de caché: dejar que compitan por score
+        // (así una Metahub vieja cacheada no le gana a un TMDB fresco del listado).
+        if (local.portada && esPortadaValida(local.portada)) {
+          row.portada = elegirPortada(item.portada, local.portada, item.source_id || local.source_id);
+        }
         if (local.duracion) row.duracion = local.duracion;
         if (local.duracion_texto) row.duracion_texto = local.duracion_texto;
         if (local.certificacion) row.certificacion = local.certificacion;
@@ -3410,7 +3483,7 @@ app.get("/api/series", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
-    const data = await catalogoPaginado("series", "Serie", page, limit);
+    const data = await obtenerSeriesSeccion(page, limit);
     res.json(data);
   } catch (err) {
     console.error("/api/series", err.message);
@@ -3437,20 +3510,6 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
     const type = req.query.type || null;
-    // Chip AV1/JK: anime_source=av1|jk o source_id=4|5
-    let animeSource =
-      req.query.anime_source ||
-      req.query.animeSource ||
-      null;
-    const sidQ = String(req.query.source_id || "").trim();
-    if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
-    if (!animeSource && (sidQ === "4" || sidQ === "animeav1")) animeSource = "av1";
-    // No confundir source=local/online con source_id
-    if (!animeSource && req.query.source && !["local", "online", "1"].includes(String(req.query.source))) {
-      const s = String(req.query.source);
-      if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
-      if (s === "4" || /animeav1|av1/i.test(s)) animeSource = "av1";
-    }
 
     if (!termino) {
       return res.status(400).json({ error: "Escribe algo para buscar" });
@@ -3462,7 +3521,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     }
 
     try {
-      const data = await buscarOnline(termino, page, limit, animeSource);
+      const data = await buscarOnline(termino, page, limit);
       return res.json(data);
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
@@ -3517,13 +3576,16 @@ app.get("/api/detalle", async (req, res) => {
     const slug = req.query.slug || null;
     const source_id = req.query.source_id || req.query.source || null;
     const tipo = req.query.tipo || null;
+    // Portada ya conocida por el cliente (la del listado/tarjeta). Si viene,
+    // manda siempre sobre lo que traiga el detalle de la fuente.
+    const portada = req.query.portada || req.query.portada_listado || null;
 
     if (!link && !postId && !slug) {
       return res.status(400).json({ error: "Falta link, postId o slug" });
     }
 
     const force = req.query.force === "1";
-    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force });
+    const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force, portada });
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
