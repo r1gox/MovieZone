@@ -3552,7 +3552,35 @@ app.get("/api/animes", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
+    const sid = String(req.query.source_id || req.query.source || "").trim();
+    if (sid === "5" || /jkanime|^jk$/i.test(sid)) {
+      await ensureMoviesDB().catch(() => {});
+      let all = (typeof moviesDB !== "undefined" && moviesDB ? moviesDB : []).filter((m) => {
+        if (typeof esDescartado === "function" && esDescartado(m)) return false;
+        const s = String(m.source_id || m.fuente || "");
+        if (!(s === "5" || /jkanime/i.test(s))) return false;
+        const t = String(m.tipo || "").toLowerCase();
+        return /anime/.test(t) || !t;
+      });
+      all = all.map((m) => (typeof normalizeItemFromDB === "function" ? normalizeItemFromDB(m) : m) || m);
+      const total = all.length;
+      const start = (page - 1) * limit;
+      return res.json({
+        resultados: all.slice(start, start + limit),
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit) || 1),
+        fuente: "jkanime",
+      });
+    }
     const data = await catalogoPaginado("animes", "Anime", page, limit);
+    if (Array.isArray(data.resultados)) {
+      data.resultados = data.resultados.filter((it) => {
+        const s = String(it.source_id || it.fuente || it.source || "");
+        return s !== "5" && !/jkanime/i.test(s);
+      });
+    }
     res.json(data);
   } catch (err) {
     console.error("/api/animes", err.message);
