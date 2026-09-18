@@ -4574,15 +4574,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     const __posterCol = document.querySelector(".mz-stremio-poster-col");
     if (__posterEl) __posterEl.classList.add("mz-poster-hidden");
     if (__posterCol) __posterCol.classList.add("mz-hide-poster");
-    // Portada de la tarjeta/lista (no pisar luego con Metahub del detalle)
-    // Portada del listado/búsqueda (TMDB etc.): fijar al abrir y no actualizar
-    window.__mzPortadaLista = item.portada_fuente_raw || item.portada || null;
+    // Portada EXACTA del listado/búsqueda — no cambiar al cargar detalle
+    window.__mzPortadaLista =
+      item.portada ||
+      item.portada_fuente_raw ||
+      item.poster ||
+      null;
     item._portadaLocked = true;
     if (window.__mzPortadaLista) {
       item.portada = window.__mzPortadaLista;
       item.portada_fuente_raw = window.__mzPortadaLista;
     }
-    if (__posterEl) __posterEl.src = item.portada || window.__mzPortadaLista || PLACEHOLDER;
+    if (__posterEl) {
+      __posterEl.src = window.__mzPortadaLista || PLACEHOLDER;
+      __posterEl.classList.remove("mz-poster-hidden");
+    }
     setDetalleLogo(item);
     document.getElementById("details-type").textContent = tipoLabel(item.tipo);
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
@@ -4787,8 +4793,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 if (yOld && yNew && yOld[0] !== yNew[0]) {
                     // Años distintos: confiar en detalle si trae título/nombre
                     if (completo.nombre || completo.titulo) {
+                        var _portLock = window.__mzPortadaLista || item.portada || null;
                         Object.keys(item).forEach(function (k) { delete item[k]; });
                         Object.assign(item, completo);
+                        if (_portLock) {
+                          item.portada = _portLock;
+                          item.portada_fuente_raw = _portLock;
+                          window.__mzPortadaLista = _portLock;
+                        }
                     }
                 } else {
                     const keep = Object.assign({}, item);
@@ -4809,6 +4821,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                             item[f] = keep[f];
                         }
                     });
+
+                    // Portada del listado nunca se pisa
+                    if (window.__mzPortadaLista) {
+                      item.portada = window.__mzPortadaLista;
+                      item.portada_fuente_raw = window.__mzPortadaLista;
+                    } else if (keep.portada) {
+                      item.portada = keep.portada;
+                    }
                     // Rellenar huecos desde imdb/tmdb anidados (Chrome a veces pierde campos planos)
                     if (item.imdb) {
                         if (item.votos == null && item.imdb.votos) item.votos = item.imdb.votos;
@@ -4869,22 +4889,37 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
 
-                // Repintar metadatos (título principal fijo; original abajo)
+                // Portada del listado SIEMPRE (aunque la API traiga otra)
+                if (window.__mzPortadaLista) {
+                  item.portada = window.__mzPortadaLista;
+                  item.portada_fuente_raw = window.__mzPortadaLista;
+                }
+
                 // Repintar metadatos (título principal fijo; original abajo)
                 fijarTitulosItem(item, item.nombre);
                 (function () {
-                  // Portada FIJA del listado/búsqueda — no cambiar al cargar detalle
-                  const lista = window.__mzPortadaLista || item.portada_fuente_raw || null;
+                  const lista = window.__mzPortadaLista || null;
                   if (lista && String(lista).indexOf("placeholder") === -1) {
                     item.portada = lista;
                     item.portada_fuente_raw = lista;
                   }
                   const posterEl = document.getElementById("details-poster");
-                  if (posterEl) posterEl.src = item.portada || lista || PLACEHOLDER;
+                  if (posterEl) {
+                    posterEl.src = lista || item.portada || PLACEHOLDER;
+                    posterEl.classList.remove("mz-poster-hidden");
+                  }
                 })();
                 setDetailBackdrop(item);
                 setDetalleImdb(item);
                 setDetalleLogo(item);
+                // Tras logo: volver a fijar portada del listado (logo no debe cambiarla)
+                (function () {
+                  const lista = window.__mzPortadaLista || null;
+                  if (!lista) return;
+                  item.portada = lista;
+                  const posterEl = document.getElementById("details-poster");
+                  if (posterEl) posterEl.src = lista;
+                })();
                 document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
                 const origEl2 = document.getElementById("details-original-title");
                 if (origEl2) {
