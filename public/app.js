@@ -8346,16 +8346,12 @@ searchForm.addEventListener("submit", (e) => {
 
 function syncAnimeSourceChips() {
   try {
-    // Solo en sección Anime o búsqueda
-    const show = gridSeccion === "anime" || gridModo === "search";
+    // Chips Todo/JK eliminados: Anime = AV1, JK = sección propia
     const g = document.getElementById("mz-anime-src-group");
     if (!g) return;
-    g.classList.toggle("hidden", !show);
-    g.style.display = show ? "inline-flex" : "none";
-    g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
-      const v = btn.getAttribute("data-anime-src");
-      btn.classList.toggle("active", v === animeFuente);
-    });
+    g.classList.add("hidden");
+    g.style.display = "none";
+    g.setAttribute("hidden", "hidden");
   } catch (_) {}
 }
 
