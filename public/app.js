@@ -397,6 +397,7 @@ function bindKoiHeroControls(handlers = {}) {
     bookmarkBtn.addEventListener("click", () => {
       const fav = document.getElementById("btn-favorito");
       if (fav) fav.click();
+      try { actualizarBotonFavorito(); } catch (_) {}
       else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
     });
   }
@@ -1187,7 +1188,21 @@ function esFavorito(linkOrItem) {
     const favs = obtenerFavoritos();
     if (linkOrItem && typeof linkOrItem === "object") {
       const k = mzFavKey(linkOrItem);
-      return favs.some(function (f) { return mzFavKey(f) === k; });
+      if (favs.some(function (f) { return mzFavKey(f) === k; })) return true;
+      // Mismo título aunque cambie el link al abrir detalle
+      const slug = linkOrItem.slug ? String(linkOrItem.slug) : "";
+      const sid = linkOrItem.source_id != null ? String(linkOrItem.source_id) : "";
+      if (slug) {
+        return favs.some(function (f) {
+          if (!f) return false;
+          if (f.slug && String(f.slug) === slug) {
+            if (!sid || !f.source_id) return true;
+            return String(f.source_id) === sid;
+          }
+          return false;
+        });
+      }
+      return false;
     }
     const link = linkOrItem;
     return favs.some(function (f) { return f && f.link && f.link === link; });
@@ -3920,9 +3935,15 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
-    // AV1/JK SOLO en sección Anime (no vaciar Series/Películas)
+    // Sección Anime → AV1/JK según chip
+    // Búsqueda global + chip JK → solo JKanime (no universal)
     const enAnime = gridSeccion === "anime" || gridTypeFilter === "anime";
-    const animeOpts = enAnime ? { animeSource: animeFuente || "av1" } : {};
+    let animeOpts = {};
+    if (enAnime) {
+      animeOpts = { animeSource: animeFuente || "av1" };
+    } else if (gridModo === "search" && animeFuente === "jk") {
+      animeOpts = { animeSource: "jk" };
+    }
     let data;
     try {
         data = await searchCatalog(termino, src, page, limit, animeOpts);
@@ -5025,6 +5046,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 }
                 if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
+                try { actualizarBotonFavorito(); } catch (_) {}
 
                 // Portada del listado SIEMPRE (aunque la API traiga otra)
                 if (window.__mzPortadaLista) {
@@ -5311,7 +5333,9 @@ function actualizarBotonFavorito() {
     const activo = esFavorito(seleccionActual);
     if (icon) icon.setAttribute("name", activo ? "heart" : "heart-outline");
     btn.style.color = activo ? "#e50914" : "";
+    btn.classList.toggle("is-fav", !!activo);
     btn.setAttribute("aria-pressed", activo ? "true" : "false");
+    btn.title = activo ? "Quitar de favoritos" : "Agregar a favoritos";
 }
 (function bindFavoritoBtn() {
   const btn = document.getElementById("btn-favorito");
