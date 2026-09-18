@@ -790,7 +790,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     flex: 1 1 auto !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     scrollbar-width: none !important;
   }
   #mz-koi-ep-view.mz-kp-ep-mobile .mz-kp-srv-row-chips::-webkit-scrollbar {
@@ -1069,7 +1069,7 @@ body #mz-kp-dl-panel.mz-kp-dl-panel.hidden,
 
 .mz-kp-dl-name {
   flex: 1 1 auto !important;
-  min-width: 0 !important;
+  min-width: 100% !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -1156,7 +1156,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     flex: 1 1 auto !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
   }
   body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-sidebar {
     display: none !important;
@@ -1224,7 +1224,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   }
   body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-ep-title-row #mz-kp-ep-title {
     flex: 1 1 auto !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     margin: 0 !important;
   }
   body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode #mz-kp-movie-dl,
@@ -1414,7 +1414,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-syno
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     overflow: hidden !important;
   }
 
@@ -1425,7 +1425,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile #mz-kp-syno
     flex-wrap: nowrap !important;
     gap: 8px !important;
     flex: 1 1 auto !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     max-width: 100% !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
@@ -1459,13 +1459,13 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   width: 100% !important;
-  min-width: 0 !important;
+  min-width: 100% !important;
 }
 body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-kp-srv-row-chips {
   display: flex !important;
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
-  min-width: 0 !important;
+  min-width: 100% !important;
   flex: 1 1 auto !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
@@ -1511,7 +1511,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     box-sizing: border-box !important;
     overflow: hidden !important; /* el scroll está en chips */
     pointer-events: auto !important;
@@ -1526,8 +1526,8 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     align-items: center !important;
     gap: 8px !important;
     flex: 1 1 0% !important;
-    width: 0 !important; /* truco: fuerza shrink + overflow-x */
-    min-width: 0 !important;
+    width: 100% !important; /* was 0 - cortaba chips */
+    min-width: 100% !important;
     max-width: 100% !important;
     overflow-x: scroll !important;
     overflow-y: hidden !important;
@@ -1616,7 +1616,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   #mz-koi-ep-view .mz-kp-layout,
   #mz-koi-ep-view .mz-kp-layout-movie {
     max-width: 100% !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     overflow-x: visible !important;
     box-sizing: border-box !important;
   }
@@ -1630,7 +1630,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     gap: 10px !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     overflow: visible !important;
     border: none !important;
     background: transparent !important;
@@ -1645,7 +1645,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     box-sizing: border-box !important;
     overflow: visible !important;
   }
@@ -1661,7 +1661,7 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
     align-items: center !important;
     gap: 8px !important;
     flex: 1 1 auto !important;
-    min-width: 0 !important;
+    min-width: 100% !important;
     max-width: 100% !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
@@ -1675,5 +1675,56 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   #mz-koi-ep-view .mz-kp-srv-btn {
     flex: 0 0 auto !important;
     white-space: nowrap !important;
+  }
+}
+
+
+/* ===== SCROLL CHIPS FIABLE (inline-block) + sin cuadrito ===== */
+@media (max-width: 1024px) {
+  #mz-koi-ep-view .mz-kp-srv-row-chips {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    flex: 1 1 auto !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+  }
+  #mz-koi-ep-view .mz-kp-srv-row-chips .mz-kp-srv-btn {
+    display: inline-flex !important;
+    vertical-align: middle !important;
+    flex: none !important;
+    white-space: nowrap !important;
+    margin-right: 8px !important;
+  }
+  #mz-koi-ep-view .mz-kp-srv-row {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    overflow: visible !important;
+  }
+  #mz-koi-ep-view #mz-kp-downloads-wrap,
+  #mz-koi-ep-view .mz-kp-downloads-wrap {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    visibility: hidden !important;
+  }
+  #mz-koi-ep-view #mz-kp-servers-direct[hidden],
+  #mz-koi-ep-view #mz-kp-servers-direct.mz-kp-empty,
+  #mz-koi-ep-view #mz-kp-servers-direct:empty {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
   }
 }

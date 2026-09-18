@@ -68,10 +68,7 @@
       '      <div class="mz-kp-servers-label mz-kp-direct-label hidden" id="mz-kp-direct-label">Directos</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers-direct"></div>' +
       "    </div>" +
-      '    <div class="mz-kp-servers mz-kp-downloads-wrap" id="mz-kp-downloads-wrap" hidden>' +
-      '      <div class="mz-kp-servers-label">Descargas</div>' +
-      '      <div class="mz-kp-servers-list" id="mz-kp-downloads"></div>' +
-      "    </div>" +
+      '    <!-- descargas solo por panel ↓, sin bloque vacío -->' +
       "  </div>" +
       '  <div class="mz-kp-sidebar" id="mz-kp-sidebar">' +
       '    <h3 class="mz-kp-sidebar-title">Episodios</h3>' +
@@ -80,6 +77,10 @@
       "</section>";
 
     document.body.appendChild(root);
+    try {
+      var deadDl = root.querySelector("#mz-kp-downloads-wrap, .mz-kp-downloads-wrap");
+      if (deadDl) deadDl.remove();
+    } catch (_) {}
     $("mz-kp-back").addEventListener("click", closeView);
     $("mz-kp-anime-title").addEventListener("click", function () {
       if (_mode === "movie") return;
@@ -760,10 +761,28 @@
         }
         var chips = document.createElement("div");
         chips.className = "mz-kp-srv-row-chips";
+        // Scroll horizontal fiable (inline-block, no flex width:0)
+        chips.setAttribute(
+          "style",
+          "display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;" +
+            "white-space:nowrap;width:100%;max-width:100%;min-width:0;" +
+            "touch-action:pan-x;flex:1 1 auto;"
+        );
         g.list.forEach(function (emb) {
-          chips.appendChild(makeServerBtn(emb, mode, { noBadge: true }));
+          var b = makeServerBtn(emb, mode, { noBadge: true });
+          if (b) {
+            b.style.display = "inline-flex";
+            b.style.verticalAlign = "middle";
+            b.style.marginRight = "8px";
+            b.style.flex = "none";
+            chips.appendChild(b);
+          }
         });
         row.appendChild(chips);
+        row.setAttribute(
+          "style",
+          "display:flex;flex-flow:row nowrap;align-items:center;gap:8px;width:100%;max-width:100%;min-width:0;box-sizing:border-box;"
+        );
         container.appendChild(row);
       });
     }
@@ -783,16 +802,15 @@
       }
       if (boxD) {
         boxD.innerHTML = "";
-        boxD.style.setProperty("display", "none", "important");
-        boxD.style.setProperty("min-height", "0", "important");
+        boxD.classList.add("mz-kp-empty");
+        boxD.setAttribute("hidden", "");
+        boxD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;border:none!important;min-height:0!important;";
       }
     }
     if (direct.length && boxD) {
-      boxD.style.removeProperty("display");
-      boxD.style.removeProperty("min-height");
+      boxD.removeAttribute("hidden");
       boxD.classList.remove("mz-kp-empty");
-    } else if (boxD) {
-      boxD.classList.add("mz-kp-empty");
+      boxD.style.cssText = "";
     }
 
     if (!normal.length && !direct.length) {
@@ -872,15 +890,17 @@
   }
 
   function renderDownloads(list) {
-    var wrap = $("mz-kp-downloads-wrap");
-    var box = $("mz-kp-downloads");
     var items = normalizeList(list).filter(function (d) {
       return (d.url || d.stream_url) && !isWorkerStreamApi(d.url || d.stream_url);
     });
     window.__mzKoiDownloads = items;
-    // No mostrar fila de descargas abajo (solo panel al pulsar ↓)
-    if (wrap) wrap.hidden = true;
-    if (box) box.innerHTML = "";
+    // Eliminar bloque vacío (era el cuadrito bajo Directos)
+    try {
+      var wrap = document.getElementById("mz-kp-downloads-wrap");
+      if (wrap) wrap.remove();
+      var box = document.getElementById("mz-kp-downloads");
+      if (box && box.parentNode) box.parentNode.remove();
+    } catch (_) {}
   }
 
 
@@ -1358,6 +1378,10 @@
     try {
       var view = $("mz-koi-ep-view");
       if (!view) return;
+      try {
+        var dead = document.getElementById("mz-kp-downloads-wrap");
+        if (dead) dead.remove();
+      } catch (_) {}
 
       // Botón descarga de película solo en movie
       var movieDl = document.getElementById("mz-kp-movie-dl");
