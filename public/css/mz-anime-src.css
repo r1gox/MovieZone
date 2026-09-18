@@ -1,15 +1,21 @@
-/* Chips Todo/JK desactivados — JK es sección propia */
+#mz-anime-src-group,
 .mz-anime-src-group,
-#mz-anime-src-group {
+button.mz-anime-src {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
 }
 .mz-grid-title-row {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 14px;
+  gap: 10px;
   width: 100%;
 }
-.mz-grid-title-row #results-title { margin: 0; }
 .mz-grid-title-row #results-count { margin-left: auto; }
