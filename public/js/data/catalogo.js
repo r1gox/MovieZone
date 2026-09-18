@@ -1,10 +1,7 @@
 // public/js/data/catalogo.js
 import { get } from '../core/http.js';
 
-/**
- * type: 'movie' | 'series' | 'anime'
- * opts.animeSource: 'av1' | 'jk' | null
- */
+/** Anime sección = solo AV1. JK = source 5. */
 export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
   let path = '/catalogo';
   if (type === 'series') path = '/series';
@@ -14,21 +11,27 @@ export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
   if (type === 'anime' && opts.animeSource === 'jk') {
     params.source_id = '5';
     params.source = 'jkanime';
-  } else if (type === 'anime' && opts.animeSource === 'av1') {
+  } else if (type === 'anime') {
     params.source_id = '4';
     params.source = 'animeav1';
   }
 
   const data = await get(path, params);
   let lista = data.resultados || data.results || [];
+
   if (type === 'anime' && opts.animeSource === 'jk') {
     lista = lista.filter((it) => {
       const s = String(it.source_id || it.fuente || it.source || '').toLowerCase();
       const link = String(it.link || it.url || '').toLowerCase();
-      if (!s && !link) return true;
       return s === '5' || s === 'jkanime' || s === 'jk' || link.includes('jkanime') || link.includes('/5/');
     });
+  } else if (type === 'anime') {
+    lista = lista.filter((it) => {
+      const s = String(it.source_id || it.fuente || it.source || '').toLowerCase();
+      return !(s === '5' || s === 'jkanime' || s === 'jk');
+    });
   }
+
   return {
     resultados: lista,
     total: data.total ?? data.count ?? lista.length,
@@ -37,18 +40,9 @@ export async function getCatalog(type, page = 1, limit = 28, opts = {}) {
   };
 }
 
-/**
- * Búsqueda. animeSource jk → /api/buscar con source_id=5 (Worker /5?q=)
- * sin animeSource → búsqueda general
- */
 export async function searchCatalog(termino, source = 'online', page = 1, limit = 28, opts = {}) {
   const src = source === 'local' ? 'local' : 'online';
-  const params = {
-    q: termino,
-    source: src,
-    page,
-    limit,
-  };
+  const params = { q: termino, source: src, page, limit };
   if (opts.animeSource === 'jk') {
     params.source_id = '5';
     params.anime_source = 'jk';
@@ -57,11 +51,9 @@ export async function searchCatalog(termino, source = 'online', page = 1, limit 
     params.anime_source = 'av1';
   }
   const data = await get('/buscar', params);
-  // No filtrar agresivo: el server ya limitó por fuente
-  let lista = data.resultados || data.results || [];
   return {
-    resultados: lista,
-    total: data.total ?? data.count ?? lista.length,
+    resultados: data.resultados || data.results || [],
+    total: data.total ?? data.count ?? 0,
     page: data.page ?? page,
     limit: data.limit ?? limit,
     source: data.source || src,
