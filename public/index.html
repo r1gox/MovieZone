@@ -73,6 +73,7 @@
         <li id="nav-item-movies"><a class="filter-tab" data-type="movie">Películas</a></li>
         <li id="nav-item-series"><a class="filter-tab" data-type="series">Series</a></li>
         <li id="nav-item-anime"><a class="filter-tab" data-type="anime">Anime</a></li>
+        <li id="nav-item-jk"><a class="filter-tab" data-type="jk">JK</a></li>
         <li id="nav-item-favoritos"><a id="nav-link-favoritos">
           <ion-icon name="heart-outline" style="font-size:14px; vertical-align:-2px;"></ion-icon> Favoritos
         </a></li>
@@ -310,6 +311,7 @@
         <button class="filter-chip" data-type="movie">🎬 Películas</button>
         <button class="filter-chip" data-type="series">📺 Series</button>
         <button class="filter-chip" data-type="anime">⛩️ Anime</button>
+        <button class="filter-chip" data-type="jk">JK</button>
       </div>
       <div class="filter-group sort-group">
         <label for="sort-select" class="sort-label">Ordenar:</label>
@@ -324,7 +326,7 @@
     <div class="grid-header">
       <div class="mz-grid-title-row" id="mz-grid-title-row">
         <h2 id="results-title">Resultados</h2>
-        <div class="mz-anime-src-group hidden" id="mz-anime-src-group" title="Fuente de anime">
+        <div class="mz-anime-src-group hidden" id="mz-anime-src-group" title="Fuente de anime" hidden style="display:none!important">
           <button type="button" class="mz-anime-src active" data-anime-src="av1">Todo</button>
           <button type="button" class="mz-anime-src" data-anime-src="jk">JK</button>
         </div>
@@ -431,7 +433,7 @@
                     <ion-icon name="share-outline" id="btn-share-icon"></ion-icon>
                   </button>
                   <button class="btn-icon" id="btn-favorito" title="Agregar a favoritos">
-                    <ion-icon name="heart-outline" id="btn-favorito-icon"></ion-icon>
+                    <ion-icon name="bookmark-outline" id="btn-favorito-icon"></ion-icon>
                   </button>
                   <button class="btn-icon" id="btn-notify-ep" title="Notificar nuevos capítulos">
                     <ion-icon name="notifications-outline" id="btn-notify-ep-icon"></ion-icon>

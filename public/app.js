@@ -3858,8 +3858,13 @@ function aplicarFiltrosYOrden(lista) {
             if (gridTypeFilter === "anime" && /anime|ova|ona|especial/i.test(tl)) return true;
             if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
             if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
-            // JK: source_id 5 cuenta como anime aunque tipo venga raro
-            if (gridTypeFilter === "anime" && String(i.source_id || "") === "5") return true;
+            if (gridSeccion === "jk") {
+              return String(i.source_id || "") === "5" || /jkanime/i.test(String(i.fuente || i.source || ""));
+            }
+            if (gridSeccion === "anime" && (String(i.source_id || "") === "5" || /jkanime/i.test(String(i.fuente || i.source || "")))) {
+              return false;
+            }
+            if (gridTypeFilter === "anime" && String(i.source_id || "") === "5" && gridSeccion !== "anime") return true;
             return false;
         });
     }
@@ -3893,16 +3898,22 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     gridPage = 1;
     gridSinMasResultados = false;
     if (modo === "categoria") {
-      gridTypeFilter = seccion === "movie" || seccion === "series" || seccion === "anime" ? seccion : "all";
+      if (seccion === "jk") {
+        gridTypeFilter = "anime";
+        animeFuente = "jk";
+      } else if (seccion === "anime") {
+        gridTypeFilter = "anime";
+        animeFuente = "av1";
+      } else if (seccion === "movie" || seccion === "series") {
+        gridTypeFilter = seccion;
+      } else {
+        gridTypeFilter = "all";
+      }
     } else if (modo === "search") {
-      // Siempre "all" al buscar, salvo sección explícita anime/series
-      if (seccion === "anime") gridTypeFilter = "anime";
+      if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
+      else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
       else if (seccion === "series") gridTypeFilter = "series";
       else gridTypeFilter = "all";
-      // Si chip JK activo → tipo anime (solo jkanime)
-      if (typeof animeFuente !== "undefined" && animeFuente === "jk") {
-        gridTypeFilter = "anime";
-      }
     }
 
     // Si NO es búsqueda → ocultar “Buscar online”
@@ -3930,9 +3941,9 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         resultsTitle.innerHTML = `<ion-icon name="heart" style="vertical-align:-3px;"></ion-icon> Mis Favoritos`;
         document.getElementById("filter-toolbar").classList.add("hidden");
     } else {
-        resultsTitle.textContent = seccion === "movie" ? "Películas" : seccion === "series" ? "Series" : "Anime";
+        resultsTitle.textContent = seccion === "movie" ? "Películas" : seccion === "series" ? "Series" : seccion === "jk" ? "JK Anime" : "Anime";
         document.getElementById("filter-toolbar").classList.remove("hidden");
-        const navMap = { movie: "nav-item-movies", series: "nav-item-series", anime: "nav-item-anime" };
+        const navMap = { movie: "nav-item-movies", series: "nav-item-series", anime: "nav-item-anime", jk: "nav-item-jk" };
         document.getElementById(navMap[seccion])?.classList.add("active");
     }
 
@@ -3948,8 +3959,11 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
 // CARGA DE DATOS (conectado a tu server.js real)
 // ======================================================
 async function fetchSeccion(seccion, page, limit = LIMIT) {
-    const opts = seccion === "anime" ? { animeSource: animeFuente } : {};
-    const data = await getCatalog(seccion, page, limit, opts);
+    // Anime = solo AnimeAV1. JK = sección propia (source 5).
+    let opts = {};
+    if (seccion === "anime") opts = { animeSource: "av1" };
+    else if (seccion === "jk") opts = { animeSource: "jk" };
+    const data = await getCatalog(seccion === "jk" ? "anime" : seccion, page, limit, opts);
     const lista = data.resultados || [];
 
     // Películas: 761 páginas del worker (1 = estrenos)
@@ -5361,24 +5375,22 @@ function actualizarBotonFavorito() {
     const btn = document.getElementById("btn-favorito");
     const icon = document.getElementById("btn-favorito-icon");
     const koiBm = document.getElementById("koi-btn-bookmark");
+    const koiIcon = document.getElementById("koi-btn-bookmark-icon");
     if (!btn && !koiBm) return;
     const activo = seleccionActual ? esFavorito(seleccionActual) : false;
+    // Bookmark (no corazón): se rellena al activar y se despinta al quitar
     if (btn) {
-      if (icon) {
-        icon.setAttribute("name", activo ? "heart" : "heart-outline");
-        try { icon.style.setProperty("color", activo ? "#e50914" : "", "important"); } catch (_) {}
-      }
+      if (icon) icon.setAttribute("name", activo ? "bookmark" : "bookmark-outline");
       btn.style.color = activo ? "#e50914" : "";
       btn.classList.toggle("is-fav", !!activo);
       btn.setAttribute("aria-pressed", activo ? "true" : "false");
       btn.title = activo ? "Quitar de favoritos" : "Agregar a favoritos";
     }
-    // Botón bookmark del hero Koi
     if (koiBm) {
       koiBm.classList.toggle("is-fav", !!activo);
       koiBm.style.color = activo ? "#e50914" : "";
-      const ki = koiBm.querySelector("ion-icon");
-      if (ki) ki.setAttribute("name", activo ? "heart" : "heart-outline");
+      const ki = koiIcon || koiBm.querySelector("ion-icon");
+      if (ki) ki.setAttribute("name", activo ? "bookmark" : "bookmark-outline");
     }
 }
 (function bindFavoritoBtn() {
