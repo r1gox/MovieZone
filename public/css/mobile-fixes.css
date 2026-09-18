@@ -1400,3 +1400,60 @@
 #btn-favorito.is-fav ion-icon {
   filter: drop-shadow(0 0 6px rgba(229, 9, 20, 0.55));
 }
+
+
+/* FORCE hide AV1/JK chips forever */
+#mz-anime-src-group,
+.mz-anime-src-group {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Estado detalle — forzar pill legible (series/anime) */
+body #details-status-wrap.meta-item.status:not(.hidden),
+body #details-panel #details-status-wrap:not(.hidden) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  margin: 4px 0 !important;
+  max-width: none !important;
+}
+body #details-status-wrap.mz-status-air,
+body #details-status-wrap.is-air {
+  background: linear-gradient(135deg, rgba(16,185,129,0.35), rgba(5,150,105,0.2)) !important;
+  border: 1px solid #34d399 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35) !important;
+}
+body #details-status-wrap.mz-status-end,
+body #details-status-wrap.is-end {
+  background: linear-gradient(135deg, rgba(148,163,184,0.28), rgba(71,85,105,0.22)) !important;
+  border: 1px solid #94a3b8 !important;
+}
+body #details-status-wrap.mz-status-other {
+  background: rgba(99, 102, 241, 0.25) !important;
+  border: 1px solid #a5b4fc !important;
+}
+body #details-status-wrap ion-icon {
+  font-size: 14px !important;
+  opacity: 0.95;
+}
+body #details-status-wrap.mz-status-air ion-icon,
+body #details-status.mz-status-air {
+  color: #6ee7b7 !important;
+}
+body #details-status-wrap.mz-status-end ion-icon,
+body #details-status.mz-status-end {
+  color: #f1f5f9 !important;
+}
+body #details-status {
+  font-weight: 800 !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
