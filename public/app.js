@@ -5718,6 +5718,29 @@ function mzHydrateAnimeBackImg(item) {
       return out;
     });
   }
+
+  // Series/doramas: si falta back_img y hay imdb → Metahub (mismo rol que anime screenshots)
+  try {
+    var imdbH = item.imdb_id || (item.imdb && item.imdb.id) || null;
+    if (imdbH && /^tt\d+$/i.test(String(imdbH)) && Array.isArray(item.episodios)) {
+      item.episodios = item.episodios.map(function (ep) {
+        if (!ep || ep.back_img) return ep;
+        var s = Number(ep.season || ep.temporada || 1) || 1;
+        var n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
+        if (n < 1) return ep;
+        var url =
+          "https://episodes.metahub.space/" +
+          String(imdbH) +
+          "/" +
+          s +
+          "/" +
+          n +
+          "/w780.jpg";
+        return Object.assign({}, ep, { back_img: url, still: ep.still || url, imagen: ep.imagen || url });
+      });
+    }
+  } catch (_) {}
+
   return item;
 }
 
@@ -5795,6 +5818,28 @@ function mzEpisodeThumb(episodio, item, num) {
   if (mid && n > 0) {
     return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
   }
+  // Series / doramas: still por episodio (Metahub), igual que screenshots de anime
+  // https://episodes.metahub.space/{imdb}/{season}/{episode}/w780.jpg
+  try {
+    const imdb =
+      (item && (item.imdb_id || (item.imdb && item.imdb.id))) || null;
+    if (imdb && /^tt\d+$/i.test(String(imdb)) && n > 0) {
+      const sn =
+        Number(
+          (episodio && (episodio.season || episodio.temporada || episodio.season_number)) ||
+            1
+        ) || 1;
+      return (
+        "https://episodes.metahub.space/" +
+        String(imdb) +
+        "/" +
+        sn +
+        "/" +
+        n +
+        "/w780.jpg"
+      );
+    }
+  } catch (_) {}
   // Anime / serie / dorama: no reutilizar backdrop de la ficha (mismo en todos)
   const tipo = String((item && (item.tipo || item.type)) || "");
   if (/anime|serie|dorama|tv/i.test(tipo)) {
