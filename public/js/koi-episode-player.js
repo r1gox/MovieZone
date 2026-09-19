@@ -307,22 +307,38 @@
 
   function setServersUiVisible(show) {
     try {
-      var view = $("mz-koi-ep-view");
-      if (!view) return;
-      var blocks = view.querySelectorAll(".mz-kp-servers");
-      blocks.forEach(function (el) {
-        // No ocultar el bloque de descargas
-        if (el.id === "mz-kp-downloads-wrap" || el.classList.contains("mz-kp-downloads-wrap")) return;
+      var boxN = $("mz-kp-servers");
+      var boxD = $("mz-kp-servers-direct");
+      var labD = $("mz-kp-direct-label");
+      // Ocultar solo listas/etiquetas de reproductores (no tocar layout del player)
+      var labels = document.querySelectorAll("#mz-koi-ep-view .mz-kp-servers-label");
+      labels.forEach(function (lab) {
+        if (lab.id === "mz-kp-direct-label") return;
+        // label "Reproductores" (no descargas)
+        var parent = lab.parentElement;
+        if (parent && parent.classList.contains("mz-kp-downloads-wrap")) return;
         if (show) {
-          el.classList.remove("hidden");
-          el.style.removeProperty("display");
+          lab.classList.remove("hidden");
+          lab.style.removeProperty("display");
         } else {
-          el.classList.add("hidden");
-          el.style.setProperty("display", "none", "important");
+          lab.classList.add("hidden");
+          lab.style.setProperty("display", "none", "important");
         }
       });
-      var lab = $("mz-kp-direct-label");
-      if (lab && !show) lab.classList.add("hidden");
+      if (labD) {
+        if (show) {
+          // se muestra solo si hay directos en renderServers
+        } else {
+          labD.classList.add("hidden");
+          labD.style.setProperty("display", "none", "important");
+        }
+      }
+      if (!show) {
+        if (boxN) boxN.innerHTML = "";
+        if (boxD) boxD.innerHTML = "";
+      } else {
+        if (labD) labD.style.removeProperty("display");
+      }
     } catch (_) {}
   }
 
@@ -682,15 +698,17 @@
       labD.textContent = "Directos";
     }
 
-    // JK: no hay lista de reproductores (es directo)
+    // JK: sin lista Reproductores / Directos / mirrors (play directo)
     if (_ctx && isJkItem(_ctx.item)) {
       setServersUiVisible(false);
+      if (boxN) boxN.innerHTML = "";
+      if (boxD) boxD.innerHTML = "";
+      if (labD) labD.classList.add("hidden");
       return;
     }
     setServersUiVisible(true);
 
     if (!embeds || !embeds.length) {
-      // Vacío sin mensaje de "Cargando mirrors" (evita texto fantasma)
       return;
     }
 
@@ -1228,13 +1246,11 @@
 
       destroyHls();
       var jk = isJkItem(item);
+      // JK: solo hint en el cuadro; no tocar layout móvil ni "Cargando mirrors"
       showPoster(item, jk ? "Cargando reproductor…" : "Elige un reproductor para comenzar");
-      if (jk) {
-        setServersUiVisible(false);
-        setPlaceholder(true, "Cargando reproductor…");
-      } else {
-        setServersUiVisible(true);
-      }
+      if (jk) setServersUiVisible(false);
+      else setServersUiVisible(true);
+      setPlaceholder(false);
       renderServers([]);
       renderDownloads([]);
 
@@ -1249,22 +1265,15 @@
         if (jk) {
           // JK: directo — sin sección Reproductores / Directos / mirrors
           setServersUiVisible(false);
-          try {
-            var ss = document.getElementById("servers-section");
-            if (ss) {
-              ss.classList.add("hidden");
-              ss.style.setProperty("display", "none", "important");
-            }
-          } catch (_) {}
           renderServers([]);
           renderDownloads(pack.downloads || []);
           setPlaceholder(false);
           var jkEmb = pickJkEmbed(pack.embeds || []);
           if (jkEmb) {
             try {
-              hidePoster();
-              setPlaceholder(true, "Cargando reproductor…");
+              showPoster(item, "Cargando reproductor…");
               await playEmbed(jkEmb);
+              hidePoster();
               setPlaceholder(false);
             } catch (ePlay) {
               console.warn("JK autoplay", ePlay);
@@ -1272,7 +1281,6 @@
               showPoster(item, "No se pudo iniciar el reproductor");
             }
           } else {
-            setServersUiVisible(false);
             showPoster(item, "Sin reproductor para este episodio");
           }
         } else {
