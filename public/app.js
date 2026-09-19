@@ -2576,13 +2576,8 @@ function volverDesdeEpisodioMovil() {
 /** Anime JK (source 5): ir directo a JKPlayer, sin lista de servidores */
 function esAnimeJk(item) {
   if (!item) return false;
-  const s = String(item.source_id != null ? item.source_id : "");
-  if (s === "5" || /^jk$/i.test(s)) return true;
-  const f = String(item.fuente || item.source || "");
-  if (/jkanime|^jk$/i.test(f)) return true;
-  const blob = String(item.link || item.url || item.url_extract || "");
-  if (/jkanime/i.test(blob)) return true;
-  return false;
+  const s = String(item.source_id || item.fuente || item.source || "");
+  return s === "5" || /jkanime|^jk$/i.test(s);
 }
 
 function pickJkPlayer(embeds) {
@@ -7088,15 +7083,8 @@ function renderEpisodios(item, season = 1) {
             // Cargar de API → se guarda en Supabase en el backend
             const serversContainer = document.getElementById("servers-container");
             if (serversContainer) {
-                if (typeof esAnimeJk === "function" && esAnimeJk(item)) {
-                  try {
-                    document.getElementById("servers-section")?.classList.add("hidden");
-                    serversContainer.innerHTML = "";
-                  } catch (_) {}
-                } else {
-                  expandirServidores();
-                  serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores…</p></div>`;
-                }
+                expandirServidores();
+                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando reproductor…</p></div>`;
             }
             try {
                 const params = new URLSearchParams();
