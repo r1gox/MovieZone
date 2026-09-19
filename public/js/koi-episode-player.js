@@ -301,41 +301,40 @@
 
   function isJkItem(item) {
     if (!item) return false;
-    var s = String(item.source_id || item.fuente || item.source || "").toLowerCase();
-    return s === "5" || s.indexOf("jkanime") !== -1 || s === "jk";
+    var s = String(item.source_id != null ? item.source_id : "").toLowerCase();
+    if (s === "5" || s === "jk") return true;
+    var f = String(item.fuente || item.source || item.provider || "").toLowerCase();
+    if (f.indexOf("jkanime") !== -1 || f === "jk") return true;
+    var blob = String(item.link || item.url || item.url_extract || item.slug || "").toLowerCase();
+    if (blob.indexOf("jkanime") !== -1) return true;
+    // embeds ya resueltos
+    var em = item.embeds || item.reproductores || [];
+    if (Array.isArray(em)) {
+      for (var i = 0; i < em.length; i++) {
+        var u = String((em[i] && (em[i].url || em[i].link || em[i].servidor || "")) || "").toLowerCase();
+        if (u.indexOf("jkplayer") !== -1 || u.indexOf("jkanime") !== -1) return true;
+      }
+    }
+    return false;
   }
 
   function setServersUiVisible(show) {
     try {
+      var view = $("mz-koi-ep-view");
+      if (view) {
+        if (show) view.classList.remove("mz-jk-direct");
+        else view.classList.add("mz-jk-direct");
+      }
       var boxN = $("mz-kp-servers");
       var boxD = $("mz-kp-servers-direct");
       var labD = $("mz-kp-direct-label");
-      // Ocultar solo listas/etiquetas de reproductores (no tocar layout del player)
-      var labels = document.querySelectorAll("#mz-koi-ep-view .mz-kp-servers-label");
-      labels.forEach(function (lab) {
-        if (lab.id === "mz-kp-direct-label") return;
-        // label "Reproductores" (no descargas)
-        var parent = lab.parentElement;
-        if (parent && parent.classList.contains("mz-kp-downloads-wrap")) return;
-        if (show) {
-          lab.classList.remove("hidden");
-          lab.style.removeProperty("display");
-        } else {
-          lab.classList.add("hidden");
-          lab.style.setProperty("display", "none", "important");
-        }
-      });
-      if (labD) {
-        if (show) {
-          // se muestra solo si hay directos en renderServers
-        } else {
-          labD.classList.add("hidden");
-          labD.style.setProperty("display", "none", "important");
-        }
-      }
       if (!show) {
         if (boxN) boxN.innerHTML = "";
         if (boxD) boxD.innerHTML = "";
+        if (labD) {
+          labD.classList.add("hidden");
+          labD.style.setProperty("display", "none", "important");
+        }
       } else {
         if (labD) labD.style.removeProperty("display");
       }
@@ -1223,7 +1222,7 @@
             side.classList.add("mz-kp-sidebar-mobile-ep");
           }
         } else {
-          view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile");
+          view.classList.remove("mz-kp-movie-mode", "mz-kp-ep-mobile", "mz-jk-direct");
           if (layout) layout.classList.remove("mz-kp-layout-movie");
           if (side) {
             side.classList.remove("hidden", "mz-kp-sidebar-mobile-ep");
