@@ -305,6 +305,27 @@
     return s === "5" || s.indexOf("jkanime") !== -1 || s === "jk";
   }
 
+  function setServersUiVisible(show) {
+    try {
+      var view = $("mz-koi-ep-view");
+      if (!view) return;
+      var blocks = view.querySelectorAll(".mz-kp-servers");
+      blocks.forEach(function (el) {
+        // No ocultar el bloque de descargas
+        if (el.id === "mz-kp-downloads-wrap" || el.classList.contains("mz-kp-downloads-wrap")) return;
+        if (show) {
+          el.classList.remove("hidden");
+          el.style.removeProperty("display");
+        } else {
+          el.classList.add("hidden");
+          el.style.setProperty("display", "none", "important");
+        }
+      });
+      var lab = $("mz-kp-direct-label");
+      if (lab && !show) lab.classList.add("hidden");
+    } catch (_) {}
+  }
+
   function pickJkEmbed(embeds) {
     var list = Array.isArray(embeds) ? embeds : [];
     for (var i = 0; i < list.length; i++) {
@@ -661,9 +682,15 @@
       labD.textContent = "Directos";
     }
 
+    // JK: no hay lista de reproductores (es directo)
+    if (_ctx && isJkItem(_ctx.item)) {
+      setServersUiVisible(false);
+      return;
+    }
+    setServersUiVisible(true);
+
     if (!embeds || !embeds.length) {
-      boxN.innerHTML =
-        '<span style="color:#64748b;font-size:0.85rem">Cargando mirrors…</span>';
+      // Vacío sin mensaje de "Cargando mirrors" (evita texto fantasma)
       return;
     }
 
@@ -1202,7 +1229,12 @@
       destroyHls();
       var jk = isJkItem(item);
       showPoster(item, jk ? "Cargando reproductor…" : "Elige un reproductor para comenzar");
-      if (jk) setPlaceholder(true, "Cargando servidores…");
+      if (jk) {
+        setServersUiVisible(false);
+        setPlaceholder(true, "Cargando reproductor…");
+      } else {
+        setServersUiVisible(true);
+      }
       renderServers([]);
       renderDownloads([]);
 
@@ -1215,7 +1247,8 @@
           episodio.downloads = pack.downloads;
         }
         if (jk) {
-          // JK: directo — no listar servers; autoplay JKPlayer
+          // JK: directo — sin sección Reproductores / Directos / mirrors
+          setServersUiVisible(false);
           try {
             var ss = document.getElementById("servers-section");
             if (ss) {
@@ -1239,8 +1272,8 @@
               showPoster(item, "No se pudo iniciar el reproductor");
             }
           } else {
-            showPoster(item, pack.embeds && pack.embeds.length ? "Cargando reproductor…" : "Sin reproductor para este episodio");
-            if (pack.embeds && pack.embeds.length) renderServers(pack.embeds);
+            setServersUiVisible(false);
+            showPoster(item, "Sin reproductor para este episodio");
           }
         } else {
           renderServers(pack.embeds || []);
