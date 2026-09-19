@@ -652,28 +652,10 @@ body.mz-koi-ep-open #mz-koi-ep-view.open {
 }
 
 
-/* JK: play directo — ocultar Reproductores/Directos aunque el CSS móvil fuerce flex */
-#mz-koi-ep-view.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap) .mz-kp-servers-label,
-#mz-koi-ep-view.mz-jk-direct #mz-kp-servers,
-#mz-koi-ep-view.mz-jk-direct #mz-kp-servers-direct,
-#mz-koi-ep-view.mz-jk-direct #mz-kp-direct-label,
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers,
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers-direct,
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct #mz-kp-direct-label,
-#mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers,
-#mz-koi-ep-view.mz-kp-movie-mode.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers-direct {
+
+
+/* JK directo: ocultar bloque servers (gana a flex !important del móvil) */
+#mz-koi-ep-view.mz-jk-direct > .mz-kp-layout .mz-kp-servers:not(.mz-kp-downloads-wrap),
+body.mz-koi-ep-open #mz-koi-ep-view.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap) {
   display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  max-height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  border: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
 }
