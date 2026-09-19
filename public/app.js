@@ -7084,7 +7084,7 @@ function renderEpisodios(item, season = 1) {
             const serversContainer = document.getElementById("servers-container");
             if (serversContainer) {
                 expandirServidores();
-                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores del episodio ${epNum}...</p></div>`;
+                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando reproductor…</p></div>`;
             }
             try {
                 const params = new URLSearchParams();
