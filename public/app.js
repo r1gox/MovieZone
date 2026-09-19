@@ -6052,6 +6052,35 @@ function mzHydrateAnimeBackImg(item) {
   return item;
 }
 
+
+/** AnimeAV1: back_img real enumerado screenshots/{mediaId}/{ep}.jpg (vale para ep 1…1178 sin venir en API) */
+function mzAv1BackImg(item, epNum) {
+  if (!item) return null;
+  const sid = String(item.source_id || "");
+  const esAv1 = sid === "4" || /animeav1/i.test(String(item.fuente || item.source || ""));
+  if (!esAv1) return null;
+  const n = parseInt(epNum, 10) || 0;
+  if (n < 1) return null;
+  let mid = item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id || null;
+  if (!mid) {
+    const port = String(item.portada_fuente_raw || item.portada || item.poster || "");
+    let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+    if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+    if (m) mid = m[1];
+  }
+  if (!mid && Array.isArray(item.episodios)) {
+    for (let i = 0; i < item.episodios.length; i++) {
+      const b = item.episodios[i] && item.episodios[i].back_img;
+      if (!b) continue;
+      const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+      if (mm) { mid = mm[1]; break; }
+    }
+  }
+  if (!mid) return null;
+  item._av1ShotId = String(mid);
+  return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
+}
+
 function mzEpisodeThumb(episodio, item, num) {
   if (!episodio) episodio = {};
   const n = Number(num || episodio.episode || episodio.episodio || 0) || 0;
@@ -6474,15 +6503,21 @@ function renderTemporadas(item) {
                   const filled = [];
                   for (let n = rango.desde; n <= rango.hasta; n++) {
                     if (byN.has(n)) filled.push(byN.get(n));
-                    else filled.push({
-                      season: seasonNum,
-                      temporada: seasonNum,
-                      episode: n,
-                      episodio: n,
-                      nombre: "Episodio " + n,
-                      embeds: [],
-                      video: null
-                    });
+                    else {
+                      const stub = {
+                        season: seasonNum,
+                        temporada: seasonNum,
+                        episode: n,
+                        episodio: n,
+                        nombre: "Episodio " + n,
+                        embeds: [],
+                        video: null
+                      };
+                      const av1 = typeof mzAv1BackImg === "function" ? mzAv1BackImg(item, n) : null;
+                      if (av1) { stub.back_img = av1; stub.still = av1; stub.imagen = av1; }
+                      else if (item && item.backdrop) stub.back_img = item.backdrop;
+                      filled.push(stub);
+                    }
                   }
                   mapped = filled;
                 }
@@ -6837,7 +6872,7 @@ function renderEpisodios(item, season = 1) {
           : Math.min(50, totalReal);
         lista = [];
         for (let n = desde; n <= hasta && n <= totalReal; n++) {
-            lista.push({
+            const stub = {
               season: seasonNum,
               temporada: seasonNum,
               episode: n,
@@ -6845,7 +6880,17 @@ function renderEpisodios(item, season = 1) {
               nombre: "Episodio " + n,
               embeds: [],
               video: null
-            });
+            };
+            // AV1: imagen real enumerada aunque no venga en los 50 de la API
+            const av1 = typeof mzAv1BackImg === "function" ? mzAv1BackImg(item, n) : null;
+            if (av1) {
+              stub.back_img = av1;
+              stub.still = av1;
+              stub.imagen = av1;
+            } else if (item && item.backdrop) {
+              stub.back_img = item.backdrop;
+            }
+            lista.push(stub);
         }
         // Guardar en item para clicks posteriores
         try {
@@ -6911,8 +6956,8 @@ function renderEpisodios(item, season = 1) {
               episodio.still_path ||
               (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(episodio, item, num) : null);
             if (thumb && typeof mzNormEpBackImg === "function") thumb = mzNormEpBackImg(thumb);
-            if (!thumb && item && item._av1ShotId && num > 0) {
-              thumb = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + num + ".jpg";
+            if (!thumb && typeof mzAv1BackImg === "function") {
+              thumb = mzAv1BackImg(item, num);
             }
             if (!thumb) thumb = PLACEHOLDER;
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
