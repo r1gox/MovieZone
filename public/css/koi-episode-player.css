@@ -1942,21 +1942,3 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   padding: 0 !important;
   border: none !important;
 }
-
-
-
-
-/* JK directo — gana al flex !important del móvil */
-body.mz-koi-ep-open #mz-koi-ep-view.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct .mz-kp-servers:not(.mz-kp-downloads-wrap),
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers,
-#mz-koi-ep-view.mz-kp-ep-mobile.mz-jk-direct #mz-kp-servers-direct {
-  display: none !important;
-  height: 0 !important;
-  max-height: 0 !important;
-  overflow: hidden !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-}
