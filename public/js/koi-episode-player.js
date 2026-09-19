@@ -665,70 +665,6 @@
     return btn;
   }
 
-
-  function isJkItem(item) {
-    if (!item) item = _ctx && _ctx.item;
-    if (!item) return false;
-    var s = String(item.source_id || item.fuente || item.source || "");
-    return s === "5" || /jkanime|^jk$/i.test(s);
-  }
-
-  function pickJkEmbed(embeds) {
-    var list = embeds || [];
-    var i, e, blob;
-    for (i = 0; i < list.length; i++) {
-      e = list[i];
-      if (!e) continue;
-      blob = String(
-        (e.server || "") + " " + (e.tipo || "") + " " + (e.name || "") + " " +
-        (e.servidor || "") + " " + (e.url || "") + " " + (e.embed || "")
-      ).toLowerCase();
-      if (blob.indexOf("jkplayer") !== -1 || /jkanime\.net\/jkplayer/i.test(blob)) return e;
-    }
-    // A veces solo trae un iframe de jkanime
-    for (i = 0; i < list.length; i++) {
-      e = list[i];
-      if (e && e.url && /jkanime\.net/i.test(String(e.url))) return e;
-    }
-    return list.length ? list[0] : null;
-  }
-
-  function hideKoiServerUi() {
-    try {
-      var boxN = $("mz-kp-servers");
-      var boxD = $("mz-kp-servers-direct");
-      var labD = $("mz-kp-direct-label");
-      var wrap = document.querySelector("#mz-koi-ep-view .mz-kp-servers");
-      if (boxN) {
-        boxN.innerHTML = '<span style="color:#94a3b8;font-size:0.85rem">JKPlayer</span>';
-      }
-      if (boxD) {
-        boxD.innerHTML = "";
-        boxD.setAttribute("hidden", "");
-        boxD.style.cssText = "display:none!important;height:0!important;";
-      }
-      if (labD) {
-        labD.classList.add("hidden");
-        labD.style.display = "none";
-      }
-      // Ocultar bloque "Reproductores" completo en JK
-      if (wrap) {
-        wrap.style.setProperty("display", "none", "important");
-        wrap.setAttribute("data-jk-hidden", "1");
-      }
-    } catch (_) {}
-  }
-
-  function showKoiServerUi() {
-    try {
-      var wrap = document.querySelector("#mz-koi-ep-view .mz-kp-servers");
-      if (wrap && wrap.getAttribute("data-jk-hidden") === "1") {
-        wrap.style.removeProperty("display");
-        wrap.removeAttribute("data-jk-hidden");
-      }
-    } catch (_) {}
-  }
-
   function renderServers(embeds) {
     var boxN = $("mz-kp-servers");
     var boxD = $("mz-kp-servers-direct");
@@ -746,21 +682,6 @@
       labD.textContent = "Directos";
       labD.style.cssText = "display:none!important;height:0!important;margin:0!important;padding:0!important;";
     }
-
-    if (isJkItem()) {
-      // Fuente 5: no listar mirrors — solo JKPlayer
-      hideKoiServerUi();
-      if (!embeds || !embeds.length) {
-        boxN.innerHTML = '<span style="color:#94a3b8;font-size:0.85rem">JKPlayer…</span>';
-        return;
-      }
-      var jk = pickJkEmbed(embeds);
-      if (jk) {
-        try { playEmbed(jk, "iframe"); } catch (eJk) { console.warn("JK play", eJk); }
-      }
-      return;
-    }
-    showKoiServerUi();
 
     if (!embeds || !embeds.length) {
       boxN.innerHTML =
@@ -1500,6 +1421,20 @@
         el.style.removeProperty("order");
       });
 
+      // El <p id="mz-kp-synopsis"> ya se limpia arriba, pero su DIV padre
+      // (class="mz-kp-synopsis", mismo nombre pero es CLASE, no id) es al
+      // que mzMovieSynopsisToBottom() le fuerza display/visibility con
+      // !important en modo película. Si no se limpia aquí también, ese
+      // estilo se queda pegado al entrar a un episodio después y deja
+      // el cuadro vacío visible aunque tenga la clase "hidden".
+      try {
+        var synDiv = document.querySelector("#mz-koi-ep-view .mz-kp-synopsis");
+        if (synDiv) {
+          synDiv.style.removeProperty("display");
+          synDiv.style.removeProperty("visibility");
+        }
+      } catch (_) {}
+
       var an = $("mz-kp-anime-title");
       if (an) {
         an.style.setProperty("text-align", "left");
@@ -1724,33 +1659,16 @@
           episodio.embeds = pack.embeds;
           episodio.downloads = pack.downloads;
         }
-        if (isJkItem(item)) {
-          hideKoiServerUi();
-          renderDownloads(pack.downloads || []);
-          var jkEmb = pickJkEmbed(pack.embeds || []);
-          if (jkEmb) {
-            try {
-              await playEmbed(jkEmb, "iframe");
-            } catch (eJk2) {
-              console.warn("JK openEpisode", eJk2);
-              showPoster(item, "No se pudo cargar JKPlayer");
-            }
-          } else {
-            showPoster(item, "Sin JKPlayer para este episodio");
-          }
-        } else {
-          showKoiServerUi();
-          renderServers(pack.embeds || []);
-          renderDownloads(pack.downloads || []);
-          var autoOk = tryAutoSelectPreferred(pack.embeds || []);
-          if (!autoOk) {
-            showPoster(
-              item,
-              pack.embeds && pack.embeds.length
-                ? "Elige un reproductor para comenzar"
-                : "Sin mirrors para este episodio"
-            );
-          }
+        renderServers(pack.embeds || []);
+        renderDownloads(pack.downloads || []);
+        var autoOk = tryAutoSelectPreferred(pack.embeds || []);
+        if (!autoOk) {
+          showPoster(
+            item,
+            pack.embeds && pack.embeds.length
+              ? "Elige un reproductor para comenzar"
+              : "Sin mirrors para este episodio"
+          );
         }
       } catch (eFetch) {
         console.warn("fetchCapitulo", eFetch);
