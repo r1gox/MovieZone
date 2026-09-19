@@ -1545,3 +1545,74 @@ body #details-status {
   border: none !important;
   text-transform: none !important;
 }
+
+
+/* === Estado En emisión / Finalizado mz status mobile force chip === */
+@media (max-width: 768px) {
+  #details-status-wrap.meta-item.status:not(.hidden),
+  #details-panel #details-status-wrap:not(.hidden),
+  body.details-open #details-status-wrap:not(.hidden),
+  body.mz-mobile-ep-playing #details-status-wrap:not(.hidden) {
+    display: inline-flex !important;
+    align-items: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  #details-status,
+  body.details-open #details-status,
+  body.mz-mobile-ep-playing #details-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: none !important;
+    border: none !important;
+  }
+
+  #details-status.mz-status-air,
+  #details-status-wrap.mz-status-air #details-status,
+  #details-status-wrap.is-air #details-status,
+  body.details-open #details-status.mz-status-air {
+    background: #10b981 !important;
+    color: #04150f !important;
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35) !important;
+  }
+
+  #details-status.mz-status-end,
+  #details-status-wrap.mz-status-end #details-status,
+  #details-status-wrap.is-end #details-status,
+  body.details-open #details-status.mz-status-end {
+    background: #94a3b8 !important;
+    color: #0f172a !important;
+  }
+
+  #details-status.mz-status-other,
+  #details-status-wrap.mz-status-other #details-status {
+    background: #818cf8 !important;
+    color: #0f172a !important;
+  }
+
+  /* Hero Koi móvil */
+  .koi-meta-status.koi-meta-air,
+  .mz-kp-meta .koi-meta-status.koi-meta-air {
+    background: #10b981 !important;
+    color: #04150f !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-weight: 800 !important;
+  }
+  .koi-meta-status.koi-meta-end,
+  .mz-kp-meta .koi-meta-status.koi-meta-end {
+    background: #94a3b8 !important;
+    color: #0f172a !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-weight: 800 !important;
+  }
+}
