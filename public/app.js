@@ -7087,18 +7087,16 @@ function renderEpisodios(item, season = 1) {
 
             // Cargar de API → se guarda en Supabase en el backend
             const serversContainer = document.getElementById("servers-container");
-            if (esAnimeJk(item)) {
-              try {
-                const ss = document.getElementById("servers-section");
-                if (ss) {
-                  ss.classList.add("hidden");
-                  ss.style.setProperty("display", "none", "important");
+            if (serversContainer) {
+                if (typeof esAnimeJk === "function" && esAnimeJk(item)) {
+                  try {
+                    document.getElementById("servers-section")?.classList.add("hidden");
+                    serversContainer.innerHTML = "";
+                  } catch (_) {}
+                } else {
+                  expandirServidores();
+                  serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando servidores…</p></div>`;
                 }
-                if (serversContainer) serversContainer.innerHTML = "";
-              } catch (_) {}
-            } else if (serversContainer) {
-                expandirServidores();
-                serversContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando reproductor…</p></div>`;
             }
             try {
                 const params = new URLSearchParams();
