@@ -4650,6 +4650,13 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
+    // Bloquear fuente del listado (JK=5 / AV1=4) para no cruzar al cargar detalle
+    try {
+      if (item && item.source_id != null) {
+        item.source_id = String(item.source_id);
+        window.__mzLockSourceId = String(item.source_id);
+      }
+    } catch (_) {}
     seleccionActual = item;
     try {
       if (typeof mzPushDetalleUrl === "function") {
@@ -4981,10 +4988,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         item.portada = keepMeta.portada;
                     }
                     // Mantener fuente del listado (JK no debe pasar a AV1)
-                    if (keepMeta.source_id) {
-                      item.source_id = String(keepMeta.source_id);
+                    if (keepMeta.source_id || window.__mzLockSourceId) {
+                      item.source_id = String(keepMeta.source_id || window.__mzLockSourceId);
                       if (item.slug && (item.source_id === "5" || item.source_id === "4")) {
                         item.link = "https://moviezone.tvjz.workers.dev/" + item.source_id + "/anime/" + item.slug;
+                        item.fuente = item.source_id === "5" ? "jkanime" : (item.source_id === "4" ? "animeav1" : item.fuente);
                       }
                     }
                     // Descripción: si completo trae español mejor, usarla
@@ -6034,14 +6042,8 @@ function mzHydrateAnimeBackImg(item) {
         var s = Number(ep.season || ep.temporada || 1) || 1;
         var n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
         if (n < 1) return ep;
-        var url =
-          "https://episodes.metahub.space/" +
-          String(imdbH) +
-          "/" +
-          s +
-          "/" +
-          n +
-          "/w780.jpg";
+        var url = (item && item.backdrop) ? String(item.backdrop) : null;
+        if (!url) return ep;
         return Object.assign({}, ep, { back_img: url, still: ep.still || url, imagen: ep.imagen || url });
       });
     }
@@ -6062,102 +6064,46 @@ function mzEpisodeThumb(episodio, item, num) {
     episodio.image ||
     episodio.thumbnail ||
     null;
+  if (direct && /episodes\.metahub\.space/i.test(String(direct))) direct = null;
   if (direct && typeof mzNormEpBackImg === "function") {
     direct = mzNormEpBackImg(direct);
   } else if (direct && String(direct).charAt(0) === "/") {
     direct = "https://image.tmdb.org/t/p/w500" + String(direct);
   }
   if (direct && /^https?:\/\//i.test(String(direct))) {
-    // Guardar id animeav1 para hermanos sin back_img
     try {
       const mm = String(direct).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
       if (mm && item) item._av1ShotId = mm[1];
     } catch (_) {}
     return String(direct);
   }
-  // Id cacheado desde otra cap
-  let mid =
-    (item && (item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id)) || null;
-  if (!mid) {
-    const port = String(
-      (item &&
-        (item.portada_fuente_raw ||
-          item.portada_fuente ||
-          item.portada ||
-          item.poster ||
-          "")) ||
-        ""
-    );
-    let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
-    if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
-    if (m) mid = m[1];
-  }
-  // Buscar id en cualquier episodio de la temporada
-  if (!mid && item && Array.isArray(item.episodios)) {
-    for (let i = 0; i < item.episodios.length; i++) {
-      const b = item.episodios[i] && item.episodios[i].back_img;
-      if (!b) continue;
-      const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
-      if (mm) {
-        mid = mm[1];
-        item._av1ShotId = mid;
-        break;
-      }
+  // Solo AnimeAV1 (source 4): screenshots deterministas
+  const sid = String((item && item.source_id) || "");
+  const esAv1 = sid === "4" || /animeav1/i.test(String((item && (item.fuente || item.source)) || ""));
+  if (esAv1 && n > 0) {
+    let mid = (item && (item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id)) || null;
+    if (!mid) {
+      const port = String((item && (item.portada_fuente_raw || item.portada || item.poster || "")) || "");
+      let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+      if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+      if (m) mid = m[1];
     }
-  }
-  if (!mid && item && Array.isArray(item.temporadas)) {
-    outer: for (let t = 0; t < item.temporadas.length; t++) {
-      const lista = item.temporadas[t] && (item.temporadas[t].lista || item.temporadas[t].episodios);
-      if (!Array.isArray(lista)) continue;
-      for (let j = 0; j < lista.length; j++) {
-        const b = lista[j] && lista[j].back_img;
+    if (!mid && item && Array.isArray(item.episodios)) {
+      for (let k = 0; k < item.episodios.length; k++) {
+        const b = item.episodios[k] && item.episodios[k].back_img;
         if (!b) continue;
         const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
-        if (mm) {
-          mid = mm[1];
-          item._av1ShotId = mid;
-          break outer;
-        }
+        if (mm) { mid = mm[1]; item._av1ShotId = mid; break; }
       }
     }
+    if (mid) return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
   }
-  if (mid && n > 0) {
-    return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
-  }
-  // Series / doramas: still por episodio (Metahub), igual que screenshots de anime
-  // https://episodes.metahub.space/{imdb}/{season}/{episode}/w780.jpg
-  try {
-    const imdb =
-      (item && (item.imdb_id || (item.imdb && item.imdb.id))) || null;
-    if (imdb && /^tt\d+$/i.test(String(imdb)) && n > 0) {
-      const sn =
-        Number(
-          (episodio && (episodio.season || episodio.temporada || episodio.season_number)) ||
-            1
-        ) || 1;
-      return (
-        "https://episodes.metahub.space/" +
-        String(imdb) +
-        "/" +
-        sn +
-        "/" +
-        n +
-        "/w780.jpg"
-      );
-    }
-  } catch (_) {}
-  // Anime / serie / dorama: no reutilizar backdrop de la ficha (mismo en todos)
-  const tipo = String((item && (item.tipo || item.type)) || "");
-  if (/anime|serie|dorama|tv/i.test(tipo)) {
-    return null;
-  }
-  return (
-    episodio.backdrop ||
-    episodio.portada ||
-    (item && (item.backdrop || item.portada)) ||
-    null
-  );
+  // Sin imagen de episodio → backdrop (JK y resto). NUNCA Metahub still.
+  if (item && item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) return String(item.backdrop);
+  if (item && item.portada && /^https?:\/\//i.test(String(item.portada))) return String(item.portada);
+  return null;
 }
+
 
 function normalizarListaTemporadas(item) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
@@ -6436,6 +6382,8 @@ function renderTemporadas(item) {
 
     try { mzHydrateAnimeBackImg(item); } catch (_) {}
     const loadSeason = async (season, rangoForzado) => {
+        const _gen = (item._loadSeasonGen = (item._loadSeasonGen || 0) + 1);
+
         const seasonNum = parseInt(season, 10) || 1;
         const episodesContainer = document.getElementById("episodes-container");
         episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios...</p></div>`;
@@ -6518,9 +6466,15 @@ function renderTemporadas(item) {
                 });
                 item._epRangoActivo = { desde: rango.desde, hasta: rango.hasta };
                 // Si el API solo traía 1–50 y pedimos 1001+, rellenar stubs del rango
-                if (!mapped.length) {
+                // Siempre completar el rango completo (evita 1151–1178 con huecos por race)
+                {
+                  const byN = new Map(mapped.map(function (e) {
+                    return [Number(e.episode || e.episodio || 0), e];
+                  }));
+                  const filled = [];
                   for (let n = rango.desde; n <= rango.hasta; n++) {
-                    mapped.push({
+                    if (byN.has(n)) filled.push(byN.get(n));
+                    else filled.push({
                       season: seasonNum,
                       temporada: seasonNum,
                       episode: n,
@@ -6530,6 +6484,7 @@ function renderTemporadas(item) {
                       video: null
                     });
                   }
+                  mapped = filled;
                 }
             }
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, mapped);
@@ -6734,16 +6689,14 @@ function renderEpisodios(item, season = 1) {
           if (!ep) return ep;
           const n = Number(ep.episode || ep.episodio || 0) || 0;
           let b = ep.back_img || ep.screenshot || ep.still || null;
-          if (!b && item._av1ShotId && n > 0) {
+          if (!b && item._av1ShotId && n > 0 && String(item.source_id || "") === "4") {
             b = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + n + ".jpg";
           }
-          // JK / cualquier fuente: Metahub still si hay imdb y falta thumb
-          if (!b && n > 0) {
-            const imdb = String(item.imdb_id || item.imdb || "").replace(/^.*?(tt\d+).*$/i, "$1");
-            if (/^tt\d+$/i.test(imdb)) {
-              const s = Number(ep.season || ep.temporada || item._seasonActiva || 1) || 1;
-              b = "https://episodes.metahub.space/" + imdb + "/" + s + "/" + n + "/w780.jpg";
-            }
+          // Sin Metahub still: backdrop si falta
+          if (!b && item && item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) {
+            b = String(item.backdrop);
+          } else if (!b && item && item.portada) {
+            b = String(item.portada);
           }
           if (!b && typeof mzEpisodeThumb === "function") {
             b = mzEpisodeThumb(ep, item, n);
@@ -7095,7 +7048,7 @@ function renderEpisodios(item, season = 1) {
                 if (item.slug) params.set("slug", item.slug);
                 // Anime → fuente 5 (jkanime) prioritaria; 4 = respaldo
                 const sidCap = (item.tipo === "Anime")
-                    ? (item.source_id || item._prefer_source_anime || "5")
+                    ? (item.source_id || item._prefer_source_anime || item.source_id || "")
                     : (item.source_id || "");
                 if (sidCap) params.set("source_id", String(sidCap));
                 else if (item.source_id) params.set("source_id", item.source_id);
