@@ -1249,12 +1249,21 @@
       parts.push(dur);
       if (metaLine) metaLine.textContent = parts.filter(Boolean).join(" · ");
       if (synEl) {
-        synEl.textContent =
+        var txt =
           (episodio && episodio.descripcion) ||
           item.descripcion ||
           item.synopsis ||
           "";
-        if (synEl.parentElement) synEl.parentElement.classList.remove("hidden");
+        synEl.textContent = txt;
+        synEl.style.removeProperty("display");
+        synEl.style.removeProperty("visibility");
+        var parent = synEl.parentElement;
+        if (parent) {
+          parent.style.removeProperty("display");
+          parent.style.removeProperty("visibility");
+          if (txt && String(txt).trim()) parent.classList.remove("hidden");
+          else parent.classList.add("hidden");
+        }
       }
       return;
     }
@@ -1499,6 +1508,33 @@
         el.style.removeProperty("width");
         el.style.removeProperty("order");
       });
+
+      // BUGFIX: mzMovieSynopsisToBottom() pone display/visibility !important
+      // en el DIV .mz-kp-synopsis (padre), no en el <p id="mz-kp-synopsis">.
+      // Al pasar película → episodio queda un cuadrito vacío transparente.
+      try {
+        var synWrap = document.querySelector("#mz-koi-ep-view .mz-kp-synopsis");
+        if (synWrap) {
+          synWrap.style.removeProperty("display");
+          synWrap.style.removeProperty("visibility");
+          synWrap.style.removeProperty("order");
+          synWrap.style.removeProperty("height");
+          synWrap.style.removeProperty("min-height");
+          synWrap.style.removeProperty("margin");
+          synWrap.style.removeProperty("padding");
+          if (mode !== "movie") {
+            synWrap.classList.add("hidden");
+            var synP = synWrap.querySelector("p") || document.getElementById("mz-kp-synopsis");
+            if (synP) {
+              synP.textContent = "";
+              synP.style.removeProperty("display");
+              synP.style.removeProperty("visibility");
+            }
+          } else {
+            synWrap.classList.remove("hidden");
+          }
+        }
+      } catch (_) {}
 
       var an = $("mz-kp-anime-title");
       if (an) {
