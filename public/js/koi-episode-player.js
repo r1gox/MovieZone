@@ -318,26 +318,12 @@
     return false;
   }
 
-  function setServersUiVisible(show) {
+  function setJkDirectMode(on) {
     try {
       var view = $("mz-koi-ep-view");
-      if (view) {
-        if (show) view.classList.remove("mz-jk-direct");
-        else view.classList.add("mz-jk-direct");
-      }
-      var boxN = $("mz-kp-servers");
-      var boxD = $("mz-kp-servers-direct");
-      var labD = $("mz-kp-direct-label");
-      if (!show) {
-        if (boxN) boxN.innerHTML = "";
-        if (boxD) boxD.innerHTML = "";
-        if (labD) {
-          labD.classList.add("hidden");
-          labD.style.setProperty("display", "none", "important");
-        }
-      } else {
-        if (labD) labD.style.removeProperty("display");
-      }
+      if (!view) return;
+      if (on) view.classList.add("mz-jk-direct");
+      else view.classList.remove("mz-jk-direct");
     } catch (_) {}
   }
 
@@ -697,15 +683,12 @@
       labD.textContent = "Directos";
     }
 
-    // JK: sin lista Reproductores / Directos / mirrors (play directo)
+    // JK: no listar servers (play directo)
     if (_ctx && isJkItem(_ctx.item)) {
-      setServersUiVisible(false);
-      if (boxN) boxN.innerHTML = "";
-      if (boxD) boxD.innerHTML = "";
-      if (labD) labD.classList.add("hidden");
+      setJkDirectMode(true);
       return;
     }
-    setServersUiVisible(true);
+    setJkDirectMode(false);
 
     if (!embeds || !embeds.length) {
       return;
@@ -1245,44 +1228,39 @@
 
       destroyHls();
       var jk = isJkItem(item);
-      // JK: solo hint en el cuadro; no tocar layout móvil ni "Cargando mirrors"
+      setJkDirectMode(jk);
       showPoster(item, jk ? "Cargando reproductor…" : "Elige un reproductor para comenzar");
-      if (jk) setServersUiVisible(false);
-      else setServersUiVisible(true);
       setPlaceholder(false);
       renderServers([]);
       renderDownloads([]);
 
-      // Cargar servers sin tumbar la vista si falla
       try {
         var pack = await fetchCapitulo(item, seasonNum, epNum);
-        if (myToken !== _openToken) return true; // otra apertura más nueva
+        if (myToken !== _openToken) return true;
         if (episodio) {
           episodio.embeds = pack.embeds;
           episodio.downloads = pack.downloads;
         }
+
         if (jk) {
-          // JK: directo — sin sección Reproductores / Directos / mirrors
-          setServersUiVisible(false);
+          setJkDirectMode(true);
           renderServers([]);
           renderDownloads(pack.downloads || []);
-          setPlaceholder(false);
           var jkEmb = pickJkEmbed(pack.embeds || []);
           if (jkEmb) {
             try {
               showPoster(item, "Cargando reproductor…");
               await playEmbed(jkEmb);
               hidePoster();
-              setPlaceholder(false);
             } catch (ePlay) {
               console.warn("JK autoplay", ePlay);
-              setPlaceholder(false);
               showPoster(item, "No se pudo iniciar el reproductor");
             }
           } else {
             showPoster(item, "Sin reproductor para este episodio");
           }
         } else {
+          setJkDirectMode(false);
           renderServers(pack.embeds || []);
           renderDownloads(pack.downloads || []);
           showPoster(
@@ -1294,7 +1272,6 @@
         }
       } catch (eFetch) {
         console.warn("fetchCapitulo", eFetch);
-        setPlaceholder(false);
         showPoster(item, "No se pudieron cargar servidores");
       }
 
