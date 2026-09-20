@@ -1659,9 +1659,11 @@ function mapDetail(data, fallback = {}) {
       sourceId
     ),
     portada_tmdb: data.portada_tmdb || null,
-    portada_imdb: data.portada_imdb || null,
+    portada_imdb: data.portada_imdb || (data.imdb_id ? ("https://images.metahub.space/poster/medium/" + data.imdb_id + "/img") : null),
     poster_source: data.poster_source || null,
-    backdrop: data.backdrop || fallback.backdrop || null,
+    logo: data.logo || data.logo_imdb || (data.imdb_id ? ("https://images.metahub.space/logo/medium/" + data.imdb_id + "/img") : (fallback.logo || fallback.logo_imdb || null)),
+    logo_imdb: data.logo_imdb || data.logo || (data.imdb_id ? ("https://images.metahub.space/logo/medium/" + data.imdb_id + "/img") : null),
+    backdrop: data.backdrop || (data.imdb_id ? ("https://images.metahub.space/background/medium/" + data.imdb_id + "/img") : null) || fallback.backdrop || null,
     year: (function () {
       const yData = extraerAnio(titulo, data.year || data.fecha_estreno || null);
       const yFall = extraerAnio(titulo, fallback.year || null);
@@ -1679,7 +1681,9 @@ function mapDetail(data, fallback = {}) {
     calidad: data.calidad || [],
     calificacion,
     rating: calificacion,
-    rating_source: data.rating_source || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
+    rating_source: data.rating_source
+      || (data.imdb_id || (esFilmAv1 && calificacion != null) ? "imdb" : null)
+      || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
     tmdb_id: data.tmdb_id || metaF.tmdb.id || fallback.tmdb_id || null,
     imdb_id: esFilmAv1
       ? (data.imdb_id || null)
@@ -2556,6 +2560,23 @@ function preferApiMeta(apiItem, cached) {
     if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
     if (apiItem.genero) out.genero = apiItem.genero;
     if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
+    if (apiItem.logo || apiItem.logo_imdb) {
+      out.logo = apiItem.logo || apiItem.logo_imdb;
+      out.logo_imdb = apiItem.logo_imdb || apiItem.logo;
+    } else if (apiItem.imdb_id) {
+      out.logo = "https://images.metahub.space/logo/medium/" + apiItem.imdb_id + "/img";
+      out.logo_imdb = out.logo;
+    }
+    if (apiItem.rating_source) out.rating_source = apiItem.rating_source;
+    else if (apiItem.imdb_id) out.rating_source = "imdb";
+  }
+  // logo siempre si la API lo trae (series/anime también)
+  if (apiItem.logo || apiItem.logo_imdb) {
+    out.logo = apiItem.logo || apiItem.logo_imdb;
+    out.logo_imdb = apiItem.logo_imdb || apiItem.logo;
+  } else if (apiItem.imdb_id && !out.logo) {
+    out.logo = "https://images.metahub.space/logo/medium/" + apiItem.imdb_id + "/img";
+    out.logo_imdb = out.logo;
   }
   if (apiItem.genero) out.genero = apiItem.genero;
   if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
@@ -2751,6 +2772,12 @@ async function obtenerDetalleInterno(params) {
         /tt21975436/i.test(String(cached.imdb_id))) // series Kaiju No.8 mal asociada a film
     );
 
+  // Films de animeav1: no usar caché (meta de serie se colaba: 24min, 8.2, logo mal)
+  const skipCacheFilmAv1 =
+    String(id.source_id) === "4" &&
+    (id.kind === "pelicula" ||
+      /pel[ií]cula|movie|film/i.test(String(cached && (cached.formato || cached.tipo) || tipo || "")));
+
   if (
     !force &&
     cached &&
@@ -2759,7 +2786,8 @@ async function obtenerDetalleInterno(params) {
     !nombreEsSlug &&
     !listaIncompleta &&
     !debeRefrescarSerie &&
-    !cacheFilmSucio
+    !cacheFilmSucio &&
+    !skipCacheFilmAv1
   ) {
     if (esAnimeKind && id.kind !== "pelicula") {
       try {
