@@ -9611,12 +9611,26 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
 }
 
 
-/* Rating de la página fuente: estrella amarilla */
+
+
+
+/* MAL: azul (como antes) */
+.rating-badge.rating-src-mal {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.95), rgba(0, 140, 180, 0.9));
+  color: #fff;
+}
+.rating-badge.rating-src-mal .mal-mark {
+  font-size: 0.65em;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.95;
+}
+/* Fuente (página): estrella + número amarillos — NO aplica a MAL */
 .rating-badge.rating-src-fuente,
 .rating-badge.rating-fuente-star {
+  background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.45);
-  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
 }
 .rating-badge .fuente-star {
   color: #fbbf24;
