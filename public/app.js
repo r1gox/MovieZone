@@ -4092,7 +4092,7 @@ function aplicarFiltrosYOrden(lista) {
             if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
             if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
 
-            // Sección Anime / filtro anime: TODO lo de AnimeAV1 (Película, OVA, ONA, Anime…)
+            // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
             if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
               return true;
             }
@@ -4102,8 +4102,8 @@ function aplicarFiltrosYOrden(lista) {
             if (gridTypeFilter === "anime" && isJk) return false;
             if (t === wanted) return true;
             if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
-            // Anime: incluir films/OVA/ONA/especiales (mismo catálogo AV1)
-            if (gridTypeFilter === "anime" && /anime|ova|ona|especial|pel[ií]cula|movie|film/i.test(tl)) return true;
+            // Otras fuentes en anime: solo tipo anime/ova/ona/especial (nunca películas sueltas)
+            if (gridTypeFilter === "anime" && /^(anime|ova|ona|especial)$/i.test(tl.trim())) return true;
             if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
             if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
             return false;
