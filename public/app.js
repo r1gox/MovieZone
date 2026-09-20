@@ -1449,7 +1449,30 @@ function escapeHtml(texto) {
 function tipoLabel(tipo) {
     if (tipo === "Serie") return "Serie";
     if (tipo === "Anime") return "Anime";
+    if (/ova/i.test(String(tipo || ""))) return "OVA";
+    if (/ona/i.test(String(tipo || ""))) return "ONA";
+    if (/especial|special/i.test(String(tipo || ""))) return "Especial";
     return "Película";
+}
+
+/** Badge del listado: usa type/tipo de la API tal cual (Película, Anime, OVA, ONA…) */
+function tipoBadgeLabel(item) {
+    if (!item) return "Anime";
+    const raw = String(item.tipo || item.type || item.formato || item.format || "").trim();
+    if (!raw) {
+      // fallback por source anime
+      if (String(item.source_id || "") === "4" || String(item.source_id || "") === "5") return "Anime";
+      return "Película";
+    }
+    if (/^ova$/i.test(raw) || /\bova\b/i.test(raw)) return "OVA";
+    if (/^ona$/i.test(raw) || /\bona\b/i.test(raw)) return "ONA";
+    if (/especial|special/i.test(raw)) return "Especial";
+    if (/pel[ií]cula|movie|film/i.test(raw)) return "Película";
+    if (/serie|dorama|tv/i.test(raw) && !/anime/i.test(raw)) return "Serie";
+    if (/anime/i.test(raw)) return "Anime";
+    // Cualquier otro valor de la API (ej. "TV", "Movie")
+    if (/^tv$/i.test(raw)) return "Anime";
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 const REPRODUCTORES_PERMITIDOS = [
@@ -4370,7 +4393,7 @@ function crearMediaCard(item) {
 
     const portada = item.portada || PLACEHOLDER;
     const nombre = item.nombre || item.titulo || "Sin título";
-    const tipo = tipoLabel(item.tipo);
+    const tipo = typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
     const rating = ratingInfo(item).label;
     const tieneVideo = item.tiene_player === true || itemTieneVideo(item);
