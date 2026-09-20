@@ -439,6 +439,13 @@ async function guardarEnSupabase(items) {
   const vistos = new Set();
   const paraInsertar = [];
   for (const row of paraInsertarRaw) {
+    // Si falta link pero hay slug + source_id → construir (AnimeAV1/JK)
+    if (!row.link && row.slug) {
+      const sid = String(row.source_id || "4");
+      const t = String(row.tipo || "").toLowerCase();
+      const kind = /pel[ií]cula|movie|film/.test(t) ? "pelicula" : (/serie|dorama/.test(t) ? "serie" : "anime");
+      row.link = `${API_BASE}/${sid}/${kind}/${row.slug}`;
+    }
     if (!row.link || vistos.has(row.link)) continue;
     vistos.add(row.link);
     paraInsertar.push(row);
@@ -1283,13 +1290,13 @@ function normalizeItemFromDB(row) {
   let imdb = null;
   if (imdb_id || (rating_source === "imdb" && calificacion != null)) {
     imdb = { id: imdb_id || undefined };
-    if (rating_source === "imdb" && calificacion != null && calificacion > 0) imdb.rating = calificacion;
+    if (rating_source === "imdb" && calificacion != null && calificacion >= 0) imdb.rating = calificacion;
     if (row.votos && rating_source === "imdb") imdb.votos = row.votos;
   }
   let tmdb = null;
   if (tmdb_id || (rating_source === "tmdb" && calificacion != null)) {
     tmdb = { id: tmdb_id || undefined };
-    if (rating_source === "tmdb" && calificacion != null && calificacion > 0) tmdb.rating = calificacion;
+    if (rating_source === "tmdb" && calificacion != null && calificacion >= 0) tmdb.rating = calificacion;
   }
 
   return {
@@ -1437,7 +1444,7 @@ function mapListItem(r) {
           : null;
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
-    calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
+    calificacion = Number.isFinite(n) && n >= 0 && n <= 10 ? Math.round(n * 10) / 10 : null;
   } else {
     calificacion = null;
   }
@@ -1614,7 +1621,7 @@ function mapDetail(data, fallback = {}) {
   }
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
-    calificacion = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : null;
+    calificacion = Number.isFinite(n) && n >= 0 && n <= 10 ? Math.round(n * 10) / 10 : null;
   } else {
     calificacion = null;
   }
@@ -3569,13 +3576,14 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
       const key = local.link || local.slug || local.nombre;
       const slugKey = local.slug ? "slug:" + String(local.slug).toLowerCase() : null;
       if (!key || usedLocal.has(key) || (slugKey && usedLocal.has(slugKey))) continue;
-      // Fuente 4/5 (animeav1 / jk): incluir si se abrió detalle (slug/descripcion),
-      // aunque aún no haya players en caché — así sí aparecen en la sección
-      const sidLoc = String(local.source_id || local.fuente || local.source || "");
-      const esAnimeSrc = sidLoc === "4" || sidLoc === "5" || /animeav1|jkanime/i.test(sidLoc);
+      // AnimeAV1 (4) / JK (5): SIEMPRE incluir si están en DB (abiertos desde búsqueda/detalle)
+      const sidLoc = String(local.source_id || local.fuente || local.source || "").toLowerCase();
+      const esAnimeSrc =
+        sidLoc === "4" || sidLoc === "5" ||
+        sidLoc === "animeav1" || sidLoc === "jkanime" ||
+        /animeav1|jkanime|^jk$/i.test(sidLoc);
       const tieneCont = local.tiene_player || itemTieneContenidoValido(local);
-      const abrioDetalle = !!(local.descripcion || local.slug || local.portada);
-      if (!tieneCont && !(esAnimeSrc && abrioDetalle)) continue;
+      if (!esAnimeSrc && !tieneCont) continue;
       const slug = String(local.slug || "").toLowerCase();
       if (slug && merged.some((m) => String(m.slug || "").toLowerCase() === slug)) continue;
       const tLocal = normalizeTitleKey(local.nombre || "");
@@ -3672,9 +3680,38 @@ app.get("/api/animes", async (req, res) => {
     const data = await catalogoPaginado("animes", "Anime", page, limit);
     if (Array.isArray(data.resultados)) {
       data.resultados = data.resultados.filter((it) => {
-        const s = String(it.source_id || it.fuente || it.source || "");
-        return s !== "5" && !/jkanime/i.test(s);
+        const ss = String(it.source_id || it.fuente || it.source || "");
+        return ss !== "5" && !/jkanime/i.test(ss);
       });
+    }
+    // Asegurar que AnimeAV1 guardados en DB (source 4) aparezcan al final si faltan
+    try {
+      await ensureMoviesDB().catch(() => {});
+      const ya = new Set(
+        (data.resultados || []).map((it) =>
+          String((it.slug || "") + "|" + (it.link || "")).toLowerCase()
+        )
+      );
+      const extras = (moviesDB || []).filter((m) => {
+        if (!m || (typeof esDescartado === "function" && esDescartado(m))) return false;
+        const ss = String(m.source_id || m.fuente || m.source || "").toLowerCase();
+        if (!(ss === "4" || ss === "animeav1" || /animeav1/i.test(ss))) return false;
+        if (ss === "5" || /jkanime/i.test(ss)) return false;
+        const k = String((m.slug || "") + "|" + (m.link || "")).toLowerCase();
+        return k && !ya.has(k);
+      }).map((m) => (typeof normalizeItemFromDB === "function" ? normalizeItemFromDB(m) : m) || m);
+      // Más antiguos primero entre extras; van al final de la página 1
+      extras.sort((a, b) => {
+        const ta = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+        const tb = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
+        return ta - tb;
+      });
+      if (page === 1 && extras.length) {
+        data.resultados = (data.resultados || []).concat(extras);
+        data.total = (data.total || 0) + extras.length;
+      }
+    } catch (eEx) {
+      console.warn("animes extras AV1:", eEx.message || eEx);
     }
     res.json(data);
   } catch (err) {
