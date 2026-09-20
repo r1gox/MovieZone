@@ -1714,7 +1714,7 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
   else if (item.link) params.set("link", item.link);
   if (item.slug) params.set("slug", item.slug);
   if (item.source_id) params.set("source_id", String(item.source_id));
-  if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
+  if (item.tipo) params.set("tipo", item.tipo);
   if (item.url_extract && !item.link) params.set("link", item.url_extract);
 
   const controller = new AbortController();
@@ -4296,7 +4296,7 @@ async function repararPortadaDesdeDetalle(item, imgEl) {
         const params = new URLSearchParams();
         if (item.slug) params.set("slug", item.slug);
         if (item.source_id) params.set("source_id", item.source_id);
-        if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
+        if (item.tipo) params.set("tipo", item.tipo);
         if (item.link) params.set("link", item.link);
         if (![...params.keys()].length) return;
 
@@ -5041,11 +5041,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
               params.set("source_id", sidDet);
               item.source_id = sidDet;
             }
-            if (item.tipo) {
-              var tParam = item.tipo;
-              if (/pel[ií]cula|movie|film/i.test(String(item.formato || item.tipo || ""))) tParam = "Pelicula";
-              params.set("tipo", tParam);
-            }
+            if (item.tipo) params.set("tipo", item.tipo);
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
             // Portada ya buena del listado: que el backend la respete siempre
@@ -5958,7 +5954,7 @@ function buildEpisodiosQuery(item, season) {
     if (item.link) params.set("link", item.link);
     if (item.slug) params.set("slug", item.slug);
     if (item.source_id) params.set("source_id", item.source_id);
-    if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
+    if (item.tipo) params.set("tipo", item.tipo);
     if (item.url_extract && !item.link) params.set("link", item.url_extract);
     params.set("players", "1"); // cargar players del 1er episodio
     return params.toString();
@@ -7287,11 +7283,7 @@ function renderEpisodios(item, season = 1) {
                 if (sidCap) params.set("source_id", sidCap);
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
-                if (item.tipo) {
-              var tParam = item.tipo;
-              if (/pel[ií]cula|movie|film/i.test(String(item.formato || item.tipo || ""))) tParam = "Pelicula";
-              params.set("tipo", tParam);
-            }
+                if (item.tipo) params.set("tipo", item.tipo);
 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 35000);
