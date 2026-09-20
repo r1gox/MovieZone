@@ -379,6 +379,10 @@ async function guardarEnSupabase(items) {
           // Nunca degradar Serie → Anime ni Anime → Serie por un merge erróneo
           if (viejo === "Serie" && nuevo === "Anime") return "Serie";
           if (viejo === "Anime" && nuevo === "Serie") return "Anime";
+          // Mismo cuidado para Película ↔ Anime (evita que un valor viejo
+          // se quede pegado; el listado/detalle fresco siempre manda).
+          if (viejo === "Película" && nuevo === "Anime") return "Película";
+          if (viejo === "Anime" && nuevo === "Película") return "Película";
           if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") return nuevo;
           return viejo || "Película";
         })(),
