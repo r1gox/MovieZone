@@ -2270,6 +2270,35 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     })
     .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre));
 
+  // AnimeAV1 (4) y JK (5): tipar como Anime y persistir en sección animes (como al abrir detalle)
+  lista = lista.map((it) => {
+    const sid = String(it.source_id || it.fuente || "").toLowerCase();
+    if (sid === "4" || sid === "animeav1" || /animeav1/i.test(String(it.fuente || it.source || ""))) {
+      it.tipo = "Anime";
+      it.source_id = "4";
+      it.fuente = it.fuente || "animeav1";
+      if (!it.link && it.slug) {
+        it.link = `${API_BASE}/4/anime/${it.slug}`;
+      }
+    }
+    if (sid === "5" || sid === "jkanime" || /jkanime/i.test(String(it.fuente || it.source || ""))) {
+      it.tipo = "Anime";
+      it.source_id = "5";
+      it.fuente = it.fuente || "jkanime";
+      if (!it.link && it.slug) {
+        it.link = `${API_BASE}/5/anime/${it.slug}`;
+      }
+    }
+    return it;
+  });
+  try {
+    const paraGuardar = lista.filter((it) => {
+      const s = String(it.source_id || "");
+      return s === "4" || s === "5";
+    });
+    if (paraGuardar.length) guardarEnSupabase(paraGuardar).catch(() => {});
+  } catch (_) {}
+
   // Marcar Disponible si ya está en Supabase/memoria con players (sin pisar meta API)
   try {
     await ensureMoviesDB().catch(() => {});
