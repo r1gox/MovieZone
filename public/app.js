@@ -4975,6 +4975,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.slug) params.set("slug", item.slug);
             // Fuente del listado (JK=5 / AV1=4) — no dejar que el backend cambie a 4
             let sidDet = item.source_id != null ? String(item.source_id) : "";
+            try {
+              if (!sidDet && window.__mzLockSourceId) sidDet = String(window.__mzLockSourceId);
+              // /detalle/5/one-piece → 5
+              if (!sidDet) {
+                const pm = location.pathname.match(/^\/detalle\/(\d+)\//i);
+                if (pm) sidDet = pm[1];
+              }
+            } catch (_) {}
             if (!sidDet && item.link) {
               const m = String(item.link).match(/\/([45])\/(?:anime|serie)\//i);
               if (m) sidDet = m[1];
@@ -9045,14 +9053,27 @@ try {
               if (!sidDeep && history.state && history.state.source_id) sidDeep = String(history.state.source_id);
             } catch (_) {}
             if (sidDeep) {
-              q.set("source_id", sidDeep);
+              q.set("source_id", String(sidDeep));
+              // 4/5 = anime: no dejar que el server asuma serie/AV1
+              if (String(sidDeep) === "5" || String(sidDeep) === "4") {
+                q.set("tipo", "anime");
+              }
               if (String(sidDeep) === "5") q.set("fuente", "jkanime");
+              if (String(sidDeep) === "4") q.set("fuente", "animeav1");
             }
-            const res = await fetch("/api/detalle?" + q.toString());
+            const res = await fetch("/api/detalle?" + q.toString() + "&_=" + Date.now(), { cache: "no-store" });
             const item = await res.json();
             if (item && sidDeep) {
               item.source_id = String(sidDeep);
-              if (String(sidDeep) === "5") item.fuente = item.fuente || "jkanime";
+              if (String(sidDeep) === "5") {
+                item.fuente = "jkanime";
+                item.tipo = item.tipo || "Anime";
+              }
+              if (String(sidDeep) === "4") {
+                item.fuente = item.fuente || "animeav1";
+                item.tipo = item.tipo || "Anime";
+              }
+              try { window.__mzLockSourceId = String(sidDeep); } catch (_) {}
             }
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
                 await abrirDetalle(item);
