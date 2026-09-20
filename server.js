@@ -376,11 +376,15 @@ async function guardarEnSupabase(items) {
         tipo: (function () {
           const nuevo = normalizarTipo(item.tipo || "");
           const viejo = normalizarTipo(existente?.tipo || "");
-          // Nunca degradar Serie → Anime ni Anime → Serie por un merge erróneo
+          // Nunca degradar Serie ↔ Anime por merge erróneo
           if (viejo === "Serie" && nuevo === "Anime") return "Serie";
           if (viejo === "Anime" && nuevo === "Serie") return "Anime";
-          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") return nuevo;
-          return viejo || "Película";
+          // Película/OVA/ONA desde API ganan sobre "Anime" genérico guardado por error
+          if ((nuevo === "Película" || nuevo === "OVA" || nuevo === "ONA" || nuevo === "Especial") &&
+              (viejo === "Anime" || !viejo)) return nuevo;
+          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película" ||
+              nuevo === "OVA" || nuevo === "ONA" || nuevo === "Especial") return nuevo;
+          return viejo || nuevo || "Película";
         })(),
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
@@ -1872,7 +1876,11 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
           (item.slug && m.slug === item.slug) ||
           (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
             ((tipo === "series" && m.tipo === "Serie") ||
-              (tipo === "animes" && m.tipo === "Anime") ||
+              (tipo === "animes" && (
+                m.tipo === "Anime" || m.tipo === "OVA" || m.tipo === "ONA" ||
+                m.tipo === "Especial" || m.tipo === "Película" ||
+                String(m.source_id || "") === "4" || String(m.source_id || "") === "5"
+              )) ||
               (tipo === "peliculas" && (m.tipo === "Película" || !m.tipo))))
       );
       if (local) {
@@ -2287,34 +2295,29 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     })
     .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre));
 
-  // AnimeAV1 (4) y JK (5): tipar como Anime y persistir en sección animes (como al abrir detalle)
+  // 4/5: conservar tipo de la API (Anime|Película|OVA|…). NO forzar "Anime".
+  // NO guardar en Supabase aquí (listado incompleto); solo al abrir detalle.
   lista = lista.map((it) => {
     const sid = String(it.source_id || it.fuente || "").toLowerCase();
     if (sid === "4" || sid === "animeav1" || /animeav1/i.test(String(it.fuente || it.source || ""))) {
-      it.tipo = "Anime";
       it.source_id = "4";
       it.fuente = it.fuente || "animeav1";
+      // tipo ya viene de mapListItem (Película/OVA/Anime…)
       if (!it.link && it.slug) {
-        it.link = `${API_BASE}/4/anime/${it.slug}`;
+        const k = /pel[ií]cula|movie|film/i.test(String(it.tipo || "")) ? "pelicula" : "anime";
+        it.link = `${API_BASE}/4/${k}/${it.slug}`;
       }
     }
     if (sid === "5" || sid === "jkanime" || /jkanime/i.test(String(it.fuente || it.source || ""))) {
-      it.tipo = "Anime";
       it.source_id = "5";
       it.fuente = it.fuente || "jkanime";
       if (!it.link && it.slug) {
-        it.link = `${API_BASE}/5/anime/${it.slug}`;
+        const k = /pel[ií]cula|movie|film/i.test(String(it.tipo || "")) ? "pelicula" : "anime";
+        it.link = `${API_BASE}/5/${k}/${it.slug}`;
       }
     }
     return it;
   });
-  try {
-    const paraGuardar = lista.filter((it) => {
-      const s = String(it.source_id || "");
-      return s === "4" || s === "5";
-    });
-    if (paraGuardar.length) guardarEnSupabase(paraGuardar).catch(() => {});
-  } catch (_) {}
 
   // Marcar Disponible si ya está en Supabase/memoria con players (sin pisar meta API)
   try {
@@ -3464,7 +3467,21 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         const t = String(m.tipo || "").toLowerCase();
         return t === "serie" || t === "dorama" || t === "tv";
       }
-      if (tipoItem === "Anime") return String(m.tipo || "").toLowerCase() === "anime";
+      if (tipoItem === "Anime") {
+        // Sección Anime: series/OVA/films de fuentes 4 y 5 (badge distingue tipo)
+        const t = String(m.tipo || "").toLowerCase();
+        const sid = String(m.source_id || m.fuente || m.source || "");
+        if (sid === "4" || sid === "5" || /animeav1|jkanime|^jk$/i.test(sid)) return true;
+        return (
+          t === "anime" ||
+          t === "ova" ||
+          t === "ona" ||
+          t === "especial" ||
+          t === "película" ||
+          t === "pelicula"
+        );
+      }
+      // Películas
       {
         const t = String(m.tipo || "").toLowerCase();
         return t === "película" || t === "pelicula" || t === "movie" || !t;
@@ -3743,6 +3760,14 @@ app.get("/api/detalle", async (req, res) => {
 
     const force = req.query.force === "1";
     const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force, portada });
+    // Tras abrir detalle: persistir ficha completa (descripcion, tipo, eps…) para la sección
+    if (item && (item.link || item.slug)) {
+      try {
+        await guardarEnSupabase([item]);
+      } catch (eSave) {
+        console.warn("detalle save:", eSave.message || eSave);
+      }
+    }
     // No dejar que el cliente/caché confunda JK(5) con AV1(4)
     if (item && source_id != null && source_id !== "") {
       const sid = String(source_id).replace(/\D/g, "") || String(source_id);
