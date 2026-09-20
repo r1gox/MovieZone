@@ -2699,18 +2699,21 @@ async function obtenerDetalleInterno(params) {
         if (cached && esPortadaValida(cached.portada)) {
           out.portada = elegirPortada(cached.portada, candidate?.portada, out.source_id);
         }
-        // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
-        if (cached?.year) out.year = cached.year;
-        if (cached?.calificacion != null) out.calificacion = cached.calificacion;
-        if (cached?.genero) out.genero = cached.genero;
-        if (cached?.generos?.length) out.generos = cached.generos;
-        if (cached?.imdb) out.imdb = cached.imdb;
-        if (cached?.imdb_id) out.imdb_id = cached.imdb_id;
-        if (cached?.votos) out.votos = cached.votos;
-        if (cached?.duracion) out.duracion = cached.duracion;
-        if (cached?.duracion_texto) out.duracion_texto = cached.duracion_texto;
-        if (cached?.certificacion) out.certificacion = cached.certificacion;
-        if (cached?.titulo_original) out.titulo_original = cached.titulo_original;
+        // Año/rating/géneros: conservar caché SOLO si es la misma fuente (no mezclar JK con AV1)
+        const sameSrc = !sidPedido || String(resolverSourceId(cached?.source_id || "")) === String(sidPedido);
+        if (sameSrc) {
+          if (cached?.year && !out.year) out.year = cached.year;
+          if (cached?.calificacion != null && out.calificacion == null) out.calificacion = cached.calificacion;
+          if (cached?.genero && !out.genero) out.genero = cached.genero;
+          if (cached?.generos?.length && !(out.generos && out.generos.length)) out.generos = cached.generos;
+          if (cached?.imdb && !out.imdb) out.imdb = cached.imdb;
+          if (cached?.imdb_id && !out.imdb_id) out.imdb_id = cached.imdb_id;
+          if (cached?.votos && !out.votos) out.votos = cached.votos;
+          if (cached?.duracion && !out.duracion) out.duracion = cached.duracion;
+          if (cached?.duracion_texto && !out.duracion_texto) out.duracion_texto = cached.duracion_texto;
+          if (cached?.certificacion && !out.certificacion) out.certificacion = cached.certificacion;
+          if (cached?.titulo_original && !out.titulo_original) out.titulo_original = cached.titulo_original;
+        }
         // Descripción: fuente/caché en español primero; no pisar con inglés de IMDb
         out.descripcion = elegirMejorDescripcion(cached?.descripcion, candidate?.descripcion);
         // Players: del fetch fresco
@@ -2768,11 +2771,12 @@ async function obtenerDetalleInterno(params) {
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
   // Anime: si el usuario eligió JK(5) o AV1(4), SOLO esa fuente (no mezclar)
+  // También si source_id viene en query aunque tipo no diga anime (deep link /detalle/5/slug)
   let sourcesToTry;
   const sidForce = sidPedido || (id.source_id != null ? String(resolverSourceId(id.source_id)) : null);
-  if (esAnimeKind && (sidForce === "5" || sidForce === "jkanime")) {
+  if (sidForce === "5" || sidForce === "jkanime") {
     sourcesToTry = ["5"];
-  } else if (esAnimeKind && (sidForce === "4" || sidForce === "animeav1")) {
+  } else if (sidForce === "4" || sidForce === "animeav1") {
     sourcesToTry = ["4"];
   } else if (esAnimeKind) {
     sourcesToTry = [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i);
@@ -3693,6 +3697,21 @@ app.get("/api/detalle", async (req, res) => {
 
     const force = req.query.force === "1";
     const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force, portada });
+    // No dejar que el cliente/caché confunda JK(5) con AV1(4)
+    if (item && source_id != null && source_id !== "") {
+      const sid = String(source_id).replace(/\D/g, "") || String(source_id);
+      if (sid === "5" || /jkanime/i.test(String(source_id))) {
+        item.source_id = "5";
+        item.fuente = item.fuente || "jkanime";
+        if (!item.tipo || /serie/i.test(String(item.tipo))) item.tipo = "Anime";
+      } else if (sid === "4" || /animeav1/i.test(String(source_id))) {
+        item.source_id = "4";
+        item.fuente = item.fuente || "animeav1";
+        if (!item.tipo || /serie/i.test(String(item.tipo))) item.tipo = "Anime";
+      } else {
+        item.source_id = String(resolverSourceId(source_id));
+      }
+    }
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
