@@ -3562,13 +3562,14 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
       }
     }
 
-    // 2) Ítems solo en Supabase (cargados) que no salieron en el listado API de estrenos
+    // 2) Ítems solo en Supabase (búsqueda/detalle) que NO están en estrenos API
+    // Van AL FINAL para no tapar estrenos del listado
+    const soloDb = [];
     for (const local of locales) {
       const key = local.link || local.slug || local.nombre;
       const slugKey = local.slug ? "slug:" + String(local.slug).toLowerCase() : null;
       if (!key || usedLocal.has(key) || (slugKey && usedLocal.has(slugKey))) continue;
       if (!(local.tiene_player || itemTieneContenidoValido(local))) continue;
-      // Evitar duplicar por slug ya presente
       const slug = String(local.slug || "").toLowerCase();
       if (slug && merged.some((m) => String(m.slug || "").toLowerCase() === slug)) continue;
       const tLocal = normalizeTitleKey(local.nombre || "");
@@ -3579,17 +3580,19 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         const ym = (String(m.year || "").match(/(19|20)\d{2}/) || [])[0] || "";
         return !yLocal || !ym || yLocal === ym;
       })) continue;
-      merged.push(normalizeItemFromDB(local) || local);
+      const row = normalizeItemFromDB(local) || local;
+      row._soloDb = true;
+      soloDb.push(row);
     }
-
-    let all = dedupeListItems(filtrarDescartados(merged));
-    // Orden: disponibles primero, luego el resto
-    all.sort((a, b) => {
-      const av = a.tiene_player ? 1 : 0;
-      const bv = b.tiene_player ? 1 : 0;
-      if (bv !== av) return bv - av;
-      return scoreItem(b) - scoreItem(a);
+    // Dentro de los solo-DB: más antiguos primero, los recién abiertos al final
+    soloDb.sort((a, b) => {
+      const ta = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+      const tb = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
+      return ta - tb;
     });
+
+    // Estrenos API primero (orden del worker); guardados por detalle/búsqueda al final
+    let all = dedupeListItems(filtrarDescartados(merged.concat(soloDb)));
 
     const total = all.length;
     const start = (page - 1) * limit;
@@ -3634,15 +3637,20 @@ app.get("/api/animes", async (req, res) => {
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
     const sid = String(req.query.source_id || req.query.source || "").trim();
     if (sid === "5" || /jkanime|^jk$/i.test(sid)) {
+      // Sección JK: solo source jkanime (5)
       await ensureMoviesDB().catch(() => {});
       let all = (typeof moviesDB !== "undefined" && moviesDB ? moviesDB : []).filter((m) => {
         if (typeof esDescartado === "function" && esDescartado(m)) return false;
-        const s = String(m.source_id || m.fuente || "");
-        if (!(s === "5" || /jkanime/i.test(s))) return false;
-        const t = String(m.tipo || "").toLowerCase();
-        return /anime/.test(t) || !t;
+        const s = String(m.source_id || m.fuente || m.source || "");
+        return s === "5" || /jkanime/i.test(s);
       });
       all = all.map((m) => (typeof normalizeItemFromDB === "function" ? normalizeItemFromDB(m) : m) || m);
+      // Recién abiertos al final (no tapan lo que ya había)
+      all.sort((a, b) => {
+        const ta = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+        const tb = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
+        return ta - tb;
+      });
       const total = all.length;
       const start = (page - 1) * limit;
       return res.json({
@@ -3654,6 +3662,7 @@ app.get("/api/animes", async (req, res) => {
         fuente: "jkanime",
       });
     }
+    // Sección Anime / AnimeAV1: estrenos primero; sin mezclar JK (5)
     const data = await catalogoPaginado("animes", "Anime", page, limit);
     if (Array.isArray(data.resultados)) {
       data.resultados = data.resultados.filter((it) => {
