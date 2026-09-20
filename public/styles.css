@@ -5434,22 +5434,6 @@ body.details-open .nav-bottom {
   letter-spacing: -0.02em;
   font-weight: 900;
 }
-.rating-badge.rating-src-mal.rating-imdb-logo .mal-mark,
-.rating-badge.rating-src-fuente.rating-imdb-logo .mal-mark {
-  order: 2 !important;
-  background: #2563eb !important;
-  color: #fff !important;
-  font-size: 9px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.02em;
-  padding: 2px 4px !important;
-  border-radius: 2px !important;
-}
-.rating-badge.rating-src-mal.rating-imdb-logo .rating-main,
-.rating-badge.rating-src-fuente.rating-imdb-logo .rating-main {
-  order: 1 !important;
-}
-
 .rating-badge.rating-imdb-logo .rating-main {
   font-size: 11px;
   font-weight: 800;
@@ -5457,46 +5441,6 @@ body.details-open .nav-bottom {
 .rating-badge.rating-imdb-logo ion-icon {
   display: none !important;
 }
-
-
-/* MAL (fuente animeav1): mismo cuadrito que IMDb, acento azul */
-.rating-badge.rating-src-mal.rating-imdb-logo,
-.rating-badge.rating-src-fuente.rating-imdb-logo {
-  display: inline-flex !important;
-  align-items: center !important;
-  flex-direction: row !important;
-  gap: 5px !important;
-  background: rgba(0, 0, 0, 0.55) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 6px !important;
-  padding: 3px 7px !important;
-  font-weight: 700 !important;
-  backdrop-filter: blur(6px);
-}
-/* order MAL: score (1) + chip MAL (2) — igual que IMDb */
-.rating-badge.rating-src-mal:not(.rating-imdb-logo),
-.rating-badge.rating-src-fuente:not(.rating-imdb-logo) {
-  background: rgba(0, 0, 0, 0.55) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-}
-.koi-mal-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.koi-mal-inline .koi-imdb-score {
-  color: #fff;
-  font-weight: 700;
-}
-.koi-mal-inline .koi-mal-tag {
-  font-weight: 900;
-  color: #60a5fa;
-  margin-left: 2px;
-  font-size: 0.85em;
-}
-
 
 #details-panel #details-rating-wrap,
 #details-panel #details-type-rating {
@@ -5530,12 +5474,15 @@ body.details-open .nav-bottom {
   }
 }
 
+.rating-badge.rating-src-fuente {
+  background: rgba(5, 2, 9, 0.75) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
 
 .rating-badge.rating-imdb-logo,
 .rating-badge.rating-src-imdb.rating-imdb-logo,
-.rating-badge.rating-src-omdb.rating-imdb-logo,
-.rating-badge.rating-src-mal.rating-imdb-logo,
-.rating-badge.rating-src-fuente.rating-imdb-logo {
+.rating-badge.rating-src-omdb.rating-imdb-logo {
   display: inline-flex !important;
   align-items: center !important;
   gap: 5px !important;
@@ -9644,4 +9591,41 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
     border-radius: 12px !important;
     background: #000 !important;
   }
+}
+
+
+/* Meta rating: score + IMDb con espacio (móvil y general) */
+.koi-imdb-inline {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  vertical-align: middle !important;
+}
+.koi-imdb-score {
+  font-weight: 800 !important;
+}
+.koi-imdb-tag {
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  margin-left: 2px !important;
+}
+
+
+/* Rating de la página fuente: estrella amarilla */
+.rating-badge.rating-src-fuente,
+.rating-badge.rating-fuente-star {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.12);
+}
+.rating-badge .fuente-star {
+  color: #fbbf24;
+  font-size: 0.95em;
+  margin-right: 3px;
+  line-height: 1;
+}
+.rating-badge.rating-src-fuente .rating-main,
+.rating-badge.rating-fuente-star .rating-main {
+  color: #fbbf24;
+  font-weight: 800;
 }

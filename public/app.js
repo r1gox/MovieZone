@@ -995,7 +995,12 @@ const searchForm = document.getElementById("search-form");
 const statusBadge = document.getElementById("status-badge");
 
 
-/** Rating con fuente: "IMDb 6.7" / "TMDB 8.8" */
+/** true si hay número de rating (incluye 0.0) */
+function mzRatingOk(n) {
+    return n != null && !isNaN(n) && n >= 0 && n <= 10;
+}
+
+/** Rating con fuente: "IMDb 6.7" / "TMDB 8.8" / fuente 0.0 */
 function ratingInfo(item) {
     if (!item) return { label: "—", value: null, source: null, secondary: null };
 
@@ -1009,21 +1014,21 @@ function ratingInfo(item) {
 
     let primary;
 
-    // Prioridad: rating_source imdb de la API (ej. rating: 3.9, rating_source: "imdb")
-    if (srcApi === "imdb" && main != null && !isNaN(main) && main > 0) {
+    // Prioridad: rating_source imdb (incluye 0)
+    if (srcApi === "imdb" && mzRatingOk(main)) {
       primary = { label: main.toFixed(1), value: main, source: "imdb" };
-    } else if (imdbR != null && !isNaN(imdbR) && imdbR > 0) {
+    } else if (mzRatingOk(imdbR) && imdbR > 0) {
       primary = { label: imdbR.toFixed(1), value: imdbR, source: "imdb" };
-    } else if (omdbR != null && !isNaN(omdbR) && omdbR > 0) {
+    } else if (mzRatingOk(omdbR) && omdbR > 0) {
       primary = { label: omdbR.toFixed(1), value: omdbR, source: "omdb" };
-    } else if (hasImdbId && main != null && !isNaN(main) && main > 0 && main <= 10) {
+    } else if (hasImdbId && mzRatingOk(main) && main <= 10) {
       primary = { label: main.toFixed(1), value: main, source: "imdb" };
-    } else if (srcApi === "tmdb" && main != null && !isNaN(main) && main > 0) {
+    } else if (srcApi === "tmdb" && mzRatingOk(main)) {
       primary = { label: main.toFixed(1), value: main, source: "tmdb" };
-    } else if (tmdbR != null && !isNaN(tmdbR) && tmdbR > 0) {
+    } else if (mzRatingOk(tmdbR) && tmdbR > 0) {
       primary = { label: tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
     } else if (srcApi === "fuente" || srcApi === "mal" || srcApi === "source") {
-      if (main != null && !isNaN(main) && main > 0) {
+      if (mzRatingOk(main)) {
         primary = {
           label: main.toFixed(1),
           value: main,
@@ -1032,7 +1037,7 @@ function ratingInfo(item) {
       } else {
         primary = { label: "—", value: null, source: null };
       }
-    } else if (main != null && !isNaN(main) && main > 0) {
+    } else if (mzRatingOk(main)) {
       var sid4 = String(item.source_id || item.fuente || "").toLowerCase();
       var asMal = (sid4 === "4" || sid4 === "animeav1" || /animeav1/.test(sid4)) &&
         !/imdb|omdb|tmdb/i.test(srcApi);
@@ -1046,22 +1051,25 @@ function ratingInfo(item) {
 
 function ratingBadgeHtml(item) {
     const r = ratingInfo(item);
-    if (!r.value) {
+    // Mostrar 0.0; solo ocultar si no hay número
+    if (r.value == null || isNaN(r.value)) {
         return '<div class="rating-badge rating-empty" title="Sin rating"><span class="rating-main">—</span></div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
     const isImdb = r.source === "imdb" || r.source === "omdb";
     const isMal = r.source === "mal";
+    const isFuente = r.source === "fuente";
     const title = isImdb
       ? ("IMDb " + r.label)
-      : (isMal ? ("MAL " + r.label) : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label)));
+      : (isMal ? ("MAL " + r.label) : (isFuente ? ("Fuente " + r.label) : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label))));
+    // Fuente: estrella amarilla + número
     const mark = isImdb
       ? '<span class="imdb-mark">IMDb</span>'
-      : (isMal ? '<span class="mal-mark">MAL</span>' : '');
+      : (isMal ? '<span class="mal-mark">MAL</span>' : (isFuente ? '<span class="fuente-star" aria-hidden="true">★</span>' : ''));
     return (
-        '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="' + escapeHtml(title) + '">' +
-        '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
+        '<div class="rating-badge rating-imdb-logo' + srcClass + (isFuente ? " rating-fuente-star" : "") + '" title="' + escapeHtml(title) + '">' +
         mark +
+        '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
         "</div>"
     );
 }
