@@ -2720,6 +2720,27 @@ body.player-open .btn-close-modal {
   background: linear-gradient(135deg, rgba(1, 180, 228, 0.95), rgba(0, 140, 180, 0.9));
   color: #fff;
 }
+.rating-badge.rating-src-mal,
+.rating-badge.rating-src-fuente {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.92));
+  color: #fff;
+}
+.rating-badge.rating-src-mal .mal-mark,
+.rating-badge .mal-mark {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  margin-left: 4px;
+  color: #fff;
+}
+.koi-mal-inline .koi-mal-tag {
+  font-weight: 800;
+  color: #93c5fd;
+  margin-left: 2px;
+}
+.koi-mal-inline {
+  color: #93c5fd;
+}
 .rating-badge.rating-src-omdb {
   background: linear-gradient(135deg, rgba(245, 197, 24, 0.95), rgba(230, 180, 20, 0.9));
   color: #111;

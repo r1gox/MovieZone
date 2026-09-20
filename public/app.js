@@ -44,6 +44,20 @@ function isPeliculaItem(item) {
   return false;
 }
 
+
+/** AnimeAV1 (source 4): rating de la fuente → mostrar como MAL (azul) */
+function isRatingMalFuente(item) {
+  if (!item) return false;
+  const src = String(item.rating_source || "").toLowerCase();
+  if (src && src !== "fuente" && src !== "mal" && src !== "source") return false;
+  // Si no hay rating_source, no forzar MAL salvo que sea claramente fuente
+  if (!src) return false;
+  const sid = String(item.source_id || item.fuente || item.source || "").toLowerCase();
+  if (sid === "4" || sid === "animeav1" || /animeav1/.test(sid)) return true;
+  const t = String(item.tipo || item.type || "").toLowerCase();
+  return /anime/.test(t) && (sid === "4" || sid === "animeav1");
+}
+
 /** Activa/desactiva el layout Koiflix en body */
 function setKoiMode(item) {
   const esPeliMode = !!(item && (typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))));
@@ -294,17 +308,20 @@ function fillKoiHero(item) {
       push("<span>" + year + "</span>");
     }
 
-    // Rating: etiqueta IMDb solo si rating_source / source es imdb
+    // Rating: IMDb / MAL (fuente animeav1) / genérico
     let scoreLabel = "";
     let scoreIsImdb = false;
+    let scoreIsMal = false;
     if (typeof ratingInfo === "function") {
       const r = ratingInfo(item);
       if (r && r.value != null && !isNaN(Number(r.value))) {
         scoreLabel = Number(r.value).toFixed(1);
         scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+        scoreIsMal = r.source === "mal";
       } else if (r && r.label && !isNaN(Number(String(r.label).replace(/[^0-9.]/g, "")))) {
         scoreLabel = Number(String(r.label).replace(/[^0-9.]/g, "")).toFixed(1);
         scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+        scoreIsMal = r.source === "mal";
       }
     } else if (item.imdb && item.imdb.rating != null) {
       scoreLabel = Number(item.imdb.rating).toFixed(1);
@@ -312,18 +329,26 @@ function fillKoiHero(item) {
     } else if (item.calificacion != null && item.calificacion !== "") {
       scoreLabel = Number(item.calificacion).toFixed(1);
       scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
+      scoreIsMal = typeof isRatingMalFuente === "function" && isRatingMalFuente(item);
     } else if (item.rating != null && item.rating !== "") {
       scoreLabel = Number(item.rating).toFixed(1);
       scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
+      scoreIsMal = typeof isRatingMalFuente === "function" && isRatingMalFuente(item);
     }
-    // Preferir flag explícito de la API
     if (/imdb|omdb/i.test(String(item.rating_source || ""))) scoreIsImdb = true;
+    if (!scoreIsImdb && typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) scoreIsMal = true;
     if (scoreLabel && !isNaN(Number(scoreLabel))) {
       if (scoreIsImdb) {
         push(
           '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
             '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
             '<span class="koi-imdb-tag"> IMDb</span></span>'
+        );
+      } else if (scoreIsMal) {
+        push(
+          '<span class="koi-imdb-inline koi-mal-inline" title="MAL ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
+            '<span class="koi-mal-tag"> MAL</span></span>'
         );
       } else {
         push(
@@ -997,8 +1022,21 @@ function ratingInfo(item) {
       primary = { label: main.toFixed(1), value: main, source: "tmdb" };
     } else if (tmdbR != null && !isNaN(tmdbR) && tmdbR > 0) {
       primary = { label: tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
+    } else if (srcApi === "fuente" || srcApi === "mal" || srcApi === "source") {
+      if (main != null && !isNaN(main) && main > 0) {
+        primary = {
+          label: main.toFixed(1),
+          value: main,
+          source: (typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) ? "mal" : "fuente"
+        };
+      } else {
+        primary = { label: "—", value: null, source: null };
+      }
     } else if (main != null && !isNaN(main) && main > 0) {
-      primary = { label: main.toFixed(1), value: main, source: "fuente" };
+      var sid4 = String(item.source_id || item.fuente || "").toLowerCase();
+      var asMal = (sid4 === "4" || sid4 === "animeav1" || /animeav1/.test(sid4)) &&
+        !/imdb|omdb|tmdb/i.test(srcApi);
+      primary = { label: main.toFixed(1), value: main, source: asMal ? "mal" : "fuente" };
     } else {
       primary = { label: "—", value: null, source: null };
     }
@@ -1013,14 +1051,17 @@ function ratingBadgeHtml(item) {
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
     const isImdb = r.source === "imdb" || r.source === "omdb";
+    const isMal = r.source === "mal";
     const title = isImdb
       ? ("IMDb " + r.label)
-      : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label));
-    // Solo mostrar marca IMDb si la fuente es realmente IMDb
+      : (isMal ? ("MAL " + r.label) : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label)));
+    const mark = isImdb
+      ? '<span class="imdb-mark">IMDb</span>'
+      : (isMal ? '<span class="mal-mark">MAL</span>' : '');
     return (
         '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="' + escapeHtml(title) + '">' +
         '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
-        (isImdb ? '<span class="imdb-mark">IMDb</span>' : '') +
+        mark +
         "</div>"
     );
 }
