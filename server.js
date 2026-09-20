@@ -1610,11 +1610,23 @@ function mapDetail(data, fallback = {}) {
   }
 
   const metaF = extraerMetaFuentes({ ...fallback, ...data });
-  let calificacion = data.rating != null ? data.rating : (data.calificacion != null ? data.calificacion : (fallback.rating != null ? fallback.rating : (fallback.calificacion != null ? fallback.calificacion : null)));
-  if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
+  // Film animeav1: la API Worker manda meta correcta; no pisar con caché de la SERIE
+  const esFilmAv1 =
+    /pel[ií]cula|movie|film/i.test(String(data.tipo || data.formato || fallback.formato || "")) ||
+    /pel[ií]cula|movie|film/i.test(String(tipo || ""));
+  let calificacion = data.rating != null ? data.rating : (data.calificacion != null ? data.calificacion : null);
+  if (calificacion == null && !esFilmAv1) {
+    calificacion = fallback.rating != null ? fallback.rating : (fallback.calificacion != null ? fallback.calificacion : null);
+  }
+  if (!esFilmAv1) {
+    if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
+      calificacion = metaF.imdb.rating;
+    } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
+      calificacion = metaF.omdb.rating;
+    }
+  } else if (calificacion == null && metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
+    // solo si el worker no trajo rating
     calificacion = metaF.imdb.rating;
-  } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
-    calificacion = metaF.omdb.rating;
   }
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
@@ -1657,24 +1669,36 @@ function mapDetail(data, fallback = {}) {
       if (yData) return yData;
       return yFall || null;
     })(),
-    genero: extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null),
-    generos: Array.isArray(data.generos) ? data.generos : [],
+    genero: esFilmAv1
+      ? (Array.isArray(data.generos) && data.generos.length ? data.generos.join(", ") : (extraerGenero(data) || null))
+      : (extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null)),
+    generos: Array.isArray(data.generos) && data.generos.length
+      ? data.generos
+      : (esFilmAv1 ? [] : []),
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
     calificacion,
     rating: calificacion,
     rating_source: data.rating_source || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
     tmdb_id: data.tmdb_id || metaF.tmdb.id || fallback.tmdb_id || null,
-    imdb_id: data.imdb_id || metaF.imdb.id || fallback.imdb_id || null,
+    imdb_id: esFilmAv1
+      ? (data.imdb_id || null)
+      : (data.imdb_id || metaF.imdb.id || fallback.imdb_id || null),
     calificacion_comunidad: null,
-    votos: data.votos || metaF.imdb.votos || metaF.tmdb.votos || null,
-    fecha_estreno: data.fecha_estreno || fallback.fecha_estreno || null,
+    votos: data.votos || (!esFilmAv1 ? (metaF.imdb.votos || metaF.tmdb.votos) : null) || null,
+    fecha_estreno: esFilmAv1
+      ? (data.fecha_estreno || null)
+      : (data.fecha_estreno || fallback.fecha_estreno || null),
     // Estado de emisión (series / anime / doramas)
     estado: data.estado || data.status || fallback.estado || null,
     en_emision: data.en_emision != null ? !!data.en_emision : (fallback.en_emision != null ? !!fallback.en_emision : null),
     finalizado: data.finalizado != null ? !!data.finalizado : (fallback.finalizado != null ? !!fallback.finalizado : null),
-    duracion: data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null,
-    duracion_texto: data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
+    duracion: esFilmAv1
+      ? (data.duracion || null)
+      : (data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null),
+    duracion_texto: esFilmAv1
+      ? (data.duracion_texto || null)
+      : (data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null),
     certificacion: data.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
     imdb: Object.keys(metaF.imdb).length ? metaF.imdb : null,
     tmdb: Object.keys(metaF.tmdb).length ? metaF.tmdb : null,
@@ -2525,6 +2549,14 @@ function preferApiMeta(apiItem, cached) {
   if (apiItem.year) out.year = apiItem.year;
   if (apiItem.calificacion != null && apiItem.calificacion !== "") out.calificacion = apiItem.calificacion;
   if (apiItem.rating != null && (out.calificacion == null || out.calificacion === "")) out.calificacion = apiItem.rating;
+  if (/pel[ií]cula|movie|film/i.test(String(apiItem.formato || apiItem.tipo || ""))) {
+    if (apiItem.calificacion != null) out.calificacion = apiItem.calificacion;
+    if (apiItem.rating != null) { out.rating = apiItem.rating; out.calificacion = apiItem.rating; }
+    if (apiItem.duracion_texto) out.duracion_texto = apiItem.duracion_texto;
+    if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
+    if (apiItem.genero) out.genero = apiItem.genero;
+    if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
+  }
   if (apiItem.genero) out.genero = apiItem.genero;
   if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
   if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
@@ -2537,6 +2569,10 @@ function preferApiMeta(apiItem, cached) {
   if (apiItem.certificacion) out.certificacion = apiItem.certificacion;
   if (apiItem.titulo_original) out.titulo_original = apiItem.titulo_original;
   if (apiItem.fecha_estreno) out.fecha_estreno = apiItem.fecha_estreno;
+  else if (/pel[ií]cula|movie|film/i.test(String(apiItem.formato || apiItem.tipo || ""))) {
+    // no heredar fecha de la serie en caché
+    out.fecha_estreno = null;
+  }
   // Descripción: preferir español (elegirMejorDescripcion ya prioriza ES)
   out.descripcion = elegirMejorDescripcion(apiItem.descripcion, cached.descripcion);
   // Portada API si es válida
@@ -2705,6 +2741,16 @@ async function obtenerDetalleInterno(params) {
   const syncHoy = fueSincronizadoHoy(cached);
   const debeRefrescarSerie = esSerieCache && !syncHoy && !force;
 
+  // Caché de film contaminada con meta de la SERIE (24 min, rating serie, fecha serie)
+  const cacheFilmSucio =
+    cached &&
+    /pel[ií]cula|movie|film/i.test(String(cached.formato || cached.tipo || "")) &&
+    (
+      /24\s*min|por episodio/i.test(String(cached.duracion_texto || "")) ||
+      (id.kind === "pelicula" && cached.imdb_id && String(cached.slug || "").includes("movie") &&
+        /tt21975436/i.test(String(cached.imdb_id))) // series Kaiju No.8 mal asociada a film
+    );
+
   if (
     !force &&
     cached &&
@@ -2712,9 +2758,10 @@ async function obtenerDetalleInterno(params) {
     (tieneDesc || yaFunciona) &&
     !nombreEsSlug &&
     !listaIncompleta &&
-    !debeRefrescarSerie
+    !debeRefrescarSerie &&
+    !cacheFilmSucio
   ) {
-    if (esAnimeKind) {
+    if (esAnimeKind && id.kind !== "pelicula") {
       try {
         const refreshed = await refreshAnimeMetaFromSource4(cached, id);
         if (refreshed) return refreshed;
