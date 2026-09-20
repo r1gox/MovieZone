@@ -1670,6 +1670,19 @@ function mapDetail(data, fallback = {}) {
     episodio_desde: data.episodio_desde || null,
     episodio_hasta: data.episodio_hasta || null,
     tiene_player: !!(reproductor || embedsArr.length || episodios.length),
+    // Campos extra SOLO útiles para JKanime (source 5); otras fuentes quedan null
+    studios: (String(sourceId) === "5" || /jkanime/i.test(String(data.fuente || "")))
+      ? (data.studios || data.studio || null) : (data.studios || null),
+    temporada_anime: (String(sourceId) === "5" || /jkanime/i.test(String(data.fuente || "")))
+      ? (data.temporada_anime || data.temporada || null) : (data.temporada_anime || null),
+    demografia: data.demografia || null,
+    idiomas: data.idiomas || null,
+    calidad: data.calidad || null,
+    fecha_estreno_texto: data.fecha_estreno_texto || null,
+    titulos_alternativos: data.titulos_alternativos || null,
+    ultimo_episodio_url: data.ultimo_episodio_url || null,
+    proximo_episodio: data.proximo_episodio || null,
+    portada_fuente_raw: data.portada_fuente_raw || null,
   };
 }
 
