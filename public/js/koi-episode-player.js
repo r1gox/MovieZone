@@ -1944,7 +1944,31 @@
     renderDownloads(pack.downloads);
     try { ensureMovieDlBar(); } catch (_) {}
     try { mzMovieSynopsisToBottom(); } catch (_) {}
-    // SIN autoplay
+
+    // JK (fuente 5) película: auto JKPlayer, sin lista de mirrors (igual que animes JK)
+    if (isJkItem(item)) {
+      try {
+        hideKoiServerUi();
+        var jk = pickJkEmbed(pack.embeds || []);
+        if (jk) {
+          try { playEmbed(jk, "iframe"); } catch (eJk) { console.warn("JK movie play", eJk); }
+          try {
+            view.scrollTop = 0;
+          } catch (_) {}
+          return true;
+        }
+        showPoster(item, "Sin JKPlayer para esta película");
+      } catch (eJk2) {
+        console.warn("JK movie", eJk2);
+        showPoster(item, "No se pudo cargar JKPlayer");
+      }
+      try {
+        view.scrollTop = 0;
+      } catch (_) {}
+      return true;
+    }
+
+    // Otras fuentes: SIN autoplay
     showPoster(
       item,
       pack.embeds.length
