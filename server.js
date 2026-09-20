@@ -129,18 +129,6 @@ function parseIdentidad(input) {
     }
   }
 
-  // Detectar fuente por dominio del link (animeav1 / jkanime)
-  if (link) {
-    if (!source_id && /animeav1\.com/i.test(String(link))) source_id = "4";
-    if (!source_id && /jkanime\.net/i.test(String(link))) source_id = "5";
-    if (!slug) {
-      var mav = String(link).match(/animeav1\.com\/media\/([^\/\?\#]+)/i);
-      if (mav) {
-        try { slug = decodeURIComponent(mav[1]); } catch (_) { slug = mav[1]; }
-      }
-    }
-  }
-
   // source_id por nombre de fuente
   if (!source_id && input.fuente) {
     try {
@@ -148,26 +136,13 @@ function parseIdentidad(input) {
     } catch (_) {}
   }
 
-  // tipo del item gana: Película (films animeav1) no debe ir a /anime/
-  if (tipo) {
-    const t = String(tipo).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    if (/pelicul|movie|film/.test(t)) kind = "pelicula";
-    else if (!kind) {
-      if (t.includes("anime")) kind = "anime";
-      else if (t.includes("serie") || t === "tv") kind = "serie";
-      else kind = "pelicula";
-    }
+  if (!kind && tipo) {
+    const t = String(tipo).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes("anime")) kind = "anime";
+    else if (t.includes("serie") || t === "tv") kind = "serie";
+    else kind = "pelicula";
   }
   if (!kind) kind = "pelicula";
-
-  // Film de animeav1: siempre kind pelicula
-  if (String(source_id) === "4") {
-    var tP2 = String(tipo || "").toLowerCase();
-    var fP2 = String(input.formato || "").toLowerCase();
-    if (/pel[ií]cula|movie|film/.test(tP2) || /pel[ií]cula|movie|film/.test(fP2)) {
-      kind = "pelicula";
-    }
-  }
 
   // source por defecto pelisplus
   if (!source_id) source_id = "3";
@@ -601,12 +576,15 @@ async function guardarEnSupabase(items) {
 
 // ---------- Helpers de mapeo API → formato frontend ----------
 function normalizarTipo(tipo) {
-  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\bova\b/.test(t) || t === "ova") return "OVA";
+  if (/\bona\b/.test(t) || t === "ona") return "ONA";
+  if (t.includes("especial") || t.includes("special")) return "Especial";
   if (t.includes("anime")) return "Anime";
   if (t.includes("serie") || t.includes("dorama") || t === "tv" || t === "tvshows") return "Serie";
   if (t.includes("cap") || t.includes("episod")) return "Capitulo";
-  if (t.includes("pelicul") || t.includes("movie")) return "Película";
-  return "Película";
+  if (t.includes("pelicul") || t.includes("movie") || t.includes("film")) return "Película";
+  return tipo ? String(tipo) : "Película";
 }
 
 function extraerAnio(titulo, year) {
@@ -961,7 +939,7 @@ async function asegurarPortada(item) {
   for (const sid of ["3", "1", "4"]) {
     for (const s of slugs) {
       try {
-        const k = kind; // no forzar anime en sid 4 si es película
+        const k = sid === "4" && kind === "pelicula" ? "anime" : kind;
         const det = await fetchDetailFromSource(sid, k, s, { slug: s });
         if (det && esPortadaValida(det.portada)) {
           item.portada = det.portada;
@@ -1405,19 +1383,33 @@ function mapListItem(r) {
     r.titulo_original || r.original_title,
     [r.title, r.titulo]
   );
-  const tipoRaw = String(r.tipo || r.type || "Pelicula");
-  const tipo = /anime/i.test(tipoRaw)
-    ? "Anime"
-    : /serie|tv/i.test(tipoRaw)
-      ? "Serie"
-      : "Película";
+  // Conservar type/tipo de la API (Pelicula, Anime, OVA, ONA, Especial…)
+  const tipoRaw = String(r.tipo || r.type || "Pelicula").trim();
+  let tipo;
+  if (/^ova$/i.test(tipoRaw) || /\bova\b/i.test(tipoRaw)) tipo = "OVA";
+  else if (/^ona$/i.test(tipoRaw) || /\bona\b/i.test(tipoRaw)) tipo = "ONA";
+  else if (/especial|special/i.test(tipoRaw)) tipo = "Especial";
+  else if (/anime/i.test(tipoRaw)) tipo = "Anime";
+  else if (/serie|tv|dorama/i.test(tipoRaw)) tipo = "Serie";
+  else if (/pel[ií]cula|movie|film/i.test(tipoRaw)) tipo = "Película";
+  else tipo = tipoRaw || "Película";
   const slug = r.slug ? String(r.slug) : null;
   const sourceId = resolverSourceId(r.source_id || r.source || r.fuente);
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
-  const kindPath =
-    tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
+  // Ruta worker: si la API ya trae url con /pelicula/ u /anime/, usarla; si no, inferir
+  const urlHint = String(r.url || r.link || r.url_extract || "");
+  let kindPath = "pelicula";
+  if (/\/anime\//i.test(urlHint)) kindPath = "anime";
+  else if (/\/serie\//i.test(urlHint)) kindPath = "serie";
+  else if (/\/pelicula\//i.test(urlHint)) kindPath = "pelicula";
+  else if (tipo === "Anime" || tipo === "OVA" || tipo === "ONA" || tipo === "Especial") {
+    // OVA/ONA suelen vivir bajo /anime/ salvo que type sea Pelicula
+    kindPath = (tipo === "Película") ? "pelicula" : "anime";
+  } else if (tipo === "Serie") kindPath = "serie";
+  else kindPath = "pelicula";
+  if (tipo === "Película") kindPath = /\/anime\//i.test(urlHint) ? "anime" : "pelicula";
   const link =
     r.url_extract ||
     r.link ||
@@ -1610,23 +1602,11 @@ function mapDetail(data, fallback = {}) {
   }
 
   const metaF = extraerMetaFuentes({ ...fallback, ...data });
-  // Film animeav1: la API Worker manda meta correcta; no pisar con caché de la SERIE
-  const esFilmAv1 =
-    /pel[ií]cula|movie|film/i.test(String(data.tipo || data.formato || fallback.formato || "")) ||
-    /pel[ií]cula|movie|film/i.test(String(tipo || ""));
-  let calificacion = data.rating != null ? data.rating : (data.calificacion != null ? data.calificacion : null);
-  if (calificacion == null && !esFilmAv1) {
-    calificacion = fallback.rating != null ? fallback.rating : (fallback.calificacion != null ? fallback.calificacion : null);
-  }
-  if (!esFilmAv1) {
-    if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
-      calificacion = metaF.imdb.rating;
-    } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
-      calificacion = metaF.omdb.rating;
-    }
-  } else if (calificacion == null && metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
-    // solo si el worker no trajo rating
+  let calificacion = data.rating != null ? data.rating : (data.calificacion != null ? data.calificacion : (fallback.rating != null ? fallback.rating : (fallback.calificacion != null ? fallback.calificacion : null)));
+  if (metaF.imdb.rating != null && Number(metaF.imdb.rating) > 0) {
     calificacion = metaF.imdb.rating;
+  } else if (metaF.omdb.rating != null && Number(metaF.omdb.rating) > 0) {
+    calificacion = metaF.omdb.rating;
   }
   if (calificacion != null && calificacion !== "") {
     const n = Number(String(calificacion).replace(",", "."));
@@ -1642,12 +1622,7 @@ function mapDetail(data, fallback = {}) {
     titulo: titulo,
     titulo_original: tituloOriginal || data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
-    tipo: (function () {
-      var fmt = String(data.formato || fallback.formato || "").toLowerCase();
-      if (/pelicul|movie|film/.test(fmt)) return "Película";
-      if (tipo === "Capitulo") return (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie");
-      return tipo;
-    })(),
+    tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
     formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
     // Portada: NO dejar que "data.portada" (a veces Metahub roto) gane por defecto
@@ -1659,11 +1634,9 @@ function mapDetail(data, fallback = {}) {
       sourceId
     ),
     portada_tmdb: data.portada_tmdb || null,
-    portada_imdb: data.portada_imdb || (data.imdb_id ? ("https://images.metahub.space/poster/medium/" + data.imdb_id + "/img") : null),
+    portada_imdb: data.portada_imdb || null,
     poster_source: data.poster_source || null,
-    logo: data.logo || data.logo_imdb || (data.imdb_id ? ("https://images.metahub.space/logo/medium/" + data.imdb_id + "/img") : (fallback.logo || fallback.logo_imdb || null)),
-    logo_imdb: data.logo_imdb || data.logo || (data.imdb_id ? ("https://images.metahub.space/logo/medium/" + data.imdb_id + "/img") : null),
-    backdrop: data.backdrop || (data.imdb_id ? ("https://images.metahub.space/background/medium/" + data.imdb_id + "/img") : null) || fallback.backdrop || null,
+    backdrop: data.backdrop || fallback.backdrop || null,
     year: (function () {
       const yData = extraerAnio(titulo, data.year || data.fecha_estreno || null);
       const yFall = extraerAnio(titulo, fallback.year || null);
@@ -1671,38 +1644,24 @@ function mapDetail(data, fallback = {}) {
       if (yData) return yData;
       return yFall || null;
     })(),
-    genero: esFilmAv1
-      ? (Array.isArray(data.generos) && data.generos.length ? data.generos.join(", ") : (extraerGenero(data) || null))
-      : (extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null)),
-    generos: Array.isArray(data.generos) && data.generos.length
-      ? data.generos
-      : (esFilmAv1 ? [] : []),
+    genero: extraerGenero(data) || extraerGenero(fallback) || (Array.isArray(data.generos) ? data.generos.join(", ") : null),
+    generos: Array.isArray(data.generos) ? data.generos : [],
     idiomas: data.idiomas || [],
     calidad: data.calidad || [],
     calificacion,
     rating: calificacion,
-    rating_source: data.rating_source
-      || (data.imdb_id || (esFilmAv1 && calificacion != null) ? "imdb" : null)
-      || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
+    rating_source: data.rating_source || (metaF.imdb.rating != null ? "imdb" : (metaF.tmdb.rating != null ? "tmdb" : null)),
     tmdb_id: data.tmdb_id || metaF.tmdb.id || fallback.tmdb_id || null,
-    imdb_id: esFilmAv1
-      ? (data.imdb_id || null)
-      : (data.imdb_id || metaF.imdb.id || fallback.imdb_id || null),
+    imdb_id: data.imdb_id || metaF.imdb.id || fallback.imdb_id || null,
     calificacion_comunidad: null,
-    votos: data.votos || (!esFilmAv1 ? (metaF.imdb.votos || metaF.tmdb.votos) : null) || null,
-    fecha_estreno: esFilmAv1
-      ? (data.fecha_estreno || null)
-      : (data.fecha_estreno || fallback.fecha_estreno || null),
+    votos: data.votos || metaF.imdb.votos || metaF.tmdb.votos || null,
+    fecha_estreno: data.fecha_estreno || fallback.fecha_estreno || null,
     // Estado de emisión (series / anime / doramas)
     estado: data.estado || data.status || fallback.estado || null,
     en_emision: data.en_emision != null ? !!data.en_emision : (fallback.en_emision != null ? !!fallback.en_emision : null),
     finalizado: data.finalizado != null ? !!data.finalizado : (fallback.finalizado != null ? !!fallback.finalizado : null),
-    duracion: esFilmAv1
-      ? (data.duracion || null)
-      : (data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null),
-    duracion_texto: esFilmAv1
-      ? (data.duracion_texto || null)
-      : (data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null),
+    duracion: data.duracion || metaF.imdb.duracion || metaF.tmdb.duracion || null,
+    duracion_texto: data.duracion_texto || metaF.imdb.duracion_texto || metaF.tmdb.duracion_texto || null,
     certificacion: data.certificacion || metaF.imdb.certificacion || metaF.tmdb.certificacion || null,
     imdb: Object.keys(metaF.imdb).length ? metaF.imdb : null,
     tmdb: Object.keys(metaF.tmdb).length ? metaF.tmdb : null,
@@ -2553,31 +2512,6 @@ function preferApiMeta(apiItem, cached) {
   if (apiItem.year) out.year = apiItem.year;
   if (apiItem.calificacion != null && apiItem.calificacion !== "") out.calificacion = apiItem.calificacion;
   if (apiItem.rating != null && (out.calificacion == null || out.calificacion === "")) out.calificacion = apiItem.rating;
-  if (/pel[ií]cula|movie|film/i.test(String(apiItem.formato || apiItem.tipo || ""))) {
-    if (apiItem.calificacion != null) out.calificacion = apiItem.calificacion;
-    if (apiItem.rating != null) { out.rating = apiItem.rating; out.calificacion = apiItem.rating; }
-    if (apiItem.duracion_texto) out.duracion_texto = apiItem.duracion_texto;
-    if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
-    if (apiItem.genero) out.genero = apiItem.genero;
-    if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
-    if (apiItem.logo || apiItem.logo_imdb) {
-      out.logo = apiItem.logo || apiItem.logo_imdb;
-      out.logo_imdb = apiItem.logo_imdb || apiItem.logo;
-    } else if (apiItem.imdb_id) {
-      out.logo = "https://images.metahub.space/logo/medium/" + apiItem.imdb_id + "/img";
-      out.logo_imdb = out.logo;
-    }
-    if (apiItem.rating_source) out.rating_source = apiItem.rating_source;
-    else if (apiItem.imdb_id) out.rating_source = "imdb";
-  }
-  // logo siempre si la API lo trae (series/anime también)
-  if (apiItem.logo || apiItem.logo_imdb) {
-    out.logo = apiItem.logo || apiItem.logo_imdb;
-    out.logo_imdb = apiItem.logo_imdb || apiItem.logo;
-  } else if (apiItem.imdb_id && !out.logo) {
-    out.logo = "https://images.metahub.space/logo/medium/" + apiItem.imdb_id + "/img";
-    out.logo_imdb = out.logo;
-  }
   if (apiItem.genero) out.genero = apiItem.genero;
   if (apiItem.generos && apiItem.generos.length) out.generos = apiItem.generos;
   if (apiItem.imdb_id) out.imdb_id = apiItem.imdb_id;
@@ -2590,10 +2524,6 @@ function preferApiMeta(apiItem, cached) {
   if (apiItem.certificacion) out.certificacion = apiItem.certificacion;
   if (apiItem.titulo_original) out.titulo_original = apiItem.titulo_original;
   if (apiItem.fecha_estreno) out.fecha_estreno = apiItem.fecha_estreno;
-  else if (/pel[ií]cula|movie|film/i.test(String(apiItem.formato || apiItem.tipo || ""))) {
-    // no heredar fecha de la serie en caché
-    out.fecha_estreno = null;
-  }
   // Descripción: preferir español (elegirMejorDescripcion ya prioriza ES)
   out.descripcion = elegirMejorDescripcion(apiItem.descripcion, cached.descripcion);
   // Portada API si es válida
@@ -2709,7 +2639,7 @@ async function obtenerDetalleInterno(params) {
     cached = null;
   }
 
-  const esAnimeKind = id.kind === "anime" || (id.kind !== "pelicula" && /anime/i.test(String(tipo || cached?.tipo || "")));
+  const esAnimeKind = id.kind === "anime" || /anime/i.test(String(tipo || cached?.tipo || ""));
 
   // Si ya tenemos contenido válido y no force → devolver cache
   // EXCEPCIÓN anime: refrescar totales desde fuente 4 (One Piece sigue subiendo; Wistoria T2)
@@ -2762,22 +2692,6 @@ async function obtenerDetalleInterno(params) {
   const syncHoy = fueSincronizadoHoy(cached);
   const debeRefrescarSerie = esSerieCache && !syncHoy && !force;
 
-  // Caché de film contaminada con meta de la SERIE (24 min, rating serie, fecha serie)
-  const cacheFilmSucio =
-    cached &&
-    /pel[ií]cula|movie|film/i.test(String(cached.formato || cached.tipo || "")) &&
-    (
-      /24\s*min|por episodio/i.test(String(cached.duracion_texto || "")) ||
-      (id.kind === "pelicula" && cached.imdb_id && String(cached.slug || "").includes("movie") &&
-        /tt21975436/i.test(String(cached.imdb_id))) // series Kaiju No.8 mal asociada a film
-    );
-
-  // Films de animeav1: no usar caché (meta de serie se colaba: 24min, 8.2, logo mal)
-  const skipCacheFilmAv1 =
-    String(id.source_id) === "4" &&
-    (id.kind === "pelicula" ||
-      /pel[ií]cula|movie|film/i.test(String(cached && (cached.formato || cached.tipo) || tipo || "")));
-
   if (
     !force &&
     cached &&
@@ -2785,11 +2699,9 @@ async function obtenerDetalleInterno(params) {
     (tieneDesc || yaFunciona) &&
     !nombreEsSlug &&
     !listaIncompleta &&
-    !debeRefrescarSerie &&
-    !cacheFilmSucio &&
-    !skipCacheFilmAv1
+    !debeRefrescarSerie
   ) {
-    if (esAnimeKind && id.kind !== "pelicula") {
+    if (esAnimeKind) {
       try {
         const refreshed = await refreshAnimeMetaFromSource4(cached, id);
         if (refreshed) return refreshed;
@@ -2933,7 +2845,7 @@ async function obtenerDetalleInterno(params) {
   for (const sid of fuentes) {
     if (String(sid) === "4") triedSource4 = true;
     for (const slugTry of slugsTryBase) {
-      const kindFetch = id.kind === "pelicula" ? "pelicula" : (esAnimeKind ? "anime" : (id.kind === "serie" ? "serie" : "serie"));
+      const kindFetch = esAnimeKind ? "anime" : (id.kind === "pelicula" ? "pelicula" : "serie");
       const candidate = await fetchDetailFromSource(sid, kindFetch, slugTry, {
         link,
         slug: slugTry,
@@ -2950,14 +2862,10 @@ async function obtenerDetalleInterno(params) {
       // Rechazar si la fuente cambió el tipo (Serie ≠ Anime)
       const tipoEsp = normalizarTipo(tipo || cached?.tipo || (esAnimeKind ? "Anime" : "Serie"));
       const tipoCand = normalizarTipo(candidate.tipo || "");
-      // Película (films) siempre válida aunque el listado diga Anime
-      var candPeli = tipoCand === "Película" || /pelicul|movie|film/i.test(String(candidate.tipo || candidate.formato || ""));
-      if (!candPeli) {
-        if (!esAnimeKind && tipoCand === "Anime") continue;
-        if (esAnimeKind && tipoCand === "Serie" && String(sid) !== "4") continue;
-        if (tipoEsp === "Serie" && tipoCand === "Anime") continue;
-        if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
-      }
+      if (!esAnimeKind && tipoCand === "Anime") continue;
+      if (esAnimeKind && tipoCand === "Serie" && String(sid) !== "4") continue;
+      if (tipoEsp === "Serie" && tipoCand === "Anime") continue;
+      if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
       // Título = slug → basura (ej. animeav1 con our-sticky-love)
       const nomCand = String(candidate.nombre || candidate.titulo || "");
       if (candidate.slug && esSlugComoTitulo(nomCand, candidate.slug)) {
@@ -2973,14 +2881,8 @@ async function obtenerDetalleInterno(params) {
           ? mergeItems(best, candidate) // base = best (conserva tipo/nombre)
           : mergeItems(best, candidate)
         : candidate;
-      // Forzar tipo esperado — excepto si la API dice Película (films de animeav1)
-      var candEsPeli = /pel[ií]cula|movie|film/i.test(String(candidate.tipo || candidate.formato || ""));
-      if (candEsPeli) {
-        best.tipo = "Película";
-        if (candidate.formato) best.formato = candidate.formato;
-      } else if (tipoEsp === "Serie" || tipoEsp === "Anime") {
-        best.tipo = tipoEsp;
-      }
+      // Forzar tipo esperado
+      if (tipoEsp === "Serie" || tipoEsp === "Anime") best.tipo = tipoEsp;
       if (best && candidate.descripcion) {
         best.descripcion = elegirMejorDescripcion(best.descripcion, candidate.descripcion);
       }
