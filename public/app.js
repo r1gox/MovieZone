@@ -4554,7 +4554,7 @@ function pintarHero(item) {
     if (!item) return;
 
     // Solo tipo, sin "RECOMENDADA"
-    heroType.textContent = tipoLabel(item.tipo).toUpperCase();
+    heroType.textContent = (typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo)).toUpperCase();
 
     heroTitle.textContent = item.nombre || item.titulo || "Sin título";
 
@@ -4998,7 +4998,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       __posterEl.classList.remove("mz-poster-hidden");
     }
     setDetalleLogo(item);
-    document.getElementById("details-type").textContent = tipoLabel(item.tipo);
+    document.getElementById("details-type").textContent = (typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo));
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
     // backdrop + hero se pintan al terminar carga (abajo)
 
