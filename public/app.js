@@ -256,24 +256,43 @@ function fillKoiHero(item) {
       if (releaseLabel) push("<span>" + releaseLabel + "</span>");
     }
 
-    // IMDb rating
+    // Rating: etiqueta IMDb solo si rating_source / source es imdb
     let scoreLabel = "";
+    let scoreIsImdb = false;
     if (typeof ratingInfo === "function") {
       const r = ratingInfo(item);
-      if (r && r.value) scoreLabel = r.label;
-    } else if (item.imdb && item.imdb.rating) {
+      if (r && r.value != null && !isNaN(Number(r.value))) {
+        scoreLabel = Number(r.value).toFixed(1);
+        scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+      } else if (r && r.label && !isNaN(Number(String(r.label).replace(/[^0-9.]/g, "")))) {
+        scoreLabel = Number(String(r.label).replace(/[^0-9.]/g, "")).toFixed(1);
+        scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+      }
+    } else if (item.imdb && item.imdb.rating != null) {
       scoreLabel = Number(item.imdb.rating).toFixed(1);
+      scoreIsImdb = true;
     } else if (item.calificacion != null && item.calificacion !== "") {
       scoreLabel = Number(item.calificacion).toFixed(1);
+      scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
     } else if (item.rating != null && item.rating !== "") {
       scoreLabel = Number(item.rating).toFixed(1);
+      scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
     }
+    // Preferir flag explícito de la API
+    if (/imdb|omdb/i.test(String(item.rating_source || ""))) scoreIsImdb = true;
     if (scoreLabel && !isNaN(Number(scoreLabel))) {
-      push(
-        '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
-          '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
-          '<span class="koi-imdb-tag">IMDb</span></span>'
-      );
+      if (scoreIsImdb) {
+        push(
+          '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
+            '<span class="koi-imdb-tag">IMDb</span></span>'
+        );
+      } else {
+        push(
+          '<span class="koi-imdb-inline koi-score-only" title="Rating ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span></span>"
+        );
+      }
     }
 
     // Duración
@@ -955,14 +974,15 @@ function ratingBadgeHtml(item) {
         return '<div class="rating-badge rating-empty" title="Sin rating"><span class="rating-main">—</span></div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-    const title = (r.source === "imdb" || r.source === "omdb" || !r.source)
+    const isImdb = r.source === "imdb" || r.source === "omdb";
+    const title = isImdb
       ? ("IMDb " + r.label)
-      : (String(r.source).toUpperCase() + " " + r.label);
-    // Mismo look para películas, series y anime (placa tipo Stremio)
+      : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label));
+    // Solo mostrar marca IMDb si la fuente es realmente IMDb
     return (
         '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="' + escapeHtml(title) + '">' +
         '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
-        '<span class="imdb-mark">IMDb</span>' +
+        (isImdb ? '<span class="imdb-mark">IMDb</span>' : '') +
         "</div>"
     );
 }
@@ -5456,9 +5476,11 @@ function setDetalleImdb(item) {
 
   const ri = typeof ratingInfo === "function" ? ratingInfo(item) : null;
   let score = null;
-  if (ri && (ri.source === "imdb" || ri.source === "omdb") && ri.value != null) score = ri.value;
+  // Mostrar rating de cualquier fuente (fuente/JK/TMDB/IMDb), sin exigir IMDb
+  if (ri && ri.value != null && !isNaN(Number(ri.value))) score = Number(ri.value);
   else if (item.imdb && item.imdb.rating != null) score = Number(item.imdb.rating);
-  else if (item.rating != null && /imdb/i.test(String(item.rating_source || ""))) score = Number(item.rating);
+  else if (item.calificacion != null && item.calificacion !== "") score = Number(item.calificacion);
+  else if (item.rating != null && item.rating !== "") score = Number(item.rating);
 
   const okScore = score != null && !isNaN(score) && score > 0;
   const okId = !!imdbId;
