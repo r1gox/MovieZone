@@ -21,13 +21,27 @@ function isKoiDesktop() {
 function isSerieOrAnime(item) {
   if (!item) return false;
   const t = String(item.tipo || item.type || "").toLowerCase();
+  // Película (anime film, OVA-movie, etc.) → NO es serie: detalle tipo película
+  if (/pel[ií]cula|movie|film/.test(t)) return false;
+  const f = String(item.formato || item.format || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(f) && !/serie|tv|dorama/.test(t)) return false;
   return /serie|anime|dorama|tv|ova|ona/.test(t);
+}
+
+/** true si el ítem debe abrirse como película (play + servers, sin temporadas) */
+function isPeliculaItem(item) {
+  if (!item) return false;
+  const t = String(item.tipo || item.type || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(t)) return true;
+  const f = String(item.formato || item.format || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(f)) return true;
+  return false;
 }
 
 /** Activa/desactiva el layout Koiflix en body */
 function setKoiMode(item) {
-  const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
-  const esSA = isSerieOrAnime(item);
+  const esPeliMode = !!(item && (typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))));
+  const esSA = !esPeliMode && isSerieOrAnime(item);
   // PC y móvil: películas, series y animes usan el hero
   const on = !!(item && (esSA || esPeliMode));
   // mobile-fixes.css requiere body.koi-desktop también en móvil
@@ -380,7 +394,7 @@ function fillKoiHero(item) {
 
   const playText = document.getElementById("koi-btn-play-text");
   if (playText) {
-    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+    const esPeli = typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
     playText.textContent = esPeli ? "REPRODUCIR" : firstEpisodeLabel(item);
   }
 
@@ -1615,9 +1629,13 @@ function ordenarEmbedsAuto(embeds) {
 }
 
 function esSerieOAnimeItem(item) {
-  const t = String(item?.tipo || "").toLowerCase();
-  return t === "serie" || t === "anime" || /serie|anime|dorama/.test(t);
+  if (!item) return false;
+  if (typeof isPeliculaItem === "function" && isPeliculaItem(item)) return false;
+  return typeof isSerieOrAnime === "function"
+    ? isSerieOrAnime(item)
+    : /serie|anime|dorama/i.test(String(item.tipo || item.type || ""));
 }
+
 
 function actualizarBotonesEpPlayer() {
   const wrap = document.getElementById("mz-ep-controls");
@@ -5349,13 +5367,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
 
-    const esSerieOAnime =
-      item.tipo === "Serie" ||
-      item.tipo === "Anime" ||
-      (typeof isSerieOrAnime === "function" && isSerieOrAnime(item));
     const esPeli =
-      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")) ||
-      (!esSerieOAnime && !item.episodios);
+      (typeof isPeliculaItem === "function" && isPeliculaItem(item)) ||
+      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
+    const esSerieOAnime =
+      !esPeli &&
+      (item.tipo === "Serie" ||
+        item.tipo === "Anime" ||
+        (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)));
 
     const seasonsEl = document.getElementById("seasons-section");
     const serversEl = document.getElementById("servers-section");
