@@ -2026,12 +2026,22 @@
       var path = location.pathname || "";
       var isEp = /\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(path);
       if (isEp && !skipHistory) {
-        if (history.length > 1) {
-          history.back();
-        } else {
-          var base = path.replace(/\/\d+\/\d+\/?$/, "");
-          history.replaceState({ mz: "detalle" }, "", base.replace(/\/$/, "") || path);
+        // replaceState (no history.back): evita tener que pulsar Volver muchas veces
+        var base = path.replace(/\/\d+\/\d+\/?$/, "");
+        if (base && base !== path) {
+          history.replaceState({ mz: "detalle", season: null, episode: null }, "", base);
         }
+        try {
+          document.body.classList.add("details-open");
+          var dpEp = document.getElementById("details-panel");
+          if (dpEp) {
+            dpEp.classList.remove("hidden", "mz-koi-hidden-under");
+            dpEp.style.removeProperty("visibility");
+            dpEp.style.removeProperty("pointer-events");
+            dpEp.style.removeProperty("opacity");
+            dpEp.style.removeProperty("z-index");
+          }
+        } catch (_) {}
       } else if (wasMovie) {
         try {
           document.body.classList.add("details-open");
