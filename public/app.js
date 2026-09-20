@@ -4337,9 +4337,11 @@ async function renderAnimeAv1HomeGrid() {
       .map(function (x) { return normalizarItemHomeAv1(x, "agregados"); })
       .filter(Boolean);
 
-    function makeSection(title, items, hint) {
+    function makeSection(title, items, hint, opts) {
+      opts = opts || {};
+      const horizontal = !!opts.horizontal;
       const sec = document.createElement("section");
-      sec.className = "mz-av1-home-section";
+      sec.className = "mz-av1-home-section" + (horizontal ? " is-eps" : "");
       const head = document.createElement("div");
       head.className = "mz-av1-home-head";
       head.innerHTML =
@@ -4353,6 +4355,71 @@ async function renderAnimeAv1HomeGrid() {
         items.length +
         "</span>";
       sec.appendChild(head);
+
+      if (horizontal) {
+        // Fila horizontal tipo episodios (back_img landscape)
+        const row = document.createElement("div");
+        row.className = "mz-av1-eps-row";
+        if (!items.length) {
+          row.innerHTML = '<p class="mz-av1-home-empty">Sin episodios nuevos</p>';
+        } else {
+          items.forEach(function (item) {
+            const card = document.createElement("div");
+            card.className = "mz-av1-ep-card";
+            const img =
+              item.back_img ||
+              item.portada ||
+              (typeof PLACEHOLDER !== "undefined" ? PLACEHOLDER : "");
+            const epLab =
+              item._homeEpLabel ||
+              (item.episodio != null ? "Episodio " + item.episodio : "Nuevo");
+            const enEm =
+              item.en_emision === true ||
+              /emisi|airing|ongoing/i.test(String(item.estado || ""));
+            const fin =
+              item.finalizado === true ||
+              /final|conclu|ended|finished/i.test(String(item.estado || ""));
+            let badge = "";
+            if (enEm) badge = '<span class="mz-av1-ep-badge is-air">En emisión</span>';
+            else if (fin) badge = '<span class="mz-av1-ep-badge is-end">Finalizado</span>';
+            card.innerHTML =
+              '<div class="mz-av1-ep-thumb">' +
+              '<img src="' +
+              escapeHtml(img) +
+              '" alt="" loading="lazy" />' +
+              '<span class="mz-av1-ep-nuevo">Nuevo</span>' +
+              badge +
+              '</div>' +
+              '<div class="mz-av1-ep-info">' +
+              "<h4>" +
+              escapeHtml(item.nombre || item.titulo || "") +
+              "</h4>" +
+              "<p>" +
+              escapeHtml(epLab) +
+              "</p>" +
+              "</div>";
+            const im = card.querySelector("img");
+            if (im) {
+              im.addEventListener("error", function (e) {
+                if (e.target.dataset.failed === "1") return;
+                e.target.dataset.failed = "1";
+                if (item.portada && e.target.src !== item.portada) {
+                  e.target.src = item.portada;
+                } else if (typeof PLACEHOLDER !== "undefined") {
+                  e.target.src = PLACEHOLDER;
+                }
+              });
+            }
+            card.addEventListener("click", function () {
+              abrirDetalle(item);
+            });
+            row.appendChild(card);
+          });
+        }
+        sec.appendChild(row);
+        return sec;
+      }
+
       const grid = document.createElement("div");
       grid.className = "catalog-grid mz-av1-home-grid";
       if (!items.length) {
@@ -4361,7 +4428,6 @@ async function renderAnimeAv1HomeGrid() {
       } else {
         items.forEach(function (item) {
           const card = crearMediaCard(item);
-          // Subtítulo: episodio reciente si aplica
           if (item._homeEpLabel) {
             const p = card.querySelector(".media-info p");
             if (p) p.textContent = item._homeEpLabel;
@@ -4374,7 +4440,9 @@ async function renderAnimeAv1HomeGrid() {
     }
 
     resultsGrid.appendChild(
-      makeSection("Recientes", recientes, "Últimos episodios publicados")
+      makeSection("Nuevos", recientes, "Episodios recién publicados", {
+        horizontal: true
+      })
     );
     resultsGrid.appendChild(
       makeSection("Recién agregados", agregados, "Nuevos en el catálogo")
