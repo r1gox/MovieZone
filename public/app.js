@@ -198,42 +198,6 @@ function langLabel(item) {
  * Rellena el hero Koiflix con los datos del item actual.
  * Llamar después de pintar el detalle normal.
  */
-
-/** Fondo de detalle: en Anime usar portada (no backdrop de la serie) */
-function mzEsAnimeItem(item) {
-  if (!item) return false;
-  if (typeof isPeliculaItem === "function" && isPeliculaItem(item)) return false;
-  const t = String(item.tipo || item.type || "").toLowerCase();
-  const sid = String(item.source_id || item.fuente || "").toLowerCase();
-  if (/anime/.test(t)) return true;
-  if (sid === "4" || sid === "5" || sid === "animeav1" || sid === "jkanime") return true;
-  return false;
-}
-function mzDetailBgUrl(item) {
-  if (!item) return "";
-  if (mzEsAnimeItem(item)) {
-    return (
-      item.portada ||
-      item.portada_fuente_raw ||
-      item.poster ||
-      item.portada_imdb ||
-      item.backdrop ||
-      item.fondo ||
-      ""
-    );
-  }
-  return (
-    item.backdrop ||
-    item.fondo ||
-    item.banner ||
-    item.background ||
-    item.portada_imdb ||
-    item.portada ||
-    item.poster ||
-    ""
-  );
-}
-
 function fillKoiHero(item) {
     if (!item) return;
     // formato Pelicula + tipo Anime (films AV1) cuenta como película
@@ -245,9 +209,14 @@ function fillKoiHero(item) {
     // PC: series/anime/peli. Móvil: solo películas (hero + REPRODUCIR)
   //  if (!isKoiDesktop() && !esPeli) return;
 
-  const bg = (typeof mzDetailBgUrl === "function" ? mzDetailBgUrl(item) : (
-    item.backdrop || item.fondo || item.banner || item.portada_imdb || item.portada || item.poster || ""
-  ));
+  const bg =
+    item.backdrop ||
+    item.fondo ||
+    item.banner ||
+    item.portada_imdb ||
+    item.portada ||
+    item.poster ||
+    "";
 
   const hero = document.getElementById("koi-hero");
   if (hero) {
@@ -4872,19 +4841,7 @@ function mostrarDetalleLoading(on) {
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
-    // Al cambiar de título (One Piece → Film Z) no reutilizar ficha anterior
-    try {
-      const prev = window.__mzCurrentItem || seleccionActual;
-      const slugNow = String((item && item.slug) || "");
-      const slugPrev = String((prev && prev.slug) || "");
-      if (slugNow && slugPrev && slugNow !== slugPrev) {
-        window.__mzCurrentItem = null;
-      }
-    } catch (_) {}
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
-    try {
-      window.__mzCurrentItem = item;
-    } catch (_) {}
     // Bloquear fuente del listado (JK=5 / AV1=4) para no cruzar al cargar detalle
     try {
       if (item && item.source_id != null) {
@@ -5274,17 +5231,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     }
                 } else {
                     const keep = Object.assign({}, item);
-                    // No fusionar si el API devolvió OTRA obra (slug distinto)
-                    var slugItem = String(item.slug || "").replace(/\/+$/, "");
-                    var slugComp = String(completo.slug || "").replace(/\/+$/, "");
-                    if (slugItem && slugComp && slugItem !== slugComp) {
-                      console.warn("detalle slug mismatch", slugItem, "!=", slugComp);
-                      // usar solo respuesta API
-                      Object.keys(item).forEach(function (k) { delete item[k]; });
-                      Object.assign(item, completo);
-                    } else {
-                      Object.assign(item, completo);
-                    }
+                    Object.assign(item, completo);
                     // Película API: tipo + players
                     try {
                       if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
@@ -8799,7 +8746,7 @@ window.addEventListener("scroll", () => {
 function setDetalleFondo(item) {
   const bg = document.getElementById("mz-stremio-bg");
   if (!bg || !item) return;
-  const url = (typeof mzDetailBgUrl === "function" ? mzDetailBgUrl(item) : (item.backdrop || item.portada_imdb || item.portada || "")) || "";
+  const url = item.backdrop || item.portada_imdb || item.portada || "";
   if (url) {
     bg.style.backgroundImage = `url("${String(url).replace(/"/g, "%22")}")`;
   } else {
@@ -8812,10 +8759,19 @@ function setDetailBackdrop(item) {
   const img = document.getElementById("mz-stremio-bg-img");
   if (!layer) return;
 
-  const url = (item && (typeof mzDetailBgUrl === "function"
-    ? mzDetailBgUrl(item)
-    : (item.backdrop || item.fondo || item.background || item.portada_imdb || item.portada || item.poster || item.image)
-  )) || "";
+  const url =
+    (item && (
+      item.backdrop ||
+      item.fondo ||
+      item.background ||
+      item.backdrop_url ||
+      (item.imdb && item.imdb.backdrop) ||
+      (item.tmdb && (item.tmdb.backdrop || item.tmdb.fondo)) ||
+      item.portada_imdb ||
+      item.portada ||
+      item.poster ||
+      item.image
+    )) || "";
 
   // Limpiar background-image viejo del div (ahora usamos <img> como Stremio)
   layer.style.removeProperty("background-image");
