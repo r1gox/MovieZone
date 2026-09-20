@@ -2670,11 +2670,12 @@ function volverDesdeEpisodioMovil() {
 
 
   try {
-    // Si la URL es .../t/e, history.back() restaura /detalle/sid/slug
-    if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(location.pathname || "")) {
-      history.back();
-    } else if (item && typeof mzReplaceDetalleUrl === "function") {
+    // replaceState a la ficha (sin apilar ni exigir muchos "atrás")
+    if (item && typeof mzReplaceDetalleUrl === "function") {
       mzReplaceDetalleUrl(item);
+    } else if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(location.pathname || "")) {
+      var p = location.pathname.replace(/\/\d+\/\d+\/?$/, "");
+      history.replaceState({ mz: "detalle", season: null, episode: null }, "", p);
     } else if (item && typeof mzPushDetalleUrl === "function") {
       mzPushDetalleUrl(item);
     }
@@ -8987,28 +8988,44 @@ function mzPushDetalleUrl(item, season, episode) {
     };
     const cur = location.pathname || "";
     const curIsEp = /\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(cur);
+    const curIsDet = /^\/detalle\//i.test(cur);
     const willBeEp = season != null && episode != null && !isNaN(Number(season)) && !isNaN(Number(episode));
-    // Detalle → episodio: SIEMPRE push (atrás vuelve a /detalle/5/slug)
-    if (willBeEp && !curIsEp) {
+
+    function sameTitleInPath() {
+      try {
+        var m = cur.match(/^\/detalle\/(?:\d+\/)?([^\/]+)/i);
+        if (!m || !slug) return false;
+        var pathSlug = decodeURIComponent(m[1] || "");
+        return pathSlug === slug || pathSlug === encodeURIComponent(slug);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // Ya en este título (ficha o episodio) → replace (no apilar)
+    // Excepción: primera vez ficha → episodio = un solo push para que un "atrás" vuelva a la ficha
+    if (willBeEp && curIsEp && sameTitleInPath()) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    if (willBeEp && curIsDet && !curIsEp && sameTitleInPath()) {
       history.pushState(state, "", path);
       return;
     }
-    // Episodio → otro episodio: replace
     if (willBeEp && curIsEp) {
       history.replaceState(state, "", path);
       return;
     }
-    // Solo ficha detalle
-    var sameDetalle = false;
-    try {
-      var m = cur.match(/^\/detalle\/(?:(\d+)\/)?([^\/]+)/i);
-      if (m) {
-        var pathSlug = decodeURIComponent(m[2] || m[1] || "");
-        if (pathSlug === slug) sameDetalle = true;
-      }
-    } catch (_) {}
-    if (sameDetalle) history.replaceState(state, "", path);
-    else history.pushState(state, "", path);
+    // Solo ficha
+    if (sameTitleInPath() || (curIsDet && !willBeEp && sameTitleInPath())) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    if (curIsDet && !willBeEp) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    history.pushState(state, "", path);
   } catch (_) {}
 }
 
