@@ -376,15 +376,15 @@ async function guardarEnSupabase(items) {
         tipo: (function () {
           const nuevo = normalizarTipo(item.tipo || "");
           const viejo = normalizarTipo(existente?.tipo || "");
-          // Nunca degradar Serie → Anime ni Anime → Serie por un merge erróneo
+          // Nunca degradar Serie ↔ Anime por merge erróneo
           if (viejo === "Serie" && nuevo === "Anime") return "Serie";
           if (viejo === "Anime" && nuevo === "Serie") return "Anime";
-          // Mismo cuidado para Película ↔ Anime (evita que un valor viejo
-          // se quede pegado; el listado/detalle fresco siempre manda).
-          if (viejo === "Película" && nuevo === "Anime") return "Película";
-          if (viejo === "Anime" && nuevo === "Película") return "Película";
-          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película") return nuevo;
-          return viejo || "Película";
+          // Película/OVA/ONA desde API ganan sobre "Anime" genérico guardado por error
+          if ((nuevo === "Película" || nuevo === "OVA" || nuevo === "ONA" || nuevo === "Especial") &&
+              (viejo === "Anime" || !viejo)) return nuevo;
+          if (nuevo === "Serie" || nuevo === "Anime" || nuevo === "Película" ||
+              nuevo === "OVA" || nuevo === "ONA" || nuevo === "Especial") return nuevo;
+          return viejo || nuevo || "Película";
         })(),
         idiomas: (item.idiomas && item.idiomas.length) ? item.idiomas : (existente?.idiomas || []),
         calidad: (item.calidad && item.calidad.length) ? item.calidad : (existente?.calidad || []),
@@ -580,12 +580,15 @@ async function guardarEnSupabase(items) {
 
 // ---------- Helpers de mapeo API → formato frontend ----------
 function normalizarTipo(tipo) {
-  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const t = String(tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\bova\b/.test(t) || t === "ova") return "OVA";
+  if (/\bona\b/.test(t) || t === "ona") return "ONA";
+  if (t.includes("especial") || t.includes("special")) return "Especial";
   if (t.includes("anime")) return "Anime";
   if (t.includes("serie") || t.includes("dorama") || t === "tv" || t === "tvshows") return "Serie";
   if (t.includes("cap") || t.includes("episod")) return "Capitulo";
-  if (t.includes("pelicul") || t.includes("movie")) return "Película";
-  return "Película";
+  if (t.includes("pelicul") || t.includes("movie") || t.includes("film")) return "Película";
+  return tipo ? String(tipo) : "Película";
 }
 
 function extraerAnio(titulo, year) {
@@ -1384,22 +1387,33 @@ function mapListItem(r) {
     r.titulo_original || r.original_title,
     [r.title, r.titulo]
   );
-  const tipoRaw = String(r.tipo || r.type || "Pelicula");
-  const sourceId = resolverSourceId(r.source_id || r.source || r.fuente);
-  const tipo = /anime/i.test(tipoRaw)
-    ? "Anime"
-    : /serie|tv/i.test(tipoRaw)
-      ? "Serie"
-      : "Película";
-  // Solo para el badge del listado (jkanime trae Pelicula/OVA/Especial/ONA
-  // como "tipo"); no toca la clasificación/sección de arriba.
-  const categoria = sourceId === "5" ? tipoRaw : null;
+  // Conservar type/tipo de la API (Pelicula, Anime, OVA, ONA, Especial…)
+  const tipoRaw = String(r.tipo || r.type || "Pelicula").trim();
+  let tipo;
+  if (/^ova$/i.test(tipoRaw) || /\bova\b/i.test(tipoRaw)) tipo = "OVA";
+  else if (/^ona$/i.test(tipoRaw) || /\bona\b/i.test(tipoRaw)) tipo = "ONA";
+  else if (/especial|special/i.test(tipoRaw)) tipo = "Especial";
+  else if (/anime/i.test(tipoRaw)) tipo = "Anime";
+  else if (/serie|tv|dorama/i.test(tipoRaw)) tipo = "Serie";
+  else if (/pel[ií]cula|movie|film/i.test(tipoRaw)) tipo = "Película";
+  else tipo = tipoRaw || "Película";
   const slug = r.slug ? String(r.slug) : null;
+  const sourceId = resolverSourceId(r.source_id || r.source || r.fuente);
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
     : null;
-  const kindPath =
-    tipo === "Anime" ? "anime" : tipo === "Serie" ? "serie" : "pelicula";
+  // Ruta worker: si la API ya trae url con /pelicula/ u /anime/, usarla; si no, inferir
+  const urlHint = String(r.url || r.link || r.url_extract || "");
+  let kindPath = "pelicula";
+  if (/\/anime\//i.test(urlHint)) kindPath = "anime";
+  else if (/\/serie\//i.test(urlHint)) kindPath = "serie";
+  else if (/\/pelicula\//i.test(urlHint)) kindPath = "pelicula";
+  else if (tipo === "Anime" || tipo === "OVA" || tipo === "ONA" || tipo === "Especial") {
+    // OVA/ONA suelen vivir bajo /anime/ salvo que type sea Pelicula
+    kindPath = (tipo === "Película") ? "pelicula" : "anime";
+  } else if (tipo === "Serie") kindPath = "serie";
+  else kindPath = "pelicula";
+  if (tipo === "Película") kindPath = /\/anime\//i.test(urlHint) ? "anime" : "pelicula";
   const link =
     r.url_extract ||
     r.link ||
@@ -1456,7 +1470,6 @@ function mapListItem(r) {
     titulo_original: tituloOrigList || r.titulo_original || null,
     slug,
     tipo,
-    categoria,
     descripcion: r.descripcion || null,
     portada,
     backdrop: r.backdrop || (r.tmdb && r.tmdb.backdrop) || null,
@@ -1498,11 +1511,8 @@ function mapListItem(r) {
 
 /** Detalle de película / serie / capítulo → item completo */
 function mapDetail(data, fallback = {}) {
+  const tipo = normalizarTipo(data.tipo || data.type || fallback.tipo);
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
-  const tipoRawDetalle = String(data.tipo || data.type || fallback.tipo || "");
-  const tipo = normalizarTipo(tipoRawDetalle || fallback.tipo);
-  // Solo para el badge (jkanime trae Pelicula/OVA/Especial/ONA); no toca tipo.
-  const categoria = sourceId === "5" && tipoRawDetalle ? tipoRawDetalle : (fallback.categoria || null);
   const slug = data.slug || fallback.slug || null;
   // Principal = título local/ES; original = inglés u otro (nunca invertir)
   const titulo = elegirTituloPrincipal({
@@ -1617,7 +1627,6 @@ function mapDetail(data, fallback = {}) {
     titulo_original: tituloOriginal || data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
     tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
-    categoria,
     formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
     // Portada: NO dejar que "data.portada" (a veces Metahub roto) gane por defecto
@@ -1682,6 +1691,19 @@ function mapDetail(data, fallback = {}) {
     episodio_desde: data.episodio_desde || null,
     episodio_hasta: data.episodio_hasta || null,
     tiene_player: !!(reproductor || embedsArr.length || episodios.length),
+    // Campos extra SOLO útiles para JKanime (source 5); otras fuentes quedan null
+    studios: (String(sourceId) === "5" || /jkanime/i.test(String(data.fuente || "")))
+      ? (data.studios || data.studio || null) : (data.studios || null),
+    temporada_anime: (String(sourceId) === "5" || /jkanime/i.test(String(data.fuente || "")))
+      ? (data.temporada_anime || data.temporada || null) : (data.temporada_anime || null),
+    demografia: data.demografia || null,
+    idiomas: data.idiomas || null,
+    calidad: data.calidad || null,
+    fecha_estreno_texto: data.fecha_estreno_texto || null,
+    titulos_alternativos: data.titulos_alternativos || null,
+    ultimo_episodio_url: data.ultimo_episodio_url || null,
+    proximo_episodio: data.proximo_episodio || null,
+    portada_fuente_raw: data.portada_fuente_raw || null,
   };
 }
 
@@ -1854,7 +1876,11 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
           (item.slug && m.slug === item.slug) ||
           (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
             ((tipo === "series" && m.tipo === "Serie") ||
-              (tipo === "animes" && m.tipo === "Anime") ||
+              (tipo === "animes" && (
+                m.tipo === "Anime" || m.tipo === "OVA" || m.tipo === "ONA" ||
+                m.tipo === "Especial" || m.tipo === "Película" ||
+                String(m.source_id || "") === "4" || String(m.source_id || "") === "5"
+              )) ||
               (tipo === "peliculas" && (m.tipo === "Película" || !m.tipo))))
       );
       if (local) {
@@ -2201,7 +2227,7 @@ function dedupeSearchResults(lista) {
   return Array.isArray(lista) ? lista.slice() : [];
 }
 
-async function buscarOnline(termino, page = 1, limit = 48) {
+async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   const qRaw = String(termino || "").trim();
   if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
 
@@ -2213,15 +2239,45 @@ async function buscarOnline(termino, page = 1, limit = 48) {
     return [];
   }
 
+  let forceSid = null;
+  if (animeSource === "jk" || animeSource === "5" || animeSource === "jkanime") forceSid = "5";
+  if (animeSource === "av1" || animeSource === "4" || animeSource === "animeav1") forceSid = "4";
+
   let raw = [];
   try {
-    // limit alto para no truncar animes (Worker default 40)
-    const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-    raw = extraerLista(data);
+    if (forceSid === "5") {
+      let data = null;
+      try {
+        // JKanime: /5?q= (no mezclar con AV1)
+        data = await apiGet(`/5?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      } catch (_) {
+        try {
+          data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+        } catch (__) {
+          try {
+            data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
+          } catch (___) {}
+        }
+      }
+      raw = extraerLista(data);
+    } else if (forceSid === "4") {
+      let data = null;
+      try {
+        data = await apiGet(`/4/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      } catch (_) {
+        try {
+          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=animeav1&limit=${Math.min(80, Math.max(limit, 40))}`);
+        } catch (__) {}
+      }
+      raw = extraerLista(data);
+    } else {
+      const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
+      raw = extraerLista(data);
+    }
   } catch (err) {
     console.warn("search:", err.message);
   }
-  if (!raw.length) {
+  if (!raw.length && !forceSid) {
     try {
       const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`);
       raw = extraerLista(dataS);
@@ -2238,6 +2294,30 @@ async function buscarOnline(termino, page = 1, limit = 48) {
       }
     })
     .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre));
+
+  // 4/5: conservar tipo de la API (Anime|Película|OVA|…). NO forzar "Anime".
+  // NO guardar en Supabase aquí (listado incompleto); solo al abrir detalle.
+  lista = lista.map((it) => {
+    const sid = String(it.source_id || it.fuente || "").toLowerCase();
+    if (sid === "4" || sid === "animeav1" || /animeav1/i.test(String(it.fuente || it.source || ""))) {
+      it.source_id = "4";
+      it.fuente = it.fuente || "animeav1";
+      // tipo ya viene de mapListItem (Película/OVA/Anime…)
+      if (!it.link && it.slug) {
+        const k = /pel[ií]cula|movie|film/i.test(String(it.tipo || "")) ? "pelicula" : "anime";
+        it.link = `${API_BASE}/4/${k}/${it.slug}`;
+      }
+    }
+    if (sid === "5" || sid === "jkanime" || /jkanime/i.test(String(it.fuente || it.source || ""))) {
+      it.source_id = "5";
+      it.fuente = it.fuente || "jkanime";
+      if (!it.link && it.slug) {
+        const k = /pel[ií]cula|movie|film/i.test(String(it.tipo || "")) ? "pelicula" : "anime";
+        it.link = `${API_BASE}/5/${k}/${it.slug}`;
+      }
+    }
+    return it;
+  });
 
   // Marcar Disponible si ya está en Supabase/memoria con players (sin pisar meta API)
   try {
@@ -2361,10 +2441,10 @@ async function refreshAnimeMetaFromSource4(cached, id) {
 }
 
 async function fetchDetailFromSource(sourceId, kind, slug, fallback = {}) {
-  // animeav1 (4): puede paginar episodios con ep_from/ep_to
+  // animeav1 (4) y jkanime (5): paginar episodios con ep_from/ep_to
   let path = `/${sourceId}/${kind}/${slug}`;
   const qs = [];
-  if (String(sourceId) === "4" && kind === "anime") {
+  if ((String(sourceId) === "4" || String(sourceId) === "5") && kind === "anime") {
     if (fallback.ep_from) qs.push(`ep_from=${encodeURIComponent(fallback.ep_from)}`);
     if (fallback.ep_to) qs.push(`ep_to=${encodeURIComponent(fallback.ep_to)}`);
   }
@@ -2556,6 +2636,12 @@ async function obtenerDetalleInterno(params) {
     throw new Error("No se pudo identificar la película/serie");
   }
 
+  // Si el cliente pide fuente 5 (JK) o 4 (AV1), no usar caché de la otra fuente
+  const sidPedido = source_id != null && source_id !== "" ? String(resolverSourceId(source_id)) : null;
+  if (cached && sidPedido && String(resolverSourceId(cached.source_id || "")) !== sidPedido) {
+    cached = null;
+  }
+
   const esAnimeKind = id.kind === "anime" || /anime/i.test(String(tipo || cached?.tipo || ""));
 
   // Si ya tenemos contenido válido y no force → devolver cache
@@ -2662,18 +2748,21 @@ async function obtenerDetalleInterno(params) {
         if (cached && esPortadaValida(cached.portada)) {
           out.portada = elegirPortada(cached.portada, candidate?.portada, out.source_id);
         }
-        // Año/rating/géneros: conservar los buenos de caché si API no trae o trae peor
-        if (cached?.year) out.year = cached.year;
-        if (cached?.calificacion != null) out.calificacion = cached.calificacion;
-        if (cached?.genero) out.genero = cached.genero;
-        if (cached?.generos?.length) out.generos = cached.generos;
-        if (cached?.imdb) out.imdb = cached.imdb;
-        if (cached?.imdb_id) out.imdb_id = cached.imdb_id;
-        if (cached?.votos) out.votos = cached.votos;
-        if (cached?.duracion) out.duracion = cached.duracion;
-        if (cached?.duracion_texto) out.duracion_texto = cached.duracion_texto;
-        if (cached?.certificacion) out.certificacion = cached.certificacion;
-        if (cached?.titulo_original) out.titulo_original = cached.titulo_original;
+        // Año/rating/géneros: conservar caché SOLO si es la misma fuente (no mezclar JK con AV1)
+        const sameSrc = !sidPedido || String(resolverSourceId(cached?.source_id || "")) === String(sidPedido);
+        if (sameSrc) {
+          if (cached?.year && !out.year) out.year = cached.year;
+          if (cached?.calificacion != null && out.calificacion == null) out.calificacion = cached.calificacion;
+          if (cached?.genero && !out.genero) out.genero = cached.genero;
+          if (cached?.generos?.length && !(out.generos && out.generos.length)) out.generos = cached.generos;
+          if (cached?.imdb && !out.imdb) out.imdb = cached.imdb;
+          if (cached?.imdb_id && !out.imdb_id) out.imdb_id = cached.imdb_id;
+          if (cached?.votos && !out.votos) out.votos = cached.votos;
+          if (cached?.duracion && !out.duracion) out.duracion = cached.duracion;
+          if (cached?.duracion_texto && !out.duracion_texto) out.duracion_texto = cached.duracion_texto;
+          if (cached?.certificacion && !out.certificacion) out.certificacion = cached.certificacion;
+          if (cached?.titulo_original && !out.titulo_original) out.titulo_original = cached.titulo_original;
+        }
         // Descripción: fuente/caché en español primero; no pisar con inglés de IMDb
         out.descripcion = elegirMejorDescripcion(cached?.descripcion, candidate?.descripcion);
         // Players: del fetch fresco
@@ -2730,13 +2819,24 @@ async function obtenerDetalleInterno(params) {
     itemTieneContenidoValido(cached) &&
     (cached.tipo === "Película" || (cached.episodios && cached.episodios.length));
 
-  // Anime → solo fuentes de anime (4). Serie/dorama → NUNCA fuente 4 (animeav1 inventa Anime con el mismo slug)
-  const sourcesToTry = esAnimeKind
-    ? [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i)
-    : [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4");
-  const ordenFuentes = esAnimeKind ? ["5", "4"] : ["6", "3", "1", "2"];
-  for (const s of ordenFuentes) {
-    if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+  // Anime: si el usuario eligió JK(5) o AV1(4), SOLO esa fuente (no mezclar)
+  // También si source_id viene en query aunque tipo no diga anime (deep link /detalle/5/slug)
+  let sourcesToTry;
+  const sidForce = sidPedido || (id.source_id != null ? String(resolverSourceId(id.source_id)) : null);
+  if (sidForce === "5" || sidForce === "jkanime") {
+    sourcesToTry = ["5"];
+  } else if (sidForce === "4" || sidForce === "animeav1") {
+    sourcesToTry = ["4"];
+  } else if (esAnimeKind) {
+    sourcesToTry = [resolverSourceId(id.source_id), "5", "4"].filter((v, i, a) => v && a.indexOf(v) === i);
+    for (const s of ["5", "4"]) {
+      if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+    }
+  } else {
+    sourcesToTry = [resolverSourceId(id.source_id), "6", "3", "1", "2"].filter((v, i, a) => a.indexOf(v) === i && v !== "4");
+    for (const s of ["6", "3", "1", "2"]) {
+      if (!sourcesToTry.includes(s)) sourcesToTry.push(s);
+    }
   }
   const fuentes = soloMeta && !esAnimeKind ? sourcesToTry.slice(0, 1) : sourcesToTry;
 
@@ -2953,24 +3053,28 @@ async function obtenerDetalleInterno(params) {
   // Anime: totales / rangos; preferir fuente 4
   if (best.tipo === "Anime" || id.kind === "anime") {
     best = expandirEpisodiosAnime(best);
-    best._prefer_source_anime = "4";
+    // Preferencia de fuente: respetar JK (5) si se pidió
+    best._prefer_source_anime = (sidPedido === "5" || sidPedido === "jkanime") ? "5" : (sidPedido === "4" ? "4" : (String(best.source_id || "4")));
     const nEps = Number(best.total_episodios) || 0;
     const tieneRangos = Array.isArray(best.rangos_episodios) && best.rangos_episodios.length > 1;
-    // One Piece: muchos eps → forzar 1 temporada (el front usa rangos 1–50…)
-    if (nEps > 50 || tieneRangos) {
+    // One Piece AV1: muchos eps → 1 temporada (rangos). No aplicar a JK.
+    if ((nEps > 50 || tieneRangos) && sidPedido !== "5" && sidPedido !== "jkanime") {
       best.temporadas = [1];
       best.total_temporadas = 1;
       best.source_id = "4";
       if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
-    } else {
+    } else if (sidPedido !== "5" && sidPedido !== "jkanime") {
       const nTemps = Math.max(Number(best.total_temporadas) || 0, (best.temporadas || []).length || 0);
       if (nTemps > 1 || nEps > 24) {
         best.source_id = "4";
         if (best.slug) best.slug = String(best.slug).replace(/-\d{4}$/, "");
       }
     }
+    if (sidPedido === "5" || sidPedido === "jkanime") {
+      best.source_id = "5";
+      best._prefer_source_anime = "5";
+    }
   }
-
   const sinPortada = !best.portada || String(best.portada).includes("placeholder");
   const sinContenido = !best.tiene_player;
   const esSerieOAnime = best.tipo === "Serie" || best.tipo === "Anime";
@@ -2981,7 +3085,14 @@ async function obtenerDetalleInterno(params) {
     best._sin_players = true;
     best = preferApiMeta(best, cached);
     if (best.link && (best.descripcion || best.portada || best.calificacion)) {
-      try { await guardarEnSupabase([best]); } catch (_) {}
+      try { if (sidPedido) {
+      best.source_id = sidPedido;
+      // Asegurar link de la fuente pedida
+      if (best.slug && (sidPedido === "5" || sidPedido === "4")) {
+        best.link = `https://moviezone.tvjz.workers.dev/${sidPedido}/anime/${best.slug}`;
+      }
+    }
+    await guardarEnSupabase([best]); } catch (_) {}
     }
     return best;
   }
@@ -3356,7 +3467,21 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         const t = String(m.tipo || "").toLowerCase();
         return t === "serie" || t === "dorama" || t === "tv";
       }
-      if (tipoItem === "Anime") return String(m.tipo || "").toLowerCase() === "anime";
+      if (tipoItem === "Anime") {
+        // Sección Anime: series/OVA/films de fuentes 4 y 5 (badge distingue tipo)
+        const t = String(m.tipo || "").toLowerCase();
+        const sid = String(m.source_id || m.fuente || m.source || "");
+        if (sid === "4" || sid === "5" || /animeav1|jkanime|^jk$/i.test(sid)) return true;
+        return (
+          t === "anime" ||
+          t === "ova" ||
+          t === "ona" ||
+          t === "especial" ||
+          t === "película" ||
+          t === "pelicula"
+        );
+      }
+      // Películas
       {
         const t = String(m.tipo || "").toLowerCase();
         return t === "película" || t === "pelicula" || t === "movie" || !t;
@@ -3507,7 +3632,35 @@ app.get("/api/animes", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(48, Math.max(12, parseInt(req.query.limit) || 24));
+    const sid = String(req.query.source_id || req.query.source || "").trim();
+    if (sid === "5" || /jkanime|^jk$/i.test(sid)) {
+      await ensureMoviesDB().catch(() => {});
+      let all = (typeof moviesDB !== "undefined" && moviesDB ? moviesDB : []).filter((m) => {
+        if (typeof esDescartado === "function" && esDescartado(m)) return false;
+        const s = String(m.source_id || m.fuente || "");
+        if (!(s === "5" || /jkanime/i.test(s))) return false;
+        const t = String(m.tipo || "").toLowerCase();
+        return /anime/.test(t) || !t;
+      });
+      all = all.map((m) => (typeof normalizeItemFromDB === "function" ? normalizeItemFromDB(m) : m) || m);
+      const total = all.length;
+      const start = (page - 1) * limit;
+      return res.json({
+        resultados: all.slice(start, start + limit),
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit) || 1),
+        fuente: "jkanime",
+      });
+    }
     const data = await catalogoPaginado("animes", "Anime", page, limit);
+    if (Array.isArray(data.resultados)) {
+      data.resultados = data.resultados.filter((it) => {
+        const s = String(it.source_id || it.fuente || it.source || "");
+        return s !== "5" && !/jkanime/i.test(s);
+      });
+    }
     res.json(data);
   } catch (err) {
     console.error("/api/animes", err.message);
@@ -3522,6 +3675,15 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
     const type = req.query.type || null;
+    let animeSource = req.query.anime_source || req.query.animeSource || null;
+    const sidQ = String(req.query.source_id || "").trim();
+    if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
+    if (!animeSource && (sidQ === "4" || sidQ === "animeav1")) animeSource = "av1";
+    if (!animeSource && req.query.source && !["local", "online", "1"].includes(String(req.query.source))) {
+      const s = String(req.query.source);
+      if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
+      if (s === "4" || /animeav1|av1/i.test(s)) animeSource = "av1";
+    }
 
     if (!termino) {
       return res.status(400).json({ error: "Escribe algo para buscar" });
@@ -3533,7 +3695,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     }
 
     try {
-      const data = await buscarOnline(termino, page, limit);
+      const data = await buscarOnline(termino, page, limit, animeSource);
       return res.json(data);
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
@@ -3598,6 +3760,29 @@ app.get("/api/detalle", async (req, res) => {
 
     const force = req.query.force === "1";
     const item = await obtenerDetalle({ link, postId, slug, source_id, tipo, force, portada });
+    // Tras abrir detalle: persistir ficha completa (descripcion, tipo, eps…) para la sección
+    if (item && (item.link || item.slug)) {
+      try {
+        await guardarEnSupabase([item]);
+      } catch (eSave) {
+        console.warn("detalle save:", eSave.message || eSave);
+      }
+    }
+    // No dejar que el cliente/caché confunda JK(5) con AV1(4)
+    if (item && source_id != null && source_id !== "") {
+      const sid = String(source_id).replace(/\D/g, "") || String(source_id);
+      if (sid === "5" || /jkanime/i.test(String(source_id))) {
+        item.source_id = "5";
+        item.fuente = item.fuente || "jkanime";
+        if (!item.tipo || /serie/i.test(String(item.tipo))) item.tipo = "Anime";
+      } else if (sid === "4" || /animeav1/i.test(String(source_id))) {
+        item.source_id = "4";
+        item.fuente = item.fuente || "animeav1";
+        if (!item.tipo || /serie/i.test(String(item.tipo))) item.tipo = "Anime";
+      } else {
+        item.source_id = String(resolverSourceId(source_id));
+      }
+    }
     res.json(item);
   } catch (err) {
     console.error("/api/detalle", err.message);
@@ -3613,32 +3798,32 @@ app.get("/api/episodios", async (req, res) => {
     const slug = req.query.slug || null;
     const tipo = req.query.tipo || "Serie";
     const isAnime = tipo === "Anime" || /anime/i.test(String(tipo));
-    // Anime → preferir fuente 4 (animeav1); doramas → 6
+    // Respetar source_id del cliente (JK=5, AV1=4)
     const source_id = req.query.source_id || (isAnime ? "4" : DEFAULT_SOURCE);
+    const sidEps = String(resolverSourceId(source_id));
     const loadPlayers = req.query.players === "1";
     const epFrom = parseInt(req.query.ep_from, 10) || null;
     const epTo = parseInt(req.query.ep_to, 10) || null;
 
     let item = null;
     try {
-      // Si piden rango (animeav1), ir directo a esa fuente con ep_from/ep_to
-      if (isAnime && slug && (epFrom || epTo || ["4", "5"].includes(String(resolverSourceId(source_id))))) {
+      if (isAnime && slug && (epFrom || epTo || ["4", "5"].includes(sidEps))) {
         const from = epFrom || 1;
         const to = epTo || (epFrom ? epFrom + 99 : 100);
-        item = await fetchDetailFromSource("4", "anime", slug, {
+        // Usar la fuente pedida (5=JK, 4=AV1), no forzar siempre 4
+        item = await fetchDetailFromSource(sidEps, "anime", slug, {
           ep_from: from,
           ep_to: to,
           tipo: "Anime",
           slug,
         });
         if (item) {
-          // Complementar con otras fuentes (más episodios / meta) sin perder la lista
           try {
             const full = await obtenerDetalle({
               link,
               postId,
               slug,
-              source_id: "4",
+              source_id: sidEps,
               tipo: "Anime",
               force: false,
             });
@@ -3650,7 +3835,7 @@ app.get("/api/episodios", async (req, res) => {
         }
       }
       if (!item) {
-        item = await obtenerDetalle({ link, postId, slug, source_id, tipo });
+        item = await obtenerDetalle({ link, postId, slug, source_id: sidEps, tipo });
       }
     } catch (err) {
       console.warn("episodios detalle:", err.message);
@@ -4177,12 +4362,24 @@ app.get(
   ["/:tipo(serie|pelicula|anime)/:slug", "/:tipo(serie|pelicula|anime)/:slug/:season/:episode"],
   (_req, res) => sendIndex(res)
 );
-// Deep links MovieZone: /detalle/slug y /detalle/slug/1/1
+// Deep links: /detalle/slug | /detalle/slug/t/e | /detalle/5/slug | /detalle/5/slug/t/e
 app.get(
-  ["/detalle/:slug", "/detalle/:slug/:season/:episode"],
+  [
+    "/detalle/:sourceId/:slug/:season/:episode",
+    "/detalle/:sourceId/:slug",
+    "/detalle/:slug/:season/:episode",
+    "/detalle/:slug",
+  ],
   (_req, res) => sendIndex(res)
 );
 app.get("/", (_req, res) => sendIndex(res));
+
+// SPA fallback: cualquier ruta no-API → index (evita Cannot GET al recargar)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  return sendIndex(res);
+});
 
 // ---------- Arranque ----------
 cargarDatosSupabase().catch(() => {});
