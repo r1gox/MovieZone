@@ -52,3 +52,57 @@ button.mz-anime-src {
   color: rgba(255, 255, 255, 0.88);
   flex: 1;
 }
+
+
+/* Anime AV1 — /4/home: Recientes + Recién agregados */
+.mz-av1-home-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  padding-bottom: 2rem;
+}
+.mz-av1-home-section {
+  width: 100%;
+}
+.mz-av1-home-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.85rem;
+  margin-bottom: 0.85rem;
+  padding: 0 2px;
+}
+.mz-av1-home-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f1f5f9;
+}
+.mz-av1-home-hint {
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+.mz-av1-home-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.85);
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+.mz-av1-home-grid {
+  width: 100%;
+}
+.mz-av1-home-empty {
+  margin: 0;
+  padding: 1rem;
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 0.9rem;
+}
+@media (max-width: 640px) {
+  .mz-av1-home-title { font-size: 1.05rem; }
+  .mz-av1-home-head { gap: 0.35rem 0.6rem; }
+}
