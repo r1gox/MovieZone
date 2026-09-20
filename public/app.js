@@ -1154,6 +1154,64 @@ function rellenarMetaDetalle(item) {
 
     const extra = document.getElementById("details-meta-extra");
     if (extra) extra.remove();
+
+    // —— Extra solo JKanime (API fuente 5) ——
+    (function fillJkExtra() {
+      let box = document.getElementById("details-jk-extra");
+      const genEl = document.getElementById("details-genres");
+      if (!box && genEl && genEl.parentNode) {
+        box = document.createElement("div");
+        box.id = "details-jk-extra";
+        box.className = "details-jk-extra";
+        genEl.parentNode.insertBefore(box, genEl.nextSibling);
+      }
+      if (!box) return;
+      const isJk = typeof esItemJk === "function" ? esItemJk(item) : (
+        String(item.source_id || "") === "5" || /jkanime/i.test(String(item.fuente || item.source || ""))
+      );
+      if (!isJk) {
+        box.innerHTML = "";
+        box.classList.add("hidden");
+        return;
+      }
+      box.classList.remove("hidden");
+      const rows = [];
+      function addRow(label, val) {
+        if (val == null || val === "") return;
+        if (Array.isArray(val)) {
+          val = val.filter(Boolean).join(", ");
+          if (!val) return;
+        }
+        rows.push(
+          '<div class="details-jk-row"><span class="details-jk-label">' +
+          escapeHtml(label) +
+          '</span><span class="details-jk-val">' +
+          escapeHtml(String(val)) +
+          "</span></div>"
+        );
+      }
+      const studios = item.studios || item.studio;
+      addRow("Studios", Array.isArray(studios) ? studios.join(", ") : studios);
+      addRow("Temporada", item.temporada_anime || item.temporada);
+      addRow("Demografía", item.demografia);
+      addRow("Idiomas", item.idiomas);
+      addRow("Calidad", item.calidad);
+      const alts = item.titulos_alternativos;
+      if (alts && typeof alts === "object") {
+        if (alts.sinonimos) addRow("Sinónimos", alts.sinonimos);
+        if (alts.ingles) addRow("Inglés", alts.ingles);
+        if (alts.japones) addRow("Japonés", alts.japones);
+      }
+      if (item.ultimo_episodio) {
+        let ue = item.ultimo_episodio;
+        addRow("Último episodio", ue);
+      }
+      if (item.proximo_episodio) addRow("Próximo episodio", item.proximo_episodio);
+      if (item.fecha_estreno_texto) addRow("Emitido", item.fecha_estreno_texto);
+      box.innerHTML = rows.length
+        ? '<div class="details-jk-extra-inner">' + rows.join("") + "</div>"
+        : "";
+    })();
 }
 
 
@@ -1183,6 +1241,14 @@ let gridModo = "categoria"; // categoria | search | favoritos
 let gridSeccion = "movie";
 /** Fuente anime: "av1" | "jk" */
 let animeFuente = "av1";
+
+/** JKanime: source_id 5 / fuente jkanime — sección propia, no mezclar con AV1 */
+function esItemJk(i) {
+  if (!i) return false;
+  const s = String(i.source_id || i.fuente || i.source || "").toLowerCase();
+  const link = String(i.link || i.url || "").toLowerCase();
+  return s === "5" || s === "jkanime" || s === "jk" || link.indexOf("jkanime") !== -1 || /\/5\/(anime|serie)\//.test(link);
+}
 let gridTermino = "";
 let gridPage = 1;
 let gridCargando = false;
@@ -3861,20 +3927,21 @@ function aplicarFiltrosYOrden(lista) {
         const map = { movie: "Película", series: "Serie", anime: "Anime" };
         const wanted = map[gridTypeFilter] || gridTypeFilter;
         res = res.filter(i => {
+            const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
+            // Secciones propias: JK y AnimeAV1 no se mezclan
+            if (gridSeccion === "jk") return isJk;
+            if (gridSeccion === "anime" && isJk) return false;
+            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
+            if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
+
             const t = (i.tipo || "").toString();
             const tl = t.toLowerCase();
+            if (gridTypeFilter === "anime" && isJk) return false;
             if (t === wanted) return true;
             if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
             if (gridTypeFilter === "anime" && /anime|ova|ona|especial/i.test(tl)) return true;
             if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
             if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
-            if (gridSeccion === "jk") {
-              return String(i.source_id || "") === "5" || /jkanime/i.test(String(i.fuente || i.source || ""));
-            }
-            if (gridSeccion === "anime" && (String(i.source_id || "") === "5" || /jkanime/i.test(String(i.fuente || i.source || "")))) {
-              return false;
-            }
-            if (gridTypeFilter === "anime" && String(i.source_id || "") === "5" && gridSeccion !== "anime") return true;
             return false;
         });
     }
@@ -5086,6 +5153,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.year) item.year = completo.year;
                     if (completo.genero) item.genero = completo.genero;
                     if (completo.generos && completo.generos.length) item.generos = completo.generos;
+                    if (completo.studios) item.studios = completo.studios;
+                    if (completo.temporada_anime || completo.temporada) {
+                      item.temporada_anime = completo.temporada_anime || completo.temporada;
+                      item.temporada = completo.temporada || completo.temporada_anime;
+                    }
+                    if (completo.demografia) item.demografia = completo.demografia;
+                    if (completo.idiomas) item.idiomas = completo.idiomas;
+                    if (completo.titulos_alternativos) item.titulos_alternativos = completo.titulos_alternativos;
+                    if (completo.ultimo_episodio) item.ultimo_episodio = completo.ultimo_episodio;
+                    if (completo.ultimo_episodio_url) item.ultimo_episodio_url = completo.ultimo_episodio_url;
+                    if (completo.proximo_episodio) item.proximo_episodio = completo.proximo_episodio;
+                    if (completo.fecha_estreno_texto) item.fecha_estreno_texto = completo.fecha_estreno_texto;
+                    if (completo.calidad) item.calidad = completo.calidad;
                     if (completo.imdb) item.imdb = completo.imdb;
                     if (completo.votos) item.votos = completo.votos;
                     if (completo.duracion) item.duracion = completo.duracion;
