@@ -136,11 +136,15 @@ function parseIdentidad(input) {
     } catch (_) {}
   }
 
-  if (!kind && tipo) {
-    const t = String(tipo).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes("anime")) kind = "anime";
-    else if (t.includes("serie") || t === "tv") kind = "serie";
-    else kind = "pelicula";
+  // tipo del item gana: Película (films animeav1) no debe ir a /anime/
+  if (tipo) {
+    const t = String(tipo).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (/pelicul|movie|film/.test(t)) kind = "pelicula";
+    else if (!kind) {
+      if (t.includes("anime")) kind = "anime";
+      else if (t.includes("serie") || t === "tv") kind = "serie";
+      else kind = "pelicula";
+    }
   }
   if (!kind) kind = "pelicula";
 
@@ -936,7 +940,7 @@ async function asegurarPortada(item) {
   for (const sid of ["3", "1", "4"]) {
     for (const s of slugs) {
       try {
-        const k = sid === "4" && kind === "pelicula" ? "anime" : kind;
+        const k = kind; // no forzar anime en sid 4 si es película
         const det = await fetchDetailFromSource(sid, k, s, { slug: s });
         if (det && esPortadaValida(det.portada)) {
           item.portada = det.portada;
@@ -2864,8 +2868,14 @@ async function obtenerDetalleInterno(params) {
           ? mergeItems(best, candidate) // base = best (conserva tipo/nombre)
           : mergeItems(best, candidate)
         : candidate;
-      // Forzar tipo esperado
-      if (tipoEsp === "Serie" || tipoEsp === "Anime") best.tipo = tipoEsp;
+      // Forzar tipo esperado — excepto si la API dice Película (films de animeav1)
+      var candEsPeli = /pel[ií]cula|movie|film/i.test(String(candidate.tipo || candidate.formato || ""));
+      if (candEsPeli) {
+        best.tipo = "Película";
+        if (candidate.formato) best.formato = candidate.formato;
+      } else if (tipoEsp === "Serie" || tipoEsp === "Anime") {
+        best.tipo = tipoEsp;
+      }
       if (best && candidate.descripcion) {
         best.descripcion = elegirMejorDescripcion(best.descripcion, candidate.descripcion);
       }
