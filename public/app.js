@@ -21,13 +21,47 @@ function isKoiDesktop() {
 function isSerieOrAnime(item) {
   if (!item) return false;
   const t = String(item.tipo || item.type || "").toLowerCase();
+  // Película (anime film, OVA-movie, etc.) → NO es serie: detalle tipo película
+  if (/pel[ií]cula|movie|film/.test(t)) return false;
+  const f = String(item.formato || item.format || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(f) && !/serie|tv|dorama/.test(t)) return false;
   return /serie|anime|dorama|tv|ova|ona/.test(t);
+}
+
+/** true si el ítem debe abrirse como película (play + servers, sin temporadas) */
+function isPeliculaItem(item) {
+  if (!item) return false;
+  const t = String(item.tipo || item.type || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(t)) return true;
+  const f = String(item.formato || item.format || "").toLowerCase();
+  if (/pel[ií]cula|movie|film/.test(f)) return true;
+  // Root embeds + sin episodios → film (AV1 a veces manda tipo Anime + formato Pelicula)
+  const eps = item.episodios || item.episodes;
+  const hasEps = Array.isArray(eps) && eps.length > 0;
+  const hasTemps = Array.isArray(item.temporadas) && item.temporadas.length > 0;
+  const hasPlayers = (Array.isArray(item.embeds) && item.embeds.length > 0) || item.reproductor || item.tiene_player;
+  if (hasPlayers && !hasEps && !hasTemps) return true;
+  return false;
+}
+
+
+/** AnimeAV1 (source 4): rating de la fuente → mostrar como MAL (azul) */
+function isRatingMalFuente(item) {
+  if (!item) return false;
+  const src = String(item.rating_source || "").toLowerCase();
+  if (src && src !== "fuente" && src !== "mal" && src !== "source") return false;
+  // Si no hay rating_source, no forzar MAL salvo que sea claramente fuente
+  if (!src) return false;
+  const sid = String(item.source_id || item.fuente || item.source || "").toLowerCase();
+  if (sid === "4" || sid === "animeav1" || /animeav1/.test(sid)) return true;
+  const t = String(item.tipo || item.type || "").toLowerCase();
+  return /anime/.test(t) && (sid === "4" || sid === "animeav1");
 }
 
 /** Activa/desactiva el layout Koiflix en body */
 function setKoiMode(item) {
-  const esPeliMode = !!(item && /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")));
-  const esSA = isSerieOrAnime(item);
+  const esPeliMode = !!(item && (typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))));
+  const esSA = !esPeliMode && isSerieOrAnime(item);
   // PC y móvil: películas, series y animes usan el hero
   const on = !!(item && (esSA || esPeliMode));
   // mobile-fixes.css requiere body.koi-desktop también en móvil
@@ -96,7 +130,18 @@ function bindKoiBackBtn() {
   if (!btn || btn.dataset.koiBound) return;
   btn.dataset.koiBound = "1";
   btn.addEventListener("click", () => {
-    // Si está en player → volver al detalle (hero + episodios)
+    const path = location.pathname || "";
+    // Episodio /detalle/…/t/e → cerrar player + atrás a ficha
+    if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(path)) {
+      try {
+        if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode();
+        else history.back();
+      } catch (_) {
+        try { history.back(); } catch (__) {}
+      }
+      return;
+    }
+    // Player abierto sin URL de episodio
     if (document.body.classList.contains("player-open")) {
       document.body.classList.remove("player-open");
       try {
@@ -106,14 +151,17 @@ function bindKoiBackBtn() {
         document.getElementById("servers-section")?.classList.add("hidden");
         setKoiPlayerEpisodeTitle("");
       } catch (_) {}
-      // Scroll al hero / episodios
       try {
         document.getElementById("koi-hero")?.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (_) {}
       return;
     }
-    // Si está en detalle → cerrar panel
-    try { cerrarDetalle(); } catch (_) {}
+    // Ficha /detalle/… → cerrar detalle (más fiable que history.back en SPA)
+    if (/^\/detalle\//i.test(path)) {
+      try { cerrarDetalle(false); } catch (_) {}
+      return;
+    }
+    try { cerrarDetalle(false); } catch (_) {}
   });
 }
 
@@ -152,8 +200,11 @@ function langLabel(item) {
  */
 function fillKoiHero(item) {
     if (!item) return;
-    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
-    const esSA = isSerieOrAnime(item);
+    // formato Pelicula + tipo Anime (films AV1) cuenta como película
+    const esPeli = typeof isPeliculaItem === "function"
+      ? isPeliculaItem(item)
+      : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
+    const esSA = !esPeli && isSerieOrAnime(item);
     if (!esPeli && !esSA) return;
     // PC: series/anime/peli. Móvil: solo películas (hero + REPRODUCIR)
   //  if (!isKoiDesktop() && !esPeli) return;
@@ -239,41 +290,72 @@ function fillKoiHero(item) {
       if (lang) push('<span class="koi-meta-lang">' + lang + "</span>");
     }
 
-    // Año
+    // Año y/o fecha (no repetir 1999 y 20/10/1999)
     const year = item.year || item.anio || (item.fecha_estreno ? String(item.fecha_estreno).slice(0, 4) : "");
-    if (year) push("<span>" + year + "</span>");
-
-    // Fecha estreno dd/mm/yyyy
+    let releaseLabel = null;
     if (item.fecha_estreno) {
       const f = String(item.fecha_estreno).slice(0, 10);
-      let releaseLabel = null;
       if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
         const [yy, mm, dd] = f.split("-");
         releaseLabel = dd + "/" + mm + "/" + yy;
       } else if (f && f !== String(year)) {
         releaseLabel = f;
       }
-      if (releaseLabel) push("<span>" + releaseLabel + "</span>");
+    }
+    if (releaseLabel) {
+      push("<span>" + releaseLabel + "</span>");
+    } else if (year) {
+      push("<span>" + year + "</span>");
     }
 
-    // IMDb rating
+    // Rating: IMDb / MAL (fuente animeav1) / genérico
     let scoreLabel = "";
+    let scoreIsImdb = false;
+    let scoreIsMal = false;
     if (typeof ratingInfo === "function") {
       const r = ratingInfo(item);
-      if (r && r.value) scoreLabel = r.label;
-    } else if (item.imdb && item.imdb.rating) {
+      if (r && r.value != null && !isNaN(Number(r.value))) {
+        scoreLabel = Number(r.value).toFixed(1);
+        scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+        scoreIsMal = r.source === "mal";
+      } else if (r && r.label && !isNaN(Number(String(r.label).replace(/[^0-9.]/g, "")))) {
+        scoreLabel = Number(String(r.label).replace(/[^0-9.]/g, "")).toFixed(1);
+        scoreIsImdb = r.source === "imdb" || r.source === "omdb";
+        scoreIsMal = r.source === "mal";
+      }
+    } else if (item.imdb && item.imdb.rating != null) {
       scoreLabel = Number(item.imdb.rating).toFixed(1);
+      scoreIsImdb = true;
     } else if (item.calificacion != null && item.calificacion !== "") {
       scoreLabel = Number(item.calificacion).toFixed(1);
+      scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
+      scoreIsMal = typeof isRatingMalFuente === "function" && isRatingMalFuente(item);
     } else if (item.rating != null && item.rating !== "") {
       scoreLabel = Number(item.rating).toFixed(1);
+      scoreIsImdb = /imdb|omdb/i.test(String(item.rating_source || ""));
+      scoreIsMal = typeof isRatingMalFuente === "function" && isRatingMalFuente(item);
     }
+    if (/imdb|omdb/i.test(String(item.rating_source || ""))) scoreIsImdb = true;
+    if (!scoreIsImdb && typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) scoreIsMal = true;
     if (scoreLabel && !isNaN(Number(scoreLabel))) {
-      push(
-        '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
-          '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
-          '<span class="koi-imdb-tag">IMDb</span></span>'
-      );
+      if (scoreIsImdb) {
+        push(
+          '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
+            '<span class="koi-imdb-tag"> IMDb</span></span>'
+        );
+      } else if (scoreIsMal) {
+        push(
+          '<span class="koi-imdb-inline koi-mal-inline" title="MAL ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
+            '<span class="koi-mal-tag"> MAL</span></span>'
+        );
+      } else {
+        push(
+          '<span class="koi-imdb-inline koi-score-only" title="Rating ' + scoreLabel + '">' +
+            '<span class="koi-imdb-score">' + scoreLabel + "</span></span>"
+        );
+      }
     }
 
     // Duración
@@ -294,22 +376,15 @@ function fillKoiHero(item) {
     const cert = item.certificacion || (item.imdb && item.imdb.certificacion) || null;
     if (cert) push("<span>" + String(cert) + "</span>");
 
-    // Estado: En emisión / Finalizado
-    let statusLabel = null;
-    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
-      statusLabel = "Finalizado";
-    } else if (
-      item.en_emision === true ||
-      /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))
-    ) {
-      statusLabel = "En emisión";
-    } else if (item.estado) {
-      statusLabel = String(item.estado);
-    }
+    // Estado: En emisión / Finalizado (Continuing, ended, Concluido…)
+    const _stK = typeof mzNormEstado === "function" ? mzNormEstado(item) : null;
+    let statusLabel = _stK ? _stK.label : null;
+    if (!statusLabel && item.estado) statusLabel = String(item.estado);
     if (statusLabel) {
+      const kind = (_stK && _stK.kind) || (/emis|continuing|airing/i.test(statusLabel) ? "air" : "end");
       push(
         '<span class="koi-meta-status' +
-          (/emis/i.test(statusLabel) ? " koi-meta-air" : " koi-meta-end") +
+          (kind === "air" ? " koi-meta-air" : kind === "end" ? " koi-meta-end" : "") +
           '">' +
           statusLabel +
           "</span>"
@@ -353,7 +428,7 @@ function fillKoiHero(item) {
 
   const playText = document.getElementById("koi-btn-play-text");
   if (playText) {
-    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+    const esPeli = typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
     playText.textContent = esPeli ? "REPRODUCIR" : firstEpisodeLabel(item);
   }
 
@@ -396,8 +471,15 @@ function bindKoiHeroControls(handlers = {}) {
     bookmarkBtn.dataset.koiBound = "1";
     bookmarkBtn.addEventListener("click", () => {
       const fav = document.getElementById("btn-favorito");
-      if (fav) fav.click();
-      else if (typeof handlers.onBookmark === "function") handlers.onBookmark();
+      if (fav) {
+        fav.click();
+        try { actualizarBotonFavorito(); } catch (_) {}
+      } else if (typeof handlers !== "undefined" && typeof handlers.onBookmark === "function") {
+        handlers.onBookmark();
+      } else {
+        const h = window.__mzKoiHandlers || {};
+        if (typeof h.onBookmark === "function") h.onBookmark();
+      }
     });
   }
 
@@ -940,8 +1022,21 @@ function ratingInfo(item) {
       primary = { label: main.toFixed(1), value: main, source: "tmdb" };
     } else if (tmdbR != null && !isNaN(tmdbR) && tmdbR > 0) {
       primary = { label: tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
+    } else if (srcApi === "fuente" || srcApi === "mal" || srcApi === "source") {
+      if (main != null && !isNaN(main) && main > 0) {
+        primary = {
+          label: main.toFixed(1),
+          value: main,
+          source: (typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) ? "mal" : "fuente"
+        };
+      } else {
+        primary = { label: "—", value: null, source: null };
+      }
     } else if (main != null && !isNaN(main) && main > 0) {
-      primary = { label: main.toFixed(1), value: main, source: "fuente" };
+      var sid4 = String(item.source_id || item.fuente || "").toLowerCase();
+      var asMal = (sid4 === "4" || sid4 === "animeav1" || /animeav1/.test(sid4)) &&
+        !/imdb|omdb|tmdb/i.test(srcApi);
+      primary = { label: main.toFixed(1), value: main, source: asMal ? "mal" : "fuente" };
     } else {
       primary = { label: "—", value: null, source: null };
     }
@@ -955,20 +1050,47 @@ function ratingBadgeHtml(item) {
         return '<div class="rating-badge rating-empty" title="Sin rating"><span class="rating-main">—</span></div>';
     }
     const srcClass = r.source ? (" rating-src-" + r.source) : "";
-    const title = (r.source === "imdb" || r.source === "omdb" || !r.source)
+    const isImdb = r.source === "imdb" || r.source === "omdb";
+    const isMal = r.source === "mal";
+    const title = isImdb
       ? ("IMDb " + r.label)
-      : (String(r.source).toUpperCase() + " " + r.label);
-    // Mismo look para películas, series y anime (placa tipo Stremio)
+      : (isMal ? ("MAL " + r.label) : (r.source ? (String(r.source).toUpperCase() + " " + r.label) : ("Rating " + r.label)));
+    const mark = isImdb
+      ? '<span class="imdb-mark">IMDb</span>'
+      : (isMal ? '<span class="mal-mark">MAL</span>' : '');
     return (
         '<div class="rating-badge rating-imdb-logo' + srcClass + '" title="' + escapeHtml(title) + '">' +
         '<span class="rating-main">' + escapeHtml(r.label) + "</span>" +
-        '<span class="imdb-mark">IMDb</span>' +
+        mark +
         "</div>"
     );
 }
 
 
 /** Rellena meta del panel de detalle (rating IMDb preferido, géneros, duración, cert, votos, título original) */
+
+/** Normaliza estado API (Continuing, ended, Concluido…) → etiqueta ES + clase */
+function mzNormEstado(item) {
+  if (!item) return { label: null, kind: null };
+  const raw = String(item.estado || item.status || "").trim();
+  const low = raw.toLowerCase();
+  const fin =
+    item.finalizado === true ||
+    /^(ended|finalizado|concluido|completed?|finished|cancel+ed)$/i.test(raw) ||
+    /final|ended|complet|conclu|finished|cancel/i.test(low);
+  const air =
+    item.en_emision === true ||
+    /^(continuing|returning series|airing|ongoing|en emisi[oó]n|en curso|returning)$/i.test(raw) ||
+    /emisi|airing|ongoing|continuing|returning|en curso/i.test(low);
+  if (fin && !air) return { label: "Finalizado", kind: "end" };
+  if (air) return { label: "En emisión", kind: "air" };
+  // Si solo dice "Concluido" etc.
+  if (/concluido|finalizado|ended/i.test(raw)) return { label: "Finalizado", kind: "end" };
+  if (/continuing|emisi/i.test(raw)) return { label: "En emisión", kind: "air" };
+  if (raw) return { label: raw, kind: "other" };
+  return { label: null, kind: null };
+}
+
 function rellenarMetaDetalle(item) {
     if (!item) return;
 
@@ -1050,27 +1172,33 @@ function rellenarMetaDetalle(item) {
         else votosWrap.classList.add("hidden");
     }
 
-    // Estado: En emisión / Finalizado (series, anime; también si la API trae estado)
+    // Estado: En emisión / Finalizado (normaliza Continuing, ended, Concluido…)
     const statusEl = document.getElementById("details-status");
     const statusWrap = document.getElementById("details-status-wrap");
-    let statusLabel = null;
     const tipoLow = String(item.tipo || "").toLowerCase();
     const esSerieTipo = /serie|anime|dorama|tv/.test(tipoLow);
-    if (item.finalizado === true || /final|ended|complet/i.test(String(item.estado || ""))) {
-        statusLabel = "Finalizado";
-    } else if (item.en_emision === true || /emisi[oó]n|airing|ongoing|returning/i.test(String(item.estado || ""))) {
-        statusLabel = "En emisión";
-    } else if (item.estado) {
-        statusLabel = String(item.estado);
+    const st = typeof mzNormEstado === "function" ? mzNormEstado(item) : { label: item.estado || null, kind: null };
+    let statusLabel = st.label;
+    // Películas: solo si es etiqueta clara
+    if (!esSerieTipo && statusLabel && st.kind === "other") {
+      statusLabel = null;
     }
-    // En películas solo mostrar si hay estado claro; en series/anime siempre si hay dato
-    if (!esSerieTipo && statusLabel && statusLabel !== "Finalizado" && statusLabel !== "En emisión") {
-        // películas raramente tienen "en emisión"; mantener si viene de API
+    if (statusEl) {
+        statusEl.textContent = statusLabel || "";
+        statusEl.classList.remove("mz-status-air", "mz-status-end", "mz-status-other");
+        if (st.kind === "air") statusEl.classList.add("mz-status-air");
+        else if (st.kind === "end") statusEl.classList.add("mz-status-end");
+        else if (statusLabel) statusEl.classList.add("mz-status-other");
     }
-    if (statusEl) statusEl.textContent = statusLabel || "—";
     if (statusWrap) {
-        if (statusLabel) statusWrap.classList.remove("hidden");
-        else statusWrap.classList.add("hidden");
+        statusWrap.classList.remove("mz-status-air", "mz-status-end", "mz-status-other", "is-air", "is-end", "hidden");
+        if (statusLabel) {
+            if (st.kind === "air") statusWrap.classList.add("mz-status-air", "is-air");
+            else if (st.kind === "end") statusWrap.classList.add("mz-status-end", "is-end");
+            else statusWrap.classList.add("mz-status-other");
+        } else {
+            statusWrap.classList.add("hidden");
+        }
     }
 
     // Fecha de estreno (películas, series y anime)
@@ -1115,16 +1243,85 @@ function rellenarMetaDetalle(item) {
             seen[k] = true;
             generosEl.innerHTML += '<span class="genre-tag">' + escapeHtml(g) + "</span>";
         });
-        if (item.idiomas && item.idiomas.length) {
-            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.idiomas.join(", ")) + "</span>";
-        }
-        if (item.calidad && item.calidad.length) {
-            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.calidad.join(", ")) + "</span>";
-        }
+        // idiomas / calidad pueden venir string (JK) o array
+        (function () {
+          function asList(v) {
+            if (v == null || v === "") return "";
+            if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+            return String(v);
+          }
+          const idio = asList(item.idiomas);
+          if (idio) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(idio) + "</span>";
+          }
+          const cal = asList(item.calidad);
+          if (cal) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(cal) + "</span>";
+          }
+        })();
     }
 
     const extra = document.getElementById("details-meta-extra");
     if (extra) extra.remove();
+
+    // —— Extra solo JKanime (API fuente 5) ——
+    (function fillJkExtra() {
+      let box = document.getElementById("details-jk-extra");
+      const genEl = document.getElementById("details-genres");
+      if (!box && genEl && genEl.parentNode) {
+        box = document.createElement("div");
+        box.id = "details-jk-extra";
+        box.className = "details-jk-extra";
+        genEl.parentNode.insertBefore(box, genEl.nextSibling);
+      }
+      if (!box) return;
+      const isJk = (typeof esItemJk === "function" && esItemJk(item)) ||
+        String(item.source_id || "") === "5" ||
+        /jkanime/i.test(String(item.fuente || item.source || "")) ||
+        /jkanime\.net/i.test(String(item.link || item.url || ""));
+      if (!isJk) {
+        box.innerHTML = "";
+        box.classList.add("hidden");
+        return;
+      }
+      box.classList.remove("hidden");
+      const rows = [];
+      function addRow(label, val) {
+        if (val == null || val === "") return;
+        if (Array.isArray(val)) {
+          val = val.filter(Boolean).join(", ");
+          if (!val) return;
+        }
+        rows.push(
+          '<div class="details-jk-row"><span class="details-jk-label">' +
+          escapeHtml(label) +
+          '</span><span class="details-jk-val">' +
+          escapeHtml(String(val)) +
+          "</span></div>"
+        );
+      }
+      // Solo JKanime (ya filtrado arriba con isJk)
+      const studios = item.studios || item.studio;
+      addRow("Studios", Array.isArray(studios) ? studios.join(", ") : studios);
+      addRow("Temporada anime", item.temporada_anime || null);
+      addRow("Demografía", item.demografia);
+      addRow("Idiomas", item.idiomas);
+      addRow("Calidad", item.calidad);
+      addRow("Duración", item.duracion_texto);
+      addRow("Estado", item.estado);
+      const alts = item.titulos_alternativos;
+      if (alts && typeof alts === "object") {
+        if (alts.sinonimos) addRow("Sinónimos", alts.sinonimos);
+        if (alts.ingles) addRow("Inglés", alts.ingles);
+        if (alts.japones) addRow("Japonés", alts.japones);
+      }
+      if (item.ultimo_episodio) addRow("Último episodio", item.ultimo_episodio);
+      if (item.proximo_episodio) addRow("Próximo episodio", item.proximo_episodio);
+      if (item.fecha_estreno_texto) addRow("Emitido", item.fecha_estreno_texto);
+      box.innerHTML = rows.length
+        ? '<div class="details-jk-extra-inner">' + rows.join("") + "</div>"
+        : "";
+    })();
 }
 
 
@@ -1152,6 +1349,16 @@ let seleccionActual = null;
 let vistaActual = "home"; // home | grid
 let gridModo = "categoria"; // categoria | search | favoritos
 let gridSeccion = "movie";
+/** Fuente anime: "av1" | "jk" */
+let animeFuente = "av1";
+
+/** JKanime: source_id 5 / fuente jkanime — sección propia, no mezclar con AV1 */
+function esItemJk(i) {
+  if (!i) return false;
+  const s = String(i.source_id || i.fuente || i.source || "").toLowerCase();
+  const link = String(i.link || i.url || "").toLowerCase();
+  return s === "5" || s === "jkanime" || s === "jk" || link.indexOf("jkanime") !== -1 || /\/5\/(anime|serie)\//.test(link);
+}
 let gridTermino = "";
 let gridPage = 1;
 let gridCargando = false;
@@ -1172,19 +1379,59 @@ function obtenerFavoritos() {
 function guardarFavoritos(lista) {
     localStorage.setItem(pk("favoritos"), JSON.stringify(lista || []));
 }
-function esFavorito(link) {
-    return obtenerFavoritos().some(f => f.link === link);
+function mzFavKey(item) {
+    if (!item) return "";
+    if (item.link) return "link:" + String(item.link);
+    const sid = item.source_id != null ? String(item.source_id) : "";
+    const slug = item.slug ? String(item.slug) : "";
+    if (sid && slug) return "ss:" + sid + "/" + slug;
+    if (slug) return "slug:" + slug;
+    return "n:" + String(item.nombre || item.titulo || "");
+}
+function esFavorito(linkOrItem) {
+    const favs = obtenerFavoritos();
+    if (linkOrItem && typeof linkOrItem === "object") {
+      const k = mzFavKey(linkOrItem);
+      if (favs.some(function (f) { return mzFavKey(f) === k; })) return true;
+      // Mismo título aunque cambie el link al abrir detalle
+      const slug = linkOrItem.slug ? String(linkOrItem.slug) : "";
+      const sid = linkOrItem.source_id != null ? String(linkOrItem.source_id) : "";
+      if (slug) {
+        return favs.some(function (f) {
+          if (!f) return false;
+          if (f.slug && String(f.slug) === slug) {
+            if (!sid || !f.source_id) return true;
+            return String(f.source_id) === sid;
+          }
+          return false;
+        });
+      }
+      return false;
+    }
+    const link = linkOrItem;
+    return favs.some(function (f) { return f && f.link && f.link === link; });
 }
 function toggleFavoritoItem(item) {
+    if (!item) return false;
     let favoritos = obtenerFavoritos();
-    const existe = favoritos.findIndex(f => f.link === item.link);
+    const k = mzFavKey(item);
+    const existe = favoritos.findIndex(function (f) { return mzFavKey(f) === k; });
     if (existe >= 0) {
         favoritos.splice(existe, 1);
     } else {
-        favoritos.unshift(item);
+        // Guardar copia ligera
+        favoritos.unshift({
+          link: item.link || null,
+          slug: item.slug || null,
+          source_id: item.source_id != null ? String(item.source_id) : null,
+          nombre: item.nombre || item.titulo || "",
+          portada: item.portada || null,
+          tipo: item.tipo || null,
+          year: item.year || null,
+        });
     }
     guardarFavoritos(favoritos);
-    return existe < 0; // true si quedó agregado
+    return existe < 0;
 }
 
 // ======================================================
@@ -1199,21 +1446,33 @@ function escapeHtml(texto) {
         .replaceAll("'", "&#039;");
 }
 
-function tipoLabel(tipo, categoria) {
-    // Si es Anime pero categoria trae el sub-tipo real (jkanime: Pelicula/OVA/
-    // Especial/ONA), mostrar eso en vez de "Anime" genérico. No cambia sección.
-    if (tipo === "Anime" && categoria) {
-        const c = String(categoria).trim().toLowerCase();
-        if (c && c !== "anime") {
-            if (/pelicul|movie/.test(c)) return "Película";
-            if (/ova/.test(c)) return "OVA";
-            if (/especial|special/.test(c)) return "Especial";
-            if (/ona/.test(c)) return "ONA";
-        }
-    }
+function tipoLabel(tipo) {
     if (tipo === "Serie") return "Serie";
     if (tipo === "Anime") return "Anime";
+    if (/ova/i.test(String(tipo || ""))) return "OVA";
+    if (/ona/i.test(String(tipo || ""))) return "ONA";
+    if (/especial|special/i.test(String(tipo || ""))) return "Especial";
     return "Película";
+}
+
+/** Badge del listado: usa type/tipo de la API tal cual (Película, Anime, OVA, ONA…) */
+function tipoBadgeLabel(item) {
+    if (!item) return "Anime";
+    const raw = String(item.tipo || item.type || item.formato || item.format || "").trim();
+    if (!raw) {
+      // fallback por source anime
+      if (String(item.source_id || "") === "4" || String(item.source_id || "") === "5") return "Anime";
+      return "Película";
+    }
+    if (/^ova$/i.test(raw) || /\bova\b/i.test(raw)) return "OVA";
+    if (/^ona$/i.test(raw) || /\bona\b/i.test(raw)) return "ONA";
+    if (/especial|special/i.test(raw)) return "Especial";
+    if (/pel[ií]cula|movie|film/i.test(raw)) return "Película";
+    if (/serie|dorama|tv/i.test(raw) && !/anime/i.test(raw)) return "Serie";
+    if (/anime/i.test(raw)) return "Anime";
+    // Cualquier otro valor de la API (ej. "TV", "Movie")
+    if (/^tv$/i.test(raw)) return "Anime";
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 const REPRODUCTORES_PERMITIDOS = [
@@ -1443,9 +1702,13 @@ function ordenarEmbedsAuto(embeds) {
 }
 
 function esSerieOAnimeItem(item) {
-  const t = String(item?.tipo || "").toLowerCase();
-  return t === "serie" || t === "anime" || /serie|anime|dorama/.test(t);
+  if (!item) return false;
+  if (typeof isPeliculaItem === "function" && isPeliculaItem(item)) return false;
+  return typeof isSerieOrAnime === "function"
+    ? isSerieOrAnime(item)
+    : /serie|anime|dorama/i.test(String(item.tipo || item.type || ""));
 }
+
 
 function actualizarBotonesEpPlayer() {
   const wrap = document.getElementById("mz-ep-controls");
@@ -2475,6 +2738,10 @@ function salirVistaMovilEpisodio() {
 
 
 function volverDesdeEpisodioMovil() {
+  try {
+    if (typeof window.mzKoiCloseEpisodeSilent === "function") window.mzKoiCloseEpisodeSilent();
+    else if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode({ skipHistory: true });
+  } catch (_) {}
   const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
   try {
     const ifr = document.getElementById("player-iframe");
@@ -2494,8 +2761,15 @@ function volverDesdeEpisodioMovil() {
 
 
   try {
-    if (item && typeof mzReplaceDetalleUrl === "function") mzReplaceDetalleUrl(item);
-    else if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
+    // replaceState a la ficha (sin apilar ni exigir muchos "atrás")
+    if (item && typeof mzReplaceDetalleUrl === "function") {
+      mzReplaceDetalleUrl(item);
+    } else if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(location.pathname || "")) {
+      var p = location.pathname.replace(/\/\d+\/\d+\/?$/, "");
+      history.replaceState({ mz: "detalle", season: null, episode: null }, "", p);
+    } else if (item && typeof mzPushDetalleUrl === "function") {
+      mzPushDetalleUrl(item);
+    }
   } catch (_) {}
 
   if (item && typeof renderTemporadas === "function") {
@@ -2512,6 +2786,29 @@ function volverDesdeEpisodioMovil() {
 }
 
 /** PEGAR en app.js: reemplaza TODA la función reproducirCapituloAuto existente */
+
+/** Anime JK (source 5): ir directo a JKPlayer, sin lista de servidores */
+function esAnimeJk(item) {
+  if (!item) return false;
+  const s = String(item.source_id || item.fuente || item.source || "");
+  return s === "5" || /jkanime|^jk$/i.test(s);
+}
+
+function pickJkPlayer(embeds) {
+  const list = Array.isArray(embeds) ? embeds : [];
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (!e) continue;
+    const blob = String((e.server || "") + " " + (e.tipo || "") + " " + (e.name || "") + " " + (e.servidor || "") + " " + (e.url || "") + " " + (e.embed || "")).toLowerCase();
+    if (blob.indexOf("jkplayer") !== -1 || /jkanime\.net\/jkplayer/i.test(blob)) return e;
+  }
+  for (let j = 0; j < list.length; j++) {
+    const e2 = list[j];
+    if (e2 && e2.url && /jkanime\.net/i.test(String(e2.url))) return e2;
+  }
+  return list[0] || null;
+}
+
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   // PC (≥1025) + serie/anime/dorama → vista tipo Koiflix SIN auto-reproducir
   const pc =
@@ -2529,6 +2826,19 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       } catch (e) {
         console.error("mzKoiOpenEpisode:", e);
       }
+      // JK: al abrir episodio, ir directo a JKPlayer
+      if (esAnimeJk(item)) {
+        try {
+          const packJk = await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum);
+          const jk = pickJkPlayer(packJk.embeds || []);
+          if (jk && typeof reproducir === "function") {
+            await reproducir(jk, item);
+            return true;
+          }
+        } catch (eJk) {
+          console.warn("JK auto koi", eJk);
+        }
+      }
       return false;
     }
   }
@@ -2538,6 +2848,20 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   let embeds = ordenarEmbedsAuto(pack.embeds || []);
   const conNoAds = insertarNoAdsEnLista(embeds);
   embeds = ordenarEmbedsAuto(conNoAds);
+
+  // JK: primer intento siempre JKPlayer
+  if (esAnimeJk(item)) {
+    const jk = pickJkPlayer(embeds);
+    if (jk) {
+      try {
+        await reproducir(jk, item);
+        engancharEndedAutoplay();
+        return true;
+      } catch (eJk2) {
+        console.warn("JK auto", eJk2);
+      }
+    }
+  }
 
   _epPlayCtx = {
     item,
@@ -3751,8 +4075,22 @@ function aplicarFiltrosYOrden(lista) {
         const map = { movie: "Película", series: "Serie", anime: "Anime" };
         const wanted = map[gridTypeFilter] || gridTypeFilter;
         res = res.filter(i => {
+            const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
+            // Secciones propias: JK y AnimeAV1 no se mezclan
+            if (gridSeccion === "jk") return isJk;
+            if (gridSeccion === "anime" && isJk) return false;
+            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
+            if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
+
             const t = (i.tipo || "").toString();
-            return t === wanted || t.toLowerCase().includes(gridTypeFilter);
+            const tl = t.toLowerCase();
+            if (gridTypeFilter === "anime" && isJk) return false;
+            if (t === wanted) return true;
+            if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
+            if (gridTypeFilter === "anime" && /anime|ova|ona|especial/i.test(tl)) return true;
+            if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
+            if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
+            return false;
         });
     }
 
@@ -3771,13 +4109,37 @@ function aplicarFiltrosYOrden(lista) {
     return res;
 }
 
-function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
+function mostrarGrid({ modo, seccion, termino = "" }) {
     vistaActual = "grid";
     gridModo = modo;
+    // Búsqueda global: NO default a "movie" (eso filtraba todo y dejaba 0 de N)
+    if (modo === "search") {
+      seccion = seccion || "all";
+    } else {
+      seccion = seccion || "movie";
+    }
     gridSeccion = seccion;
     gridTermino = termino;
     gridPage = 1;
     gridSinMasResultados = false;
+    if (modo === "categoria") {
+      if (seccion === "jk") {
+        gridTypeFilter = "anime";
+        animeFuente = "jk";
+      } else if (seccion === "anime") {
+        gridTypeFilter = "anime";
+        animeFuente = "av1";
+      } else if (seccion === "movie" || seccion === "series") {
+        gridTypeFilter = seccion;
+      } else {
+        gridTypeFilter = "all";
+      }
+    } else if (modo === "search") {
+      if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
+      else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
+      else if (seccion === "series") gridTypeFilter = "series";
+      else gridTypeFilter = "all";
+    }
 
     // Si NO es búsqueda → ocultar “Buscar online”
     if (modo !== "search") {
@@ -3804,15 +4166,16 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
         resultsTitle.innerHTML = `<ion-icon name="heart" style="vertical-align:-3px;"></ion-icon> Mis Favoritos`;
         document.getElementById("filter-toolbar").classList.add("hidden");
     } else {
-        resultsTitle.textContent = seccion === "movie" ? "Películas" : seccion === "series" ? "Series" : "Anime";
+        resultsTitle.textContent = seccion === "movie" ? "Películas" : seccion === "series" ? "Series" : seccion === "jk" ? "JK Anime" : "Anime";
         document.getElementById("filter-toolbar").classList.remove("hidden");
-        const navMap = { movie: "nav-item-movies", series: "nav-item-series", anime: "nav-item-anime" };
+        const navMap = { movie: "nav-item-movies", series: "nav-item-series", anime: "nav-item-anime", jk: "nav-item-jk" };
         document.getElementById(navMap[seccion])?.classList.add("active");
     }
 
     resultsGrid.innerHTML = "";
     resultsEmpty.classList.add("hidden");
     scrollSentinel.classList.add("hidden");
+    try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     cargarPaginaGrid();
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -3821,7 +4184,11 @@ function mostrarGrid({ modo, seccion = "movie", termino = "" }) {
 // CARGA DE DATOS (conectado a tu server.js real)
 // ======================================================
 async function fetchSeccion(seccion, page, limit = LIMIT) {
-    const data = await getCatalog(seccion, page, limit);
+    // Anime = solo AnimeAV1. JK = sección propia (source 5).
+    let opts = {};
+    if (seccion === "anime") opts = { animeSource: "av1" };
+    else if (seccion === "jk") opts = { animeSource: "jk" };
+    const data = await getCatalog(seccion === "jk" ? "anime" : seccion, page, limit, opts);
     const lista = data.resultados || [];
 
     // Películas: 761 páginas del worker (1 = estrenos)
@@ -3842,12 +4209,28 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
+    // Anime section: chip Todo/AV1 → fuente 4; JK → fuente 5 (/5?q=)
+    // Búsqueda global: Todo = universal (sin forzar); JK = solo jkanime source 5
+    const enAnime = gridSeccion === "anime" || gridTypeFilter === "anime";
+    let animeOpts = {};
+    if (animeFuente === "jk") {
+      animeOpts = { animeSource: "jk" };
+    } else if (enAnime && animeFuente === "av1") {
+      animeOpts = { animeSource: "av1" };
+    }
+    // búsqueda global + "Todo" → sin animeOpts (API universal)
     let data;
     try {
-        data = await searchCatalog(termino, src, page, limit);
+        data = await searchCatalog(termino, src, page, limit, animeOpts);
     } catch (e) {
-        // Fallback directo al backend si el módulo falla
         const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
+        if (animeOpts.animeSource === "jk") {
+          q.set("anime_source", "jk");
+          q.set("source_id", "5");
+        } else if (animeOpts.animeSource === "av1") {
+          q.set("anime_source", "av1");
+          q.set("source_id", "4");
+        }
         const res = await fetch("/api/buscar?" + q.toString(), { cache: "no-store" });
         data = await res.json();
     }
@@ -4010,7 +4393,7 @@ function crearMediaCard(item) {
 
     const portada = item.portada || PLACEHOLDER;
     const nombre = item.nombre || item.titulo || "Sin título";
-    const tipo = tipoLabel(item.tipo, item.categoria);
+    const tipo = typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo);
     // Siempre mostrar calificación (0 si no tiene)
     const rating = ratingInfo(item).label;
     const tieneVideo = item.tiene_player === true || itemTieneVideo(item);
@@ -4171,7 +4554,7 @@ function pintarHero(item) {
     if (!item) return;
 
     // Solo tipo, sin "RECOMENDADA"
-    heroType.textContent = tipoLabel(item.tipo, item.categoria).toUpperCase();
+    heroType.textContent = (typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo)).toUpperCase();
 
     heroTitle.textContent = item.nombre || item.titulo || "Sin título";
 
@@ -4482,13 +4865,20 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
+    // Bloquear fuente del listado (JK=5 / AV1=4) para no cruzar al cargar detalle
+    try {
+      if (item && item.source_id != null) {
+        item.source_id = String(item.source_id);
+        window.__mzLockSourceId = String(item.source_id);
+      }
+    } catch (_) {}
     seleccionActual = item;
     try {
       if (typeof mzPushDetalleUrl === "function") {
         // No pisar /detalle/slug/t/e si ya estamos en un episodio de este título
         var keepEp = false;
         try {
-          var pm = location.pathname.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)/i);
+          var pm = location.pathname.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/(\d+)\/(\d+)/i);
           var sl = typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : (item && item.slug);
           if (pm && sl && decodeURIComponent(pm[1]) === sl) keepEp = true;
         } catch (_) {}
@@ -4524,7 +4914,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       setKoiMode(item);
       bindKoiHeroControls({
         onPlay: async () => {
-          const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+          const esPeli = typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
                     if (esPeli) {
             // PC y móvil: misma vista Koi
             try {
@@ -4608,7 +4998,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       __posterEl.classList.remove("mz-poster-hidden");
     }
     setDetalleLogo(item);
-    document.getElementById("details-type").textContent = tipoLabel(item.tipo, item.categoria);
+    document.getElementById("details-type").textContent = (typeof tipoBadgeLabel === "function" ? tipoBadgeLabel(item) : tipoLabel(item.tipo));
     document.getElementById("details-title").textContent = item.nombre || item.titulo || "Sin título";
     // backdrop + hero se pintan al terminar carga (abajo)
 
@@ -4662,7 +5052,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
     // También si el listado marcó "Sin servidores" (tiene_player !== true) para películas
     const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
-    const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+    const esSA =
+      !(typeof isPeliculaItem === "function" && isPeliculaItem(item)) &&
+      !( /pel[ií]cula|movie|film/i.test(String(item.tipo || item.formato || "")) ) &&
+      (item.tipo === "Serie" || item.tipo === "Anime");
 
     const _needsEnrich = faltaDescripcion || true; // se ajusta abajo
     // Series/anime no requieren embeds a nivel ficha (van por capítulo)
@@ -4699,7 +5092,28 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             if (item.postId) params.set("postId", item.postId);
             if (item.link) params.set("link", item.link);
             if (item.slug) params.set("slug", item.slug);
-            if (item.source_id) params.set("source_id", item.source_id);
+            // Fuente del listado (JK=5 / AV1=4) — no dejar que el backend cambie a 4
+            let sidDet = item.source_id != null ? String(item.source_id) : "";
+            try {
+              if (!sidDet && window.__mzLockSourceId) sidDet = String(window.__mzLockSourceId);
+              // /detalle/5/one-piece → 5
+              if (!sidDet) {
+                const pm = location.pathname.match(/^\/detalle\/(\d+)\//i);
+                if (pm) sidDet = pm[1];
+              }
+            } catch (_) {}
+            if (!sidDet && item.link) {
+              const m = String(item.link).match(/\/([45])\/(?:anime|serie)\//i);
+              if (m) sidDet = m[1];
+            }
+            if (!sidDet && item.url) {
+              const m = String(item.url).match(/\/([45])\/(?:anime|serie)\//i);
+              if (m) sidDet = m[1];
+            }
+            if (sidDet) {
+              params.set("source_id", sidDet);
+              item.source_id = sidDet;
+            }
             if (item.tipo) params.set("tipo", item.tipo);
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
@@ -4761,6 +5175,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         duracion: item.duracion,
                         duracion_texto: item.duracion_texto,
                         certificacion: item.certificacion,
+                        source_id: item.source_id,
+                        link: item.link,
+                        slug: item.slug,
                     };
                     if (Array.isArray(completo.embeds) && completo.embeds.length) {
                         item.embeds = completo.embeds;
@@ -4796,6 +5213,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     } else if (keepMeta.portada) {
                         item.portada = keepMeta.portada;
                     }
+                    // Mantener fuente del listado (JK no debe pasar a AV1)
+                    if (keepMeta.source_id || window.__mzLockSourceId) {
+                      item.source_id = String(keepMeta.source_id || window.__mzLockSourceId);
+                      if (item.slug && (item.source_id === "5" || item.source_id === "4")) {
+                        var kindL = (typeof isPeliculaItem === "function" && isPeliculaItem(item)) || /pel[ií]cula|movie|film/i.test(String(item.tipo || item.formato || ""))
+                          ? "pelicula"
+                          : "anime";
+                        item.link = "https://moviezone.tvjz.workers.dev/" + item.source_id + "/" + kindL + "/" + item.slug;
+                        item.fuente = item.source_id === "5" ? "jkanime" : (item.source_id === "4" ? "animeav1" : item.fuente);
+                      }
+                    }
                     // Descripción: si completo trae español mejor, usarla
                     if (completo.descripcion && String(completo.descripcion).length > 40) {
                         const esComp = /[áéíóúñ¿¡]/i.test(completo.descripcion) ||
@@ -4827,6 +5255,21 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 } else {
                     const keep = Object.assign({}, item);
                     Object.assign(item, completo);
+                    // Película API: tipo + players
+                    try {
+                      if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
+                        item.tipo = "Película";
+                        item.formato = completo.formato || "Pelicula";
+                        if (Array.isArray(completo.embeds) && completo.embeds.length) {
+                          item.embeds = completo.embeds;
+                          item.tiene_player = true;
+                        }
+                        if (completo.reproductor) item.reproductor = completo.reproductor;
+                        item.episodios = [];
+                        item.temporadas = [];
+                        item.temporadas_raw = null;
+                      }
+                    } catch (_) {}
                     // Restaurar campos que el detalle mandó vacíos
                     const fields = [
                         "nombre", "titulo", "titulo_original", "year", "calificacion", "rating",
@@ -4834,7 +5277,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "omdb", "portada", "backdrop",
                         "fecha_estreno", "estado", "en_emision", "finalizado",
                         "embeds", "downloads", "reproductor", "episodios", "temporadas", "temporadas_raw",
-                        "tiene_player", "link", "url_extract", "slug", "source_id"
+                        "tiene_player", "link", "url_extract", "slug", "source_id",
+                        "studios", "temporada_anime", "temporada", "demografia", "idiomas",
+                        "titulos_alternativos", "ultimo_episodio", "ultimo_episodio_url",
+                        "proximo_episodio", "fecha_estreno_texto", "calidad", "fuente"
                     ];
                     fields.forEach(function (f) {
                         const v = item[f];
@@ -4844,6 +5290,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         }
                     });
 
+                    // Fuente del listado (JK=5) nunca se pisa por AV1
+                    if (keep.source_id) {
+                      item.source_id = String(keep.source_id);
+                      if (keep.link) item.link = keep.link;
+                    }
                     // Portada del listado nunca se pisa
                     if (window.__mzPortadaLista) {
                       item.portada = window.__mzPortadaLista;
@@ -4882,6 +5333,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.year) item.year = completo.year;
                     if (completo.genero) item.genero = completo.genero;
                     if (completo.generos && completo.generos.length) item.generos = completo.generos;
+                    if (completo.studios) item.studios = completo.studios;
+                    if (completo.temporada_anime || completo.temporada) {
+                      item.temporada_anime = completo.temporada_anime || completo.temporada;
+                      item.temporada = completo.temporada || completo.temporada_anime;
+                    }
+                    if (completo.demografia) item.demografia = completo.demografia;
+                    if (completo.idiomas) item.idiomas = completo.idiomas;
+                    if (completo.titulos_alternativos) item.titulos_alternativos = completo.titulos_alternativos;
+                    if (completo.ultimo_episodio) item.ultimo_episodio = completo.ultimo_episodio;
+                    if (completo.ultimo_episodio_url) item.ultimo_episodio_url = completo.ultimo_episodio_url;
+                    if (completo.proximo_episodio) item.proximo_episodio = completo.proximo_episodio;
+                    if (completo.fecha_estreno_texto) item.fecha_estreno_texto = completo.fecha_estreno_texto;
+                    if (completo.calidad) item.calidad = completo.calidad;
                     if (completo.imdb) item.imdb = completo.imdb;
                     if (completo.votos) item.votos = completo.votos;
                     if (completo.duracion) item.duracion = completo.duracion;
@@ -4910,6 +5374,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 }
                 if (item.embeds && item.embeds.length) item.tiene_player = true;
                 seleccionActual = item;
+                try { actualizarBotonFavorito(); } catch (_) {}
 
                 // Portada del listado SIEMPRE (aunque la API traiga otra)
                 if (window.__mzPortadaLista) {
@@ -4996,13 +5461,14 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
 
-    const esSerieOAnime =
-      item.tipo === "Serie" ||
-      item.tipo === "Anime" ||
-      (typeof isSerieOrAnime === "function" && isSerieOrAnime(item));
     const esPeli =
-      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || "")) ||
-      (!esSerieOAnime && !item.episodios);
+      (typeof isPeliculaItem === "function" && isPeliculaItem(item)) ||
+      /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
+    const esSerieOAnime =
+      !esPeli &&
+      (item.tipo === "Serie" ||
+        item.tipo === "Anime" ||
+        (typeof isSerieOrAnime === "function" && isSerieOrAnime(item)));
 
     const seasonsEl = document.getElementById("seasons-section");
     const serversEl = document.getElementById("servers-section");
@@ -5157,9 +5623,11 @@ function setDetalleImdb(item) {
 
   const ri = typeof ratingInfo === "function" ? ratingInfo(item) : null;
   let score = null;
-  if (ri && (ri.source === "imdb" || ri.source === "omdb") && ri.value != null) score = ri.value;
+  // Mostrar rating de cualquier fuente (fuente/JK/TMDB/IMDb), sin exigir IMDb
+  if (ri && ri.value != null && !isNaN(Number(ri.value))) score = Number(ri.value);
   else if (item.imdb && item.imdb.rating != null) score = Number(item.imdb.rating);
-  else if (item.rating != null && /imdb/i.test(String(item.rating_source || ""))) score = Number(item.rating);
+  else if (item.calificacion != null && item.calificacion !== "") score = Number(item.calificacion);
+  else if (item.rating != null && item.rating !== "") score = Number(item.rating);
 
   const okScore = score != null && !isNaN(score) && score > 0;
   const okId = !!imdbId;
@@ -5187,16 +5655,36 @@ function setDetalleImdb(item) {
 function actualizarBotonFavorito() {
     const btn = document.getElementById("btn-favorito");
     const icon = document.getElementById("btn-favorito-icon");
-    if (!seleccionActual) return;
-    const activo = esFavorito(seleccionActual.link);
-    icon.setAttribute("name", activo ? "heart" : "heart-outline");
-    btn.style.color = activo ? "#e50914" : "";
+    const koiBm = document.getElementById("koi-btn-bookmark");
+    const koiIcon = document.getElementById("koi-btn-bookmark-icon");
+    if (!btn && !koiBm) return;
+    const activo = seleccionActual ? esFavorito(seleccionActual) : false;
+    // Bookmark (no corazón): se rellena al activar y se despinta al quitar
+    if (btn) {
+      if (icon) icon.setAttribute("name", activo ? "bookmark" : "bookmark-outline");
+      btn.style.color = activo ? "#e50914" : "";
+      btn.classList.toggle("is-fav", !!activo);
+      btn.setAttribute("aria-pressed", activo ? "true" : "false");
+      btn.title = activo ? "Quitar de favoritos" : "Agregar a favoritos";
+    }
+    if (koiBm) {
+      koiBm.classList.toggle("is-fav", !!activo);
+      koiBm.style.color = activo ? "#e50914" : "";
+      const ki = koiIcon || koiBm.querySelector("ion-icon");
+      if (ki) ki.setAttribute("name", activo ? "bookmark" : "bookmark-outline");
+    }
 }
-document.getElementById("btn-favorito").addEventListener("click", () => {
+(function bindFavoritoBtn() {
+  const btn = document.getElementById("btn-favorito");
+  if (!btn || btn.dataset.mzFavBound === "1") return;
+  btn.dataset.mzFavBound = "1";
+  btn.addEventListener("click", function (e) {
+    try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
     if (!seleccionActual) return;
     toggleFavoritoItem(seleccionActual);
     actualizarBotonFavorito();
-});
+  });
+})();
 
 // ---------- Links cortos compartibles: /serie/slug ----------
 function tipoPathFromItem(item) {
@@ -5272,7 +5760,7 @@ function nombreProveedor(sid, fuente, index) {
     if (index != null && index >= 0) return String(index + 1);
     const s = String(sid || fuente || "").toLowerCase();
     if (s === "5" || s.includes("jkanime") || s === "jk") return "JK";
-    if (s === "4" || s.includes("animeav1")) return "AV1";
+    if (s === "4" || s.includes("animeav1")) return "Anime";
     if (s === "6" || s.includes("dorama")) return "1";
     if (s === "3" || s.includes("pelis")) return "2";
     if (s === "2" || s.includes("hack")) return "3";
@@ -5674,6 +6162,38 @@ function filtrarEpisodiosDeTemporada(item, seasonNum, lista) {
 
 
 
+
+/** Si falla still de episodio (metahub "missing"), usar backdrop de la serie */
+function mzEpBackdropFallback(item) {
+  if (!item) return PLACEHOLDER;
+  if (item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) return String(item.backdrop);
+  const imdb =
+    item.imdb_id ||
+    (item.imdb && (item.imdb.id || item.imdb.imdb_id)) ||
+    null;
+  if (imdb) {
+    const tt = String(imdb).startsWith("tt") ? String(imdb) : "tt" + String(imdb);
+    return "https://images.metahub.space/background/medium/" + tt + "/img";
+  }
+  return item.portada || PLACEHOLDER;
+}
+window.mzEpImgErr = function (img) {
+  try {
+    if (!img || img.dataset.mzFb === "1") {
+      if (img) { img.onerror = null; img.style.opacity = "0.35"; }
+      return;
+    }
+    img.dataset.mzFb = "1";
+    const fb = img.getAttribute("data-fallback") || PLACEHOLDER;
+    img.onerror = function () {
+      this.onerror = null;
+      this.src = PLACEHOLDER;
+      this.style.opacity = "0.35";
+    };
+    img.src = fb;
+  } catch (_) {}
+};
+
 /** Normaliza still/back_img de episodio (TMDB path → URL completa) */
 function mzNormEpBackImg(u) {
   if (!u) return null;
@@ -5785,20 +6305,43 @@ function mzHydrateAnimeBackImg(item) {
         var s = Number(ep.season || ep.temporada || 1) || 1;
         var n = Number(ep.episode || ep.episodio || ep.episode_number || 0) || 0;
         if (n < 1) return ep;
-        var url =
-          "https://episodes.metahub.space/" +
-          String(imdbH) +
-          "/" +
-          s +
-          "/" +
-          n +
-          "/w780.jpg";
+        var url = (item && item.backdrop) ? String(item.backdrop) : null;
+        if (!url) return ep;
         return Object.assign({}, ep, { back_img: url, still: ep.still || url, imagen: ep.imagen || url });
       });
     }
   } catch (_) {}
 
   return item;
+}
+
+
+/** AnimeAV1: back_img real enumerado screenshots/{mediaId}/{ep}.jpg (vale para ep 1…1178 sin venir en API) */
+function mzAv1BackImg(item, epNum) {
+  if (!item) return null;
+  const sid = String(item.source_id || "");
+  const esAv1 = sid === "4" || /animeav1/i.test(String(item.fuente || item.source || ""));
+  if (!esAv1) return null;
+  const n = parseInt(epNum, 10) || 0;
+  if (n < 1) return null;
+  let mid = item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id || null;
+  if (!mid) {
+    const port = String(item.portada_fuente_raw || item.portada || item.poster || "");
+    let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+    if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+    if (m) mid = m[1];
+  }
+  if (!mid && Array.isArray(item.episodios)) {
+    for (let i = 0; i < item.episodios.length; i++) {
+      const b = item.episodios[i] && item.episodios[i].back_img;
+      if (!b) continue;
+      const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
+      if (mm) { mid = mm[1]; break; }
+    }
+  }
+  if (!mid) return null;
+  item._av1ShotId = String(mid);
+  return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
 }
 
 function mzEpisodeThumb(episodio, item, num) {
@@ -5813,102 +6356,46 @@ function mzEpisodeThumb(episodio, item, num) {
     episodio.image ||
     episodio.thumbnail ||
     null;
+  if (direct && /episodes\.metahub\.space/i.test(String(direct))) direct = null;
   if (direct && typeof mzNormEpBackImg === "function") {
     direct = mzNormEpBackImg(direct);
   } else if (direct && String(direct).charAt(0) === "/") {
     direct = "https://image.tmdb.org/t/p/w500" + String(direct);
   }
   if (direct && /^https?:\/\//i.test(String(direct))) {
-    // Guardar id animeav1 para hermanos sin back_img
     try {
       const mm = String(direct).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
       if (mm && item) item._av1ShotId = mm[1];
     } catch (_) {}
     return String(direct);
   }
-  // Id cacheado desde otra cap
-  let mid =
-    (item && (item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id)) || null;
-  if (!mid) {
-    const port = String(
-      (item &&
-        (item.portada_fuente_raw ||
-          item.portada_fuente ||
-          item.portada ||
-          item.poster ||
-          "")) ||
-        ""
-    );
-    let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
-    if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
-    if (m) mid = m[1];
-  }
-  // Buscar id en cualquier episodio de la temporada
-  if (!mid && item && Array.isArray(item.episodios)) {
-    for (let i = 0; i < item.episodios.length; i++) {
-      const b = item.episodios[i] && item.episodios[i].back_img;
-      if (!b) continue;
-      const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
-      if (mm) {
-        mid = mm[1];
-        item._av1ShotId = mid;
-        break;
-      }
+  // Solo AnimeAV1 (source 4): screenshots deterministas
+  const sid = String((item && item.source_id) || "");
+  const esAv1 = sid === "4" || /animeav1/i.test(String((item && (item.fuente || item.source)) || ""));
+  if (esAv1 && n > 0) {
+    let mid = (item && (item._av1ShotId || item.animeav1_id || item.media_id || item.av1_id)) || null;
+    if (!mid) {
+      const port = String((item && (item.portada_fuente_raw || item.portada || item.poster || "")) || "");
+      let m = port.match(/cdn\.animeav1\.com\/covers\/(\d+)/i);
+      if (!m) m = port.match(/animeav1\.com\/(?:covers|screenshots)\/(\d+)/i);
+      if (m) mid = m[1];
     }
-  }
-  if (!mid && item && Array.isArray(item.temporadas)) {
-    outer: for (let t = 0; t < item.temporadas.length; t++) {
-      const lista = item.temporadas[t] && (item.temporadas[t].lista || item.temporadas[t].episodios);
-      if (!Array.isArray(lista)) continue;
-      for (let j = 0; j < lista.length; j++) {
-        const b = lista[j] && lista[j].back_img;
+    if (!mid && item && Array.isArray(item.episodios)) {
+      for (let k = 0; k < item.episodios.length; k++) {
+        const b = item.episodios[k] && item.episodios[k].back_img;
         if (!b) continue;
         const mm = String(b).match(/cdn\.animeav1\.com\/screenshots\/(\d+)\//i);
-        if (mm) {
-          mid = mm[1];
-          item._av1ShotId = mid;
-          break outer;
-        }
+        if (mm) { mid = mm[1]; item._av1ShotId = mid; break; }
       }
     }
+    if (mid) return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
   }
-  if (mid && n > 0) {
-    return "https://cdn.animeav1.com/screenshots/" + mid + "/" + n + ".jpg";
-  }
-  // Series / doramas: still por episodio (Metahub), igual que screenshots de anime
-  // https://episodes.metahub.space/{imdb}/{season}/{episode}/w780.jpg
-  try {
-    const imdb =
-      (item && (item.imdb_id || (item.imdb && item.imdb.id))) || null;
-    if (imdb && /^tt\d+$/i.test(String(imdb)) && n > 0) {
-      const sn =
-        Number(
-          (episodio && (episodio.season || episodio.temporada || episodio.season_number)) ||
-            1
-        ) || 1;
-      return (
-        "https://episodes.metahub.space/" +
-        String(imdb) +
-        "/" +
-        sn +
-        "/" +
-        n +
-        "/w780.jpg"
-      );
-    }
-  } catch (_) {}
-  // Anime / serie / dorama: no reutilizar backdrop de la ficha (mismo en todos)
-  const tipo = String((item && (item.tipo || item.type)) || "");
-  if (/anime|serie|dorama|tv/i.test(tipo)) {
-    return null;
-  }
-  return (
-    episodio.backdrop ||
-    episodio.portada ||
-    (item && (item.backdrop || item.portada)) ||
-    null
-  );
+  // Sin imagen de episodio → backdrop (JK y resto). NUNCA Metahub still.
+  if (item && item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) return String(item.backdrop);
+  if (item && item.portada && /^https?:\/\//i.test(String(item.portada))) return String(item.portada);
+  return null;
 }
+
 
 function normalizarListaTemporadas(item) {
     const totalEps = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
@@ -6057,7 +6544,7 @@ async function refrescarTotalAnimeSiHaceFalta(item) {
     try {
         const params = new URLSearchParams();
         if (item.slug) params.set("slug", item.slug);
-        params.set("source_id", String(item.source_id || "4"));
+        params.set("source_id", String(item.source_id || ((typeof esItemJk === "function" && esItemJk(item)) || /jkanime/i.test(String(item.fuente||item.link||"")) ? "5" : "4")));
         params.set("tipo", "Anime");
         params.set("force", "1");
         if (item.link) params.set("link", item.link);
@@ -6187,6 +6674,8 @@ function renderTemporadas(item) {
 
     try { mzHydrateAnimeBackImg(item); } catch (_) {}
     const loadSeason = async (season, rangoForzado) => {
+        const _gen = (item._loadSeasonGen = (item._loadSeasonGen || 0) + 1);
+
         const seasonNum = parseInt(season, 10) || 1;
         const episodesContainer = document.getElementById("episodes-container");
         episodesContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando episodios...</p></div>`;
@@ -6260,7 +6749,7 @@ function renderTemporadas(item) {
                     portada: ep.portada || back
                 };
             });
-            // Filtrar por rango activo (1-50, 51-100…) sin perder back_img
+            // Filtrar por rango activo (1-50, 51-100… 1001+) sin perder back_img
             const rango = rangoForzado || item._epRangoActivo;
             if (rango && rango.desde && rango.hasta) {
                 mapped = mapped.filter((ep) => {
@@ -6268,8 +6757,33 @@ function renderTemporadas(item) {
                     return n >= rango.desde && n <= rango.hasta;
                 });
                 item._epRangoActivo = { desde: rango.desde, hasta: rango.hasta };
-            } else {
-                item._epRangoActivo = null;
+                // Si el API solo traía 1–50 y pedimos 1001+, rellenar stubs del rango
+                // Siempre completar el rango completo (evita 1151–1178 con huecos por race)
+                {
+                  const byN = new Map(mapped.map(function (e) {
+                    return [Number(e.episode || e.episodio || 0), e];
+                  }));
+                  const filled = [];
+                  for (let n = rango.desde; n <= rango.hasta; n++) {
+                    if (byN.has(n)) filled.push(byN.get(n));
+                    else {
+                      const stub = {
+                        season: seasonNum,
+                        temporada: seasonNum,
+                        episode: n,
+                        episodio: n,
+                        nombre: "Episodio " + n,
+                        embeds: [],
+                        video: null
+                      };
+                      const av1 = typeof mzAv1BackImg === "function" ? mzAv1BackImg(item, n) : null;
+                      if (av1) { stub.back_img = av1; stub.still = av1; stub.imagen = av1; }
+                      else if (item && item.backdrop) stub.back_img = item.backdrop;
+                      filled.push(stub);
+                    }
+                  }
+                  mapped = filled;
+                }
             }
             item.episodios = filtrarEpisodiosDeTemporada(item, seasonNum, mapped);
             // Cache animeav1 screenshot id
@@ -6473,8 +6987,14 @@ function renderEpisodios(item, season = 1) {
           if (!ep) return ep;
           const n = Number(ep.episode || ep.episodio || 0) || 0;
           let b = ep.back_img || ep.screenshot || ep.still || null;
-          if (!b && item._av1ShotId && n > 0) {
+          if (!b && item._av1ShotId && n > 0 && String(item.source_id || "") === "4") {
             b = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + n + ".jpg";
+          }
+          // Sin Metahub still: backdrop si falta
+          if (!b && item && item.backdrop && /^https?:\/\//i.test(String(item.backdrop))) {
+            b = String(item.backdrop);
+          } else if (!b && item && item.portada) {
+            b = String(item.portada);
           }
           if (!b && typeof mzEpisodeThumb === "function") {
             b = mzEpisodeThumb(ep, item, n);
@@ -6535,7 +7055,7 @@ function renderEpisodios(item, season = 1) {
                 try {
                     const qs = new URLSearchParams();
                     if (item.slug) qs.set("slug", item.slug);
-                    qs.set("source_id", String(item.source_id || "4"));
+                    qs.set("source_id", String(item.source_id || ((typeof esItemJk === "function" && esItemJk(item)) || /jkanime/i.test(String(item.fuente||item.link||"")) ? "5" : "4")));
                     if (item.link) qs.set("link", item.link);
                     if (item.tipo) qs.set("tipo", item.tipo || "Anime");
                     qs.set("season", String(season));
@@ -6584,26 +7104,74 @@ function renderEpisodios(item, season = 1) {
     const seasonNum = Number(season) || 1;
     // Solo la temporada activa (campo season o rango absoluto T1 1–12 / T2 13–24)
     lista = filtrarEpisodiosDeTemporada(item, seasonNum, lista);
+
+    // Rango activo (One Piece 1–50, 51–100… 1151–1178)
+    let rangoAct = rango || item._epRangoActivo || null;
+    const totalReal = (typeof totalEpisodiosReal === "function" ? totalEpisodiosReal(item) : 0)
+      || parseInt(item.total_episodios || item.totalEpisodios || totalEps || 0, 10) || 0;
+    if (!rangoAct && totalReal > 50) {
+      try {
+        const rs = typeof normalizarRangosEpisodios === "function" ? normalizarRangosEpisodios(item) : [];
+        if (rs && rs.length) {
+          rangoAct = rs[0];
+          item._epRangoActivo = { desde: rs[0].desde, hasta: rs[0].hasta };
+        }
+      } catch (_) {}
+    }
+
     // Filtrar por rango activo si aplica
-    if (rango && lista.length) {
+    if (rangoAct && lista.length) {
         lista = lista.filter((ep, idx) => {
             const n = episodioNumero(ep, idx);
-            return n >= rango.desde && n <= rango.hasta;
+            return n >= rangoAct.desde && n <= rangoAct.hasta;
         });
     }
-    // Si no hay lista pero hay total + rango → generar stubs
-    if ((!lista || !lista.length) && rango) {
+
+    // Si el rango no está en item.episodios (ej. 1001–1050 con lista solo 1–50) → stubs
+    if ((!lista || !lista.length) && totalReal > 0) {
+        const desde = rangoAct && rangoAct.desde ? rangoAct.desde : 1;
+        const hasta = rangoAct && rangoAct.hasta
+          ? rangoAct.hasta
+          : Math.min(50, totalReal);
         lista = [];
-        for (let n = rango.desde; n <= rango.hasta; n++) {
-            lista.push({ season: season, episode: n, nombre: "Episodio " + n, embeds: [], video: null });
+        for (let n = desde; n <= hasta && n <= totalReal; n++) {
+            const stub = {
+              season: seasonNum,
+              temporada: seasonNum,
+              episode: n,
+              episodio: n,
+              nombre: "Episodio " + n,
+              embeds: [],
+              video: null
+            };
+            // AV1: imagen real enumerada aunque no venga en los 50 de la API
+            const av1 = typeof mzAv1BackImg === "function" ? mzAv1BackImg(item, n) : null;
+            if (av1) {
+              stub.back_img = av1;
+              stub.still = av1;
+              stub.imagen = av1;
+            } else if (item && item.backdrop) {
+              stub.back_img = item.backdrop;
+            }
+            lista.push(stub);
         }
+        // Guardar en item para clicks posteriores
+        try {
+          const byN = new Map((item.episodios || []).map(function (e) {
+            return [Number(e.episode || e.episodio || 0), e];
+          }));
+          lista.forEach(function (ep) {
+            if (!byN.has(ep.episode)) byN.set(ep.episode, ep);
+          });
+          item.episodios = Array.from(byN.values());
+        } catch (_) {}
     }
 
     if (!lista || lista.length === 0) {
         const msg = document.createElement("p");
         msg.style.color = "var(--text-muted)";
-        msg.textContent = totalEps
-            ? `Hay ${totalEps} episodios. Elige un rango arriba.`
+        msg.textContent = totalReal
+            ? ("Hay " + totalReal + " episodios. Elige un rango arriba (1–50, 51–100…).")
             : "No hay episodios en esta temporada.";
         episodesContainer.appendChild(msg);
         return;
@@ -6651,14 +7219,16 @@ function renderEpisodios(item, season = 1) {
               episodio.still_path ||
               (typeof mzEpisodeThumb === "function" ? mzEpisodeThumb(episodio, item, num) : null);
             if (thumb && typeof mzNormEpBackImg === "function") thumb = mzNormEpBackImg(thumb);
-            if (!thumb && item && item._av1ShotId && num > 0) {
-              thumb = "https://cdn.animeav1.com/screenshots/" + item._av1ShotId + "/" + num + ".jpg";
+            if (!thumb && typeof mzAv1BackImg === "function") {
+              thumb = mzAv1BackImg(item, num);
             }
             if (!thumb) thumb = PLACEHOLDER;
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            const fbThumb = mzEpBackdropFallback(item);
             btn.innerHTML =
               '<span class="mz-mep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.opacity=0.35"/></span>' +
+              '" alt="" loading="lazy" decoding="async" data-fallback="' + String(fbThumb).replace(/"/g, "") +
+              '" onerror="window.mzEpImgErr&&window.mzEpImgErr(this)"/></span>' +
               '<span class="mz-mep-label">T' + sLab + " • E" + num + "</span>";
         } else if (koiCards) {
             let thumb =
@@ -6677,9 +7247,11 @@ function renderEpisodios(item, season = 1) {
             }
             const safeSeries = String(item.nombre || item.titulo || "").replace(/</g, "");
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
+            const fbThumb2 = mzEpBackdropFallback(item);
             btn.innerHTML =
               '<span class="koi-ep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
-              '" alt="" loading="lazy" onerror="this.onerror=null;this.style.opacity=0.35"/>' +
+              '" alt="" loading="lazy" data-fallback="' + String(fbThumb2).replace(/"/g, "") +
+              '" onerror="window.mzEpImgErr&&window.mzEpImgErr(this)"/>' +
               '<span class="koi-ep-dur">' + (dur || ("E" + num)) + "</span></span>" +
               '<span class="koi-ep-meta"><span class="koi-ep-series">' + safeSeries +
               '</span><span class="koi-ep-name">T' + sLab + " · " + labelName + "</span></span>";
@@ -6782,12 +7354,11 @@ function renderEpisodios(item, season = 1) {
                 params.set("temporada", String(seasonNum));
                 params.set("episodio", String(epNum));
                 if (item.slug) params.set("slug", item.slug);
-                // Anime → fuente 5 (jkanime) prioritaria; 4 = respaldo
-                const sidCap = (item.tipo === "Anime")
-                    ? (item.source_id || item._prefer_source_anime || "5")
-                    : (item.source_id || "");
-                if (sidCap) params.set("source_id", String(sidCap));
-                else if (item.source_id) params.set("source_id", item.source_id);
+                // Respetar fuente del item (JK=5 / AV1=4); no forzar AV1
+                let sidCap = item.source_id != null && item.source_id !== "" ? String(item.source_id) : "";
+                if (!sidCap && typeof esItemJk === "function" && esItemJk(item)) sidCap = "5";
+                if (!sidCap && /jkanime/i.test(String(item.fuente || item.link || ""))) sidCap = "5";
+                if (sidCap) params.set("source_id", sidCap);
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
@@ -6849,13 +7420,40 @@ function renderEpisodios(item, season = 1) {
                     }
                 } else {
                     // Pasar embeds crudos + fallback: el render ya no debe vaciar por allowlist estricta
-                    renderServidoresYDescargas(
-                        validos.length ? validos : episodio.embeds,
-                        episodio.downloads,
-                        episodio.video,
-                        item,
-                        { expandido: true }
-                    );
+                    // JK (fuente 5): SOLO JKPlayer, sin lista de reproductores
+                    if (esAnimeJk(item)) {
+                      const pack = validos.length ? validos : (episodio.embeds || []);
+                      const jk = pickJkPlayer(pack);
+                      try {
+                        const ss = document.getElementById("servers-section");
+                        if (ss) {
+                          ss.classList.add("hidden");
+                          ss.style.setProperty("display", "none", "important");
+                        }
+                        if (serversContainer) {
+                          serversContainer.innerHTML = "";
+                        }
+                      } catch (_) {}
+                      if (jk && typeof reproducir === "function") {
+                        try {
+                          await reproducir(jk, item);
+                        } catch (eJk) {
+                          console.warn("JKPlayer auto", eJk);
+                        }
+                      }
+                    } else {
+                      try {
+                        const ss = document.getElementById("servers-section");
+                        if (ss) ss.style.removeProperty("display");
+                      } catch (_) {}
+                      renderServidoresYDescargas(
+                          validos.length ? validos : episodio.embeds,
+                          episodio.downloads,
+                          episodio.video,
+                          item,
+                          { expandido: true }
+                      );
+                    }
                     expandirServidores();
                     await reproducirCapituloAuto(item, episodio, seasonNum, epNum);
                 }
@@ -8063,6 +8661,57 @@ searchForm.addEventListener("submit", (e) => {
 });
 
 // ======================================================
+
+function syncAnimeSourceChips() {
+  try {
+    const g = document.getElementById("mz-anime-src-group");
+    if (!g) return;
+    g.classList.add("hidden");
+    g.style.cssText = "display:none!important;visibility:hidden;height:0;overflow:hidden";
+    g.setAttribute("hidden", "hidden");
+  } catch (_) {}
+}
+
+function onAnimeSrcClick(ev) {
+  try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+  const btn = ev.currentTarget;
+  const v = (btn && btn.getAttribute("data-anime-src")) || "av1";
+  animeFuente = v === "jk" ? "jk" : "av1";
+  syncAnimeSourceChips();
+  try {
+    gridPage = 1;
+    if (gridModo === "search" && gridTermino) {
+      // JK solo trae anime → no filtrar por Películas/Series
+      if (animeFuente === "jk") gridTypeFilter = "anime";
+      else gridTypeFilter = "all";
+      // sincronizar chips de tipo
+      try {
+        document.querySelectorAll(".filter-chip:not(.mz-anime-src)").forEach(function (c) {
+          const t = c.dataset.type || "all";
+          c.classList.toggle("active", t === gridTypeFilter || (gridTypeFilter === "all" && t === "all"));
+        });
+      } catch (_) {}
+      cargarPaginaGrid();
+    } else {
+      gridSeccion = "anime";
+      gridTypeFilter = "anime";
+      mostrarGrid({ modo: "categoria", seccion: "anime" });
+    }
+  } catch (e) {
+    console.warn("anime src chip", e);
+    try { cargarPaginaGrid(); } catch (_) {}
+  }
+}
+
+function bindAnimeSourceChips() {
+  const g = document.getElementById("mz-anime-src-group");
+  if (!g || g.dataset.bound === "1") return;
+  g.dataset.bound = "1";
+  g.querySelectorAll(".mz-anime-src").forEach(function (btn) {
+    btn.addEventListener("click", onAnimeSrcClick);
+  });
+}
+
 // NAVEGACIÓN (nav-links, filter-tabs, filter-chips)
 // ======================================================
 document.getElementById("nav-link-home").addEventListener("click", (e) => {
@@ -8084,22 +8733,24 @@ document.querySelectorAll(".filter-tab").forEach(tab => {
 
 document.querySelectorAll(".filter-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-        document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+        if (chip.classList.contains("mz-anime-src") || chip.closest("#mz-anime-src-group")) return;
+
+        document.querySelectorAll(".filter-chip:not(.mz-anime-src)").forEach(c => c.classList.remove("active"));
         chip.classList.add("active");
         gridTypeFilter = chip.dataset.type || "all";
 
-        // Si estamos en búsqueda o favoritos → solo filtramos lo que ya hay
         if (gridModo === "search" || gridModo === "favoritos") {
             if (vistaActual === "grid") cargarPaginaGrid();
+            try { syncAnimeSourceChips(); } catch (_) {}
             return;
         }
 
-        // Si es categoría normal → cambiamos de sección
         if (gridTypeFilter === "all") {
             mostrarGrid({ modo: "categoria", seccion: "movie" });
         } else {
             mostrarGrid({ modo: "categoria", seccion: gridTypeFilter });
         }
+        try { syncAnimeSourceChips(); } catch (_) {}
     });
 });
 
@@ -8340,6 +8991,7 @@ initBrowserWarn();
 
 initProfilesUi();
 initNotifyBtn();
+try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
 cargarHome();
 initTvUi();
 initAutoplayEpUi();
@@ -8411,12 +9063,20 @@ function mzSlugFromItem(item) {
 function mzBuildDetallePath(item, season, episode) {
   const slug = mzSlugFromItem(item);
   if (!slug) return "/";
-  const base = "/detalle/" + encodeURIComponent(slug);
-  // PC y móvil: /detalle/slug/temporada/episodio
+  // /detalle/{source_id}/slug  |  /detalle/{source_id}/slug/t/e  |  /detalle/slug (sin id)
+  let sid = "";
+  try {
+    sid = item && item.source_id != null ? String(item.source_id).trim() : "";
+    if (!sid && item && typeof esItemJk === "function" && esItemJk(item)) sid = "5";
+    if (!sid && item && /jkanime/i.test(String(item.fuente || item.source || item.link || ""))) sid = "5";
+  } catch (_) {}
+  let base = sid
+    ? "/detalle/" + encodeURIComponent(sid) + "/" + encodeURIComponent(slug)
+    : "/detalle/" + encodeURIComponent(slug);
   const s = season != null && season !== "" ? Number(season) : null;
   const e = episode != null && episode !== "" ? Number(episode) : null;
   if (s != null && e != null && !isNaN(s) && !isNaN(e) && s >= 1 && e >= 1) {
-    return base + "/" + s + "/" + e;
+    base = base + "/" + s + "/" + e;
   }
   return base;
 }
@@ -8427,20 +9087,58 @@ function mzPushDetalleUrl(item, season, episode) {
     if (!path || path === "/") return;
     if (location.pathname === path) return;
     const slug = mzSlugFromItem(item);
+    let sidSt = "";
+    try {
+      sidSt = item && item.source_id != null ? String(item.source_id) : "";
+      if (!sidSt && item && typeof esItemJk === "function" && esItemJk(item)) sidSt = "5";
+    } catch (_) {}
     const state = {
       mz: "detalle",
       slug: slug,
+      source_id: sidSt || null,
       season: season != null && season !== "" ? Number(season) : null,
       episode: episode != null && episode !== "" ? Number(episode) : null
     };
-    // Si ya estamos en el mismo detalle, replace (evita perder /t/e o apilar)
-    var sameDetalle = false;
-    try {
-      var m = location.pathname.match(/^\/detalle\/([^\/]+)/i);
-      if (m && decodeURIComponent(m[1]) === slug) sameDetalle = true;
-    } catch (_) {}
-    if (sameDetalle) history.replaceState(state, "", path);
-    else history.pushState(state, "", path);
+    const cur = location.pathname || "";
+    const curIsEp = /\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(cur);
+    const curIsDet = /^\/detalle\//i.test(cur);
+    const willBeEp = season != null && episode != null && !isNaN(Number(season)) && !isNaN(Number(episode));
+
+    function sameTitleInPath() {
+      try {
+        var m = cur.match(/^\/detalle\/(?:\d+\/)?([^\/]+)/i);
+        if (!m || !slug) return false;
+        var pathSlug = decodeURIComponent(m[1] || "");
+        return pathSlug === slug || pathSlug === encodeURIComponent(slug);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // Ya en este título (ficha o episodio) → replace (no apilar)
+    // Excepción: primera vez ficha → episodio = un solo push para que un "atrás" vuelva a la ficha
+    if (willBeEp && curIsEp && sameTitleInPath()) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    if (willBeEp && curIsDet && !curIsEp && sameTitleInPath()) {
+      history.pushState(state, "", path);
+      return;
+    }
+    if (willBeEp && curIsEp) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    // Solo ficha
+    if (sameTitleInPath() || (curIsDet && !willBeEp && sameTitleInPath())) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    if (curIsDet && !willBeEp) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    history.pushState(state, "", path);
   } catch (_) {}
 }
 
@@ -8481,10 +9179,23 @@ try {
 // ---------- Deep link: /serie/slug  |  /?id=  |  /?link= ----------
 (async function handleDeepLink() {
     try {
-        // /detalle/slug  |  /detalle/slug/1/2
+        // /detalle/5/slug  |  /detalle/5/slug/1/1  |  /detalle/slug  |  /detalle/slug/1/1
         let pathM = location.pathname.match(
-            /^\/detalle\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+            /^\/detalle\/(\d+)\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
         );
+        let sidFromPath = null;
+        if (pathM) {
+            // [full, source_id, slug, season, episode]
+            sidFromPath = pathM[1];
+            pathM = [pathM[0], pathM[2], pathM[3], pathM[4]];
+        } else {
+            pathM = location.pathname.match(
+                /^\/detalle\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+            );
+            if (pathM) {
+                pathM = [pathM[0], pathM[1], pathM[2], pathM[3]];
+            }
+        }
         // Compat: /serie|anime|pelicula/slug[/s/e]
         if (!pathM) {
             pathM = location.pathname.match(
@@ -8493,8 +9204,6 @@ try {
             if (pathM) {
                 pathM = [pathM[0], pathM[2], pathM[3], pathM[4]];
             }
-        } else {
-            pathM = [pathM[0], pathM[1], pathM[2], pathM[3]];
         }
 
         if (pathM && pathM[1]) {
@@ -8504,9 +9213,34 @@ try {
             const episode = pathM[3] ? parseInt(pathM[3], 10) : null;
             const q = new URLSearchParams();
             q.set("slug", slug);
-            // sin forzar tipo: el API resuelve
-            const res = await fetch("/api/detalle?" + q.toString());
+            let sidDeep = sidFromPath || "";
+            try {
+              if (!sidDeep) sidDeep = new URLSearchParams(location.search || "").get("source_id") || "";
+              if (!sidDeep && history.state && history.state.source_id) sidDeep = String(history.state.source_id);
+            } catch (_) {}
+            if (sidDeep) {
+              q.set("source_id", String(sidDeep));
+              // 4/5 = anime: no dejar que el server asuma serie/AV1
+              if (String(sidDeep) === "5" || String(sidDeep) === "4") {
+                q.set("tipo", "anime");
+              }
+              if (String(sidDeep) === "5") q.set("fuente", "jkanime");
+              if (String(sidDeep) === "4") q.set("fuente", "animeav1");
+            }
+            const res = await fetch("/api/detalle?" + q.toString() + "&_=" + Date.now(), { cache: "no-store" });
             const item = await res.json();
+            if (item && sidDeep) {
+              item.source_id = String(sidDeep);
+              if (String(sidDeep) === "5") {
+                item.fuente = "jkanime";
+                item.tipo = item.tipo || "Anime";
+              }
+              if (String(sidDeep) === "4") {
+                item.fuente = item.fuente || "animeav1";
+                item.tipo = item.tipo || "Anime";
+              }
+              try { window.__mzLockSourceId = String(sidDeep); } catch (_) {}
+            }
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
                 await abrirDetalle(item);
                 if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
@@ -8563,29 +9297,47 @@ window.addEventListener("popstate", function () {
     }
 
     // /detalle/slug/1/2 → salir de episodio, quedarse en detalle
-    const epM = path.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)\/?$/i);
+    const epM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/(\d+)\/(\d+)\/?$/i);
     if (epM) {
       // Aún en URL de episodio (caso raro); no forzar reload
       return;
     }
 
-    // /detalle/slug (sin episodio)
-    const detM = path.match(/^\/detalle\/([^\/]+)\/?$/i);
+    // /detalle/slug o /detalle/5/slug (sin episodio) ← atrás desde episodio
+    const detM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/?$/i);
     if (detM) {
-      if (document.body.classList.contains("mz-mobile-ep-playing")) {
+      try {
+        if (typeof window.mzKoiCloseEpisodeSilent === "function") window.mzKoiCloseEpisodeSilent();
+        else if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode({ skipHistory: true });
+      } catch (_) {}
+      try {
         if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
-        document.body.classList.remove("player-open", "mz-mep-dl-open");
-        document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
-        document.getElementById("video-player-container")?.classList.add("hidden");
-        document.getElementById("servers-section")?.classList.add("hidden");
-        const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
-        if (item && typeof renderTemporadas === "function") {
+      } catch (_) {}
+      document.body.classList.remove("player-open", "mz-mep-dl-open", "mz-mobile-ep-playing");
+      document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+      document.getElementById("video-player-container")?.classList.add("hidden");
+      document.getElementById("servers-section")?.classList.add("hidden");
+      try {
+        const ifr = document.getElementById("player-iframe");
+        if (ifr) ifr.src = "about:blank";
+      } catch (_) {}
+      const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
+      if (item) {
+        try {
+          if (typeof setKoiMode === "function") setKoiMode(item);
+        } catch (_) {}
+        if (typeof renderTemporadas === "function") {
           document.getElementById("seasons-section")?.classList.remove("hidden");
           renderTemporadas(item);
         }
-        return;
+        try {
+          document.getElementById("details-panel")?.classList.remove("hidden");
+          document.body.classList.add("details-open");
+        } catch (_) {}
+      } else {
+        // Sin item en memoria: recargar deep link
+        try { location.reload(); } catch (_) {}
       }
-      // Si no hay detalle abierto, deep-link ya lo abre al cargar
       return;
     }
   } catch (_) {}
@@ -8733,8 +9485,7 @@ async function cargarRecienAnadidos() {
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-    navigator.serviceWor
-    ker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
 
