@@ -96,7 +96,13 @@ function bindKoiBackBtn() {
   if (!btn || btn.dataset.koiBound) return;
   btn.dataset.koiBound = "1";
   btn.addEventListener("click", () => {
-    // Si está en player → volver al detalle (hero + episodios)
+    const path = location.pathname || "";
+    // Episodio /detalle/…/t/e → atrás a ficha (historial)
+    if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(path)) {
+      history.back();
+      return;
+    }
+    // Player abierto sin URL de episodio
     if (document.body.classList.contains("player-open")) {
       document.body.classList.remove("player-open");
       try {
@@ -106,13 +112,16 @@ function bindKoiBackBtn() {
         document.getElementById("servers-section")?.classList.add("hidden");
         setKoiPlayerEpisodeTitle("");
       } catch (_) {}
-      // Scroll al hero / episodios
       try {
         document.getElementById("koi-hero")?.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (_) {}
       return;
     }
-    // Si está en detalle → cerrar panel
+    // Ficha /detalle/… → atrás a inicio (o cerrar)
+    if (/^\/detalle\//i.test(path) && history.length > 1) {
+      history.back();
+      return;
+    }
     try { cerrarDetalle(); } catch (_) {}
   });
 }
@@ -2652,8 +2661,14 @@ function volverDesdeEpisodioMovil() {
 
 
   try {
-    if (item && typeof mzReplaceDetalleUrl === "function") mzReplaceDetalleUrl(item);
-    else if (item && typeof mzPushDetalleUrl === "function") mzPushDetalleUrl(item);
+    // Si la URL es .../t/e, history.back() restaura /detalle/sid/slug
+    if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(location.pathname || "")) {
+      history.back();
+    } else if (item && typeof mzReplaceDetalleUrl === "function") {
+      mzReplaceDetalleUrl(item);
+    } else if (item && typeof mzPushDetalleUrl === "function") {
+      mzPushDetalleUrl(item);
+    }
   } catch (_) {}
 
   if (item && typeof renderTemporadas === "function") {
@@ -8961,11 +8976,23 @@ function mzPushDetalleUrl(item, season, episode) {
       season: season != null && season !== "" ? Number(season) : null,
       episode: episode != null && episode !== "" ? Number(episode) : null
     };
-    // Si ya estamos en el mismo detalle, replace (evita perder /t/e o apilar)
+    const cur = location.pathname || "";
+    const curIsEp = /\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(cur);
+    const willBeEp = season != null && episode != null && !isNaN(Number(season)) && !isNaN(Number(episode));
+    // Detalle → episodio: SIEMPRE push (atrás vuelve a /detalle/5/slug)
+    if (willBeEp && !curIsEp) {
+      history.pushState(state, "", path);
+      return;
+    }
+    // Episodio → otro episodio: replace
+    if (willBeEp && curIsEp) {
+      history.replaceState(state, "", path);
+      return;
+    }
+    // Solo ficha detalle
     var sameDetalle = false;
     try {
-      // /detalle/slug  o  /detalle/5/slug
-      var m = location.pathname.match(/^\/detalle\/(?:(\d+)\/)?([^\/]+)/i);
+      var m = cur.match(/^\/detalle\/(?:(\d+)\/)?([^\/]+)/i);
       if (m) {
         var pathSlug = decodeURIComponent(m[2] || m[1] || "");
         if (pathSlug === slug) sameDetalle = true;
@@ -9137,23 +9164,37 @@ window.addEventListener("popstate", function () {
       return;
     }
 
-    // /detalle/slug (sin episodio)
+    // /detalle/slug o /detalle/5/slug (sin episodio) ← atrás desde episodio
     const detM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/?$/i);
     if (detM) {
-      if (document.body.classList.contains("mz-mobile-ep-playing")) {
+      try {
         if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
-        document.body.classList.remove("player-open", "mz-mep-dl-open");
-        document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
-        document.getElementById("video-player-container")?.classList.add("hidden");
-        document.getElementById("servers-section")?.classList.add("hidden");
-        const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
-        if (item && typeof renderTemporadas === "function") {
+      } catch (_) {}
+      document.body.classList.remove("player-open", "mz-mep-dl-open", "mz-mobile-ep-playing");
+      document.getElementById("mz-mep-dl-panel")?.classList.add("hidden");
+      document.getElementById("video-player-container")?.classList.add("hidden");
+      document.getElementById("servers-section")?.classList.add("hidden");
+      try {
+        const ifr = document.getElementById("player-iframe");
+        if (ifr) ifr.src = "about:blank";
+      } catch (_) {}
+      const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
+      if (item) {
+        try {
+          if (typeof setKoiMode === "function") setKoiMode(item);
+        } catch (_) {}
+        if (typeof renderTemporadas === "function") {
           document.getElementById("seasons-section")?.classList.remove("hidden");
           renderTemporadas(item);
         }
-        return;
+        try {
+          document.getElementById("details-panel")?.classList.remove("hidden");
+          document.body.classList.add("details-open");
+        } catch (_) {}
+      } else {
+        // Sin item en memoria: recargar deep link
+        try { location.reload(); } catch (_) {}
       }
-      // Si no hay detalle abierto, deep-link ya lo abre al cargar
       return;
     }
   } catch (_) {}
