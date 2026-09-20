@@ -1144,12 +1144,22 @@ function rellenarMetaDetalle(item) {
             seen[k] = true;
             generosEl.innerHTML += '<span class="genre-tag">' + escapeHtml(g) + "</span>";
         });
-        if (item.idiomas && item.idiomas.length) {
-            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.idiomas.join(", ")) + "</span>";
-        }
-        if (item.calidad && item.calidad.length) {
-            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(item.calidad.join(", ")) + "</span>";
-        }
+        // idiomas / calidad pueden venir string (JK) o array
+        (function () {
+          function asList(v) {
+            if (v == null || v === "") return "";
+            if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+            return String(v);
+          }
+          const idio = asList(item.idiomas);
+          if (idio) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(idio) + "</span>";
+          }
+          const cal = asList(item.calidad);
+          if (cal) {
+            generosEl.innerHTML += '<span class="genre-tag genre-tag-extra">' + escapeHtml(cal) + "</span>";
+          }
+        })();
     }
 
     const extra = document.getElementById("details-meta-extra");
@@ -1166,9 +1176,10 @@ function rellenarMetaDetalle(item) {
         genEl.parentNode.insertBefore(box, genEl.nextSibling);
       }
       if (!box) return;
-      const isJk = typeof esItemJk === "function" ? esItemJk(item) : (
-        String(item.source_id || "") === "5" || /jkanime/i.test(String(item.fuente || item.source || ""))
-      );
+      const isJk = (typeof esItemJk === "function" && esItemJk(item)) ||
+        String(item.source_id || "") === "5" ||
+        /jkanime/i.test(String(item.fuente || item.source || "")) ||
+        /jkanime\.net/i.test(String(item.link || item.url || ""));
       if (!isJk) {
         box.innerHTML = "";
         box.classList.add("hidden");
@@ -5100,7 +5111,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                         "certificacion", "imdb_id", "tmdb_id", "imdb", "tmdb", "omdb", "portada", "backdrop",
                         "fecha_estreno", "estado", "en_emision", "finalizado",
                         "embeds", "downloads", "reproductor", "episodios", "temporadas", "temporadas_raw",
-                        "tiene_player", "link", "url_extract", "slug", "source_id"
+                        "tiene_player", "link", "url_extract", "slug", "source_id",
+                        "studios", "temporada_anime", "temporada", "demografia", "idiomas",
+                        "titulos_alternativos", "ultimo_episodio", "ultimo_episodio_url",
+                        "proximo_episodio", "fecha_estreno_texto", "calidad", "fuente"
                     ];
                     fields.forEach(function (f) {
                         const v = item[f];
