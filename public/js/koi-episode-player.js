@@ -1958,9 +1958,13 @@
     return true;
   }
 
-  function closeView() {
+  function closeView(opts) {
     var view = $("mz-koi-ep-view");
     if (!view) return;
+    if (window.__mzKoiClosing) return;
+    window.__mzKoiClosing = true;
+    opts = opts || {};
+    var skipHistory = !!opts.skipHistory;
     try { resetKoiChrome("episode"); } catch (_) {}
     try {
       var movieDl = document.getElementById("mz-kp-movie-dl");
@@ -2013,7 +2017,36 @@
       } catch (_) {}
     } catch (_) {}
     destroyHls();
+    var wasMovie = _mode === "movie";
     _ctx = null;
+    _mode = null;
+
+    // URL: el botón Volver debe cambiar la ruta, no solo ocultar el player
+    try {
+      var path = location.pathname || "";
+      var isEp = /\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(path);
+      if (isEp && !skipHistory) {
+        if (history.length > 1) {
+          history.back();
+        } else {
+          var base = path.replace(/\/\d+\/\d+\/?$/, "");
+          history.replaceState({ mz: "detalle" }, "", base.replace(/\/$/, "") || path);
+        }
+      } else if (wasMovie) {
+        try {
+          document.body.classList.add("details-open");
+          document.body.classList.remove("player-open");
+          var dp2 = document.getElementById("details-panel");
+          if (dp2) {
+            dp2.classList.remove("hidden", "mz-koi-hidden-under");
+            dp2.style.removeProperty("visibility");
+            dp2.style.removeProperty("pointer-events");
+            dp2.style.removeProperty("opacity");
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    setTimeout(function () { window.__mzKoiClosing = false; }, 300);
   }
 
   function listEpisodes(item) {
@@ -2078,4 +2111,5 @@
   window.mzKoiOpenEpisode = openEpisode;
   window.mzKoiOpenMovie = openMovie;
   window.mzKoiCloseEpisode = closeView;
+  window.mzKoiCloseEpisodeSilent = function () { closeView({ skipHistory: true }); };
 })();
