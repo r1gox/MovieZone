@@ -4084,18 +4084,26 @@ function aplicarFiltrosYOrden(lista) {
         const wanted = map[gridTypeFilter] || gridTypeFilter;
         res = res.filter(i => {
             const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
+            const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
+            const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
             // Secciones propias: JK y AnimeAV1 no se mezclan
             if (gridSeccion === "jk") return isJk;
             if (gridSeccion === "anime" && isJk) return false;
             if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
             if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
 
+            // Sección Anime / filtro anime: TODO lo de AnimeAV1 (Película, OVA, ONA, Anime…)
+            if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
+              return true;
+            }
+
             const t = (i.tipo || "").toString();
             const tl = t.toLowerCase();
             if (gridTypeFilter === "anime" && isJk) return false;
             if (t === wanted) return true;
             if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
-            if (gridTypeFilter === "anime" && /anime|ova|ona|especial/i.test(tl)) return true;
+            // Anime: incluir films/OVA/ONA/especiales (mismo catálogo AV1)
+            if (gridTypeFilter === "anime" && /anime|ova|ona|especial|pel[ií]cula|movie|film/i.test(tl)) return true;
             if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
             if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
             return false;
