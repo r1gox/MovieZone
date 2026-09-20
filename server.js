@@ -1630,7 +1630,12 @@ function mapDetail(data, fallback = {}) {
     titulo: titulo,
     titulo_original: tituloOriginal || data.titulo_original || data.original_title || fallback.titulo_original || null,
     slug,
-    tipo: tipo === "Capitulo" ? (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie") : tipo,
+    tipo: (function () {
+      var fmt = String(data.formato || fallback.formato || "").toLowerCase();
+      if (/pelicul|movie|film/.test(fmt)) return "Película";
+      if (tipo === "Capitulo") return (data.formato === "OVA" || tipo === "Anime" ? "Anime" : "Serie");
+      return tipo;
+    })(),
     formato: data.formato || fallback.formato || null,
     descripcion: limpiarDescripcion(data.descripcion || fallback.descripcion || "", titulo),
     // Portada: NO dejar que "data.portada" (a veces Metahub roto) gane por defecto
