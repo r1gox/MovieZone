@@ -19,3 +19,36 @@ button.mz-anime-src {
   width: 100%;
 }
 .mz-grid-title-row #results-count { margin-left: auto; }
+
+/* Detalle JKanime — campos extra API fuente 5 */
+.details-jk-extra {
+  margin-top: 12px;
+  width: 100%;
+}
+.details-jk-extra.hidden { display: none !important; }
+.details-jk-extra-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.details-jk-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.details-jk-label {
+  color: rgba(180, 190, 255, 0.85);
+  font-weight: 600;
+  min-width: 7.5rem;
+}
+.details-jk-label::after { content: ":"; }
+.details-jk-val {
+  color: rgba(255, 255, 255, 0.88);
+  flex: 1;
+}
