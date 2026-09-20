@@ -108,33 +108,20 @@ button.mz-anime-src {
 }
 
 
-/* Recientes / Nuevos — fila horizontal tipo episodios (back_img) */
+/* Recientes / Nuevos — grid horizontal tipo episodios (back_img), varias filas según pantalla */
 .mz-av1-home-section.is-eps .mz-av1-home-title {
   color: #c4b5fd;
 }
 .mz-av1-eps-row {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
+  display: grid;
   gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
   padding: 4px 2px 12px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-}
-.mz-av1-eps-row::-webkit-scrollbar {
-  height: 6px;
-}
-.mz-av1-eps-row::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.45);
-  border-radius: 99px;
+  /* móvil: 2 por fila */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .mz-av1-ep-card {
-  flex: 0 0 auto;
-  width: min(220px, 72vw);
-  scroll-snap-align: start;
+  width: 100%;
+  min-width: 0;
   cursor: pointer;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
@@ -208,6 +195,19 @@ button.mz-anime-src {
   font-size: 0.78rem;
   color: rgba(196, 181, 253, 0.95);
 }
-@media (min-width: 900px) {
-  .mz-av1-ep-card { width: 240px; }
+/* tablet: ~3 */
+@media (min-width: 560px) {
+  .mz-av1-eps-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* laptop: ~4 */
+@media (min-width: 820px) {
+  .mz-av1-eps-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* desktop: ~5 */
+@media (min-width: 1100px) {
+  .mz-av1-eps-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+/* pantallas grandes: ~6 */
+@media (min-width: 1400px) {
+  .mz-av1-eps-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
