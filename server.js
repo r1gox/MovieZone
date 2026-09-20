@@ -3569,7 +3569,13 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
       const key = local.link || local.slug || local.nombre;
       const slugKey = local.slug ? "slug:" + String(local.slug).toLowerCase() : null;
       if (!key || usedLocal.has(key) || (slugKey && usedLocal.has(slugKey))) continue;
-      if (!(local.tiene_player || itemTieneContenidoValido(local))) continue;
+      // Fuente 4/5 (animeav1 / jk): incluir si se abrió detalle (slug/descripcion),
+      // aunque aún no haya players en caché — así sí aparecen en la sección
+      const sidLoc = String(local.source_id || local.fuente || local.source || "");
+      const esAnimeSrc = sidLoc === "4" || sidLoc === "5" || /animeav1|jkanime/i.test(sidLoc);
+      const tieneCont = local.tiene_player || itemTieneContenidoValido(local);
+      const abrioDetalle = !!(local.descripcion || local.slug || local.portada);
+      if (!tieneCont && !(esAnimeSrc && abrioDetalle)) continue;
       const slug = String(local.slug || "").toLowerCase();
       if (slug && merged.some((m) => String(m.slug || "").toLowerCase() === slug)) continue;
       const tLocal = normalizeTitleKey(local.nombre || "");
