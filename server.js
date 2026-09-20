@@ -1382,18 +1382,14 @@ function mapListItem(r) {
   );
   const tipoRaw = String(r.tipo || r.type || "Pelicula");
   const sourceId = resolverSourceId(r.source_id || r.source || r.fuente);
-  // jkanime (fuente 5) es 100% anime, pero ahí adentro puede traer
-  // Pelicula/OVA/Especial/ONA como "tipo". Que eso NO cambie de sección
-  // (sigue siendo Anime); solo guardamos el sub-tipo real para mostrarlo
-  // como etiqueta en vez de "Anime" genérico.
-  const esJkanime = sourceId === "5";
-  const tipo =
-    esJkanime || /anime/i.test(tipoRaw)
-      ? "Anime"
-      : /serie|tv/i.test(tipoRaw)
-        ? "Serie"
-        : "Película";
-  const categoria = esJkanime ? tipoRaw : null;
+  const tipo = /anime/i.test(tipoRaw)
+    ? "Anime"
+    : /serie|tv/i.test(tipoRaw)
+      ? "Serie"
+      : "Película";
+  // Solo para el badge del listado (jkanime trae Pelicula/OVA/Especial/ONA
+  // como "tipo"); no toca la clasificación/sección de arriba.
+  const categoria = sourceId === "5" ? tipoRaw : null;
   const slug = r.slug ? String(r.slug) : null;
   const year = r.year
     ? String(r.year).match(/(19|20)\d{2}/)?.[0] || String(r.year).slice(0, 4)
@@ -1500,11 +1496,9 @@ function mapListItem(r) {
 function mapDetail(data, fallback = {}) {
   const sourceId = resolverSourceId(data.source_id || data.fuente || fallback.source_id || fallback.fuente);
   const tipoRawDetalle = String(data.tipo || data.type || fallback.tipo || "");
-  // Igual que en el listado: jkanime (fuente 5) siempre es Anime aunque su
-  // "tipo" diga Pelicula/OVA/Especial/ONA; guardamos ese sub-tipo aparte.
-  const esJkanimeDetalle = sourceId === "5";
-  const tipo = esJkanimeDetalle ? "Anime" : normalizarTipo(tipoRawDetalle || fallback.tipo);
-  const categoria = esJkanimeDetalle && tipoRawDetalle ? tipoRawDetalle : (fallback.categoria || null);
+  const tipo = normalizarTipo(tipoRawDetalle || fallback.tipo);
+  // Solo para el badge (jkanime trae Pelicula/OVA/Especial/ONA); no toca tipo.
+  const categoria = sourceId === "5" && tipoRawDetalle ? tipoRawDetalle : (fallback.categoria || null);
   const slug = data.slug || fallback.slug || null;
   // Principal = título local/ES; original = inglés u otro (nunca invertir)
   const titulo = elegirTituloPrincipal({
