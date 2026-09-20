@@ -20,12 +20,14 @@ function isKoiDesktop() {
 
 function isSerieOrAnime(item) {
   if (!item) return false;
+  // OVA/ONA/Especial de 1 ep (o film) se tratan como película, no como serie
+  if (typeof isPeliculaItem === "function" && isPeliculaItem(item)) return false;
   const t = String(item.tipo || item.type || "").toLowerCase();
   // Película (anime film, OVA-movie, etc.) → NO es serie: detalle tipo película
   if (/pel[ií]cula|movie|film/.test(t)) return false;
   const f = String(item.formato || item.format || "").toLowerCase();
   if (/pel[ií]cula|movie|film/.test(f) && !/serie|tv|dorama/.test(t)) return false;
-  return /serie|anime|dorama|tv|ova|ona/.test(t);
+  return /serie|anime|dorama|tv|ova|ona|especial|special/.test(t);
 }
 
 /** true si el ítem debe abrirse como película (play + servers, sin temporadas) */
@@ -35,12 +37,52 @@ function isPeliculaItem(item) {
   if (/pel[ií]cula|movie|film/.test(t)) return true;
   const f = String(item.formato || item.format || "").toLowerCase();
   if (/pel[ií]cula|movie|film/.test(f)) return true;
-  // Root embeds + sin episodios → film (AV1 a veces manda tipo Anime + formato Pelicula)
+
+  // Contar episodios (lista plana o dentro de temporadas)
   const eps = item.episodios || item.episodes;
   const hasEps = Array.isArray(eps) && eps.length > 0;
-  const hasTemps = Array.isArray(item.temporadas) && item.temporadas.length > 0;
-  const hasPlayers = (Array.isArray(item.embeds) && item.embeds.length > 0) || item.reproductor || item.tiene_player;
+  const temps = Array.isArray(item.temporadas) ? item.temporadas : [];
+  const tempsRaw = Array.isArray(item.temporadas_raw) ? item.temporadas_raw : [];
+  const hasTemps = temps.length > 0 || tempsRaw.length > 0;
+  let epCount = 0;
+  if (hasEps) epCount = eps.length;
+  function sumTempLists(arr) {
+    for (let i = 0; i < arr.length; i++) {
+      const tm = arr[i];
+      if (!tm || typeof tm !== "object") continue;
+      const lista = tm.lista || (Array.isArray(tm.episodios) ? tm.episodios : null);
+      if (Array.isArray(lista)) epCount += lista.length;
+      else if (typeof tm.episodios === "number") epCount += tm.episodios;
+    }
+  }
+  sumTempLists(temps);
+  sumTempLists(tempsRaw);
+  const totalEp = parseInt(item.total_episodios || item.totalEpisodios || 0, 10) || 0;
+  if (totalEp > 0) epCount = Math.max(epCount, totalEp);
+
+  // Players en raíz (JK/AV1 usan reproductores[])
+  const hasPlayers =
+    (Array.isArray(item.embeds) && item.embeds.length > 0) ||
+    (Array.isArray(item.reproductores) && item.reproductores.length > 0) ||
+    !!item.reproductor ||
+    !!item.tiene_player;
+
+  // Sin lista de episodios/temps + players → película
   if (hasPlayers && !hasEps && !hasTemps) return true;
+
+  // OVA / ONA / Especial: 0–1 episodio (worker: concluido + 1 ep → players en ficha)
+  const esCorto = /ova|ona|especial|special/.test(t) || /ova|ona|especial|special/.test(f);
+  const estado = String(item.estado || item.status || "").toLowerCase();
+  const concluido = /conclu|finaliz|ended|finished|complete/.test(estado);
+  if (esCorto && epCount <= 1) {
+    if (hasPlayers || concluido || totalEp === 1 || epCount === 1) return true;
+  }
+  // Cualquier título con 1 ep total + players en raíz + concluido (sin multi-temp real)
+  if (epCount <= 1 && hasPlayers && concluido && !hasEps) {
+    // si hay temps con más de un ep ya contado arriba
+    if (epCount <= 1) return true;
+  }
+
   return false;
 }
 
@@ -5505,10 +5547,17 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
             refrescarTotalAnimeSiHaceFalta(item).catch(() => {});
         }
     } else {
-        // Película (u otro sin episodios): limpiar episodios previos y mostrar servidores
-        if (seasonsEl) seasonsEl.classList.add("hidden");
+        // Película / OVA-ONA-Especial 1 ep: limpiar episodios y UI antigua de series
+        if (seasonsEl) {
+          seasonsEl.classList.add("hidden");
+          seasonsEl.style.setProperty("display", "none", "important");
+        }
         if (epsCont) epsCont.innerHTML = "";
         if (seasonsCont) seasonsCont.innerHTML = "";
+        try {
+          const tabs = document.getElementById("seasons-tabs-container");
+          if (tabs) tabs.innerHTML = "";
+        } catch (_) {}
         // quitar switcher de proveedores de serie anterior
         try {
           const sw = document.getElementById("mz-proveedor-switcher");
