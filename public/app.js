@@ -5182,14 +5182,20 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 } else {
                     const keep = Object.assign({}, item);
                     Object.assign(item, completo);
-                    // Si el API dice Película (film anime), no dejar tipo Anime del listado
+                    // Película API: tipo + players
                     try {
-                      if (typeof isPeliculaItem === "function" && isPeliculaItem(completo)) {
+                      if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
                         item.tipo = completo.tipo || "Película";
                         if (completo.formato) item.formato = completo.formato;
-                      } else if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
-                        item.tipo = completo.tipo || "Película";
-                        if (completo.formato) item.formato = completo.formato;
+                        if (Array.isArray(completo.embeds) && completo.embeds.length) {
+                          item.embeds = completo.embeds;
+                          item.tiene_player = true;
+                        }
+                        if (completo.reproductor) item.reproductor = completo.reproductor;
+                        // no listar temporadas de un film
+                        item.episodios = [];
+                        item.temporadas = [];
+                        item.temporadas_raw = null;
                       }
                     } catch (_) {}
                     // Restaurar campos que el detalle mandó vacíos
