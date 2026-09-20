@@ -4241,6 +4241,138 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
 // ======================================================
 // CARGA DE DATOS (conectado a tu server.js real)
 // ======================================================
+
+/** AnimeAV1 /4/home — recientes + agregados (se actualiza a diario) */
+function normalizarItemHomeAv1(it, bloque) {
+  if (!it) return null;
+  const slug = String(it.slug || "").replace(/^\/+|\/+$/g, "");
+  if (!slug) return null;
+  const ep = it.episodio != null ? it.episodio : (it.number != null ? it.number : null);
+  const tituloBase =
+    it.titulo_anime ||
+    (it.titulo && String(it.titulo).replace(/\s*[—\-–]\s*Episodio\s*\d+\s*$/i, "").trim()) ||
+    it.title ||
+    slug;
+  const nombre = String(tituloBase).trim() || slug;
+  const tipoRaw = it.tipo || it.type || it.formato || "Anime";
+  const link =
+    it.url ||
+    it.link ||
+    ("https://moviezone.tvjz.workers.dev/4/anime/" + encodeURIComponent(slug));
+  return {
+    nombre: nombre,
+    titulo: nombre,
+    slug: slug,
+    portada: it.portada || it.back_img || it.still || null,
+    tipo: tipoRaw,
+    type: tipoRaw,
+    formato: it.formato || null,
+    source_id: "4",
+    fuente: "animeav1",
+    source: "animeav1",
+    link: link,
+    url_extract: link,
+    episodio: ep != null ? Number(ep) : null,
+    descripcion: it.descripcion || null,
+    _homeAv1: bloque || "recientes",
+    _homeEpLabel: ep != null ? ("Episodio " + ep) : null
+  };
+}
+
+async function fetchAnimeAv1Home() {
+  const base =
+    typeof WORKER_STREAM !== "undefined" && WORKER_STREAM
+      ? String(WORKER_STREAM).replace(/\/$/, "")
+      : "https://moviezone.tvjz.workers.dev";
+  const res = await fetch(base + "/4/home", {
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+  if (!res.ok) throw new Error("AnimeAV1 home HTTP " + res.status);
+  return await res.json();
+}
+
+async function renderAnimeAv1HomeGrid() {
+  const skeleton = document.getElementById("results-skeleton");
+  if (skeleton) skeleton.classList.remove("hidden");
+  resultsLoading.classList.add("hidden");
+  resultsEmpty.classList.add("hidden");
+  resultsGrid.innerHTML = "";
+  resultsGrid.classList.add("mz-av1-home-wrap");
+  resultsGrid.classList.remove("catalog-grid");
+
+  try {
+    const data = await fetchAnimeAv1Home();
+    const recientes = (data.recientes || [])
+      .map(function (x) { return normalizarItemHomeAv1(x, "recientes"); })
+      .filter(Boolean);
+    const agregados = (data.agregados || [])
+      .map(function (x) { return normalizarItemHomeAv1(x, "agregados"); })
+      .filter(Boolean);
+
+    function makeSection(title, items, hint) {
+      const sec = document.createElement("section");
+      sec.className = "mz-av1-home-section";
+      const head = document.createElement("div");
+      head.className = "mz-av1-home-head";
+      head.innerHTML =
+        "<h3 class=\"mz-av1-home-title\">" +
+        escapeHtml(title) +
+        "</h3>" +
+        (hint
+          ? '<span class="mz-av1-home-hint">' + escapeHtml(hint) + "</span>"
+          : "") +
+        '<span class="mz-av1-home-count">' +
+        items.length +
+        "</span>";
+      sec.appendChild(head);
+      const grid = document.createElement("div");
+      grid.className = "catalog-grid mz-av1-home-grid";
+      if (!items.length) {
+        grid.innerHTML =
+          '<p class="mz-av1-home-empty">Sin títulos por ahora</p>';
+      } else {
+        items.forEach(function (item) {
+          const card = crearMediaCard(item);
+          // Subtítulo: episodio reciente si aplica
+          if (item._homeEpLabel) {
+            const p = card.querySelector(".media-info p");
+            if (p) p.textContent = item._homeEpLabel;
+          }
+          grid.appendChild(card);
+        });
+      }
+      sec.appendChild(grid);
+      return sec;
+    }
+
+    resultsGrid.appendChild(
+      makeSection("Recientes", recientes, "Últimos episodios publicados")
+    );
+    resultsGrid.appendChild(
+      makeSection("Recién agregados", agregados, "Nuevos en el catálogo")
+    );
+
+    const total = recientes.length + agregados.length;
+    gridTotalItems = total;
+    gridTotalPages = 1;
+    gridPage = 1;
+    gridSinMasResultados = true;
+    if (resultsTitle) resultsTitle.textContent = "Anime";
+    if (resultsCount) resultsCount.textContent = total + " títulos";
+    if (typeof actualizarPaginacion === "function") actualizarPaginacion();
+    scrollSentinel.classList.add("hidden");
+    if (!total) resultsEmpty.classList.remove("hidden");
+  } catch (err) {
+    console.error("AnimeAV1 /4/home:", err);
+    resultsEmpty.classList.remove("hidden");
+    if (resultsCount) resultsCount.textContent = "0 items";
+  } finally {
+    if (skeleton) skeleton.classList.add("hidden");
+    resultsLoading.classList.add("hidden");
+  }
+}
+
 async function fetchSeccion(seccion, page, limit = LIMIT) {
     // Anime = solo AnimeAV1. JK = sección propia (source 5).
     let opts = {};
@@ -4369,11 +4501,26 @@ async function cargarPaginaGrid() {
             gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / LIMIT));
             // Botón online ya no hace falta (búsqueda es online por defecto)
             actualizarBotonOnline(false);
+        } else if (
+          gridSeccion === "anime" &&
+          (animeFuente === "av1" || !animeFuente) &&
+          gridPage === 1
+        ) {
+            actualizarBotonOnline(false);
+            // Anime AV1: /4/home → Recientes + Recién agregados (diario)
+            await renderAnimeAv1HomeGrid();
+            return;
         } else {
             actualizarBotonOnline(false);
             // Sección normal → aquí se actualiza gridTotalItems y gridTotalPages
             lista = await fetchSeccion(gridSeccion, gridPage, LIMIT);
         }
+
+        // Restaurar grid plano si venimos del home AV1
+        try {
+          resultsGrid.classList.add("catalog-grid");
+          resultsGrid.classList.remove("mz-av1-home-wrap");
+        } catch (_) {}
 
         // Aplica filtros de tipo + orden (Más reciente / Calificación / A-Z)
         const listaFinal = aplicarFiltrosYOrden(lista);
