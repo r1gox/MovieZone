@@ -4259,12 +4259,24 @@ app.get(
   ["/:tipo(serie|pelicula|anime)/:slug", "/:tipo(serie|pelicula|anime)/:slug/:season/:episode"],
   (_req, res) => sendIndex(res)
 );
-// Deep links MovieZone: /detalle/slug y /detalle/slug/1/1
+// Deep links: /detalle/slug | /detalle/slug/t/e | /detalle/5/slug | /detalle/5/slug/t/e
 app.get(
-  ["/detalle/:slug", "/detalle/:slug/:season/:episode"],
+  [
+    "/detalle/:sourceId/:slug/:season/:episode",
+    "/detalle/:sourceId/:slug",
+    "/detalle/:slug/:season/:episode",
+    "/detalle/:slug",
+  ],
   (_req, res) => sendIndex(res)
 );
 app.get("/", (_req, res) => sendIndex(res));
+
+// SPA fallback: cualquier ruta no-API → index (evita Cannot GET al recargar)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  return sendIndex(res);
+});
 
 // ---------- Arranque ----------
 cargarDatosSupabase().catch(() => {});
