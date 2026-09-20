@@ -239,21 +239,22 @@ function fillKoiHero(item) {
       if (lang) push('<span class="koi-meta-lang">' + lang + "</span>");
     }
 
-    // Año
+    // Año y/o fecha (no repetir 1999 y 20/10/1999)
     const year = item.year || item.anio || (item.fecha_estreno ? String(item.fecha_estreno).slice(0, 4) : "");
-    if (year) push("<span>" + year + "</span>");
-
-    // Fecha estreno dd/mm/yyyy
+    let releaseLabel = null;
     if (item.fecha_estreno) {
       const f = String(item.fecha_estreno).slice(0, 10);
-      let releaseLabel = null;
       if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
         const [yy, mm, dd] = f.split("-");
         releaseLabel = dd + "/" + mm + "/" + yy;
       } else if (f && f !== String(year)) {
         releaseLabel = f;
       }
-      if (releaseLabel) push("<span>" + releaseLabel + "</span>");
+    }
+    if (releaseLabel) {
+      push("<span>" + releaseLabel + "</span>");
+    } else if (year) {
+      push("<span>" + year + "</span>");
     }
 
     // Rating: etiqueta IMDb solo si rating_source / source es imdb
@@ -285,7 +286,7 @@ function fillKoiHero(item) {
         push(
           '<span class="koi-imdb-inline" title="IMDb ' + scoreLabel + '">' +
             '<span class="koi-imdb-score">' + scoreLabel + "</span>" +
-            '<span class="koi-imdb-tag">IMDb</span></span>'
+            '<span class="koi-imdb-tag"> IMDb</span></span>'
         );
       } else {
         push(
@@ -1221,22 +1222,22 @@ function rellenarMetaDetalle(item) {
           "</span></div>"
         );
       }
+      // Solo JKanime (ya filtrado arriba con isJk)
       const studios = item.studios || item.studio;
       addRow("Studios", Array.isArray(studios) ? studios.join(", ") : studios);
-      addRow("Temporada", item.temporada_anime || item.temporada);
+      addRow("Temporada anime", item.temporada_anime || null);
       addRow("Demografía", item.demografia);
       addRow("Idiomas", item.idiomas);
       addRow("Calidad", item.calidad);
+      addRow("Duración", item.duracion_texto);
+      addRow("Estado", item.estado);
       const alts = item.titulos_alternativos;
       if (alts && typeof alts === "object") {
         if (alts.sinonimos) addRow("Sinónimos", alts.sinonimos);
         if (alts.ingles) addRow("Inglés", alts.ingles);
         if (alts.japones) addRow("Japonés", alts.japones);
       }
-      if (item.ultimo_episodio) {
-        let ue = item.ultimo_episodio;
-        addRow("Último episodio", ue);
-      }
+      if (item.ultimo_episodio) addRow("Último episodio", item.ultimo_episodio);
       if (item.proximo_episodio) addRow("Próximo episodio", item.proximo_episodio);
       if (item.fecha_estreno_texto) addRow("Emitido", item.fecha_estreno_texto);
       box.innerHTML = rows.length
