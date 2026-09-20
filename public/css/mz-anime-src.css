@@ -106,3 +106,108 @@ button.mz-anime-src {
   .mz-av1-home-title { font-size: 1.05rem; }
   .mz-av1-home-head { gap: 0.35rem 0.6rem; }
 }
+
+
+/* Recientes / Nuevos — fila horizontal tipo episodios (back_img) */
+.mz-av1-home-section.is-eps .mz-av1-home-title {
+  color: #c4b5fd;
+}
+.mz-av1-eps-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.mz-av1-eps-row::-webkit-scrollbar {
+  height: 6px;
+}
+.mz-av1-eps-row::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.45);
+  border-radius: 99px;
+}
+.mz-av1-ep-card {
+  flex: 0 0 auto;
+  width: min(220px, 72vw);
+  scroll-snap-align: start;
+  cursor: pointer;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.mz-av1-ep-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.5);
+}
+.mz-av1-ep-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0f0a18;
+  overflow: hidden;
+}
+.mz-av1-ep-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mz-av1-ep-nuevo {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.mz-av1-ep-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  color: #fff;
+}
+.mz-av1-ep-badge.is-air {
+  background: rgba(34, 197, 94, 0.9);
+}
+.mz-av1-ep-badge.is-end {
+  background: rgba(100, 116, 139, 0.9);
+}
+.mz-av1-ep-info {
+  padding: 0.55rem 0.65rem 0.7rem;
+}
+.mz-av1-ep-info h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mz-av1-ep-info p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(196, 181, 253, 0.95);
+}
+@media (min-width: 900px) {
+  .mz-av1-ep-card { width: 240px; }
+}
