@@ -35,6 +35,12 @@ function isPeliculaItem(item) {
   if (/pel[ií]cula|movie|film/.test(t)) return true;
   const f = String(item.formato || item.format || "").toLowerCase();
   if (/pel[ií]cula|movie|film/.test(f)) return true;
+  // Root embeds + sin episodios → film (AV1 a veces manda tipo Anime + formato Pelicula)
+  const eps = item.episodios || item.episodes;
+  const hasEps = Array.isArray(eps) && eps.length > 0;
+  const hasTemps = Array.isArray(item.temporadas) && item.temporadas.length > 0;
+  const hasPlayers = (Array.isArray(item.embeds) && item.embeds.length > 0) || item.reproductor || item.tiene_player;
+  if (hasPlayers && !hasEps && !hasTemps) return true;
   return false;
 }
 
@@ -180,8 +186,11 @@ function langLabel(item) {
  */
 function fillKoiHero(item) {
     if (!item) return;
-    const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
-    const esSA = isSerieOrAnime(item);
+    // formato Pelicula + tipo Anime (films AV1) cuenta como película
+    const esPeli = typeof isPeliculaItem === "function"
+      ? isPeliculaItem(item)
+      : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
+    const esSA = !esPeli && isSerieOrAnime(item);
     if (!esPeli && !esSA) return;
     // PC: series/anime/peli. Móvil: solo películas (hero + REPRODUCIR)
   //  if (!isKoiDesktop() && !esPeli) return;
@@ -4841,7 +4850,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       setKoiMode(item);
       bindKoiHeroControls({
         onPlay: async () => {
-          const esPeli = /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""));
+          const esPeli = typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || item.formato || ""));
                     if (esPeli) {
             // PC y móvil: misma vista Koi
             try {
@@ -5185,14 +5194,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     // Película API: tipo + players
                     try {
                       if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
-                        item.tipo = completo.tipo || "Película";
-                        if (completo.formato) item.formato = completo.formato;
+                        item.tipo = "Película";
+                        item.formato = completo.formato || "Pelicula";
                         if (Array.isArray(completo.embeds) && completo.embeds.length) {
                           item.embeds = completo.embeds;
                           item.tiene_player = true;
                         }
                         if (completo.reproductor) item.reproductor = completo.reproductor;
-                        // no listar temporadas de un film
                         item.episodios = [];
                         item.temporadas = [];
                         item.temporadas_raw = null;
