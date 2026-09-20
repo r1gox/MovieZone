@@ -4741,7 +4741,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
         // No pisar /detalle/slug/t/e si ya estamos en un episodio de este título
         var keepEp = false;
         try {
-          var pm = location.pathname.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)/i);
+          var pm = location.pathname.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/(\d+)\/(\d+)/i);
           var sl = typeof mzSlugFromItem === "function" ? mzSlugFromItem(item) : (item && item.slug);
           if (pm && sl && decodeURIComponent(pm[1]) === sl) keepEp = true;
         } catch (_) {}
@@ -6375,7 +6375,7 @@ async function refrescarTotalAnimeSiHaceFalta(item) {
     try {
         const params = new URLSearchParams();
         if (item.slug) params.set("slug", item.slug);
-        params.set("source_id", String(item.source_id || "4"));
+        params.set("source_id", String(item.source_id || ((typeof esItemJk === "function" && esItemJk(item)) || /jkanime/i.test(String(item.fuente||item.link||"")) ? "5" : "4")));
         params.set("tipo", "Anime");
         params.set("force", "1");
         if (item.link) params.set("link", item.link);
@@ -6886,7 +6886,7 @@ function renderEpisodios(item, season = 1) {
                 try {
                     const qs = new URLSearchParams();
                     if (item.slug) qs.set("slug", item.slug);
-                    qs.set("source_id", String(item.source_id || "4"));
+                    qs.set("source_id", String(item.source_id || ((typeof esItemJk === "function" && esItemJk(item)) || /jkanime/i.test(String(item.fuente||item.link||"")) ? "5" : "4")));
                     if (item.link) qs.set("link", item.link);
                     if (item.tipo) qs.set("tipo", item.tipo || "Anime");
                     qs.set("season", String(season));
@@ -7185,12 +7185,11 @@ function renderEpisodios(item, season = 1) {
                 params.set("temporada", String(seasonNum));
                 params.set("episodio", String(epNum));
                 if (item.slug) params.set("slug", item.slug);
-                // Anime → fuente 5 (jkanime) prioritaria; 4 = respaldo
-                const sidCap = (item.tipo === "Anime")
-                    ? (item.source_id || item._prefer_source_anime || item.source_id || "")
-                    : (item.source_id || "");
-                if (sidCap) params.set("source_id", String(sidCap));
-                else if (item.source_id) params.set("source_id", item.source_id);
+                // Respetar fuente del item (JK=5 / AV1=4); no forzar AV1
+                let sidCap = item.source_id != null && item.source_id !== "" ? String(item.source_id) : "";
+                if (!sidCap && typeof esItemJk === "function" && esItemJk(item)) sidCap = "5";
+                if (!sidCap && /jkanime/i.test(String(item.fuente || item.link || ""))) sidCap = "5";
+                if (sidCap) params.set("source_id", sidCap);
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
                 if (item.tipo) params.set("tipo", item.tipo);
@@ -8895,12 +8894,20 @@ function mzSlugFromItem(item) {
 function mzBuildDetallePath(item, season, episode) {
   const slug = mzSlugFromItem(item);
   if (!slug) return "/";
-  const base = "/detalle/" + encodeURIComponent(slug);
-  // PC y móvil: /detalle/slug/temporada/episodio
+  // /detalle/{source_id}/slug  |  /detalle/{source_id}/slug/t/e  |  /detalle/slug (sin id)
+  let sid = "";
+  try {
+    sid = item && item.source_id != null ? String(item.source_id).trim() : "";
+    if (!sid && item && typeof esItemJk === "function" && esItemJk(item)) sid = "5";
+    if (!sid && item && /jkanime/i.test(String(item.fuente || item.source || item.link || ""))) sid = "5";
+  } catch (_) {}
+  let base = sid
+    ? "/detalle/" + encodeURIComponent(sid) + "/" + encodeURIComponent(slug)
+    : "/detalle/" + encodeURIComponent(slug);
   const s = season != null && season !== "" ? Number(season) : null;
   const e = episode != null && episode !== "" ? Number(episode) : null;
   if (s != null && e != null && !isNaN(s) && !isNaN(e) && s >= 1 && e >= 1) {
-    return base + "/" + s + "/" + e;
+    base = base + "/" + s + "/" + e;
   }
   return base;
 }
@@ -8911,17 +8918,27 @@ function mzPushDetalleUrl(item, season, episode) {
     if (!path || path === "/") return;
     if (location.pathname === path) return;
     const slug = mzSlugFromItem(item);
+    let sidSt = "";
+    try {
+      sidSt = item && item.source_id != null ? String(item.source_id) : "";
+      if (!sidSt && item && typeof esItemJk === "function" && esItemJk(item)) sidSt = "5";
+    } catch (_) {}
     const state = {
       mz: "detalle",
       slug: slug,
+      source_id: sidSt || null,
       season: season != null && season !== "" ? Number(season) : null,
       episode: episode != null && episode !== "" ? Number(episode) : null
     };
     // Si ya estamos en el mismo detalle, replace (evita perder /t/e o apilar)
     var sameDetalle = false;
     try {
-      var m = location.pathname.match(/^\/detalle\/([^\/]+)/i);
-      if (m && decodeURIComponent(m[1]) === slug) sameDetalle = true;
+      // /detalle/slug  o  /detalle/5/slug
+      var m = location.pathname.match(/^\/detalle\/(?:(\d+)\/)?([^\/]+)/i);
+      if (m) {
+        var pathSlug = decodeURIComponent(m[2] || m[1] || "");
+        if (pathSlug === slug) sameDetalle = true;
+      }
     } catch (_) {}
     if (sameDetalle) history.replaceState(state, "", path);
     else history.pushState(state, "", path);
@@ -8965,10 +8982,23 @@ try {
 // ---------- Deep link: /serie/slug  |  /?id=  |  /?link= ----------
 (async function handleDeepLink() {
     try {
-        // /detalle/slug  |  /detalle/slug/1/2
+        // /detalle/5/slug  |  /detalle/5/slug/1/1  |  /detalle/slug  |  /detalle/slug/1/1
         let pathM = location.pathname.match(
-            /^\/detalle\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+            /^\/detalle\/(\d+)\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
         );
+        let sidFromPath = null;
+        if (pathM) {
+            // [full, source_id, slug, season, episode]
+            sidFromPath = pathM[1];
+            pathM = [pathM[0], pathM[2], pathM[3], pathM[4]];
+        } else {
+            pathM = location.pathname.match(
+                /^\/detalle\/([^\/]+)(?:\/(\d+)\/(\d+))?\/?$/i
+            );
+            if (pathM) {
+                pathM = [pathM[0], pathM[1], pathM[2], pathM[3]];
+            }
+        }
         // Compat: /serie|anime|pelicula/slug[/s/e]
         if (!pathM) {
             pathM = location.pathname.match(
@@ -8977,8 +9007,6 @@ try {
             if (pathM) {
                 pathM = [pathM[0], pathM[2], pathM[3], pathM[4]];
             }
-        } else {
-            pathM = [pathM[0], pathM[1], pathM[2], pathM[3]];
         }
 
         if (pathM && pathM[1]) {
@@ -8988,9 +9016,21 @@ try {
             const episode = pathM[3] ? parseInt(pathM[3], 10) : null;
             const q = new URLSearchParams();
             q.set("slug", slug);
-            // sin forzar tipo: el API resuelve
+            let sidDeep = sidFromPath || "";
+            try {
+              if (!sidDeep) sidDeep = new URLSearchParams(location.search || "").get("source_id") || "";
+              if (!sidDeep && history.state && history.state.source_id) sidDeep = String(history.state.source_id);
+            } catch (_) {}
+            if (sidDeep) {
+              q.set("source_id", sidDeep);
+              if (String(sidDeep) === "5") q.set("fuente", "jkanime");
+            }
             const res = await fetch("/api/detalle?" + q.toString());
             const item = await res.json();
+            if (item && sidDeep) {
+              item.source_id = String(sidDeep);
+              if (String(sidDeep) === "5") item.fuente = item.fuente || "jkanime";
+            }
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
                 await abrirDetalle(item);
                 if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
@@ -9047,14 +9087,14 @@ window.addEventListener("popstate", function () {
     }
 
     // /detalle/slug/1/2 → salir de episodio, quedarse en detalle
-    const epM = path.match(/^\/detalle\/([^\/]+)\/(\d+)\/(\d+)\/?$/i);
+    const epM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/(\d+)\/(\d+)\/?$/i);
     if (epM) {
       // Aún en URL de episodio (caso raro); no forzar reload
       return;
     }
 
     // /detalle/slug (sin episodio)
-    const detM = path.match(/^\/detalle\/([^\/]+)\/?$/i);
+    const detM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/?$/i);
     if (detM) {
       if (document.body.classList.contains("mz-mobile-ep-playing")) {
         if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
