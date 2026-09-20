@@ -1714,7 +1714,7 @@ async function asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum) {
   else if (item.link) params.set("link", item.link);
   if (item.slug) params.set("slug", item.slug);
   if (item.source_id) params.set("source_id", String(item.source_id));
-  if (item.tipo) params.set("tipo", item.tipo);
+  if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
   if (item.url_extract && !item.link) params.set("link", item.url_extract);
 
   const controller = new AbortController();
@@ -4296,7 +4296,7 @@ async function repararPortadaDesdeDetalle(item, imgEl) {
         const params = new URLSearchParams();
         if (item.slug) params.set("slug", item.slug);
         if (item.source_id) params.set("source_id", item.source_id);
-        if (item.tipo) params.set("tipo", item.tipo);
+        if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
         if (item.link) params.set("link", item.link);
         if (![...params.keys()].length) return;
 
@@ -4979,7 +4979,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     // Enriquecer siempre que falte descripción, players o episodios (al entrar, no solo al pulsar Actualizar)
     // También si el listado marcó "Sin servidores" (tiene_player !== true) para películas
     const faltaDescripcion = !item.descripcion || String(item.descripcion).trim().length < 20;
-    const esSA = item.tipo === "Serie" || item.tipo === "Anime";
+    const esSA =
+      !(typeof isPeliculaItem === "function" && isPeliculaItem(item)) &&
+      !( /pel[ií]cula|movie|film/i.test(String(item.tipo || item.formato || "")) ) &&
+      (item.tipo === "Serie" || item.tipo === "Anime");
 
     const _needsEnrich = faltaDescripcion || true; // se ajusta abajo
     // Series/anime no requieren embeds a nivel ficha (van por capítulo)
@@ -5038,7 +5041,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
               params.set("source_id", sidDet);
               item.source_id = sidDet;
             }
-            if (item.tipo) params.set("tipo", item.tipo);
+            if (item.tipo) {
+              var tParam = item.tipo;
+              if (/pel[ií]cula|movie|film/i.test(String(item.formato || item.tipo || ""))) tParam = "Pelicula";
+              params.set("tipo", tParam);
+            }
             if (item.url_extract && !item.link) params.set("link", item.url_extract);
             if (force) params.set("force", "1");
             // Portada ya buena del listado: que el backend la respete siempre
@@ -5141,7 +5148,10 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (keepMeta.source_id || window.__mzLockSourceId) {
                       item.source_id = String(keepMeta.source_id || window.__mzLockSourceId);
                       if (item.slug && (item.source_id === "5" || item.source_id === "4")) {
-                        item.link = "https://moviezone.tvjz.workers.dev/" + item.source_id + "/anime/" + item.slug;
+                        var kindL = (typeof isPeliculaItem === "function" && isPeliculaItem(item)) || /pel[ií]cula|movie|film/i.test(String(item.tipo || item.formato || ""))
+                          ? "pelicula"
+                          : "anime";
+                        item.link = "https://moviezone.tvjz.workers.dev/" + item.source_id + "/" + kindL + "/" + item.slug;
                         item.fuente = item.source_id === "5" ? "jkanime" : (item.source_id === "4" ? "animeav1" : item.fuente);
                       }
                     }
@@ -5176,6 +5186,16 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                 } else {
                     const keep = Object.assign({}, item);
                     Object.assign(item, completo);
+                    // Si el API dice Película (film anime), no dejar tipo Anime del listado
+                    try {
+                      if (typeof isPeliculaItem === "function" && isPeliculaItem(completo)) {
+                        item.tipo = completo.tipo || "Película";
+                        if (completo.formato) item.formato = completo.formato;
+                      } else if (/pel[ií]cula|movie|film/i.test(String(completo.tipo || completo.formato || ""))) {
+                        item.tipo = completo.tipo || "Película";
+                        if (completo.formato) item.formato = completo.formato;
+                      }
+                    } catch (_) {}
                     // Restaurar campos que el detalle mandó vacíos
                     const fields = [
                         "nombre", "titulo", "titulo_original", "year", "calificacion", "rating",
@@ -5938,7 +5958,7 @@ function buildEpisodiosQuery(item, season) {
     if (item.link) params.set("link", item.link);
     if (item.slug) params.set("slug", item.slug);
     if (item.source_id) params.set("source_id", item.source_id);
-    if (item.tipo) params.set("tipo", item.tipo);
+    if (item.tipo) (function(){ var tParam=item.tipo; if(/pel[ií]cula|movie|film/i.test(String(item.formato||item.tipo||""))) tParam="Pelicula"; params.set("tipo", tParam); })();
     if (item.url_extract && !item.link) params.set("link", item.url_extract);
     params.set("players", "1"); // cargar players del 1er episodio
     return params.toString();
@@ -7267,7 +7287,11 @@ function renderEpisodios(item, season = 1) {
                 if (sidCap) params.set("source_id", sidCap);
                 if (item.link) params.set("link", item.link);
                 if (item.url_extract && !item.link) params.set("link", item.url_extract);
-                if (item.tipo) params.set("tipo", item.tipo);
+                if (item.tipo) {
+              var tParam = item.tipo;
+              if (/pel[ií]cula|movie|film/i.test(String(item.formato || item.tipo || ""))) tParam = "Pelicula";
+              params.set("tipo", tParam);
+            }
 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 35000);
