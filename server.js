@@ -2626,7 +2626,7 @@ async function obtenerDetalleInterno(params) {
     cached = null;
   }
 
-  const esAnimeKind = id.kind === "anime" || /anime/i.test(String(tipo || cached?.tipo || ""));
+  const esAnimeKind = id.kind === "anime" || (id.kind !== "pelicula" && /anime/i.test(String(tipo || cached?.tipo || "")));
 
   // Si ya tenemos contenido válido y no force → devolver cache
   // EXCEPCIÓN anime: refrescar totales desde fuente 4 (One Piece sigue subiendo; Wistoria T2)
@@ -2849,10 +2849,14 @@ async function obtenerDetalleInterno(params) {
       // Rechazar si la fuente cambió el tipo (Serie ≠ Anime)
       const tipoEsp = normalizarTipo(tipo || cached?.tipo || (esAnimeKind ? "Anime" : "Serie"));
       const tipoCand = normalizarTipo(candidate.tipo || "");
-      if (!esAnimeKind && tipoCand === "Anime") continue;
-      if (esAnimeKind && tipoCand === "Serie" && String(sid) !== "4") continue;
-      if (tipoEsp === "Serie" && tipoCand === "Anime") continue;
-      if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
+      // Película (films) siempre válida aunque el listado diga Anime
+      var candPeli = tipoCand === "Película" || /pelicul|movie|film/i.test(String(candidate.tipo || candidate.formato || ""));
+      if (!candPeli) {
+        if (!esAnimeKind && tipoCand === "Anime") continue;
+        if (esAnimeKind && tipoCand === "Serie" && String(sid) !== "4") continue;
+        if (tipoEsp === "Serie" && tipoCand === "Anime") continue;
+        if (tipoEsp === "Anime" && tipoCand === "Serie" && String(sid) !== "4") continue;
+      }
       // Título = slug → basura (ej. animeav1 con our-sticky-love)
       const nomCand = String(candidate.nombre || candidate.titulo || "");
       if (candidate.slug && esSlugComoTitulo(nomCand, candidate.slug)) {
