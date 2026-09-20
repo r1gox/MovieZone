@@ -129,6 +129,18 @@ function parseIdentidad(input) {
     }
   }
 
+  // Detectar fuente por dominio del link (animeav1 / jkanime)
+  if (link) {
+    if (!source_id && /animeav1\.com/i.test(String(link))) source_id = "4";
+    if (!source_id && /jkanime\.net/i.test(String(link))) source_id = "5";
+    if (!slug) {
+      var mav = String(link).match(/animeav1\.com\/media\/([^\/\?\#]+)/i);
+      if (mav) {
+        try { slug = decodeURIComponent(mav[1]); } catch (_) { slug = mav[1]; }
+      }
+    }
+  }
+
   // source_id por nombre de fuente
   if (!source_id && input.fuente) {
     try {
@@ -147,6 +159,15 @@ function parseIdentidad(input) {
     }
   }
   if (!kind) kind = "pelicula";
+
+  // Film de animeav1: siempre kind pelicula
+  if (String(source_id) === "4") {
+    var tP2 = String(tipo || "").toLowerCase();
+    var fP2 = String(input.formato || "").toLowerCase();
+    if (/pel[ií]cula|movie|film/.test(tP2) || /pel[ií]cula|movie|film/.test(fP2)) {
+      kind = "pelicula";
+    }
+  }
 
   // source por defecto pelisplus
   if (!source_id) source_id = "3";
@@ -2832,7 +2853,7 @@ async function obtenerDetalleInterno(params) {
   for (const sid of fuentes) {
     if (String(sid) === "4") triedSource4 = true;
     for (const slugTry of slugsTryBase) {
-      const kindFetch = esAnimeKind ? "anime" : (id.kind === "pelicula" ? "pelicula" : "serie");
+      const kindFetch = id.kind === "pelicula" ? "pelicula" : (esAnimeKind ? "anime" : (id.kind === "serie" ? "serie" : "serie"));
       const candidate = await fetchDetailFromSource(sid, kindFetch, slugTry, {
         link,
         slug: slugTry,
