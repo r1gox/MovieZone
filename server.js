@@ -1884,9 +1884,8 @@ async function obtenerEstrenos(tipo = "peliculas", limit = 24) {
           (normalizeTitleKey(m.nombre) === normalizeTitleKey(item.nombre) &&
             ((tipo === "series" && m.tipo === "Serie") ||
               (tipo === "animes" && (
-                m.tipo === "Anime" || m.tipo === "OVA" || m.tipo === "ONA" ||
-                m.tipo === "Especial" || m.tipo === "Película" ||
-                String(m.source_id || "") === "4" || String(m.source_id || "") === "5"
+                String(m.source_id || "") === "4" || /animeav1/i.test(String(m.source_id || m.fuente || "")) ||
+                m.tipo === "Anime" || m.tipo === "OVA" || m.tipo === "ONA" || m.tipo === "Especial"
               )) ||
               (tipo === "peliculas" && (m.tipo === "Película" || !m.tipo))))
       );
@@ -3475,18 +3474,13 @@ function catalogoPaginado(tipoApi, tipoItem, page, limit) {
         return t === "serie" || t === "dorama" || t === "tv";
       }
       if (tipoItem === "Anime") {
-        // Sección Anime: series/OVA/films de fuentes 4 y 5 (badge distingue tipo)
+        // Sección AnimeAV1: SOLO source 4 (cualquier tipo: Anime, Película, OVA…)
+        // JK (5) tiene su propia sección. Otras fuentes: solo tipo anime/ova/ona/especial.
         const t = String(m.tipo || "").toLowerCase();
-        const sid = String(m.source_id || m.fuente || m.source || "");
-        if (sid === "4" || sid === "5" || /animeav1|jkanime|^jk$/i.test(sid)) return true;
-        return (
-          t === "anime" ||
-          t === "ova" ||
-          t === "ona" ||
-          t === "especial" ||
-          t === "película" ||
-          t === "pelicula"
-        );
+        const sid = String(m.source_id || m.fuente || m.source || "").toLowerCase();
+        if (sid === "5" || /jkanime|^jk$/.test(sid)) return false;
+        if (sid === "4" || sid === "animeav1" || /animeav1/.test(sid)) return true;
+        return t === "anime" || t === "ova" || t === "ona" || t === "especial";
       }
       // Películas
       {
