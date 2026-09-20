@@ -97,9 +97,14 @@ function bindKoiBackBtn() {
   btn.dataset.koiBound = "1";
   btn.addEventListener("click", () => {
     const path = location.pathname || "";
-    // Episodio /detalle/…/t/e → atrás a ficha (historial)
+    // Episodio /detalle/…/t/e → cerrar player + atrás a ficha
     if (/\/detalle\/(?:\d+\/)?[^\/]+\/\d+\/\d+\/?$/i.test(path)) {
-      history.back();
+      try {
+        if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode();
+        else history.back();
+      } catch (_) {
+        try { history.back(); } catch (__) {}
+      }
       return;
     }
     // Player abierto sin URL de episodio
@@ -117,12 +122,12 @@ function bindKoiBackBtn() {
       } catch (_) {}
       return;
     }
-    // Ficha /detalle/… → atrás a inicio (o cerrar)
-    if (/^\/detalle\//i.test(path) && history.length > 1) {
-      history.back();
+    // Ficha /detalle/… → cerrar detalle (más fiable que history.back en SPA)
+    if (/^\/detalle\//i.test(path)) {
+      try { cerrarDetalle(false); } catch (_) {}
       return;
     }
-    try { cerrarDetalle(); } catch (_) {}
+    try { cerrarDetalle(false); } catch (_) {}
   });
 }
 
@@ -2642,6 +2647,10 @@ function salirVistaMovilEpisodio() {
 
 
 function volverDesdeEpisodioMovil() {
+  try {
+    if (typeof window.mzKoiCloseEpisodeSilent === "function") window.mzKoiCloseEpisodeSilent();
+    else if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode({ skipHistory: true });
+  } catch (_) {}
   const item = (_epPlayCtx && _epPlayCtx.item) || seleccionActual;
   try {
     const ifr = document.getElementById("player-iframe");
@@ -9167,6 +9176,10 @@ window.addEventListener("popstate", function () {
     // /detalle/slug o /detalle/5/slug (sin episodio) ← atrás desde episodio
     const detM = path.match(/^\/detalle\/(?:\d+\/)?([^\/]+)\/?$/i);
     if (detM) {
+      try {
+        if (typeof window.mzKoiCloseEpisodeSilent === "function") window.mzKoiCloseEpisodeSilent();
+        else if (typeof window.mzKoiCloseEpisode === "function") window.mzKoiCloseEpisode({ skipHistory: true });
+      } catch (_) {}
       try {
         if (typeof salirVistaMovilEpisodio === "function") salirVistaMovilEpisodio();
       } catch (_) {}
