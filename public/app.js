@@ -4259,11 +4259,35 @@ function normalizarItemHomeAv1(it, bloque) {
     it.url ||
     it.link ||
     ("https://moviezone.tvjz.workers.dev/4/anime/" + encodeURIComponent(slug));
+  // Recientes: still/back_img del episodio (no portada del anime)
+  // Agregados: portada del título
+  const esRecientes = bloque === "recientes";
+  const portada = esRecientes
+    ? (it.back_img || it.still || it.portada || null)
+    : (it.portada || it.back_img || it.still || null);
+
+  // Estado en lista (misma lógica que el resto del catálogo)
+  let enEmision = null;
+  let finalizado = null;
+  let estado = it.estado || it.status || null;
+  if (typeof it.en_emision === "boolean") enEmision = it.en_emision;
+  if (typeof it.finalizado === "boolean") finalizado = it.finalizado;
+  if (estado) {
+    const st = String(estado).toLowerCase();
+    if (enEmision == null && /emisi|airing|ongoing|en curso/i.test(st)) enEmision = true;
+    if (finalizado == null && /final|conclu|ended|finished|complete/i.test(st)) finalizado = true;
+  }
+  // Recientes = episodio recién publicado → suele estar en emisión si no dice lo contrario
+  if (esRecientes && enEmision == null && finalizado == null) {
+    enEmision = true;
+  }
+
   return {
     nombre: nombre,
     titulo: nombre,
     slug: slug,
-    portada: it.portada || it.back_img || it.still || null,
+    portada: portada,
+    back_img: it.back_img || it.still || null,
     tipo: tipoRaw,
     type: tipoRaw,
     formato: it.formato || null,
@@ -4274,6 +4298,9 @@ function normalizarItemHomeAv1(it, bloque) {
     url_extract: link,
     episodio: ep != null ? Number(ep) : null,
     descripcion: it.descripcion || null,
+    estado: estado,
+    en_emision: enEmision,
+    finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
     _homeAv1: bloque || "recientes",
     _homeEpLabel: ep != null ? ("Episodio " + ep) : null
   };
