@@ -4242,6 +4242,48 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
 // CARGA DE DATOS (conectado a tu server.js real)
 // ======================================================
 
+/** publishedAt / ISO → Hoy | Ayer | Sábado 20 (zona local del navegador) */
+function fechaRelativaDesdeIso(raw) {
+  if (raw == null || raw === "") return null;
+  var s = String(raw).trim();
+  // Ya es etiqueta legible
+  if (/^(hoy|ayer)$/i.test(s)) return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  if (/^[a-záéíóúñ]+\s+\d{1,2}$/i.test(s) && !/\d{4}/.test(s)) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  var d = new Date(s);
+  if (isNaN(d.getTime())) {
+    // "2026-09-20 16:58:48.751+00" → intentar ISO
+    var s2 = s.replace(" ", "T").replace(/\+00$/, "Z").replace(/(\.\d+)\+00$/, "$1Z");
+    d = new Date(s2);
+  }
+  if (isNaN(d.getTime())) return null;
+
+  var now = new Date();
+  var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var diffDays = Math.round((startToday - startThat) / 86400000);
+
+  if (diffDays === 0) return "Hoy";
+  if (diffDays === 1) return "Ayer";
+  if (diffDays > 1 && diffDays < 7) {
+    try {
+      var lab = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric" }).format(d);
+      lab = lab.replace(",", "");
+      return lab.charAt(0).toUpperCase() + lab.slice(1);
+    } catch (_) {}
+  }
+  try {
+    return new Intl.DateTimeFormat("es-MX", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }).format(d);
+  } catch (_) {
+    return s.slice(0, 10);
+  }
+}
+
 /** AnimeAV1 /4/home — recientes + agregados (se actualiza a diario) */
 function normalizarItemHomeAv1(it, bloque) {
   if (!it) return null;
@@ -4303,8 +4345,15 @@ function normalizarItemHomeAv1(it, bloque) {
     finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
     _homeAv1: bloque || "recientes",
     _homeEpLabel: ep != null ? ("Episodio " + ep) : null,
-    fecha: it.fecha || it.fecha_relativa || it.published_label || it.publishedAt || null,
-    fecha_relativa: it.fecha_relativa || it.fecha || it.published_label || null
+    fecha: (function () {
+      var raw = it.fecha_relativa || it.fecha || it.published_label || it.publishedAt || null;
+      return fechaRelativaDesdeIso(raw) || (typeof limpiarFechaJkLabel === "function" ? limpiarFechaJkLabel(raw) : raw);
+    })(),
+    fecha_relativa: (function () {
+      var raw = it.fecha_relativa || it.fecha || it.published_label || it.publishedAt || null;
+      return fechaRelativaDesdeIso(raw) || (typeof limpiarFechaJkLabel === "function" ? limpiarFechaJkLabel(raw) : raw);
+    })(),
+    publishedAt: it.publishedAt || null
   };
 }
 
@@ -4477,6 +4526,20 @@ async function renderAnimeAv1HomeGrid() {
 }
 
 
+/** Quita iconos HTML (ti-clock-hour-5) de etiquetas Hoy/Ayer */
+function limpiarFechaJkLabel(raw) {
+  if (raw == null || raw === "") return null;
+  var s = String(raw)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\bti\b/gi, " ")
+    .replace(/clock-hour-\d+/gi, " ")
+    .replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return s || null;
+}
+
 /** JKanime /5/home — recientes (Programación Animes) + agregados (Animes recientes) */
 function normalizarItemHomeJk(it, bloque) {
   if (!it) return null;
@@ -4532,8 +4595,8 @@ function normalizarItemHomeJk(it, bloque) {
     finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
     _homeJk: bloque || "recientes",
     _homeEpLabel: ep != null ? ("Episodio " + ep) : null,
-    fecha: it.fecha || it.fecha_relativa || it.published_label || null,
-    fecha_relativa: it.fecha_relativa || it.fecha || it.published_label || null
+    fecha: limpiarFechaJkLabel(it.fecha || it.fecha_relativa || it.published_label || null),
+    fecha_relativa: limpiarFechaJkLabel(it.fecha_relativa || it.fecha || it.published_label || null)
   };
 }
 
