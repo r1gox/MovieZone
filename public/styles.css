@@ -5434,6 +5434,22 @@ body.details-open .nav-bottom {
   letter-spacing: -0.02em;
   font-weight: 900;
 }
+.rating-badge.rating-src-mal.rating-imdb-logo .mal-mark,
+.rating-badge.rating-src-fuente.rating-imdb-logo .mal-mark {
+  order: 2 !important;
+  background: #2563eb !important;
+  color: #fff !important;
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em;
+  padding: 2px 4px !important;
+  border-radius: 2px !important;
+}
+.rating-badge.rating-src-mal.rating-imdb-logo .rating-main,
+.rating-badge.rating-src-fuente.rating-imdb-logo .rating-main {
+  order: 1 !important;
+}
+
 .rating-badge.rating-imdb-logo .rating-main {
   font-size: 11px;
   font-weight: 800;
@@ -5441,6 +5457,46 @@ body.details-open .nav-bottom {
 .rating-badge.rating-imdb-logo ion-icon {
   display: none !important;
 }
+
+
+/* MAL (fuente animeav1): mismo cuadrito que IMDb, acento azul */
+.rating-badge.rating-src-mal.rating-imdb-logo,
+.rating-badge.rating-src-fuente.rating-imdb-logo {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  gap: 5px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  padding: 3px 7px !important;
+  font-weight: 700 !important;
+  backdrop-filter: blur(6px);
+}
+/* order MAL: score (1) + chip MAL (2) — igual que IMDb */
+.rating-badge.rating-src-mal:not(.rating-imdb-logo),
+.rating-badge.rating-src-fuente:not(.rating-imdb-logo) {
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.koi-mal-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.koi-mal-inline .koi-imdb-score {
+  color: #fff;
+  font-weight: 700;
+}
+.koi-mal-inline .koi-mal-tag {
+  font-weight: 900;
+  color: #60a5fa;
+  margin-left: 2px;
+  font-size: 0.85em;
+}
+
 
 #details-panel #details-rating-wrap,
 #details-panel #details-type-rating {
@@ -5474,15 +5530,12 @@ body.details-open .nav-bottom {
   }
 }
 
-.rating-badge.rating-src-fuente {
-  background: rgba(5, 2, 9, 0.75) !important;
-  color: #fbbf24 !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-}
 
 .rating-badge.rating-imdb-logo,
 .rating-badge.rating-src-imdb.rating-imdb-logo,
-.rating-badge.rating-src-omdb.rating-imdb-logo {
+.rating-badge.rating-src-omdb.rating-imdb-logo,
+.rating-badge.rating-src-mal.rating-imdb-logo,
+.rating-badge.rating-src-fuente.rating-imdb-logo {
   display: inline-flex !important;
   align-items: center !important;
   gap: 5px !important;
@@ -9594,52 +9647,68 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
 }
 
 
-/* Meta rating: score + IMDb con espacio (móvil y general) */
-.koi-imdb-inline {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  vertical-align: middle !important;
+/* Continuar viendo (grid + home) */
+.mz-continuar-grid {
+  width: 100%;
+  margin: 0 0 1.25rem;
+  padding: 0 4px;
 }
-.koi-imdb-score {
-  font-weight: 800 !important;
+.mz-continuar-grid-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
 }
-.koi-imdb-tag {
-  font-weight: 800 !important;
-  letter-spacing: 0.02em !important;
-  margin-left: 2px !important;
+.mz-continuar-grid-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
-
-
-
-
-
-/* MAL: azul (como antes) */
-.rating-badge.rating-src-mal {
-  background: linear-gradient(135deg, rgba(1, 180, 228, 0.95), rgba(0, 140, 180, 0.9));
-  color: #fff;
+.mz-continuar-grid-hint {
+  font-size: 0.75rem;
+  opacity: 0.55;
 }
-.rating-badge.rating-src-mal .mal-mark {
-  font-size: 0.65em;
-  font-weight: 800;
-  margin-left: 3px;
-  opacity: 0.95;
+.mz-continuar-grid-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
-/* Fuente (página): estrella + número amarillos — NO aplica a MAL */
-.rating-badge.rating-src-fuente,
-.rating-badge.rating-fuente-star {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.4);
+.mz-continuar-grid-row .mz-cw-card {
+  flex: 0 0 auto;
+  width: 140px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.04);
 }
-.rating-badge .fuente-star {
-  color: #fbbf24;
-  font-size: 0.95em;
-  margin-right: 3px;
-  line-height: 1;
+.mz-continuar-grid-row .mz-cw-card img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
 }
-.rating-badge.rating-src-fuente .rating-main,
-.rating-badge.rating-fuente-star .rating-main {
-  color: #fbbf24;
-  font-weight: 800;
+.mz-cw-ep, .mz-cw-rest {
+  margin: 4px 8px;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+#row-continuar:not(.hidden) {
+  display: block !important;
+}
+.progress-bar-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.15);
+}
+.progress-bar-wrap .progress-bar-fill {
+  height: 100%;
+  background: #7c3aed;
 }

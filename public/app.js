@@ -2929,8 +2929,8 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       // primer guardado pronto (no esperar 15s)
       if (typeof guardarProgreso === "function") {
         const prev = typeof obtenerProgreso === "function" ? (obtenerProgreso()[claveProgreso(item)] || {}) : {};
-        const seg0 = Math.max(Number(prev.segundos) || 0, 12);
-        guardarProgreso(item, seg0, Number(prev.duracion) || 0);
+        const seg0 = Math.max(Number(prev.segundos) || 0, 15);
+        guardarProgreso(item, seg0, Number(prev.duracion) || 1440);
       }
       try { renderContinuarViendoEnGrid(); } catch (_) {}
     }
@@ -10158,8 +10158,8 @@ function guardarProgreso(item, segundos, duracion) {
     }
     return;
   }
-  // Más de la mitad / casi terminado: eliminar
-  if (pct >= 50) {
+  // Casi terminado (≥90%): eliminar de continuar viendo
+  if (pct >= 90) {
     if (all[key]) {
       delete all[key];
       try { localStorage.setItem(pk("progreso"), JSON.stringify(all)); } catch (_) {}
@@ -10309,15 +10309,16 @@ function listaProgresoPendiente(filtroSeccion) {
   lista = lista.filter(function (x) {
     const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
     if ((x.segundos || 0) < 10) return false;
-    if (pct >= 50) return false;
+    if (pct >= 90) return false;
     const t = String(x.tipo || "").toLowerCase();
     const sid = String(x.source_id || "").toLowerCase();
     const fuente = String(x.fuente || x.source || "").toLowerCase();
     const esJk = sid === "5" || fuente === "jkanime" || fuente === "jk";
     const esAv1 = sid === "4" || fuente === "animeav1";
     const tieneEp = x.episodio != null || x.episode != null || x.number != null;
-    // debe ser episodio (no solo ficha de película)
-    if (!tieneEp && !/serie|anime|dorama|tv|ova|ona/i.test(t)) return false;
+    const esPeli = /pel[ií]cula|movie|film/i.test(t);
+    // episodio de serie/anime O película con progreso
+    if (!tieneEp && !esPeli && !/serie|anime|dorama|tv|ova|ona/i.test(t)) return false;
 
     if (filtroSeccion === "series") {
       if (esJk || esAv1) return false;
@@ -10490,7 +10491,8 @@ function cargarContinuarViendo() {
     .filter(function (x) {
       if (!x) return false;
       const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-      return (x.segundos || 0) > 25 && pct < 50;
+      // mismo criterio que guardarProgreso: ≥10s y <50% visto
+      return (x.segundos || 0) >= 10 && pct < 50;
     })
     .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
     .slice(0, 12);
