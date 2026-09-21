@@ -4302,7 +4302,9 @@ function normalizarItemHomeAv1(it, bloque) {
     en_emision: enEmision,
     finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
     _homeAv1: bloque || "recientes",
-    _homeEpLabel: ep != null ? ("Episodio " + ep) : null
+    _homeEpLabel: ep != null ? ("Episodio " + ep) : null,
+    fecha: it.fecha || it.fecha_relativa || it.published_label || it.publishedAt || null,
+    fecha_relativa: it.fecha_relativa || it.fecha || it.published_label || null
   };
 }
 
@@ -4373,6 +4375,8 @@ async function renderAnimeAv1HomeGrid() {
             const epLab =
               item._homeEpLabel ||
               (item.episodio != null ? "Episodio " + item.episodio : "Nuevo");
+            const fechaLab = item.fecha_relativa || item.fecha || item.published_label || null;
+            const subLab = fechaLab ? epLab + " · " + fechaLab : epLab;
             const enEm =
               item.en_emision === true ||
               /emisi|airing|ongoing/i.test(String(item.estado || ""));
@@ -4382,12 +4386,16 @@ async function renderAnimeAv1HomeGrid() {
             let badge = "";
             if (enEm) badge = '<span class="mz-av1-ep-badge is-air">En emisión</span>';
             else if (fin) badge = '<span class="mz-av1-ep-badge is-end">Finalizado</span>';
+            const fechaBadge = fechaLab
+              ? '<span class="mz-av1-ep-fecha">' + escapeHtml(fechaLab) + "</span>"
+              : "";
             card.innerHTML =
               '<div class="mz-av1-ep-thumb">' +
               '<img src="' +
               escapeHtml(img) +
               '" alt="" loading="lazy" />' +
               '<span class="mz-av1-ep-nuevo">Nuevo</span>' +
+              fechaBadge +
               badge +
               '</div>' +
               '<div class="mz-av1-ep-info">' +
@@ -4395,7 +4403,7 @@ async function renderAnimeAv1HomeGrid() {
               escapeHtml(item.nombre || item.titulo || "") +
               "</h4>" +
               "<p>" +
-              escapeHtml(epLab) +
+              escapeHtml(subLab) +
               "</p>" +
               "</div>";
             const im = card.querySelector("img");
@@ -4523,7 +4531,9 @@ function normalizarItemHomeJk(it, bloque) {
     en_emision: enEmision,
     finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
     _homeJk: bloque || "recientes",
-    _homeEpLabel: ep != null ? ("Episodio " + ep) : null
+    _homeEpLabel: ep != null ? ("Episodio " + ep) : null,
+    fecha: it.fecha || it.fecha_relativa || it.published_label || null,
+    fecha_relativa: it.fecha_relativa || it.fecha || it.published_label || null
   };
 }
 
@@ -4593,6 +4603,8 @@ async function renderJkHomeGrid() {
             const epLab =
               item._homeEpLabel ||
               (item.episodio != null ? "Episodio " + item.episodio : "Nuevo");
+            const fechaLab = item.fecha_relativa || item.fecha || item.published_label || null;
+            const subLab = fechaLab ? epLab + " · " + fechaLab : epLab;
             const enEm =
               item.en_emision === true ||
               /emisi|airing|ongoing/i.test(String(item.estado || ""));
@@ -4602,12 +4614,16 @@ async function renderJkHomeGrid() {
             let badge = "";
             if (enEm) badge = '<span class="mz-av1-ep-badge is-air">En emisión</span>';
             else if (fin) badge = '<span class="mz-av1-ep-badge is-end">Finalizado</span>';
+            const fechaBadge = fechaLab
+              ? '<span class="mz-av1-ep-fecha">' + escapeHtml(fechaLab) + "</span>"
+              : "";
             card.innerHTML =
               '<div class="mz-av1-ep-thumb">' +
               '<img src="' +
               escapeHtml(img) +
               '" alt="" loading="lazy" />' +
               '<span class="mz-av1-ep-nuevo">Nuevo</span>' +
+              fechaBadge +
               badge +
               '</div>' +
               '<div class="mz-av1-ep-info">' +
@@ -4615,7 +4631,7 @@ async function renderJkHomeGrid() {
               escapeHtml(item.nombre || item.titulo || "") +
               "</h4>" +
               "<p>" +
-              escapeHtml(epLab) +
+              escapeHtml(subLab) +
               "</p>" +
               "</div>";
             const im = card.querySelector("img");
