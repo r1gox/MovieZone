@@ -3449,6 +3449,9 @@ function mostrarHome() {
     if (navHome) navHome.classList.add("active");
     actualizarBotonOnline(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    // Continuar viendo: al volver a inicio siempre repintar
+    try { cargarContinuarViendo(); } catch (e) { console.warn("continuar home", e); }
+    try { renderContinuarViendoEnGrid(); } catch (_) {}
 }
 
 // ============================================================
@@ -4314,6 +4317,7 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     cargarPaginaGrid();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    try { setTimeout(function () { renderContinuarViendoEnGrid(); }, 80); } catch (_) {}
 }
 
 // ======================================================
@@ -10117,17 +10121,26 @@ function claveProgreso(item) {
 
 function obtenerProgreso() {
   try {
-    // Preferir clave por perfil; migrar legacy
-    const k = pk("progreso");
-    let raw = localStorage.getItem(k);
-    if (!raw) {
-      const legacy = localStorage.getItem("moviezone_progress");
-      if (legacy) {
-        try { localStorage.setItem(k, legacy); } catch (_) {}
-        raw = legacy;
-      }
+    const merge = {};
+    function absorb(raw) {
+      if (!raw) return;
+      try {
+        const o = JSON.parse(raw);
+        if (!o || typeof o !== "object") return;
+        Object.keys(o).forEach(function (key) {
+          const cur = merge[key];
+          const nxt = o[key];
+          if (!nxt) return;
+          if (!cur || (nxt.updated || 0) >= (cur.updated || 0)) merge[key] = nxt;
+        });
+      } catch (_) {}
     }
-    return JSON.parse(raw || "{}");
+    // perfil activo + guest + legacy (evita perder progreso al cambiar pk)
+    try { absorb(localStorage.getItem(pk("progreso"))); } catch (_) {}
+    try { absorb(localStorage.getItem("mz_guest_progreso")); } catch (_) {}
+    try { absorb(localStorage.getItem("moviezone_progress")); } catch (_) {}
+    try { absorb(localStorage.getItem("mz_continuar_viendo")); } catch (_) {}
+    return merge;
   } catch {
     return {};
   }
@@ -10210,6 +10223,8 @@ function guardarProgreso(item, segundos, duracion) {
   const obj = Object.fromEntries(ordenados);
   try {
     localStorage.setItem(pk("progreso"), JSON.stringify(obj));
+    localStorage.setItem("mz_guest_progreso", JSON.stringify(obj));
+    localStorage.setItem("mz_continuar_viendo", JSON.stringify(obj));
     localStorage.setItem("moviezone_progress", JSON.stringify(obj)); // legacy mirror
   } catch (_) {}
 }
@@ -10271,7 +10286,7 @@ function iniciarSeguimientoProgreso(item) {
       progresoActual.duracion || progresoActual.segundos + 60
     );
     try { renderContinuarViendoEnGrid(); } catch (_) {}
-  }, 15000);
+  }, 8000);
 }
 
 function detenerSeguimientoProgreso(guardar) {
@@ -10308,7 +10323,7 @@ function listaProgresoPendiente(filtroSeccion) {
 
   lista = lista.filter(function (x) {
     const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-    if ((x.segundos || 0) < 10) return false;
+    if ((Number(x.segundos) || 0) < 10) return false;
     if (pct >= 90) return false;
     const t = String(x.tipo || "").toLowerCase();
     const sid = String(x.source_id || "").toLowerCase();
@@ -10486,47 +10501,75 @@ function renderContinuarViendoEnGrid() {
 
 
 function cargarContinuarViendo() {
-  const all = obtenerProgreso();
-  const lista = Object.values(all)
-    .filter(function (x) {
-      if (!x) return false;
-      const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-      // mismo criterio que guardarProgreso: ≥10s y <50% visto
-      return (x.segundos || 0) >= 10 && pct < 50;
-    })
-    .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
-    .slice(0, 12);
+  try {
+    const all = obtenerProgreso();
+    const lista = Object.values(all)
+      .filter(function (x) {
+        if (!x) return false;
+        const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
+        return (Number(x.segundos) || 0) >= 10 && pct < 90;
+      })
+      .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
+      .slice(0, 16);
 
-  const row = document.getElementById("row-continuar");
-  const cont = document.getElementById("carousel-continuar");
-  if (!row || !cont) return;
+    const row = document.getElementById("row-continuar");
+    const cont = document.getElementById("carousel-continuar");
+    if (!row || !cont) {
+      console.warn("[Continuar] falta #row-continuar o #carousel-continuar");
+      return;
+    }
 
-  if (!lista.length) {
-    row.classList.add("hidden");
-    return;
-  }
-  row.classList.remove("hidden");
-  cont.innerHTML = "";
+    if (!lista.length) {
+      row.classList.add("hidden");
+      return;
+    }
+    row.classList.remove("hidden");
+    row.style.display = "";
+    cont.innerHTML = "";
 
-  lista.forEach(function (item) {
-    item.tiene_player = true;
-    const card = crearMediaCard(item);
-    const pct =
-      item.pct != null
-        ? Number(item.pct)
-        : item.duracion > 0
-          ? Math.min(100, Math.round((item.segundos / item.duracion) * 100))
-          : Math.min(95, Math.round((item.segundos / 600) * 100));
-    const bar = document.createElement("div");
-    bar.className = "progress-bar-wrap";
-    bar.innerHTML = '<div class="progress-bar-fill" style="width:' + pct + '%"></div>';
-    card.querySelector(".poster-wrapper")?.appendChild(bar);
-    const clone = card.cloneNode(true);
-    clone.addEventListener("click", function () {
-      abrirDesdeProgreso(item);
+    lista.forEach(function (item) {
+      try {
+        item.tiene_player = true;
+        const pct =
+          item.pct != null
+            ? Number(item.pct)
+            : pctProgreso(item.segundos, item.duracion);
+        const img =
+          item.back_img ||
+          item.still ||
+          item.portada ||
+          item.backdrop ||
+          "https://via.placeholder.com/320x180/0a0611/ffffff?text=...";
+        const nombre = item.titulo_anime || item.nombre || item.titulo || "Sin título";
+        const epLab =
+          item.episodio != null || item.episode != null
+            ? "T" + (item.temporada || item.season || 1) + " · E" + (item.episodio || item.episode)
+            : (item.tipo || "Continuar");
+        const card = document.createElement("div");
+        card.className = "media-card mz-cw-home-card";
+        card.style.cssText = "cursor:pointer;min-width:120px;max-width:140px;flex:0 0 auto;";
+        card.innerHTML =
+          '<div class="poster-wrapper" style="position:relative;aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:#111">' +
+          '<img class="poster-img" src="' + String(img).replace(/"/g, "&quot;") + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"/>' +
+          '<div class="progress-bar-wrap" style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.2)">' +
+          '<div class="progress-bar-fill" style="height:100%;width:' + Math.min(100, Math.max(2, pct)) + '%;background:#7c3aed"></div></div></div>' +
+          '<div class="media-info" style="padding:6px 2px"><h3 style="font-size:.8rem;margin:0;line-height:1.2">' +
+          (typeof escapeHtml === "function" ? escapeHtml(nombre) : String(nombre)) +
+          '</h3><p style="font-size:.7rem;opacity:.7;margin:2px 0 0">' +
+          (typeof escapeHtml === "function" ? escapeHtml(String(epLab)) : String(epLab)) +
+          "</p></div>";
+        card.addEventListener("click", function () {
+          if (typeof abrirDesdeProgreso === "function") abrirDesdeProgreso(item);
+        });
+        cont.appendChild(card);
+      } catch (eCard) {
+        console.warn("[Continuar] card", eCard);
+      }
     });
-    cont.appendChild(clone);
-  });
+    console.log("[Continuar] mostrados", lista.length);
+  } catch (e) {
+    console.warn("[Continuar] error", e);
+  }
 }
 
 // ---------- Recién añadidos ----------
