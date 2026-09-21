@@ -4468,6 +4468,222 @@ async function renderAnimeAv1HomeGrid() {
   }
 }
 
+
+/** JKanime /5/home — recientes (Programación Animes) + agregados (Animes recientes) */
+function normalizarItemHomeJk(it, bloque) {
+  if (!it) return null;
+  const slug = String(it.slug || "").replace(/^\/+|\/+$/g, "");
+  if (!slug) return null;
+  const ep = it.episodio != null ? it.episodio : (it.number != null ? it.number : null);
+  const tituloBase =
+    it.titulo_anime ||
+    (it.titulo && String(it.titulo).replace(/\s*[—\-–]\s*Episodio\s*\d+\s*$/i, "").trim()) ||
+    it.title ||
+    slug;
+  const nombre = String(tituloBase).trim() || slug;
+  const tipoRaw = it.tipo || it.type || it.formato || "Anime";
+  const link =
+    it.url ||
+    it.link ||
+    ("https://moviezone.tvjz.workers.dev/5/anime/" + encodeURIComponent(slug));
+  const esRecientes = bloque === "recientes";
+  const portada = esRecientes
+    ? (it.back_img || it.still || it.portada || null)
+    : (it.portada || it.back_img || it.still || null);
+
+  let enEmision = null;
+  let finalizado = null;
+  let estado = it.estado || it.status || null;
+  if (typeof it.en_emision === "boolean") enEmision = it.en_emision;
+  if (typeof it.finalizado === "boolean") finalizado = it.finalizado;
+  if (estado) {
+    const st = String(estado).toLowerCase();
+    if (enEmision == null && /emisi|airing|ongoing|en curso/i.test(st)) enEmision = true;
+    if (finalizado == null && /final|conclu|ended|finished|complete/i.test(st)) finalizado = true;
+  }
+  if (esRecientes && enEmision == null && finalizado == null) enEmision = true;
+
+  return {
+    nombre: nombre,
+    titulo: nombre,
+    slug: slug,
+    portada: portada,
+    back_img: it.back_img || it.still || null,
+    tipo: tipoRaw,
+    type: tipoRaw,
+    formato: it.formato || null,
+    source_id: "5",
+    fuente: "jkanime",
+    source: "jkanime",
+    link: link,
+    url_extract: link,
+    episodio: ep != null ? Number(ep) : null,
+    descripcion: it.descripcion || null,
+    estado: estado,
+    en_emision: enEmision,
+    finalizado: finalizado === true ? true : (enEmision === true ? false : finalizado),
+    _homeJk: bloque || "recientes",
+    _homeEpLabel: ep != null ? ("Episodio " + ep) : null
+  };
+}
+
+async function fetchJkHome() {
+  const base =
+    typeof WORKER_STREAM !== "undefined" && WORKER_STREAM
+      ? String(WORKER_STREAM).replace(/\/$/, "")
+      : "https://moviezone.tvjz.workers.dev";
+  const res = await fetch(base + "/5/home", {
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+  if (!res.ok) throw new Error("JKanime home HTTP " + res.status);
+  return await res.json();
+}
+
+async function renderJkHomeGrid() {
+  const skeleton = document.getElementById("results-skeleton");
+  if (skeleton) skeleton.classList.remove("hidden");
+  resultsLoading.classList.add("hidden");
+  resultsEmpty.classList.add("hidden");
+  resultsGrid.innerHTML = "";
+  resultsGrid.classList.add("mz-av1-home-wrap");
+  resultsGrid.classList.remove("catalog-grid");
+
+  try {
+    const data = await fetchJkHome();
+    const recientes = (data.recientes || [])
+      .map(function (x) { return normalizarItemHomeJk(x, "recientes"); })
+      .filter(Boolean);
+    const agregados = (data.agregados || [])
+      .map(function (x) { return normalizarItemHomeJk(x, "agregados"); })
+      .filter(Boolean);
+
+    function makeSection(title, items, hint, opts) {
+      opts = opts || {};
+      const horizontal = !!opts.horizontal;
+      const sec = document.createElement("section");
+      sec.className = "mz-av1-home-section" + (horizontal ? " is-eps" : "");
+      const head = document.createElement("div");
+      head.className = "mz-av1-home-head";
+      head.innerHTML =
+        "<h3 class=\"mz-av1-home-title\">" +
+        escapeHtml(title) +
+        "</h3>" +
+        (hint
+          ? '<span class="mz-av1-home-hint">' + escapeHtml(hint) + "</span>"
+          : "") +
+        '<span class="mz-av1-home-count">' +
+        items.length +
+        "</span>";
+      sec.appendChild(head);
+
+      if (horizontal) {
+        const row = document.createElement("div");
+        row.className = "mz-av1-eps-row";
+        if (!items.length) {
+          row.innerHTML = '<p class="mz-av1-home-empty">Sin episodios nuevos</p>';
+        } else {
+          items.forEach(function (item) {
+            const card = document.createElement("div");
+            card.className = "mz-av1-ep-card";
+            const img =
+              item.back_img ||
+              item.portada ||
+              (typeof PLACEHOLDER !== "undefined" ? PLACEHOLDER : "");
+            const epLab =
+              item._homeEpLabel ||
+              (item.episodio != null ? "Episodio " + item.episodio : "Nuevo");
+            const enEm =
+              item.en_emision === true ||
+              /emisi|airing|ongoing/i.test(String(item.estado || ""));
+            const fin =
+              item.finalizado === true ||
+              /final|conclu|ended|finished/i.test(String(item.estado || ""));
+            let badge = "";
+            if (enEm) badge = '<span class="mz-av1-ep-badge is-air">En emisión</span>';
+            else if (fin) badge = '<span class="mz-av1-ep-badge is-end">Finalizado</span>';
+            card.innerHTML =
+              '<div class="mz-av1-ep-thumb">' +
+              '<img src="' +
+              escapeHtml(img) +
+              '" alt="" loading="lazy" />' +
+              '<span class="mz-av1-ep-nuevo">Nuevo</span>' +
+              badge +
+              '</div>' +
+              '<div class="mz-av1-ep-info">' +
+              "<h4>" +
+              escapeHtml(item.nombre || item.titulo || "") +
+              "</h4>" +
+              "<p>" +
+              escapeHtml(epLab) +
+              "</p>" +
+              "</div>";
+            const im = card.querySelector("img");
+            if (im) {
+              im.addEventListener("error", function (e) {
+                if (e.target.dataset.failed === "1") return;
+                e.target.dataset.failed = "1";
+                if (item.portada && e.target.src !== item.portada) {
+                  e.target.src = item.portada;
+                } else if (typeof PLACEHOLDER !== "undefined") {
+                  e.target.src = PLACEHOLDER;
+                }
+              });
+            }
+            card.addEventListener("click", function () {
+              abrirDetalle(item);
+            });
+            row.appendChild(card);
+          });
+        }
+        sec.appendChild(row);
+        return sec;
+      }
+
+      const grid = document.createElement("div");
+      grid.className = "catalog-grid mz-av1-home-grid";
+      if (!items.length) {
+        grid.innerHTML =
+          '<p class="mz-av1-home-empty">Sin títulos por ahora</p>';
+      } else {
+        items.forEach(function (item) {
+          const card = crearMediaCard(item);
+          grid.appendChild(card);
+        });
+      }
+      sec.appendChild(grid);
+      return sec;
+    }
+
+    resultsGrid.appendChild(
+      makeSection("Nuevos", recientes, "Programación · Animes (JK)", {
+        horizontal: true
+      })
+    );
+    resultsGrid.appendChild(
+      makeSection("Recién agregados", agregados, "Animes recientes en JK")
+    );
+
+    const total = recientes.length + agregados.length;
+    gridTotalItems = total;
+    gridTotalPages = 1;
+    gridPage = 1;
+    gridSinMasResultados = true;
+    if (resultsTitle) resultsTitle.textContent = "JK";
+    if (resultsCount) resultsCount.textContent = total + " títulos";
+    if (typeof actualizarPaginacion === "function") actualizarPaginacion();
+    scrollSentinel.classList.add("hidden");
+    if (!total) resultsEmpty.classList.remove("hidden");
+  } catch (err) {
+    console.error("JKanime /5/home:", err);
+    resultsEmpty.classList.remove("hidden");
+    if (resultsCount) resultsCount.textContent = "0 items";
+  } finally {
+    if (skeleton) skeleton.classList.add("hidden");
+    resultsLoading.classList.add("hidden");
+  }
+}
+
 async function fetchSeccion(seccion, page, limit = LIMIT) {
     // Anime = solo AnimeAV1. JK = sección propia (source 5).
     let opts = {};
@@ -4604,6 +4820,15 @@ async function cargarPaginaGrid() {
             actualizarBotonOnline(false);
             // Anime AV1: /4/home → Recientes + Recién agregados (diario)
             await renderAnimeAv1HomeGrid();
+            return;
+        } else if (
+          (gridSeccion === "jk" || animeFuente === "jk") &&
+          gridPage === 1 &&
+          gridModo === "categoria"
+        ) {
+            actualizarBotonOnline(false);
+            // JK: /5/home → Nuevos (Programación Animes) + Recién agregados
+            await renderJkHomeGrid();
             return;
         } else {
             actualizarBotonOnline(false);
