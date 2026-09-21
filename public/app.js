@@ -2555,6 +2555,24 @@ function mzForceEpLikeMovieShell(on, itemArg, epArg, snArg, enArg) {
 }
 
 async function abrirVistaMovilEpisodio(item, episodio, seasonNum, epNum) {
+  try {
+    if (item && typeof item === "object") {
+      const en = epNum != null ? epNum : (episodio && (episodio.episodio || episodio.number || episodio.episode));
+      const sn = seasonNum != null ? seasonNum : (episodio && (episodio.temporada || episodio.season));
+      item = Object.assign({}, item, {
+        temporada: sn != null ? sn : item.temporada,
+        season: sn != null ? sn : item.season,
+        episodio: en != null ? en : item.episodio,
+        episode: en != null ? en : item.episode,
+        back_img: (episodio && (episodio.back_img || episodio.still || episodio.image)) || item.back_img || item.backdrop || null
+      });
+      if (typeof iniciarSeguimientoProgreso === "function") iniciarSeguimientoProgreso(item);
+      if (typeof guardarProgreso === "function") {
+        const prev = typeof obtenerProgreso === "function" ? (obtenerProgreso()[claveProgreso(item)] || {}) : {};
+        guardarProgreso(item, Math.max(Number(prev.segundos) || 0, 12), Number(prev.duracion) || 0);
+      }
+    }
+  } catch (_) {}
   if (!item || !isMobileSerieEpUI(item)) return false;
   seasonNum = Number(seasonNum || episodio?.season || 1) || 1;
   epNum = Number(epNum || episodio?.episode || episodio?.episodio || 1) || 1;
@@ -2901,6 +2919,20 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
         episode: epNum != null ? epNum : (episodio && (episodio.episodio || episodio.number || episodio.episode)),
         back_img: (episodio && (episodio.back_img || episodio.still || episodio.image)) || item.back_img || item.backdrop || null
       });
+    }
+  } catch (_) {}
+
+  // Continuar viendo: registrar episodio al abrir (aunque no haya autoplay)
+  try {
+    if (item && (item.episodio != null || item.episode != null || epNum != null)) {
+      if (typeof iniciarSeguimientoProgreso === "function") iniciarSeguimientoProgreso(item);
+      // primer guardado pronto (no esperar 15s)
+      if (typeof guardarProgreso === "function") {
+        const prev = typeof obtenerProgreso === "function" ? (obtenerProgreso()[claveProgreso(item)] || {}) : {};
+        const seg0 = Math.max(Number(prev.segundos) || 0, 12);
+        guardarProgreso(item, seg0, Number(prev.duracion) || 0);
+      }
+      try { renderContinuarViendoEnGrid(); } catch (_) {}
     }
   } catch (_) {}
 
@@ -4557,6 +4589,7 @@ async function renderAnimeAv1HomeGrid() {
     gridPage = 1;
     gridSinMasResultados = true;
     if (resultsTitle) resultsTitle.textContent = "Anime";
+    try { renderContinuarViendoEnGrid(); } catch (_) {}
     if (resultsCount) resultsCount.textContent = total + " títulos";
     if (typeof actualizarPaginacion === "function") actualizarPaginacion();
     scrollSentinel.classList.add("hidden");
@@ -4795,6 +4828,7 @@ async function renderJkHomeGrid() {
     gridPage = 1;
     gridSinMasResultados = true;
     if (resultsTitle) resultsTitle.textContent = "JK";
+    try { renderContinuarViendoEnGrid(); } catch (_) {}
     if (resultsCount) resultsCount.textContent = total + " títulos";
     if (typeof actualizarPaginacion === "function") actualizarPaginacion();
     scrollSentinel.classList.add("hidden");
@@ -10105,8 +10139,8 @@ function guardarProgreso(item, segundos, duracion) {
   const pct = pctProgreso(segundos, duracion);
   const all = obtenerProgreso();
 
-  // Muy poco visto: no guardar
-  if (segundos < 25 && pct < 2) {
+  // Muy poco visto: no guardar (mín. ~10s)
+  if (segundos < 10 && pct < 1.5) {
     if (all[key]) {
       delete all[key];
       try { localStorage.setItem(pk("progreso"), JSON.stringify(all)); } catch (_) {}
@@ -10263,30 +10297,29 @@ function listaProgresoPendiente(filtroSeccion) {
 
   lista = lista.filter(function (x) {
     const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-    if ((x.segundos || 0) < 25) return false;
+    if ((x.segundos || 0) < 10) return false;
     if (pct >= 50) return false;
-    // solo episodios (serie/anime)
     const t = String(x.tipo || "").toLowerCase();
-    const esEp =
-      x.episodio != null ||
-      x.episode != null ||
-      /serie|anime|dorama|tv|ova|ona/i.test(t);
-    if (!esEp) return false;
+    const sid = String(x.source_id || "").toLowerCase();
+    const fuente = String(x.fuente || x.source || "").toLowerCase();
+    const esJk = sid === "5" || fuente === "jkanime" || fuente === "jk";
+    const esAv1 = sid === "4" || fuente === "animeav1";
+    const tieneEp = x.episodio != null || x.episode != null || x.number != null;
+    // debe ser episodio (no solo ficha de película)
+    if (!tieneEp && !/serie|anime|dorama|tv|ova|ona/i.test(t)) return false;
+
     if (filtroSeccion === "series") {
-      if (/anime|ova|ona|jkanime/i.test(t)) return false;
-      if (String(x.source_id || "") === "4" || String(x.source_id || "") === "5") return false;
-      return /serie|dorama|tv/i.test(t) || x.temporada != null;
+      if (esJk || esAv1) return false;
+      if (/anime|ova|ona/i.test(t) && !/serie|dorama/i.test(t)) return false;
+      return true;
     }
-    if (filtroSeccion === "anime" || filtroSeccion === "jk") {
-      if (filtroSeccion === "jk") {
-        return String(x.source_id || "") === "5" || /jkanime/i.test(String(x.fuente || ""));
-      }
-      // sección anime (AV1): no JK
-      if (String(x.source_id || "") === "5" || /jkanime/i.test(String(x.fuente || ""))) return false;
-      return (
-        String(x.source_id || "") === "4" ||
-        /anime|ova|ona/i.test(t)
-      );
+    if (filtroSeccion === "jk") {
+      return esJk || /jkanime/i.test(String(x.link || ""));
+    }
+    if (filtroSeccion === "anime") {
+      if (esJk) return false;
+      // AV1 u otros animes
+      return esAv1 || /anime|ova|ona|especial/i.test(t) || tieneEp;
     }
     return true;
   });
