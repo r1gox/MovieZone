@@ -4574,6 +4574,12 @@ async function renderAnimeAv1HomeGrid() {
       return sec;
     }
 
+    // Continuar viendo ARRIBA de Nuevos
+    try {
+      const cw = buildContinuarViendoNode("anime");
+      if (cw) resultsGrid.appendChild(cw);
+    } catch (_) {}
+
     resultsGrid.appendChild(
       makeSection("Nuevos", recientes, "Episodios recién publicados", {
         horizontal: true
@@ -4812,6 +4818,11 @@ async function renderJkHomeGrid() {
       sec.appendChild(grid);
       return sec;
     }
+
+    try {
+      const cw = buildContinuarViendoNode("jk");
+      if (cw) resultsGrid.appendChild(cw);
+    } catch (_) {}
 
     resultsGrid.appendChild(
       makeSection("Nuevos", recientes, "Programación · Animes (JK)", {
@@ -10341,41 +10352,13 @@ function fmtTiempoRestante(segundos, duracion) {
   return Math.round(pct) + "% visto";
 }
 
-function renderContinuarViendoEnGrid() {
-  const host = document.getElementById("mz-continuar-grid");
-  const gridView = document.getElementById("grid-view");
-  if (!gridView) return;
+function buildContinuarViendoNode(filtroSeccion) {
+  const lista = listaProgresoPendiente(filtroSeccion);
+  if (!lista.length) return null;
 
-  const sec = gridSeccion;
-  const enSeriesAnime =
-    (gridModo === "categoria" || gridModo === "search") &&
-    (sec === "series" || sec === "anime" || sec === "jk");
-  if (!enSeriesAnime || vistaActual !== "grid") {
-    if (host) host.classList.add("hidden");
-    return;
-  }
-
-  const lista = listaProgresoPendiente(sec === "jk" ? "jk" : sec);
-  let row = host;
-  if (!row) {
-    row = document.createElement("div");
-    row.id = "mz-continuar-grid";
-    row.className = "mz-continuar-grid";
-    const header = gridView.querySelector(".grid-header") || gridView.querySelector("#results-title");
-    const anchor = document.getElementById("results-skeleton") || document.getElementById("results-grid");
-    if (anchor && anchor.parentNode) {
-      anchor.parentNode.insertBefore(row, anchor);
-    } else {
-      gridView.appendChild(row);
-    }
-  }
-
-  if (!lista.length) {
-    row.classList.add("hidden");
-    row.innerHTML = "";
-    return;
-  }
-  row.classList.remove("hidden");
+  const row = document.createElement("div");
+  row.id = "mz-continuar-grid";
+  row.className = "mz-continuar-grid";
   row.innerHTML =
     '<div class="mz-continuar-grid-head">' +
     "<h3>Continuar viendo</h3>" +
@@ -10438,7 +10421,68 @@ function renderContinuarViendoEnGrid() {
     });
     strip.appendChild(card);
   });
+  return row;
 }
+
+/** Inserta Continuar viendo: en home AV1/JK dentro del grid (arriba de Nuevos); en series como fila propia */
+function renderContinuarViendoEnGrid() {
+  const gridView = document.getElementById("grid-view");
+  const resultsGrid = document.getElementById("results-grid");
+  if (!gridView || vistaActual !== "grid") return;
+
+  const sec = gridSeccion;
+  const enSeriesAnime =
+    (gridModo === "categoria" || gridModo === "search") &&
+    (sec === "series" || sec === "anime" || sec === "jk");
+  if (!enSeriesAnime) {
+    document.getElementById("mz-continuar-grid")?.remove();
+    return;
+  }
+
+  const filtro = sec === "jk" ? "jk" : sec;
+  const node = buildContinuarViendoNode(filtro);
+
+  // Home AV1 / JK: results-grid es mz-av1-home-wrap → primer hijo, antes de Nuevos
+  if (resultsGrid && resultsGrid.classList.contains("mz-av1-home-wrap")) {
+    const old = resultsGrid.querySelector("#mz-continuar-grid");
+    if (old) old.remove();
+    if (!node) return;
+    const firstSec = resultsGrid.querySelector(".mz-av1-home-section");
+    if (firstSec) resultsGrid.insertBefore(node, firstSec);
+    else resultsGrid.insertBefore(node, resultsGrid.firstChild);
+    return;
+  }
+
+  // Series / grid plano: encima del catálogo
+  let row = document.getElementById("mz-continuar-grid");
+  if (!node) {
+    if (row) row.remove();
+    return;
+  }
+  if (row && row.parentNode && !resultsGrid?.contains(row)) {
+    // reemplazar contenido del row existente fuera
+    row.replaceWith(node);
+    return;
+  }
+  if (row && resultsGrid && resultsGrid.contains(row)) {
+    row.replaceWith(node);
+    return;
+  }
+  const anchor =
+    document.getElementById("results-skeleton") ||
+    document.getElementById("results-grid") ||
+    document.getElementById("results-title");
+  if (anchor && anchor.parentNode) {
+    if (anchor.id === "results-grid" && resultsGrid) {
+      resultsGrid.parentNode.insertBefore(node, resultsGrid);
+    } else {
+      anchor.parentNode.insertBefore(node, anchor);
+    }
+  } else if (gridView) {
+    gridView.appendChild(node);
+  }
+}
+
 
 function cargarContinuarViendo() {
   const all = obtenerProgreso();
