@@ -333,3 +333,23 @@ button.mz-anime-src {
 @media (min-width: 900px) {
   .mz-cw-card { width: 220px; }
 }
+
+
+/* Continuar viendo — home row */
+#row-continuar:not(.hidden) {
+  display: block !important;
+  visibility: visible !important;
+}
+#carousel-continuar {
+  display: flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+#carousel-continuar .mz-cw-home-card,
+#carousel-continuar .media-card {
+  flex: 0 0 auto;
+}
