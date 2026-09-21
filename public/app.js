@@ -100,6 +100,23 @@ function isRatingMalFuente(item) {
   return /anime/.test(t) && (sid === "4" || sid === "animeav1");
 }
 
+/** pelisplushd_bz: rating "fuente" en la página es IMDb → logo IMDb */
+function isRatingImdbFuenteBz(item) {
+  if (!item) return false;
+  const src = String(item.rating_source || "").toLowerCase();
+  if (src && src !== "fuente" && src !== "source" && src !== "imdb") return false;
+  const sid = String(item.source_id || item.fuente || item.source || "").toLowerCase();
+  const link = String(item.link || item.url || "").toLowerCase();
+  return (
+    sid === "9" ||
+    sid === "pelisplushd_bz" ||
+    sid === "ppbz" ||
+    sid === "bz" ||
+    /pelisplushd_bz/.test(sid) ||
+    /pelisplushd\.bz/.test(link)
+  );
+}
+
 /** Activa/desactiva el layout Koiflix en body */
 function setKoiMode(item) {
   const esPeliMode = !!(item && (typeof isPeliculaItem === "function" ? isPeliculaItem(item) : /pel[ií]cula|movie|film/i.test(String(item.tipo || item.type || ""))));
@@ -834,7 +851,7 @@ function cargarPorqueViste() {
     .concat(window.__mzLastPelis || [])
     .concat(window.__mzLastSeries || [])
     .concat(window.__mzLastAnime || []);
-  const lista = porqueViste(ultimo, pool);
+  const lista = porqueViste(ultimo, typeof sinItemsJk === "function" ? sinItemsJk(pool) : pool);
   if (!lista.length) { row.classList.add("hidden"); return; }
   if (titulo) titulo.textContent = `Porque viste ${ultimo.nombre || ultimo.titulo || "esto"}`;
   row.classList.remove("hidden");
@@ -857,11 +874,22 @@ function filtrarMood(items, moodId) {
   return list.slice(0, 12);
 }
 
+function sinItemsJk(lista) {
+  return (lista || []).filter(function (it) {
+    if (!it) return false;
+    if (typeof esItemJk === "function" && esItemJk(it)) return false;
+    const sid = String(it.source_id || it.fuente || it.source || "").toLowerCase();
+    if (sid === "5" || sid === "jkanime" || sid === "jk") return false;
+    if (/jkanime\.net/i.test(String(it.link || it.url || ""))) return false;
+    return true;
+  });
+}
+
 function cargarMoodsHome(peliculas, series, anime) {
   window.__mzLastPelis = peliculas || [];
   window.__mzLastSeries = series || [];
   window.__mzLastAnime = anime || [];
-  const pool = [].concat(peliculas || [], series || [], anime || []);
+  const pool = sinItemsJk([].concat(peliculas || [], series || [], anime || []));
   const map = [
     ["row-mood-maraton", "carousel-mood-maraton", "maraton"],
     ["row-mood-terror", "carousel-mood-terror", "terror"],
@@ -1071,10 +1099,13 @@ function ratingInfo(item) {
       primary = { label: tmdbR.toFixed(1), value: tmdbR, source: "tmdb" };
     } else if (srcApi === "fuente" || srcApi === "mal" || srcApi === "source") {
       if (mzRatingOk(main)) {
+        var srcOut = "fuente";
+        if (typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) srcOut = "mal";
+        else if (typeof isRatingImdbFuenteBz === "function" && isRatingImdbFuenteBz(item)) srcOut = "imdb";
         primary = {
           label: main.toFixed(1),
           value: main,
-          source: (typeof isRatingMalFuente === "function" && isRatingMalFuente(item)) ? "mal" : "fuente"
+          source: srcOut
         };
       } else {
         primary = { label: "—", value: null, source: null };
@@ -1083,7 +1114,8 @@ function ratingInfo(item) {
       var sid4 = String(item.source_id || item.fuente || "").toLowerCase();
       var asMal = (sid4 === "4" || sid4 === "animeav1" || /animeav1/.test(sid4)) &&
         !/imdb|omdb|tmdb/i.test(srcApi);
-      primary = { label: main.toFixed(1), value: main, source: asMal ? "mal" : "fuente" };
+      var asImdbBz = typeof isRatingImdbFuenteBz === "function" && isRatingImdbFuenteBz(item);
+      primary = { label: main.toFixed(1), value: main, source: asMal ? "mal" : (asImdbBz ? "imdb" : "fuente") };
     } else {
       primary = { label: "—", value: null, source: null };
     }
@@ -5270,7 +5302,9 @@ async function cargarHome() {
         const estrenosData = results[0].status === "fulfilled" ? results[0].value : { resultados: [] };
         const peliculas = estrenosData.resultados || [];
         const series    = results[1].status === "fulfilled" ? results[1].value : [];
-        const anime     = results[2].status === "fulfilled" ? results[2].value : [];
+        // Inicio: anime solo AV1 (4) — sin JKanime (5) en carousels / moods
+        let anime = results[2].status === "fulfilled" ? results[2].value : [];
+        anime = typeof sinItemsJk === "function" ? sinItemsJk(anime) : anime;
 
         console.log('✅ Datos:', {
             peliculas: peliculas.length,
@@ -10083,7 +10117,11 @@ async function cargarRecienAnadidos() {
     try {
         const res = await fetch("/api/recien?limit=12");
         const data = await res.json();
-        renderCarousel("carousel-recien", data.resultados || []);
+        // Solo AV1/cine/etc. — no JKanime en inicio
+        const lista = typeof sinItemsJk === "function"
+          ? sinItemsJk(data.resultados || [])
+          : (data.resultados || []);
+        renderCarousel("carousel-recien", lista);
     } catch {
         const el = document.getElementById("carousel-recien");
         if (el) el.innerHTML = `<p style="color:var(--text-muted)">No disponible</p>`;
