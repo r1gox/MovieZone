@@ -2892,6 +2892,18 @@ function pickJkPlayer(embeds) {
 }
 
 async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
+  try {
+    if (item && typeof item === "object") {
+      item = Object.assign({}, item, {
+        temporada: seasonNum != null ? seasonNum : item.temporada,
+        season: seasonNum != null ? seasonNum : item.season,
+        episodio: epNum != null ? epNum : (episodio && (episodio.episodio || episodio.number || episodio.episode)),
+        episode: epNum != null ? epNum : (episodio && (episodio.episodio || episodio.number || episodio.episode)),
+        back_img: (episodio && (episodio.back_img || episodio.still || episodio.image)) || item.back_img || item.backdrop || null
+      });
+    }
+  } catch (_) {}
+
   // PC (≥1025) + serie/anime/dorama → vista tipo Koiflix SIN auto-reproducir
   const pc =
     (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
@@ -4201,6 +4213,8 @@ function aplicarFiltrosYOrden(lista) {
 
 function mostrarGrid({ modo, seccion, termino = "" }) {
     vistaActual = "grid";
+    try { setTimeout(function () { renderContinuarViendoEnGrid(); }, 50); } catch (_) {}
+
     gridModo = modo;
     // Búsqueda global: NO default a "movie" (eso filtraba todo y dejaba 0 de N)
     if (modo === "search") {
@@ -4957,6 +4971,7 @@ async function cargarPaginaGrid() {
         const listaFinal = aplicarFiltrosYOrden(lista);
 
         renderGridItems(listaFinal, true);
+        try { renderContinuarViendoEnGrid(); } catch (_) {}
         resultsCount.textContent = `${listaFinal.length} items` +
             (gridTotalItems > listaFinal.length ? ` (de ${gridTotalItems})` : "");
 
@@ -5362,15 +5377,21 @@ async function cargarHome() {
 
 
 async function abrirDesdeProgreso(mini) {
-    // 1) Abrir ya con lo que hay (poster, título…)
-    await abrirDetalle({
+    if (!mini) return;
+    const sea = mini.temporada != null ? mini.temporada : mini.season;
+    const ep = mini.episodio != null ? mini.episodio : mini.episode;
+    const base = {
         ...mini,
         tiene_player: true,
         embeds: mini.embeds || [],
         episodios: mini.episodios || []
-    }, false, false);
+    };
 
-    // 2) Completar desde Supabase / API (misma info que al abrir normal)
+    // 1) Abrir detalle
+    await abrirDetalle(base, false, false);
+
+    // 2) Completar desde API
+    let completo = null;
     try {
         const params = new URLSearchParams();
         if (mini.postId) params.set("postId", mini.postId);
@@ -5379,25 +5400,50 @@ async function abrirDesdeProgreso(mini) {
         if (mini.source_id) params.set("source_id", mini.source_id);
         if (mini.tipo) params.set("tipo", mini.tipo);
         if (mini.id && !mini.postId) params.set("postId", mini.id);
-        // No perder la portada ya buena de "mini" al pedir el detalle completo
         const portadaMini = window.__mzPortadaLista || mini.portada || mini.portada_fuente_raw || null;
         if (portadaMini) params.set("portada", portadaMini);
 
-        if (![...params.keys()].length) return;
-
-        const res = await fetch(`/api/detalle?${params.toString()}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const completo = await res.json();
-        if (completo && (completo.nombre || completo.link)) {
-            // Reabrir con datos completos (servidores, sinopsis, etc.); conservar la portada buena
-            if (portadaMini) {
+        if ([...params.keys()].length) {
+          const res = await fetch(`/api/detalle?${params.toString()}`, { cache: "no-store" });
+          if (res.ok) {
+            completo = await res.json();
+            if (completo && (completo.nombre || completo.link)) {
+              if (portadaMini) {
                 completo.portada = portadaMini;
                 completo.portada_fuente_raw = portadaMini;
+              }
+              await abrirDetalle({ ...completo, tiene_player: true }, false, false);
             }
-            await abrirDetalle({ ...completo, tiene_player: true }, false, false);
+          }
         }
     } catch (err) {
         console.warn("No se pudo completar desde progreso:", err);
+    }
+
+    // 3) Ir al episodio pendiente
+    if (ep != null && !isNaN(Number(ep))) {
+      const item = completo || seleccionActual || base;
+      const sn = sea != null && !isNaN(Number(sea)) ? Number(sea) : 1;
+      const en = Number(ep);
+      try {
+        const epObj = {
+          episodio: en,
+          episode: en,
+          number: en,
+          temporada: sn,
+          season: sn,
+          back_img: mini.back_img || mini.still || null
+        };
+        if (typeof window.mzKoiOpenEpisode === "function") {
+          await window.mzKoiOpenEpisode(item, epObj, sn, en);
+        } else if (typeof abrirVistaMovilEpisodio === "function") {
+          await abrirVistaMovilEpisodio(item, epObj, sn, en);
+        } else if (typeof reproducirCapituloAuto === "function") {
+          await reproducirCapituloAuto(item, epObj, sn, en);
+        }
+      } catch (eEp) {
+        console.warn("Continuar viendo: no se abrió el episodio", eEp);
+      }
     }
 }
 
@@ -10003,113 +10049,405 @@ window.addEventListener("popstate", function () {
 });*/
 
 // ---------- Continuar viendo (localStorage) ----------
+// Episodios a media: se guarda si 2%–50% visto; >50% se elimina.
 let progresoTimer = null;
 let progresoActual = null; // { key, item, segundos, duracion }
+let progresoVideoBound = null;
 
 function claveProgreso(item) {
-    return item?.link || (item?.id != null ? String(item.id) : null) || item?.postId || null;
+  if (!item) return null;
+  const sid = item.source_id != null ? String(item.source_id) : "";
+  const slug = item.slug || "";
+  const s = item.temporada != null ? item.temporada : (item.season != null ? item.season : "");
+  const e = item.episodio != null ? item.episodio : (item.episode != null ? item.episode : (item.number != null ? item.number : ""));
+  if (slug && (s !== "" || e !== "")) {
+    return [sid || "x", slug, "t" + s, "e" + e].join("|");
+  }
+  if (item.link) return String(item.link);
+  if (item.url) return String(item.url);
+  if (item.id != null) return String(item.id);
+  if (item.postId != null) return String(item.postId);
+  return null;
 }
 
 function obtenerProgreso() {
-    try { return JSON.parse(localStorage.getItem(pk("progreso")) || "{}"); }
-    catch { return {}; }
+  try {
+    // Preferir clave por perfil; migrar legacy
+    const k = pk("progreso");
+    let raw = localStorage.getItem(k);
+    if (!raw) {
+      const legacy = localStorage.getItem("moviezone_progress");
+      if (legacy) {
+        try { localStorage.setItem(k, legacy); } catch (_) {}
+        raw = legacy;
+      }
+    }
+    return JSON.parse(raw || "{}");
+  } catch {
+    return {};
+  }
 }
 
-function guardarProgreso(item, segundos = 0, duracion = 0) {
-    const key = claveProgreso(item);
-    if (!key) return;
-    const all = obtenerProgreso();
-    all[key] = {
-        link: item.link || null,
-        id: item.id || null,
-        postId: item.postId || item.id || null,
-        nombre: item.nombre,
-        portada: item.portada,
-        backdrop: item.backdrop || null,
-        tipo: item.tipo,
-        year: item.year,
-        calificacion: item.calificacion,
-        descripcion: item.descripcion || null,
-        genero: item.genero || null,
-        // importante para el badge
-        tiene_player: true,
-        // no hace falta guardar todos los embeds (pesan); al abrir se piden a la API
-        segundos: Math.max(0, Math.floor(segundos)),
-        duracion: Math.max(0, Math.floor(duracion)),
-        updated: Date.now()
-    };
-    const ordenados = Object.entries(all)
-        .sort((a, b) => (b[1].updated || 0) - (a[1].updated || 0))
-        .slice(0, 30);
-    localStorage.setItem("moviezone_progress", JSON.stringify(Object.fromEntries(ordenados)));
+function pctProgreso(segundos, duracion) {
+  const seg = Math.max(0, Number(segundos) || 0);
+  const dur = Math.max(0, Number(duracion) || 0);
+  if (dur > 30) return Math.min(100, (seg / dur) * 100);
+  // sin duración real: ~24 min episodio anime ≈ 1440s
+  return Math.min(99, (seg / 1440) * 100);
+}
+
+function guardarProgreso(item, segundos, duracion) {
+  segundos = Math.max(0, Math.floor(Number(segundos) || 0));
+  duracion = Math.max(0, Math.floor(Number(duracion) || 0));
+  const key = claveProgreso(item);
+  if (!key || !item) return;
+
+  const pct = pctProgreso(segundos, duracion);
+  const all = obtenerProgreso();
+
+  // Muy poco visto: no guardar
+  if (segundos < 25 && pct < 2) {
+    if (all[key]) {
+      delete all[key];
+      try { localStorage.setItem(pk("progreso"), JSON.stringify(all)); } catch (_) {}
+    }
+    return;
+  }
+  // Más de la mitad / casi terminado: eliminar
+  if (pct >= 50) {
+    if (all[key]) {
+      delete all[key];
+      try { localStorage.setItem(pk("progreso"), JSON.stringify(all)); } catch (_) {}
+    }
+    return;
+  }
+
+  const epNum = item.episodio != null ? item.episodio : (item.episode != null ? item.episode : (item.number != null ? item.number : null));
+  const seaNum = item.temporada != null ? item.temporada : (item.season != null ? item.season : null);
+  const back =
+    item.back_img ||
+    item.still ||
+    item.backdrop ||
+    item.portada ||
+    null;
+
+  all[key] = {
+    key: key,
+    link: item.link || item.url || null,
+    id: item.id || null,
+    postId: item.postId || item.id || null,
+    nombre: item.nombre || item.titulo || item.titulo_anime || null,
+    titulo: item.titulo || item.nombre || null,
+    titulo_anime: item.titulo_anime || item.nombre || item.titulo || null,
+    portada: item.portada || null,
+    back_img: back,
+    still: item.still || null,
+    backdrop: item.backdrop || null,
+    tipo: item.tipo || item.type || null,
+    year: item.year || null,
+    slug: item.slug || null,
+    source_id: item.source_id != null ? String(item.source_id) : null,
+    fuente: item.fuente || item.source || null,
+    temporada: seaNum != null ? Number(seaNum) : null,
+    episodio: epNum != null ? Number(epNum) : null,
+    season: seaNum != null ? Number(seaNum) : null,
+    episode: epNum != null ? Number(epNum) : null,
+    segundos: segundos,
+    duracion: duracion,
+    pct: Math.round(pct * 10) / 10,
+    updated: Date.now(),
+    tiene_player: true
+  };
+
+  const ordenados = Object.entries(all)
+    .sort(function (a, b) { return (b[1].updated || 0) - (a[1].updated || 0); })
+    .slice(0, 40);
+  const obj = Object.fromEntries(ordenados);
+  try {
+    localStorage.setItem(pk("progreso"), JSON.stringify(obj));
+    localStorage.setItem("moviezone_progress", JSON.stringify(obj)); // legacy mirror
+  } catch (_) {}
 }
 
 function iniciarSeguimientoProgreso(item) {
-    detenerSeguimientoProgreso();
-    const key = claveProgreso(item);
-    if (!key) return;
-    const prev = obtenerProgreso()[key];
-    progresoActual = {
-        key,
-        item,
-        segundos: prev?.segundos || 0,
-        duracion: prev?.duracion || 0
-    };
-    // Cada 15s guarda (los iframes de terceros no dan currentTime fiable)
-    progresoTimer = setInterval(() => {
+  detenerSeguimientoProgreso(false);
+  const key = claveProgreso(item);
+  if (!key) return;
+  const prev = obtenerProgreso()[key];
+  progresoActual = {
+    key: key,
+    item: item,
+    segundos: (prev && prev.segundos) || 0,
+    duracion: (prev && prev.duracion) || 0
+  };
+
+  // Preferir <video> real (HLS / directo) si existe
+  try {
+    const vid = document.getElementById("player-video");
+    if (vid && !progresoVideoBound) {
+      const onTime = function () {
         if (!progresoActual) return;
-        progresoActual.segundos += 15;
-        guardarProgreso(progresoActual.item, progresoActual.segundos, progresoActual.duracion || progresoActual.segundos + 60);
-    }, 15000);
+        if (vid.currentTime != null) progresoActual.segundos = Math.floor(vid.currentTime);
+        if (vid.duration && isFinite(vid.duration)) progresoActual.duracion = Math.floor(vid.duration);
+      };
+      const onSave = function () {
+        if (!progresoActual) return;
+        onTime();
+        guardarProgreso(progresoActual.item, progresoActual.segundos, progresoActual.duracion);
+        try { renderContinuarViendoEnGrid(); } catch (_) {}
+        try { cargarContinuarViendo(); } catch (_) {}
+      };
+      vid.addEventListener("timeupdate", onTime);
+      vid.addEventListener("pause", onSave);
+      vid.addEventListener("ended", function () {
+        // terminado → borrar
+        if (progresoActual) {
+          progresoActual.segundos = progresoActual.duracion || progresoActual.segundos;
+          guardarProgreso(progresoActual.item, progresoActual.segundos, progresoActual.duracion || 1);
+        }
+      });
+      progresoVideoBound = { vid: vid, onTime: onTime, onSave: onSave };
+    }
+  } catch (_) {}
+
+  // Fallback iframes: +15s cada 15s
+  progresoTimer = setInterval(function () {
+    if (!progresoActual) return;
+    const vid = document.getElementById("player-video");
+    if (vid && vid.currentTime != null && !vid.paused) {
+      progresoActual.segundos = Math.floor(vid.currentTime);
+      if (vid.duration && isFinite(vid.duration)) progresoActual.duracion = Math.floor(vid.duration);
+    } else {
+      progresoActual.segundos += 15;
+    }
+    guardarProgreso(
+      progresoActual.item,
+      progresoActual.segundos,
+      progresoActual.duracion || progresoActual.segundos + 60
+    );
+    try { renderContinuarViendoEnGrid(); } catch (_) {}
+  }, 15000);
 }
 
-function detenerSeguimientoProgreso(guardar = true) {
-    if (progresoTimer) {
-        clearInterval(progresoTimer);
-        progresoTimer = null;
+function detenerSeguimientoProgreso(guardar) {
+  if (guardar === undefined) guardar = true;
+  if (progresoTimer) {
+    clearInterval(progresoTimer);
+    progresoTimer = null;
+  }
+  try {
+    if (progresoVideoBound && progresoVideoBound.vid) {
+      progresoVideoBound.vid.removeEventListener("timeupdate", progresoVideoBound.onTime);
+      progresoVideoBound.vid.removeEventListener("pause", progresoVideoBound.onSave);
+      progresoVideoBound = null;
     }
-    if (guardar && progresoActual) {
-        guardarProgreso(progresoActual.item, progresoActual.segundos, progresoActual.duracion || progresoActual.segundos + 60);
+  } catch (_) {}
+  if (guardar && progresoActual) {
+    guardarProgreso(
+      progresoActual.item,
+      progresoActual.segundos,
+      progresoActual.duracion || progresoActual.segundos + 60
+    );
+  }
+  progresoActual = null;
+}
+
+function listaProgresoPendiente(filtroSeccion) {
+  const all = obtenerProgreso();
+  let lista = Object.keys(all).map(function (k) {
+    const x = all[k];
+    if (!x) return null;
+    x.key = x.key || k;
+    return x;
+  }).filter(Boolean);
+
+  lista = lista.filter(function (x) {
+    const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
+    if ((x.segundos || 0) < 25) return false;
+    if (pct >= 50) return false;
+    // solo episodios (serie/anime)
+    const t = String(x.tipo || "").toLowerCase();
+    const esEp =
+      x.episodio != null ||
+      x.episode != null ||
+      /serie|anime|dorama|tv|ova|ona/i.test(t);
+    if (!esEp) return false;
+    if (filtroSeccion === "series") {
+      if (/anime|ova|ona|jkanime/i.test(t)) return false;
+      if (String(x.source_id || "") === "4" || String(x.source_id || "") === "5") return false;
+      return /serie|dorama|tv/i.test(t) || x.temporada != null;
     }
-    progresoActual = null;
+    if (filtroSeccion === "anime" || filtroSeccion === "jk") {
+      if (filtroSeccion === "jk") {
+        return String(x.source_id || "") === "5" || /jkanime/i.test(String(x.fuente || ""));
+      }
+      // sección anime (AV1): no JK
+      if (String(x.source_id || "") === "5" || /jkanime/i.test(String(x.fuente || ""))) return false;
+      return (
+        String(x.source_id || "") === "4" ||
+        /anime|ova|ona/i.test(t)
+      );
+    }
+    return true;
+  });
+
+  lista.sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+  return lista.slice(0, 20);
+}
+
+function fmtTiempoRestante(segundos, duracion) {
+  const seg = Math.max(0, Number(segundos) || 0);
+  const dur = Math.max(0, Number(duracion) || 0);
+  const pct = pctProgreso(seg, dur);
+  if (dur > 30) {
+    const left = Math.max(0, dur - seg);
+    const m = Math.floor(left / 60);
+    const s = Math.floor(left % 60);
+    return m + ":" + String(s).padStart(2, "0") + " rest. · " + Math.round(pct) + "%";
+  }
+  return Math.round(pct) + "% visto";
+}
+
+function renderContinuarViendoEnGrid() {
+  const host = document.getElementById("mz-continuar-grid");
+  const gridView = document.getElementById("grid-view");
+  if (!gridView) return;
+
+  const sec = gridSeccion;
+  const enSeriesAnime =
+    (gridModo === "categoria" || gridModo === "search") &&
+    (sec === "series" || sec === "anime" || sec === "jk");
+  if (!enSeriesAnime || vistaActual !== "grid") {
+    if (host) host.classList.add("hidden");
+    return;
+  }
+
+  const lista = listaProgresoPendiente(sec === "jk" ? "jk" : sec);
+  let row = host;
+  if (!row) {
+    row = document.createElement("div");
+    row.id = "mz-continuar-grid";
+    row.className = "mz-continuar-grid";
+    const header = gridView.querySelector(".grid-header") || gridView.querySelector("#results-title");
+    const anchor = document.getElementById("results-skeleton") || document.getElementById("results-grid");
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(row, anchor);
+    } else {
+      gridView.appendChild(row);
+    }
+  }
+
+  if (!lista.length) {
+    row.classList.add("hidden");
+    row.innerHTML = "";
+    return;
+  }
+  row.classList.remove("hidden");
+  row.innerHTML =
+    '<div class="mz-continuar-grid-head">' +
+    "<h3>Continuar viendo</h3>" +
+    '<span class="mz-continuar-grid-hint">Desliza →</span>' +
+    "</div>" +
+    '<div class="mz-continuar-grid-row" role="list"></div>';
+
+  const strip = row.querySelector(".mz-continuar-grid-row");
+  lista.forEach(function (item) {
+    const card = document.createElement("div");
+    card.className = "mz-cw-card";
+    card.setAttribute("role", "listitem");
+    const img =
+      item.back_img ||
+      item.still ||
+      item.backdrop ||
+      item.portada ||
+      (typeof PLACEHOLDER !== "undefined" ? PLACEHOLDER : "");
+    const ep =
+      item.episodio != null
+        ? item.episodio
+        : item.episode != null
+          ? item.episode
+          : null;
+    const sea =
+      item.temporada != null
+        ? item.temporada
+        : item.season != null
+          ? item.season
+          : null;
+    let epLab = "";
+    if (sea != null && ep != null) epLab = "T" + sea + " · E" + ep;
+    else if (ep != null) epLab = "Episodio " + ep;
+    else epLab = "Continuar";
+    const title = item.titulo_anime || item.nombre || item.titulo || "Sin título";
+    const pct = item.pct != null ? Number(item.pct) : pctProgreso(item.segundos, item.duracion);
+    const rest = fmtTiempoRestante(item.segundos, item.duracion);
+    card.innerHTML =
+      '<div class="mz-cw-thumb">' +
+      '<img src="' +
+      escapeHtml(img) +
+      '" alt="" loading="lazy" />' +
+      '<div class="mz-cw-bar"><span style="width:' +
+      Math.min(100, Math.max(2, pct)) +
+      '%"></span></div>' +
+      "</div>" +
+      '<div class="mz-cw-meta">' +
+      "<h4>" +
+      escapeHtml(title) +
+      "</h4>" +
+      '<p class="mz-cw-ep">' +
+      escapeHtml(epLab) +
+      "</p>" +
+      '<p class="mz-cw-rest">' +
+      escapeHtml(rest) +
+      "</p>" +
+      "</div>";
+    card.addEventListener("click", function () {
+      abrirDesdeProgreso(item);
+    });
+    strip.appendChild(card);
+  });
 }
 
 function cargarContinuarViendo() {
-    const all = obtenerProgreso();
-    const lista = Object.values(all)
-        .filter(x => x && (x.segundos || 0) > 10)
-        .sort((a, b) => (b.updated || 0) - (a.updated || 0))
-        .slice(0, 12);
+  const all = obtenerProgreso();
+  const lista = Object.values(all)
+    .filter(function (x) {
+      if (!x) return false;
+      const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
+      return (x.segundos || 0) > 25 && pct < 50;
+    })
+    .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
+    .slice(0, 12);
 
-    const row = document.getElementById("row-continuar");
-    const cont = document.getElementById("carousel-continuar");
-    if (!row || !cont) return;
+  const row = document.getElementById("row-continuar");
+  const cont = document.getElementById("carousel-continuar");
+  if (!row || !cont) return;
 
-    if (!lista.length) {
-        row.classList.add("hidden");
-        return;
-    }
-    row.classList.remove("hidden");
-    cont.innerHTML = "";
+  if (!lista.length) {
+    row.classList.add("hidden");
+    return;
+  }
+  row.classList.remove("hidden");
+  cont.innerHTML = "";
 
-    lista.forEach(item => {
-        item.tiene_player = true;
-        const card = crearMediaCard(item);
-
-        // barra progreso
-        const pct = item.duracion > 0
-            ? Math.min(100, Math.round((item.segundos / item.duracion) * 100))
-            : Math.min(95, Math.round((item.segundos / 600) * 100));
-        const bar = document.createElement("div");
-        bar.className = "progress-bar-wrap";
-        bar.innerHTML = `<div class="progress-bar-fill" style="width:${pct}%"></div>`;
-        card.querySelector(".poster-wrapper")?.appendChild(bar);
-
-        // Reemplazar handler: solo abrirDesdeProgreso
-        const clone = card.cloneNode(true);
-        clone.addEventListener("click", () => abrirDesdeProgreso(item));
-        cont.appendChild(clone);
+  lista.forEach(function (item) {
+    item.tiene_player = true;
+    const card = crearMediaCard(item);
+    const pct =
+      item.pct != null
+        ? Number(item.pct)
+        : item.duracion > 0
+          ? Math.min(100, Math.round((item.segundos / item.duracion) * 100))
+          : Math.min(95, Math.round((item.segundos / 600) * 100));
+    const bar = document.createElement("div");
+    bar.className = "progress-bar-wrap";
+    bar.innerHTML = '<div class="progress-bar-fill" style="width:' + pct + '%"></div>';
+    card.querySelector(".poster-wrapper")?.appendChild(bar);
+    const clone = card.cloneNode(true);
+    clone.addEventListener("click", function () {
+      abrirDesdeProgreso(item);
     });
+    cont.appendChild(clone);
+  });
 }
 
 // ---------- Recién añadidos ----------
