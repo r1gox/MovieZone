@@ -211,3 +211,16 @@ button.mz-anime-src {
 @media (min-width: 1400px) {
   .mz-av1-eps-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
+
+.mz-av1-ep-fecha {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(15, 10, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+}
