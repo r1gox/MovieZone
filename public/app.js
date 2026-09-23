@@ -4197,9 +4197,9 @@ function initTvUi() {
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
-    // Búsqueda global: mostrar todo lo que devolvió la API (chips de tipo solo si el user elige)
-    if (gridModo === "search" && (gridSeccion === "all" || gridSeccion === "search") && gridTypeFilter === "all") {
-      // solo orden abajo
+    // Búsqueda: no filtrar por Anime/Serie/Peli salvo chip explícito del usuario
+    if (gridModo === "search" && gridTypeFilter === "all") {
+      // solo orden abajo — mostrar series, pelis, animes, doramas juntos
     } else if (gridTypeFilter !== "all") {
         const map = { movie: "Película", series: "Serie", anime: "Anime" };
         const wanted = map[gridTypeFilter] || gridTypeFilter;
