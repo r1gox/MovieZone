@@ -3810,7 +3810,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const soloLocal = req.query.source === "local" || req.query.local === "1";
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(60, Math.max(12, parseInt(req.query.limit) || 48));
-    const type = req.query.type || null;
+
     let animeSource = req.query.anime_source || req.query.animeSource || null;
     const sidQ = String(req.query.source_id || "").trim();
     if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
@@ -3818,7 +3818,6 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       const s = String(req.query.source);
       if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
     }
-    // source_id 4 / av1 NO fuerza búsqueda restringida: solo universal (salvo JK)
 
     if (!termino) {
       return res.status(400).json({ error: "Escribe algo para buscar" });
@@ -3826,87 +3825,79 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
 
     if (soloLocal) {
       await ensureMoviesDB();
-      return res.json(buscarLocal(termino, type, page, limit));
+      return res.json(buscarLocal(termino, req.query.type || null, page, limit));
     }
 
     const soloJk = animeSource === "jk" || animeSource === "5" || animeSource === "jkanime";
+    // Inicio / Películas / Series / Anime AV1 → worker /?q=
+    // JK → worker /5/?q=
+    const workerPath = soloJk ? "/5/" : "/";
     const limQ = Math.min(80, Math.max(limit, 40));
+    const qs = new URLSearchParams({ q: termino, limit: String(limQ) });
+    const url = API_BASE + workerPath + "?" + qs.toString();
 
-    // Proxy directo al worker (fetch). Evita que axios/mapListItem dejen resultados en vacío.
-    async function fetchWorkerJson(path, params) {
-      const qs = new URLSearchParams();
-      Object.entries(params || {}).forEach(([k, v]) => {
-        if (v != null && v !== "") qs.set(k, String(v));
-      });
-      const url = API_BASE + path + (qs.toString() ? "?" + qs.toString() : "");
+    let lista = [];
+    let rawHits = 0;
+    let fetchStatus = 0;
+    try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 25000);
+      const t = setTimeout(() => ctrl.abort(), 28000);
+      const r = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (compatible; MovieZone/2.0)",
+        },
+        signal: ctrl.signal,
+        cache: "no-store",
+      });
+      clearTimeout(t);
+      fetchStatus = r.status;
+      const textBody = await r.text();
+      let dataW = null;
       try {
-        const r = await fetch(url, {
-          headers: { Accept: "application/json", "User-Agent": "MovieZone/2.0" },
-          signal: ctrl.signal,
-          cache: "no-store",
-        });
-        clearTimeout(t);
-        if (!r.ok) {
-          console.warn("api/buscar status", r.status, path);
-          return null;
-        }
-        const textBody = await r.text();
-        try {
-          return JSON.parse(textBody);
-        } catch (eJ) {
-          console.warn("api/buscar not json", path, textBody.slice(0, 120));
-          return null;
-        }
-      } catch (e) {
-        clearTimeout(t);
-        console.warn("api/buscar fetch", path, e.message || e);
-        return null;
+        dataW = JSON.parse(textBody);
+      } catch (_) {
+        dataW = null;
       }
-    }
+      const hits = (dataW && (dataW.results || dataW.resultados || dataW.items)) || [];
+      rawHits = Array.isArray(hits) ? hits.length : 0;
 
-    function workerHitsToLista(data) {
-      const hits = (data && (data.results || data.resultados || data.items)) || [];
-      if (!Array.isArray(hits)) return [];
-      const out = [];
-      for (const r of hits) {
-        if (!r) continue;
+      for (const row of hits) {
+        if (!row) continue;
         let item = null;
         try {
-          item = typeof mapListItem === "function" ? mapListItem(r) : null;
+          item = mapListItem(row);
         } catch (_) {}
-        if (!item || !(item.slug || item.link || item.nombre || item.titulo)) {
+        if (!item || !(item.slug || item.link || item.nombre)) {
           try {
-            item = typeof mapListItemMinimal === "function" ? mapListItemMinimal(r) : null;
+            item = mapListItemMinimal(row);
           } catch (_) {}
         }
-        // Último recurso: copiar campos del worker tal cual
         if (!item || !(item.slug || item.link || item.nombre || item.titulo)) {
-          const slug = r.slug || null;
-          const titulo = r.nombre || r.titulo || r.title || (slug ? String(slug).replace(/-/g, " ") : null);
+          const slug = row.slug || null;
+          const titulo = row.nombre || row.titulo || row.title || (slug ? String(slug).replace(/-/g, " ") : null);
           if (!titulo && !slug) continue;
-          const tipoRaw = String(r.tipo || r.type || "");
+          const tipoRaw = String(row.tipo || row.type || "");
           let tipo = "Película";
           if (/serie|dorama|tv/i.test(tipoRaw)) tipo = "Serie";
           else if (/anime/i.test(tipoRaw)) tipo = "Anime";
           else if (/ova/i.test(tipoRaw)) tipo = "OVA";
           else if (/ona/i.test(tipoRaw)) tipo = "ONA";
-          const sid = String(r.source_id || resolverSourceId(r.source || r.fuente) || "3");
+          const sid = String(row.source_id || (typeof resolverSourceId === "function" ? resolverSourceId(row.source || row.fuente) : "3") || "3");
           const kind = tipo === "Serie" ? "serie" : /anime|ova|ona/i.test(tipo) ? "anime" : "pelicula";
-          const link = r.url || r.link || r.url_extract || (slug ? `${API_BASE}/${sid}/${kind}/${slug}` : null);
+          const link = row.url || row.link || (slug ? `${API_BASE}/${sid}/${kind}/${slug}` : null);
           item = {
             id: sid + "-" + (slug || titulo),
             nombre: titulo,
             titulo: titulo,
             slug,
             tipo,
-            portada: r.portada || null,
-            year: r.year || null,
+            portada: row.portada || null,
+            year: row.year || null,
             link,
             url_extract: link,
             source_id: sid,
-            fuente: r.source || r.fuente || null,
+            fuente: row.source || row.fuente || null,
             tiene_player: true,
             embeds: [],
             downloads: [],
@@ -3914,78 +3905,10 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
             temporadas: [],
           };
         }
-        out.push(item);
+        lista.push(item);
       }
-      return out;
-    }
-
-    let lista = [];
-    let workerUrl = "/search";
-    let rawHits = 0;
-    let dataW = null;
-    try {
-      if (soloJk) {
-        workerUrl = "/5";
-        dataW = await fetchWorkerJson("/5", { q: termino, limit: limQ });
-        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
-          dataW = await fetchWorkerJson("/5/buscar", { q: termino, limit: limQ });
-        }
-        rawHits = ((dataW && (dataW.results || dataW.resultados)) || []).length;
-        lista = workerHitsToLista(dataW);
-      } else {
-        // UNIVERSAL: /search del worker (PelisPlus = 3 o 9 según PELISPLUS_UNIVERSAL en el worker).
-        // NO forzar /9. Respaldo: /3 (to), /6 doramas, /4 anime.
-        workerUrl = "/search+3+6+4";
-        const paths = [
-          ["/search", { q: termino, limit: limQ }],
-          ["/", { q: termino, limit: limQ }],
-          ["/3/search", { q: termino, limit: 40 }],
-          ["/6/search", { q: termino, limit: 40 }],
-          ["/4/buscar", { q: termino, limit: 40 }],
-        ];
-        const settled = await Promise.all(
-          paths.map(([p, params]) => fetchWorkerJson(p, params))
-        );
-        const merged = [];
-        const seen = new Set();
-        const perSource = {};
-        for (let i = 0; i < settled.length; i++) {
-          const d = settled[i];
-          const hits = (d && (d.results || d.resultados || d.items)) || [];
-          perSource[paths[i][0]] = hits.length;
-          for (const h of hits) {
-            if (!h) continue;
-            const k =
-              String(h.source_id || h.source || "") +
-              "|" +
-              String(h.slug || h.url || h.title || "").toLowerCase();
-            if (!k || seen.has(k)) continue;
-            seen.add(k);
-            merged.push(h);
-          }
-        }
-        rawHits = merged.length;
-        dataW = { results: merged, count: merged.length, _perSource: perSource };
-        lista = workerHitsToLista(dataW);
-        if (req.query.debug === "1") {
-          // se añade abajo en out._debug
-          dataW._perSource = perSource;
-        }
-      }
-    } catch (eProxy) {
-      console.warn("api/buscar proxy:", eProxy.message || eProxy);
-    }
-
-    // Respaldo: buscarOnline
-    if (!lista.length) {
-      try {
-        const data = await buscarOnline(termino, page, limit, soloJk ? "jk" : null);
-        if (data && data.resultados && data.resultados.length) {
-          return res.json(data);
-        }
-      } catch (err) {
-        console.warn("Búsqueda online falló:", err.message);
-      }
+    } catch (eFetch) {
+      console.warn("api/buscar", workerPath, eFetch.message || eFetch);
     }
 
     const startIdx = (page - 1) * limit;
@@ -4000,12 +3923,12 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     if (req.query.debug === "1") {
       out._debug = {
         api_base: API_BASE,
+        url,
         soloJk,
-        workerUrl,
+        fetchStatus,
         rawHits,
         mapped: lista.length,
-        sample: pageLista[0] ? (pageLista[0].nombre || pageLista[0].titulo) : null,
-        perSource: (dataW && dataW._perSource) || null,
+        sample: pageLista[0] ? pageLista[0].nombre || pageLista[0].titulo : null,
       };
     }
     return res.json(out);
@@ -4014,6 +3937,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     res.status(500).json({ error: "No se pudo realizar la búsqueda", resultados: [] });
   }
 });
+
 
 app.get("/api/recien", async (req, res) => {
   try {
