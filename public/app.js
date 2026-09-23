@@ -3889,7 +3889,7 @@ function futbolLigaMeta(code, ligaNombre) {
 }
 
 function futbolCardLogos(it) {
-  // logos equipos o portada del partido (API fullhd)
+  // logos equipos o portada de liga (img.wqxag.com)
   const home = it.home_logo || it.homeLogo || it.logo_home || null;
   const away = it.away_logo || it.awayLogo || it.logo_away || null;
   if (home || away) {
@@ -3898,6 +3898,14 @@ function futbolCardLogos(it) {
         (home ? '<img src="' + escapeHtml(home) + '" alt="" loading="lazy" />' : '<span class="futbol-logo-ph"></span>') +
         '<span class="futbol-vs">vs</span>' +
         (away ? '<img src="' + escapeHtml(away) + '" alt="" loading="lazy" />' : '<span class="futbol-logo-ph"></span>') +
+      "</div>"
+    );
+  }
+  const portada = it.portada || it.poster || it.image || null;
+  if (portada && !/logo-futbol-libre|sin_imagen|placeholder/i.test(String(portada))) {
+    return (
+      '<div class="futbol-logos futbol-portada-liga">' +
+        '<img src="' + escapeHtml(portada) + '" alt="" loading="lazy" />' +
       "</div>"
     );
   }
@@ -4165,6 +4173,7 @@ function initFutbolUI() {
     document.getElementById("home-view")?.classList.remove("hidden");
   });
   document.getElementById("futbol-partido-back")?.addEventListener("click", function () {
+    detenerFutbolPlayer();
     document.getElementById("futbol-partido-view")?.classList.add("hidden");
     document.getElementById("futbol-view")?.classList.remove("hidden");
   });
