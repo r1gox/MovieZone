@@ -2283,11 +2283,22 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   } catch (err) {
     console.warn("search:", err.message);
   }
+  // Universal vacío → probar pelisplushd.bz (9) y doramas; .to (3) suele estar bloqueado por CF
   if (!raw.length && !forceSid) {
-    try {
-      const dataS = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`);
-      raw = extraerLista(dataS);
-    } catch (_) {}
+    const fallbacks = [
+      `/9/search?q=${encodeURIComponent(qRaw)}&limit=40`,
+      `/search?q=${encodeURIComponent(qRaw)}&source=9&limit=40`,
+      `/search?q=${encodeURIComponent(qRaw)}&source=pelisplushd_bz&limit=40`,
+      `/6/search?q=${encodeURIComponent(qRaw)}&limit=40`,
+      `/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`,
+    ];
+    for (const path of fallbacks) {
+      if (raw.length) break;
+      try {
+        const dataS = await apiGet(path);
+        raw = extraerLista(dataS);
+      } catch (_) {}
+    }
   }
 
   let lista = raw
