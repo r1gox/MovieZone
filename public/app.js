@@ -3797,7 +3797,11 @@ function scrollPlayerTv() {
 // =====================================================
 // Fútbol — agenda diaria (Worker /7/agenda)
 // =====================================================
-const FUTBOL_AGENDA_URL = (typeof WORKER_STREAM !== "undefined" ? WORKER_STREAM : "https://moviezone.tvjz.workers.dev") + "/8/agenda";
+// Agenda fútbol via MovieZone → worker /7 (futbollibrefullhd.org)
+const FUTBOL_AGENDA_URL = "/api/tv/futbol/agenda";
+const FUTBOL_CANALES_URL = "/api/tv/futbol/canales";
+const FUTBOL_WORKER_AGENDA = (typeof WORKER_STREAM !== "undefined" ? WORKER_STREAM : "https://moviezone.tvjz.workers.dev") + "/7/agenda";
+
 
 const FUTBOL_LIGA_META = {
   CHA: { label: "Champions League", short: "UCL", color: "#1e3a8a" },
@@ -3885,9 +3889,9 @@ function futbolLigaMeta(code, ligaNombre) {
 }
 
 function futbolCardLogos(it) {
-  // StreamXHD: home_logo / away_logo
-  const home = it.home_logo || it.homeLogo || null;
-  const away = it.away_logo || it.awayLogo || null;
+  // logos equipos o portada del partido (API fullhd)
+  const home = it.home_logo || it.homeLogo || it.logo_home || null;
+  const away = it.away_logo || it.awayLogo || it.logo_away || null;
   if (home || away) {
     return (
       '<div class="futbol-logos">' +
@@ -3908,16 +3912,41 @@ async function cargarFutbolAgenda() {
   lista.innerHTML = '<div class="tv-loading">Cargando partidos…</div>';
 
   try {
-    const r = await fetch(FUTBOL_AGENDA_URL, { cache: "no-store" });
-    const data = await r.json();
-    const items = Array.isArray(data.items) ? data.items.slice() : [];
+    let data = null;
+    try {
+      const r = await fetch(FUTBOL_AGENDA_URL, { cache: "no-store" });
+      data = await r.json();
+    } catch (_) {}
+    if (!data || !Array.isArray(data.items) || !data.items.length) {
+      try {
+        const r2 = await fetch(FUTBOL_WORKER_AGENDA, { cache: "no-store" });
+        data = await r2.json();
+      } catch (_) {}
+    }
+    const items = Array.isArray(data && data.items) ? data.items.slice() : [];
 
       const limpios = items.filter(function (it) {
       const t = String(it.titulo || "").trim();
       if (!t || /^partido$/i.test(t) || t.length < 4) return false;
-      const reps = it.reproductores || it.embeds || [];
-      return Array.isArray(reps) && reps.length > 0;
+      // Mostrar aunque aún no tengan servidores (agenda del día)
+      return true;
     });
+
+    limpios.sort(function (a, b) {
+      const ma = futbolParseHora(a.hora);
+      const mb = futbolParseHora(b.hora);
+      if (ma == null && mb == null) return 0;
+      if (ma == null) return 1;
+      if (mb == null) return -1;
+      return ma - mb;
+    });
+    limpios.sort(function (a, b) {
+      return (futbolEsEnVivo(b) ? 1 : 0) - (futbolEsEnVivo(a) ? 1 : 0);
+    });
+
+    if (fechaEl) {
+      fechaEl.textContent = data.fecha_texto || ("Agenda · " + futbolHoyKey());
+    }
 
     limpios.sort(function (a, b) {
       const ma = futbolParseHora(a.hora);
@@ -3932,29 +3961,8 @@ async function cargarFutbolAgenda() {
     });
 
     window.__futbolAgenda = limpios;
-    
-    if (fechaEl) {
-      fechaEl.textContent = data.fecha_texto || ("Agenda · " + futbolHoyKey());
-    }
 
-    // Orden por hora (usa hora, no hora_fuente)
-    items.sort(function (a, b) {
-      const ma = futbolParseHora(a.hora);
-      const mb = futbolParseHora(b.hora);
-      if (ma == null && mb == null) return 0;
-      if (ma == null) return 1;
-      if (mb == null) return -1;
-      return ma - mb;
-    });
-
-    // En vivo primero
-    items.sort(function (a, b) {
-      return (futbolEsEnVivo(b) ? 1 : 0) - (futbolEsEnVivo(a) ? 1 : 0);
-    });
-
-    window.__futbolAgenda = items;
-
-    if (!items.length) {
+    if (!limpios.length) {
       lista.innerHTML = '<div class="tv-hint">No hay partidos hoy</div>';
       return;
     }
@@ -4076,8 +4084,10 @@ function abrirFutbolPartido(item) {
     btn.addEventListener("click", function () {
       const ri = parseInt(btn.getAttribute("data-ri"), 10);
       const rep = reps[ri];
-      if (!rep || !rep.url) return;
-      futbolPlayEmbed(rep.url);
+      if (!rep) return;
+      const playUrl = rep.url || rep.embed || rep.link || null;
+      if (!playUrl) return;
+      futbolPlayEmbed(playUrl);
     });
   });
 }
@@ -4197,47 +4207,38 @@ function initTvUi() {
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
-    // Búsqueda global: no filtrar por tipo
-    if (gridModo === "search" && (gridTypeFilter === "all" || gridSeccion === "all")) {
-      // solo orden abajo
-    } else if (gridSeccion === "jk") {
-      res = res.filter(function (i) {
-        return typeof esItemJk === "function" ? esItemJk(i) : false;
-      });
-    } else if (gridSeccion === "anime" || (gridTypeFilter === "anime" && gridSeccion !== "jk")) {
-      res = res.filter(function (i) {
-        if (typeof esItemJk === "function" && esItemJk(i)) return false;
-        const t = String(i.tipo || i.type || "").toLowerCase();
-        const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
-        const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
-        if (isAv1) return true;
-        return /anime|ova|ona|especial/.test(t);
-      });
-    } else if (gridTypeFilter === "movie" || gridSeccion === "movie") {
-      res = res.filter(function (i) {
-        if (typeof esItemJk === "function" && esItemJk(i)) return false;
-        const t = String(i.tipo || i.type || "").toLowerCase();
-        return /pel[ií]cula|movie|film/.test(t) || (!/serie|anime|dorama|ova|ona/.test(t) && !i.episodio);
-      });
-    } else if (gridTypeFilter === "series" || gridSeccion === "series") {
-      res = res.filter(function (i) {
-        if (typeof esItemJk === "function" && esItemJk(i)) return false;
-        const t = String(i.tipo || i.type || "").toLowerCase();
-        const sid = String(i.source_id || "").toLowerCase();
-        if (sid === "4" || sid === "5") return false;
-        return /serie|dorama|tv/.test(t);
-      });
+    // Búsqueda: no filtrar por Anime/Serie/Peli salvo chip explícito del usuario
+    if (gridModo === "search" && gridTypeFilter === "all") {
+      // solo orden abajo — mostrar series, pelis, animes, doramas juntos
     } else if (gridTypeFilter !== "all") {
-      const map = { movie: "pelicula", series: "serie", anime: "anime" };
-      const wanted = map[gridTypeFilter] || String(gridTypeFilter).toLowerCase();
-      res = res.filter(function (i) {
-        const t = String(i.tipo || i.type || "").toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        if (wanted === "pelicula") return /pelicula|movie|film/.test(t);
-        if (wanted === "serie") return /serie|dorama|tv/.test(t);
-        if (wanted === "anime") return /anime|ova|ona/.test(t);
-        return true;
-      });
+        const map = { movie: "Película", series: "Serie", anime: "Anime" };
+        const wanted = map[gridTypeFilter] || gridTypeFilter;
+        res = res.filter(i => {
+            const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
+            const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
+            const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
+            // Secciones propias: JK y AnimeAV1 no se mezclan
+            if (gridSeccion === "jk") return isJk;
+            if (gridSeccion === "anime" && isJk) return false;
+            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
+            if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
+
+            // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
+            if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
+              return true;
+            }
+
+            const t = (i.tipo || "").toString();
+            const tl = t.toLowerCase();
+            if (gridTypeFilter === "anime" && isJk) return false;
+            if (t === wanted) return true;
+            if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
+            // Otras fuentes en anime: solo tipo anime/ova/ona/especial (nunca películas sueltas)
+            if (gridTypeFilter === "anime" && /^(anime|ova|ona|especial)$/i.test(tl.trim())) return true;
+            if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
+            if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
+            return false;
+        });
     }
 
     if (gridSort === "rating") {
@@ -4279,23 +4280,18 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         animeFuente = "av1";
       } else if (seccion === "movie" || seccion === "series") {
         gridTypeFilter = seccion;
-        animeFuente = "av1"; // salir de JK
       } else {
         gridTypeFilter = "all";
-        animeFuente = "av1";
       }
     } else if (modo === "search") {
       if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
       else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
-      else if (seccion === "series") { gridTypeFilter = "series"; animeFuente = "av1"; }
-      else if (seccion === "movie") { gridTypeFilter = "movie"; animeFuente = "av1"; }
+      else if (seccion === "series") gridTypeFilter = "series";
+      else if (seccion === "movie") gridTypeFilter = "movie";
       else {
         gridTypeFilter = "all";
         gridSeccion = "all";
-        animeFuente = "av1";
       }
-    } else if (modo === "favoritos") {
-      animeFuente = "av1";
     }
 
     // Si NO es búsqueda → ocultar “Buscar online”
@@ -4903,8 +4899,10 @@ async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT
     const src = source === "local" ? "local" : "online";
     // Solo JK es búsqueda restringida. El resto (inicio, pelis, series, anime AV1) = global/universal.
     let animeOpts = {};
-    // Solo JK si la sección activa es jk (búsqueda o catálogo)
-    const soloJk = gridSeccion === "jk";
+    const soloJk =
+      animeFuente === "jk" ||
+      gridSeccion === "jk" ||
+      (gridTypeFilter === "anime" && animeFuente === "jk");
     if (soloJk) {
       animeOpts = { animeSource: "jk" };
     }
@@ -5019,7 +5017,7 @@ async function cargarPaginaGrid() {
             await renderAnimeAv1HomeGrid();
             return;
         } else if (
-          gridSeccion === "jk" &&
+          (gridSeccion === "jk" || animeFuente === "jk") &&
           gridPage === 1 &&
           gridModo === "categoria"
         ) {
@@ -9422,17 +9420,19 @@ if (searchForm) {
     busquedaEsLocal = false; // online por defecto
     // Si estás en JK → búsqueda solo JK; si no → global
     try {
-      // Solo buscar en JK si YA estás en la sección JK
-      const enJk = gridSeccion === "jk";
+      const enJk = animeFuente === "jk" || gridSeccion === "jk";
       if (enJk) {
+        gridSeccion = "jk";
+        gridTypeFilter = "anime";
         animeFuente = "jk";
         mostrarGrid({ modo: "search", seccion: "jk", termino: texto });
       } else {
+        gridSeccion = "all";
+        gridTypeFilter = "all";
         animeFuente = "av1";
         mostrarGrid({ modo: "search", seccion: "all", termino: texto });
       }
     } catch (_) {
-      animeFuente = "av1";
       mostrarGrid({ modo: "search", seccion: "all", termino: texto });
     }
   });
