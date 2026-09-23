@@ -2290,13 +2290,42 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     return [];
   }
 
-  /** GET al worker con params (evita problemas de encoding en la query) */
+  /** GET al worker: fetch nativo primero (más fiable en Vercel), axios de respaldo */
   async function workerSearch(path, params) {
+    const qs = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v != null && v !== "") qs.set(k, String(v));
+    });
+    const rel = String(path || "/").startsWith("/") ? path : "/" + path;
+    const url = API_BASE + rel + (qs.toString() ? "?" + qs.toString() : "");
+    // 1) fetch nativo (Node 18+ / Vercel)
     try {
-      const { data } = await api.get(path, { params: params || {}, timeout: 28000 });
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 22000);
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "MovieZone/2.0",
+        },
+        signal: ctrl.signal,
+        cache: "no-store",
+      });
+      clearTimeout(t);
+      if (res.ok) {
+        const data = await res.json();
+        const list = extraerLista(data);
+        if (list.length) return list;
+      }
+    } catch (eFetch) {
+      console.warn("workerSearch fetch", path, eFetch.message || eFetch);
+    }
+    // 2) axios
+    try {
+      const { data } = await api.get(rel, { params: params || {}, timeout: 22000 });
       return extraerLista(data);
     } catch (e) {
-      console.warn("workerSearch", path, e.message);
+      console.warn("workerSearch axios", path, e.message);
       return [];
     }
   }
@@ -2316,42 +2345,32 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     return into;
   }
 
-  let forceSid = null;
-  if (animeSource === "jk" || animeSource === "5" || animeSource === "jkanime") forceSid = "5";
-  if (animeSource === "av1" || animeSource === "4" || animeSource === "animeav1") forceSid = "4";
+  // Solo JK fuerza fuente 5. Todo lo demás = buscador UNIVERSAL del worker.
+  // (3 vs 9 lo decide el worker con PELISPLUS_UNIVERSAL; MovieZone no elige 9 aquí)
+  const soloJk =
+    animeSource === "jk" ||
+    animeSource === "5" ||
+    animeSource === "jkanime";
 
   const limQ = Math.min(80, Math.max(limit, 40));
   let raw = [];
   raw._seen = new Set();
 
   try {
-    if (forceSid === "5") {
+    if (soloJk) {
       let list = await workerSearch("/5", { q: qRaw, limit: limQ });
       if (!list.length) list = await workerSearch("/5/buscar", { q: qRaw, limit: limQ });
       if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "jkanime", limit: limQ });
       mergeRaw(raw, list);
-    } else if (forceSid === "4") {
-      let list = await workerSearch("/4/buscar", { q: qRaw, limit: limQ });
-      if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "animeav1", limit: limQ });
-      mergeRaw(raw, list);
     } else {
-      // UNIVERSAL: varias fuentes en paralelo (worker + bz + doramas + pelisplus)
-      const batches = await Promise.all([
-        workerSearch("/search", { q: qRaw, limit: limQ }),
-        workerSearch("/9/search", { q: qRaw, limit: 40 }),
-        workerSearch("/6/search", { q: qRaw, limit: 40 }),
-        workerSearch("/3/search", { q: qRaw, limit: 40 }),
-        workerSearch("/search", { q: qRaw, source: "3", limit: 40 }),
-      ]);
-      for (const list of batches) mergeRaw(raw, list);
+      // UNIVERSAL → worker /search (incluye pelis 3 o 9 según config del worker + AV1 + doramas)
+      mergeRaw(raw, await workerSearch("/search", { q: qRaw, limit: limQ }));
+      if (!raw.length) {
+        mergeRaw(raw, await workerSearch("/", { q: qRaw, limit: limQ }));
+      }
     }
   } catch (err) {
     console.warn("search:", err.message);
-  }
-
-  // Si aún vacío, un último intento al root ?q=
-  if (!raw.length && !forceSid) {
-    mergeRaw(raw, await workerSearch("/", { q: qRaw, limit: limQ }));
   }
 
   delete raw._seen;
@@ -3813,6 +3832,13 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
 
     try {
       const data = await buscarOnline(termino, page, limit, animeSource);
+      if (req.query.debug === "1") {
+        data._debug = {
+          api_base: API_BASE,
+          animeSource: animeSource || null,
+          raw_count: (data.resultados || []).length,
+        };
+      }
       return res.json(data);
     } catch (err) {
       console.warn("Búsqueda online falló, usando local:", err.message);
