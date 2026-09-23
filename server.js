@@ -2333,13 +2333,21 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   function mergeRaw(into, list) {
     const seen = into._seen || new Set();
     into._seen = seen;
+    // También trackear slug "pelis" para no duplicar 3+9 del mismo título
+    const seenPelisSlug = into._seenPelis || new Set();
+    into._seenPelis = seenPelisSlug;
     for (const r of list || []) {
       if (!r) continue;
-      const sid = String(r.source_id || r.source || r.fuente || "");
-      const slug = String(r.slug || r.url || r.link || r.title || r.titulo || "");
-      const k = sid + "|" + slug.toLowerCase();
-      if (!slug || seen.has(k)) continue;
+      const sid = String(r.source_id || r.source || r.fuente || "").toLowerCase();
+      const slug = String(r.slug || "").toLowerCase() || String(r.url || r.link || r.title || r.titulo || "").toLowerCase();
+      if (!slug) continue;
+      const k = sid + "|" + slug;
+      if (seen.has(k)) continue;
+      // Evitar 3 y 9 del mismo slug (prioridad: el que entre primero = 3)
+      const isPelis = sid === "3" || sid === "9" || /pelisplus/i.test(sid);
+      if (isPelis && seenPelisSlug.has(slug)) continue;
       seen.add(k);
+      if (isPelis) seenPelisSlug.add(slug);
       into.push(r);
     }
     return into;
@@ -2365,18 +2373,34 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
       if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "jkanime", limit: limQ });
       mergeRaw(raw, list);
     } else {
-      // UNIVERSAL: mezclar fuentes.
-      // Pelis/series: /3/?q= del worker está vacío; /9/?q= sí trae resultados (bz).
-      // Anime: /4/; doramas: /6/; AV1 también en / y /search.
-      const parallel = await Promise.all([
+      // UNIVERSAL: PelisPlus preferir fuente 3 (.to); 9 (bz) solo si 3 no trae ese slug.
+      // Anime /4, doramas /6, y / + /search del worker.
+      const [listRoot, listSearch, list3, list9, list4, list6] = await Promise.all([
         workerSearch("/", { q: qRaw, limit: limQ }),
         workerSearch("/search", { q: qRaw, limit: limQ }),
-        workerSearch("/9/", { q: qRaw, limit: limQ }),
         workerSearch("/3/", { q: qRaw, limit: limQ }),
+        workerSearch("/9/", { q: qRaw, limit: limQ }),
         workerSearch("/4/", { q: qRaw, limit: limQ }),
         workerSearch("/6/", { q: qRaw, limit: limQ }),
       ]);
-      for (const list of parallel) mergeRaw(raw, list);
+      // Orden: primero 3 (gana en mergeRaw), luego resto; 9 al final
+      mergeRaw(raw, list3);
+      mergeRaw(raw, listRoot);
+      mergeRaw(raw, listSearch);
+      mergeRaw(raw, list4);
+      mergeRaw(raw, list6);
+      // 9 solo si no hay mismo slug de fuente 3 (o sin source_id de pelis)
+      const slugs3 = new Set(
+        (list3 || [])
+          .map((r) => String((r && r.slug) || "").toLowerCase())
+          .filter(Boolean)
+      );
+      const list9Filtrado = (list9 || []).filter((r) => {
+        const slug = String((r && r.slug) || "").toLowerCase();
+        if (slug && slugs3.has(slug)) return false; // ya hay 3
+        return true;
+      });
+      mergeRaw(raw, list9Filtrado);
     }
   } catch (err) {
     console.warn("search:", err.message);
