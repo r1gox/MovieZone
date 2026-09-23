@@ -3875,7 +3875,23 @@ function showFutbolView() {
   cargarFutbolAgenda();
 }
 
+function detenerFutbolPlayer() {
+  try {
+    const iframe = document.getElementById("futbol-player-iframe");
+    if (iframe) {
+      try { iframe.src = "about:blank"; } catch (_) {}
+      iframe.removeAttribute("src");
+      iframe.src = "";
+      iframe.classList.add("hidden");
+    }
+    const ph = document.getElementById("futbol-player-placeholder");
+    if (ph) ph.classList.remove("hidden");
+    document.getElementById("futbol-chat-block")?.classList.add("hidden");
+  } catch (_) {}
+}
+
 function hideFutbolViews() {
+  detenerFutbolPlayer();
   document.getElementById("futbol-view")?.classList.add("hidden");
   document.getElementById("futbol-partido-view")?.classList.add("hidden");
 }
@@ -4017,22 +4033,46 @@ async function cargarFutbolAgenda() {
       );
     }).join("");
 
-    lista.querySelectorAll(".futbol-card").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+    // Delegación click/touch (móvil): más fiable que un listener por tarjeta
+    if (lista.dataset.futbolBound !== "1") {
+      lista.dataset.futbolBound = "1";
+      const openFromEvent = function (ev) {
+        const btn = ev.target && ev.target.closest ? ev.target.closest(".futbol-card") : null;
+        if (!btn || !lista.contains(btn)) return;
+        ev.preventDefault();
+        ev.stopPropagation();
         const i = parseInt(btn.getAttribute("data-fidx"), 10);
         const item = window.__futbolAgenda && window.__futbolAgenda[i];
-        if (item) abrirFutbolPartido(item);
-      });
-    });
+        if (item) {
+          try { abrirFutbolPartido(item); }
+          catch (eOpen) { console.error("abrirFutbolPartido", eOpen); }
+        }
+      };
+      lista.addEventListener("click", openFromEvent);
+      lista.addEventListener("touchend", function (ev) {
+        // evitar doble con click sintético: solo si no hubo scroll largo
+        if (ev.cancelable) openFromEvent(ev);
+      }, { passive: false });
+    }
   } catch (e) {
     lista.innerHTML = '<div class="tv-hint">No se pudo cargar la agenda</div>';
   }
 }
 
 function abrirFutbolPartido(item) {
+  if (!item) return;
+  try {
+    document.getElementById("home-view")?.classList.add("hidden");
+    document.getElementById("grid-view")?.classList.add("hidden");
+  } catch (_) {}
   document.getElementById("futbol-view")?.classList.add("hidden");
-  document.getElementById("futbol-partido-view")?.classList.remove("hidden");
+  const pv = document.getElementById("futbol-partido-view");
+  if (pv) {
+    pv.classList.remove("hidden");
+    pv.style.display = "";
+  }
   window.__futbolPartidoActual = item;
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (_) {}
 
   const t = document.getElementById("futbol-partido-titulo");
   if (t) t.textContent = item.titulo || "Partido";
@@ -4095,9 +4135,19 @@ function abrirFutbolPartido(item) {
       if (!rep) return;
       const playUrl = rep.url || rep.embed || rep.link || null;
       if (!playUrl) return;
+      box.querySelectorAll(".futbol-rep-btn").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
       futbolPlayEmbed(playUrl);
     });
   });
+  // Auto: primer servidor al abrir (escritorio y móvil)
+  const first = reps[0];
+  const firstUrl = first && (first.url || first.embed || first.link);
+  if (firstUrl) {
+    const firstBtn = box.querySelector(".futbol-rep-btn");
+    if (firstBtn) firstBtn.classList.add("active");
+    futbolPlayEmbed(firstUrl);
+  }
 }
 
 function futbolPlayEmbed(url) {
