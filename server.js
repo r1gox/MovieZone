@@ -2346,7 +2346,7 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   }
 
   // Solo JK fuerza fuente 5. Todo lo demás = buscador UNIVERSAL del worker.
-  // PelisPlus en buscador general = fuente 3 (como el worker), no 9
+  // Pelis/series: fuente 9 (bz) porque /3/?q= no devuelve hits en el worker
   const soloJk =
     animeSource === "jk" ||
     animeSource === "5" ||
@@ -2365,20 +2365,18 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
       if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "jkanime", limit: limQ });
       mergeRaw(raw, list);
     } else {
-      // UNIVERSAL: igual que el worker — PelisPlus = fuente 3 (NO 9)
+      // UNIVERSAL: mezclar fuentes.
+      // Pelis/series: /3/?q= del worker está vacío; /9/?q= sí trae resultados (bz).
+      // Anime: /4/; doramas: /6/; AV1 también en / y /search.
       const parallel = await Promise.all([
         workerSearch("/", { q: qRaw, limit: limQ }),
         workerSearch("/search", { q: qRaw, limit: limQ }),
+        workerSearch("/9/", { q: qRaw, limit: limQ }),
         workerSearch("/3/", { q: qRaw, limit: limQ }),
         workerSearch("/4/", { q: qRaw, limit: limQ }),
         workerSearch("/6/", { q: qRaw, limit: limQ }),
       ]);
       for (const list of parallel) mergeRaw(raw, list);
-      // Por si / o /search coló un hit de fuente 9, descartarlos
-      raw = raw.filter(function (r) {
-        const sid = String((r && (r.source_id || r.source || r.fuente)) || "").toLowerCase();
-        return sid !== "9" && sid !== "pelisplushd_bz";
-      });
     }
   } catch (err) {
     console.warn("search:", err.message);
