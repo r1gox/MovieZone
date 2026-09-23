@@ -3814,12 +3814,11 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     let animeSource = req.query.anime_source || req.query.animeSource || null;
     const sidQ = String(req.query.source_id || "").trim();
     if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
-    if (!animeSource && (sidQ === "4" || sidQ === "animeav1")) animeSource = "av1";
     if (!animeSource && req.query.source && !["local", "online", "1"].includes(String(req.query.source))) {
       const s = String(req.query.source);
       if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
-      if (s === "4" || /animeav1|av1/i.test(s)) animeSource = "av1";
     }
+    // source_id 4 / av1 NO fuerza búsqueda restringida: solo universal (salvo JK)
 
     if (!termino) {
       return res.status(400).json({ error: "Escribe algo para buscar" });
@@ -3830,25 +3829,102 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       return res.json(buscarLocal(termino, type, page, limit));
     }
 
-    try {
-      const data = await buscarOnline(termino, page, limit, animeSource);
-      if (req.query.debug === "1") {
-        data._debug = {
-          api_base: API_BASE,
-          animeSource: animeSource || null,
-          raw_count: (data.resultados || []).length,
-        };
+    const soloJk = animeSource === "jk" || animeSource === "5" || animeSource === "jkanime";
+    const limQ = Math.min(80, Math.max(limit, 40));
+
+    // Proxy directo al worker (fetch). Evita que axios/mapListItem dejen resultados en vacío.
+    async function fetchWorkerJson(path, params) {
+      const qs = new URLSearchParams();
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v != null && v !== "") qs.set(k, String(v));
+      });
+      const url = API_BASE + path + (qs.toString() ? "?" + qs.toString() : "");
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 25000);
+      try {
+        const r = await fetch(url, {
+          headers: { Accept: "application/json", "User-Agent": "MovieZone/2.0" },
+          signal: ctrl.signal,
+          cache: "no-store",
+        });
+        clearTimeout(t);
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) {
+        clearTimeout(t);
+        console.warn("api/buscar fetch", path, e.message || e);
+        return null;
       }
-      return res.json(data);
-    } catch (err) {
-      console.warn("Búsqueda online falló, usando local:", err.message);
-      await ensureMoviesDB();
-      const local = buscarLocal(termino, type, page, limit);
-      return res.json({ ...local, source: "local", online_error: err.message });
     }
+
+    function workerHitsToLista(data) {
+      const hits = (data && (data.results || data.resultados || data.items)) || [];
+      if (!Array.isArray(hits)) return [];
+      return hits
+        .map((r) => {
+          try {
+            const m = typeof mapListItem === "function" ? mapListItem(r) : null;
+            if (m && (m.slug || m.link || m.nombre)) return m;
+          } catch (_) {}
+          try {
+            return typeof mapListItemMinimal === "function" ? mapListItemMinimal(r) : null;
+          } catch (_) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+    }
+
+    let lista = [];
+    let workerUrl = "/search";
+    try {
+      let dataW = null;
+      if (soloJk) {
+        workerUrl = "/5";
+        dataW = await fetchWorkerJson("/5", { q: termino, limit: limQ });
+        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
+          dataW = await fetchWorkerJson("/5/buscar", { q: termino, limit: limQ });
+        }
+      } else {
+        // UNIVERSAL: solo /search del worker (3/9/AV1/doramas según config del worker)
+        dataW = await fetchWorkerJson("/search", { q: termino, limit: limQ });
+        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
+          dataW = await fetchWorkerJson("/", { q: termino, limit: limQ });
+        }
+      }
+      lista = workerHitsToLista(dataW);
+    } catch (eProxy) {
+      console.warn("api/buscar proxy:", eProxy.message || eProxy);
+    }
+
+    // Respaldo: buscarOnline antiguo
+    if (!lista.length) {
+      try {
+        const data = await buscarOnline(termino, page, limit, soloJk ? "jk" : null);
+        if (data && data.resultados && data.resultados.length) {
+          return res.json(data);
+        }
+      } catch (err) {
+        console.warn("Búsqueda online falló:", err.message);
+      }
+    }
+
+    const startIdx = (page - 1) * limit;
+    const pageLista = lista.slice(startIdx, startIdx + limit);
+    const out = {
+      resultados: pageLista,
+      total: lista.length,
+      page,
+      limit,
+      source: "online",
+    };
+    if (req.query.debug === "1") {
+      out._debug = { api_base: API_BASE, soloJk, workerUrl, mapped: lista.length };
+    }
+    return res.json(out);
   } catch (err) {
     console.error("/api/buscar", err.message);
-    res.status(500).json({ error: "No se pudo realizar la búsqueda" });
+    res.status(500).json({ error: "No se pudo realizar la búsqueda", resultados: [] });
   }
 });
 
