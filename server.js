@@ -3860,25 +3860,61 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     function workerHitsToLista(data) {
       const hits = (data && (data.results || data.resultados || data.items)) || [];
       if (!Array.isArray(hits)) return [];
-      return hits
-        .map((r) => {
+      const out = [];
+      for (const r of hits) {
+        if (!r) continue;
+        let item = null;
+        try {
+          item = typeof mapListItem === "function" ? mapListItem(r) : null;
+        } catch (_) {}
+        if (!item || !(item.slug || item.link || item.nombre || item.titulo)) {
           try {
-            const m = typeof mapListItem === "function" ? mapListItem(r) : null;
-            if (m && (m.slug || m.link || m.nombre)) return m;
+            item = typeof mapListItemMinimal === "function" ? mapListItemMinimal(r) : null;
           } catch (_) {}
-          try {
-            return typeof mapListItemMinimal === "function" ? mapListItemMinimal(r) : null;
-          } catch (_) {
-            return null;
-          }
-        })
-        .filter(Boolean);
+        }
+        // Último recurso: copiar campos del worker tal cual
+        if (!item || !(item.slug || item.link || item.nombre || item.titulo)) {
+          const slug = r.slug || null;
+          const titulo = r.nombre || r.titulo || r.title || (slug ? String(slug).replace(/-/g, " ") : null);
+          if (!titulo && !slug) continue;
+          const tipoRaw = String(r.tipo || r.type || "");
+          let tipo = "Película";
+          if (/serie|dorama|tv/i.test(tipoRaw)) tipo = "Serie";
+          else if (/anime/i.test(tipoRaw)) tipo = "Anime";
+          else if (/ova/i.test(tipoRaw)) tipo = "OVA";
+          else if (/ona/i.test(tipoRaw)) tipo = "ONA";
+          const sid = String(r.source_id || resolverSourceId(r.source || r.fuente) || "3");
+          const kind = tipo === "Serie" ? "serie" : /anime|ova|ona/i.test(tipo) ? "anime" : "pelicula";
+          const link = r.url || r.link || r.url_extract || (slug ? `${API_BASE}/${sid}/${kind}/${slug}` : null);
+          item = {
+            id: sid + "-" + (slug || titulo),
+            nombre: titulo,
+            titulo: titulo,
+            slug,
+            tipo,
+            portada: r.portada || null,
+            year: r.year || null,
+            link,
+            url_extract: link,
+            source_id: sid,
+            fuente: r.source || r.fuente || null,
+            tiene_player: true,
+            embeds: [],
+            downloads: [],
+            episodios: [],
+            temporadas: [],
+          };
+        }
+        out.push(item);
+      }
+      return out;
     }
 
     let lista = [];
     let workerUrl = "/search";
+    let rawHits = 0;
+    let dataW = null;
     try {
-      let dataW = null;
       if (soloJk) {
         workerUrl = "/5";
         dataW = await fetchWorkerJson("/5", { q: termino, limit: limQ });
@@ -3886,18 +3922,29 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
           dataW = await fetchWorkerJson("/5/buscar", { q: termino, limit: limQ });
         }
       } else {
-        // UNIVERSAL: solo /search del worker (3/9/AV1/doramas según config del worker)
+        // UNIVERSAL
         dataW = await fetchWorkerJson("/search", { q: termino, limit: limQ });
         if (!dataW || !(dataW.results || dataW.resultados || []).length) {
           dataW = await fetchWorkerJson("/", { q: termino, limit: limQ });
         }
+        // Si el universal no trae series/pelis (solo vacío), reintentar fuentes concretas
+        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
+          const extra = [];
+          for (const p of ["/6/search", "/9/search", "/3/search"]) {
+            const d = await fetchWorkerJson(p, { q: termino, limit: 40 });
+            const hits = (d && (d.results || d.resultados)) || [];
+            for (const h of hits) extra.push(h);
+          }
+          if (extra.length) dataW = { results: extra, count: extra.length };
+        }
       }
+      rawHits = ((dataW && (dataW.results || dataW.resultados)) || []).length;
       lista = workerHitsToLista(dataW);
     } catch (eProxy) {
       console.warn("api/buscar proxy:", eProxy.message || eProxy);
     }
 
-    // Respaldo: buscarOnline antiguo
+    // Respaldo: buscarOnline
     if (!lista.length) {
       try {
         const data = await buscarOnline(termino, page, limit, soloJk ? "jk" : null);
@@ -3919,7 +3966,14 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       source: "online",
     };
     if (req.query.debug === "1") {
-      out._debug = { api_base: API_BASE, soloJk, workerUrl, mapped: lista.length };
+      out._debug = {
+        api_base: API_BASE,
+        soloJk,
+        workerUrl,
+        rawHits,
+        mapped: lista.length,
+        sample: pageLista[0] ? (pageLista[0].nombre || pageLista[0].titulo) : null,
+      };
     }
     return res.json(out);
   } catch (err) {
