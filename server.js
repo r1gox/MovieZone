@@ -3848,8 +3848,17 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
           cache: "no-store",
         });
         clearTimeout(t);
-        if (!r.ok) return null;
-        return await r.json();
+        if (!r.ok) {
+          console.warn("api/buscar status", r.status, path);
+          return null;
+        }
+        const textBody = await r.text();
+        try {
+          return JSON.parse(textBody);
+        } catch (eJ) {
+          console.warn("api/buscar not json", path, textBody.slice(0, 120));
+          return null;
+        }
       } catch (e) {
         clearTimeout(t);
         console.warn("api/buscar fetch", path, e.message || e);
@@ -3921,25 +3930,48 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
         if (!dataW || !(dataW.results || dataW.resultados || []).length) {
           dataW = await fetchWorkerJson("/5/buscar", { q: termino, limit: limQ });
         }
+        rawHits = ((dataW && (dataW.results || dataW.resultados)) || []).length;
+        lista = workerHitsToLista(dataW);
       } else {
-        // UNIVERSAL
-        dataW = await fetchWorkerJson("/search", { q: termino, limit: limQ });
-        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
-          dataW = await fetchWorkerJson("/", { q: termino, limit: limQ });
-        }
-        // Si el universal no trae series/pelis (solo vacío), reintentar fuentes concretas
-        if (!dataW || !(dataW.results || dataW.resultados || []).length) {
-          const extra = [];
-          for (const p of ["/6/search", "/9/search", "/3/search"]) {
-            const d = await fetchWorkerJson(p, { q: termino, limit: 40 });
-            const hits = (d && (d.results || d.resultados)) || [];
-            for (const h of hits) extra.push(h);
+        // UNIVERSAL: /search del worker (PelisPlus = 3 o 9 según PELISPLUS_UNIVERSAL en el worker).
+        // NO forzar /9. Respaldo: /3 (to), /6 doramas, /4 anime.
+        workerUrl = "/search+3+6+4";
+        const paths = [
+          ["/search", { q: termino, limit: limQ }],
+          ["/", { q: termino, limit: limQ }],
+          ["/3/search", { q: termino, limit: 40 }],
+          ["/6/search", { q: termino, limit: 40 }],
+          ["/4/buscar", { q: termino, limit: 40 }],
+        ];
+        const settled = await Promise.all(
+          paths.map(([p, params]) => fetchWorkerJson(p, params))
+        );
+        const merged = [];
+        const seen = new Set();
+        const perSource = {};
+        for (let i = 0; i < settled.length; i++) {
+          const d = settled[i];
+          const hits = (d && (d.results || d.resultados || d.items)) || [];
+          perSource[paths[i][0]] = hits.length;
+          for (const h of hits) {
+            if (!h) continue;
+            const k =
+              String(h.source_id || h.source || "") +
+              "|" +
+              String(h.slug || h.url || h.title || "").toLowerCase();
+            if (!k || seen.has(k)) continue;
+            seen.add(k);
+            merged.push(h);
           }
-          if (extra.length) dataW = { results: extra, count: extra.length };
+        }
+        rawHits = merged.length;
+        dataW = { results: merged, count: merged.length, _perSource: perSource };
+        lista = workerHitsToLista(dataW);
+        if (req.query.debug === "1") {
+          // se añade abajo en out._debug
+          dataW._perSource = perSource;
         }
       }
-      rawHits = ((dataW && (dataW.results || dataW.resultados)) || []).length;
-      lista = workerHitsToLista(dataW);
     } catch (eProxy) {
       console.warn("api/buscar proxy:", eProxy.message || eProxy);
     }
@@ -3973,6 +4005,7 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
         rawHits,
         mapped: lista.length,
         sample: pageLista[0] ? (pageLista[0].nombre || pageLista[0].titulo) : null,
+        perSource: (dataW && dataW._perSource) || null,
       };
     }
     return res.json(out);
