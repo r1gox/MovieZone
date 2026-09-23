@@ -2233,6 +2233,50 @@ function dedupeSearchResults(lista) {
   return Array.isArray(lista) ? lista.slice() : [];
 }
 
+/** Mapeo mínimo: nunca perder un hit del worker por fallos de mapListItem */
+function mapListItemMinimal(r) {
+  if (!r || typeof r !== "object") return null;
+  const slug = r.slug ? String(r.slug) : null;
+  const titulo =
+    r.nombre || r.titulo || r.title || (slug ? String(slug).replace(/-/g, " ") : null);
+  if (!titulo && !slug) return null;
+  const tipoRaw = String(r.tipo || r.type || "").trim();
+  let tipo = "Película";
+  if (/serie|tv|dorama/i.test(tipoRaw)) tipo = "Serie";
+  else if (/anime/i.test(tipoRaw)) tipo = "Anime";
+  else if (/ova/i.test(tipoRaw)) tipo = "OVA";
+  else if (/ona/i.test(tipoRaw)) tipo = "ONA";
+  else if (/pel|movie|film/i.test(tipoRaw)) tipo = "Película";
+  else if (tipoRaw) tipo = tipoRaw;
+  let sourceId = "3";
+  try {
+    sourceId = String(resolverSourceId(r.source_id || r.source || r.fuente) || "3");
+  } catch (_) {}
+  const link =
+    r.url_extract ||
+    r.link ||
+    r.url ||
+    (slug ? `${API_BASE}/${sourceId}/${tipo === "Serie" ? "serie" : tipo === "Anime" || tipo === "OVA" || tipo === "ONA" ? "anime" : "pelicula"}/${slug}` : null);
+  return {
+    id: sourceId + "-" + (slug || titulo),
+    nombre: titulo,
+    titulo: titulo,
+    slug: slug,
+    tipo: tipo,
+    portada: r.portada || r.poster || r.image || null,
+    year: r.year || null,
+    link: link,
+    url_extract: link,
+    source_id: sourceId,
+    fuente: r.source || r.fuente || null,
+    tiene_player: true,
+    embeds: [],
+    downloads: [],
+    episodios: [],
+    temporadas: [],
+  };
+}
+
 async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
   const qRaw = String(termino || "").trim();
   if (!qRaw) return { resultados: [], total: 0, page, limit, source: "online" };
@@ -2241,76 +2285,92 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
     if (!data) return [];
     if (Array.isArray(data.results)) return data.results;
     if (Array.isArray(data.resultados)) return data.resultados;
+    if (Array.isArray(data.items)) return data.items;
     if (Array.isArray(data)) return data;
     return [];
+  }
+
+  /** GET al worker con params (evita problemas de encoding en la query) */
+  async function workerSearch(path, params) {
+    try {
+      const { data } = await api.get(path, { params: params || {}, timeout: 28000 });
+      return extraerLista(data);
+    } catch (e) {
+      console.warn("workerSearch", path, e.message);
+      return [];
+    }
+  }
+
+  function mergeRaw(into, list) {
+    const seen = into._seen || new Set();
+    into._seen = seen;
+    for (const r of list || []) {
+      if (!r) continue;
+      const sid = String(r.source_id || r.source || r.fuente || "");
+      const slug = String(r.slug || r.url || r.link || r.title || r.titulo || "");
+      const k = sid + "|" + slug.toLowerCase();
+      if (!slug || seen.has(k)) continue;
+      seen.add(k);
+      into.push(r);
+    }
+    return into;
   }
 
   let forceSid = null;
   if (animeSource === "jk" || animeSource === "5" || animeSource === "jkanime") forceSid = "5";
   if (animeSource === "av1" || animeSource === "4" || animeSource === "animeav1") forceSid = "4";
 
+  const limQ = Math.min(80, Math.max(limit, 40));
   let raw = [];
+  raw._seen = new Set();
+
   try {
     if (forceSid === "5") {
-      let data = null;
-      try {
-        // JKanime: /5?q= (no mezclar con AV1)
-        data = await apiGet(`/5?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      } catch (_) {
-        try {
-          data = await apiGet(`/5/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-        } catch (__) {
-          try {
-            data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=jkanime&limit=${Math.min(80, Math.max(limit, 40))}`);
-          } catch (___) {}
-        }
-      }
-      raw = extraerLista(data);
+      let list = await workerSearch("/5", { q: qRaw, limit: limQ });
+      if (!list.length) list = await workerSearch("/5/buscar", { q: qRaw, limit: limQ });
+      if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "jkanime", limit: limQ });
+      mergeRaw(raw, list);
     } else if (forceSid === "4") {
-      let data = null;
-      try {
-        data = await apiGet(`/4/buscar?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      } catch (_) {
-        try {
-          data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&source=animeav1&limit=${Math.min(80, Math.max(limit, 40))}`);
-        } catch (__) {}
-      }
-      raw = extraerLista(data);
+      let list = await workerSearch("/4/buscar", { q: qRaw, limit: limQ });
+      if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "animeav1", limit: limQ });
+      mergeRaw(raw, list);
     } else {
-      const data = await apiGet(`/search?q=${encodeURIComponent(qRaw)}&limit=${Math.min(80, Math.max(limit, 40))}`);
-      raw = extraerLista(data);
+      // UNIVERSAL: varias fuentes en paralelo (worker + bz + doramas + pelisplus)
+      const batches = await Promise.all([
+        workerSearch("/search", { q: qRaw, limit: limQ }),
+        workerSearch("/9/search", { q: qRaw, limit: 40 }),
+        workerSearch("/6/search", { q: qRaw, limit: 40 }),
+        workerSearch("/3/search", { q: qRaw, limit: 40 }),
+        workerSearch("/search", { q: qRaw, source: "3", limit: 40 }),
+      ]);
+      for (const list of batches) mergeRaw(raw, list);
     }
   } catch (err) {
     console.warn("search:", err.message);
   }
-  // Universal vacío → probar pelisplushd.bz (9) y doramas; .to (3) suele estar bloqueado por CF
+
+  // Si aún vacío, un último intento al root ?q=
   if (!raw.length && !forceSid) {
-    const fallbacks = [
-      `/9/search?q=${encodeURIComponent(qRaw)}&limit=40`,
-      `/search?q=${encodeURIComponent(qRaw)}&source=9&limit=40`,
-      `/search?q=${encodeURIComponent(qRaw)}&source=pelisplushd_bz&limit=40`,
-      `/6/search?q=${encodeURIComponent(qRaw)}&limit=40`,
-      `/search?q=${encodeURIComponent(qRaw)}&source=3&limit=40`,
-    ];
-    for (const path of fallbacks) {
-      if (raw.length) break;
-      try {
-        const dataS = await apiGet(path);
-        raw = extraerLista(dataS);
-      } catch (_) {}
-    }
+    mergeRaw(raw, await workerSearch("/", { q: qRaw, limit: limQ }));
   }
 
-  let lista = raw
+  delete raw._seen;
+
+  let lista = (raw || [])
     .map((r) => {
       try {
-        return mapListItem(r);
+        const m = mapListItem(r);
+        if (m && (m.slug || m.link || m.nombre || m.titulo)) return m;
       } catch (eMap) {
         console.warn("mapListItem:", eMap.message);
+      }
+      try {
+        return mapListItemMinimal(r);
+      } catch (_) {
         return null;
       }
     })
-    .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre));
+    .filter((item) => item && (item.slug || item.link || item.url_extract || item.nombre || item.titulo));
 
   // 4/5: conservar tipo de la API (Anime|Película|OVA|…). NO forzar "Anime".
   // NO guardar en Supabase aquí (listado incompleto); solo al abrir detalle.
