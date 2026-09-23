@@ -2358,16 +2358,23 @@ async function buscarOnline(termino, page = 1, limit = 48, animeSource = null) {
 
   try {
     if (soloJk) {
-      let list = await workerSearch("/5", { q: qRaw, limit: limQ });
+      // JK: worker /5/?q= suele devolver ARRAY (no {results:[]})
+      let list = await workerSearch("/5/", { q: qRaw, limit: limQ });
+      if (!list.length) list = await workerSearch("/5", { q: qRaw, limit: limQ });
       if (!list.length) list = await workerSearch("/5/buscar", { q: qRaw, limit: limQ });
       if (!list.length) list = await workerSearch("/search", { q: qRaw, source: "jkanime", limit: limQ });
       mergeRaw(raw, list);
     } else {
-      // UNIVERSAL → worker /search (incluye pelis 3 o 9 según config del worker + AV1 + doramas)
-      mergeRaw(raw, await workerSearch("/search", { q: qRaw, limit: limQ }));
-      if (!raw.length) {
-        mergeRaw(raw, await workerSearch("/", { q: qRaw, limit: limQ }));
-      }
+      // UNIVERSAL: /?q= a menudo solo AV1 → mezclar 3/4/6/9 + search
+      const parallel = await Promise.all([
+        workerSearch("/", { q: qRaw, limit: limQ }),
+        workerSearch("/search", { q: qRaw, limit: limQ }),
+        workerSearch("/9/", { q: qRaw, limit: limQ }),
+        workerSearch("/3/", { q: qRaw, limit: limQ }),
+        workerSearch("/4/", { q: qRaw, limit: limQ }),
+        workerSearch("/6/", { q: qRaw, limit: limQ }),
+      ]);
+      for (const list of parallel) mergeRaw(raw, list);
     }
   } catch (err) {
     console.warn("search:", err.message);
@@ -3815,8 +3822,8 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
     const sidQ = String(req.query.source_id || "").trim();
     if (!animeSource && (sidQ === "5" || sidQ === "jkanime")) animeSource = "jk";
     if (!animeSource && req.query.source && !["local", "online", "1"].includes(String(req.query.source))) {
-      const s = String(req.query.source);
-      if (s === "5" || /jkanime|jk/i.test(s)) animeSource = "jk";
+      const srcQ = String(req.query.source);
+      if (srcQ === "5" || /jkanime|jk/i.test(srcQ)) animeSource = "jk";
     }
 
     if (!termino) {
@@ -3828,107 +3835,18 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       return res.json(buscarLocal(termino, req.query.type || null, page, limit));
     }
 
+    // JK → buscarOnline(..., "jk") → worker /5/?q=
+    // General → buscarOnline → mezcla / + /3 + /4 + /6 + /9 + /search
     const soloJk = animeSource === "jk" || animeSource === "5" || animeSource === "jkanime";
-    // Inicio / Películas / Series / Anime AV1 → worker /?q=
-    // JK → worker /5/?q=
-    const workerPath = soloJk ? "/5/" : "/";
-    const limQ = Math.min(80, Math.max(limit, 40));
-    const qs = new URLSearchParams({ q: termino, limit: String(limQ) });
-    const url = API_BASE + workerPath + "?" + qs.toString();
+    const out = await buscarOnline(termino, page, limit, soloJk ? "jk" : null);
 
-    let lista = [];
-    let rawHits = 0;
-    let fetchStatus = 0;
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 28000);
-      const r = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 (compatible; MovieZone/2.0)",
-        },
-        signal: ctrl.signal,
-        cache: "no-store",
-      });
-      clearTimeout(t);
-      fetchStatus = r.status;
-      const textBody = await r.text();
-      let dataW = null;
-      try {
-        dataW = JSON.parse(textBody);
-      } catch (_) {
-        dataW = null;
-      }
-      const hits = (dataW && (dataW.results || dataW.resultados || dataW.items)) || [];
-      rawHits = Array.isArray(hits) ? hits.length : 0;
-
-      for (const row of hits) {
-        if (!row) continue;
-        let item = null;
-        try {
-          item = mapListItem(row);
-        } catch (_) {}
-        if (!item || !(item.slug || item.link || item.nombre)) {
-          try {
-            item = mapListItemMinimal(row);
-          } catch (_) {}
-        }
-        if (!item || !(item.slug || item.link || item.nombre || item.titulo)) {
-          const slug = row.slug || null;
-          const titulo = row.nombre || row.titulo || row.title || (slug ? String(slug).replace(/-/g, " ") : null);
-          if (!titulo && !slug) continue;
-          const tipoRaw = String(row.tipo || row.type || "");
-          let tipo = "Película";
-          if (/serie|dorama|tv/i.test(tipoRaw)) tipo = "Serie";
-          else if (/anime/i.test(tipoRaw)) tipo = "Anime";
-          else if (/ova/i.test(tipoRaw)) tipo = "OVA";
-          else if (/ona/i.test(tipoRaw)) tipo = "ONA";
-          const sid = String(row.source_id || (typeof resolverSourceId === "function" ? resolverSourceId(row.source || row.fuente) : "3") || "3");
-          const kind = tipo === "Serie" ? "serie" : /anime|ova|ona/i.test(tipo) ? "anime" : "pelicula";
-          const link = row.url || row.link || (slug ? `${API_BASE}/${sid}/${kind}/${slug}` : null);
-          item = {
-            id: sid + "-" + (slug || titulo),
-            nombre: titulo,
-            titulo: titulo,
-            slug,
-            tipo,
-            portada: row.portada || null,
-            year: row.year || null,
-            link,
-            url_extract: link,
-            source_id: sid,
-            fuente: row.source || row.fuente || null,
-            tiene_player: true,
-            embeds: [],
-            downloads: [],
-            episodios: [],
-            temporadas: [],
-          };
-        }
-        lista.push(item);
-      }
-    } catch (eFetch) {
-      console.warn("api/buscar", workerPath, eFetch.message || eFetch);
-    }
-
-    const startIdx = (page - 1) * limit;
-    const pageLista = lista.slice(startIdx, startIdx + limit);
-    const out = {
-      resultados: pageLista,
-      total: lista.length,
-      page,
-      limit,
-      source: "online",
-    };
     if (req.query.debug === "1") {
       out._debug = {
         api_base: API_BASE,
-        url,
         soloJk,
-        fetchStatus,
-        rawHits,
-        mapped: lista.length,
-        sample: pageLista[0] ? pageLista[0].nombre || pageLista[0].titulo : null,
+        animeSource: soloJk ? "jk" : null,
+        total: out.total,
+        sample: (out.resultados && out.resultados[0] && (out.resultados[0].nombre || out.resultados[0].titulo)) || null,
       };
     }
     return res.json(out);
