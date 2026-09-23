@@ -2929,8 +2929,8 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
       // primer guardado pronto (no esperar 15s)
       if (typeof guardarProgreso === "function") {
         const prev = typeof obtenerProgreso === "function" ? (obtenerProgreso()[claveProgreso(item)] || {}) : {};
-        const seg0 = Math.max(Number(prev.segundos) || 0, 15);
-        guardarProgreso(item, seg0, Number(prev.duracion) || 1440);
+        const seg0 = Math.max(Number(prev.segundos) || 0, 12);
+        guardarProgreso(item, seg0, Number(prev.duracion) || 0);
       }
       try { renderContinuarViendoEnGrid(); } catch (_) {}
     }
@@ -3449,9 +3449,6 @@ function mostrarHome() {
     if (navHome) navHome.classList.add("active");
     actualizarBotonOnline(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    // Continuar viendo: al volver a inicio siempre repintar
-    try { cargarContinuarViendo(); } catch (e) { console.warn("continuar home", e); }
-    try { renderContinuarViendoEnGrid(); } catch (_) {}
 }
 
 // ============================================================
@@ -4200,7 +4197,10 @@ function initTvUi() {
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
-    if (gridTypeFilter !== "all") {
+    // Búsqueda global: mostrar todo lo que devolvió la API (chips de tipo solo si el user elige)
+    if (gridModo === "search" && (gridSeccion === "all" || gridSeccion === "search") && gridTypeFilter === "all") {
+      // solo orden abajo
+    } else if (gridTypeFilter !== "all") {
         const map = { movie: "Película", series: "Serie", anime: "Anime" };
         const wanted = map[gridTypeFilter] || gridTypeFilter;
         res = res.filter(i => {
@@ -4277,7 +4277,11 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
       if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
       else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
       else if (seccion === "series") gridTypeFilter = "series";
-      else gridTypeFilter = "all";
+      else if (seccion === "movie") gridTypeFilter = "movie";
+      else {
+        gridTypeFilter = "all";
+        gridSeccion = "all";
+      }
     }
 
     // Si NO es búsqueda → ocultar “Buscar online”
@@ -4317,7 +4321,6 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     cargarPaginaGrid();
     window.scrollTo({ top: 0, behavior: "smooth" });
-    try { setTimeout(function () { renderContinuarViendoEnGrid(); }, 80); } catch (_) {}
 }
 
 // ======================================================
@@ -4884,38 +4887,46 @@ let busquedaEsLocal = false;
 async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT) {
     // Nunca forzar local: el buscador usa la API Worker
     const src = source === "local" ? "local" : "online";
-    // Anime section: chip Todo/AV1 → fuente 4; JK → fuente 5 (/5?q=)
-    // Búsqueda global: Todo = universal (sin forzar); JK = solo jkanime source 5
-    const enAnime = gridSeccion === "anime" || gridTypeFilter === "anime";
+    // Solo JK es búsqueda restringida. El resto (inicio, pelis, series, anime AV1) = global/universal.
     let animeOpts = {};
-    if (animeFuente === "jk") {
+    const soloJk =
+      animeFuente === "jk" ||
+      gridSeccion === "jk" ||
+      (gridTypeFilter === "anime" && animeFuente === "jk");
+    if (soloJk) {
       animeOpts = { animeSource: "jk" };
-    } else if (enAnime && animeFuente === "av1") {
-      animeOpts = { animeSource: "av1" };
     }
-    // búsqueda global + "Todo" → sin animeOpts (API universal)
-    let data;
+    // AV1 u otras secciones: sin animeOpts → /api/buscar universal
+    let data = { resultados: [] };
     try {
         data = await searchCatalog(termino, src, page, limit, animeOpts);
     } catch (e) {
-        const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
-        if (animeOpts.animeSource === "jk") {
-          q.set("anime_source", "jk");
-          q.set("source_id", "5");
-        } else if (animeOpts.animeSource === "av1") {
-          q.set("anime_source", "av1");
-          q.set("source_id", "4");
+        try {
+          const q = new URLSearchParams({ q: termino, source: src, page: String(page), limit: String(limit) });
+          if (animeOpts.animeSource === "jk") {
+            q.set("anime_source", "jk");
+            q.set("source_id", "5");
+          } else if (animeOpts.animeSource === "av1") {
+            q.set("anime_source", "av1");
+            q.set("source_id", "4");
+          }
+          const res = await fetch("/api/buscar?" + q.toString(), { cache: "no-store" });
+          data = await res.json();
+        } catch (e2) {
+          console.error("fetchBusqueda:", e2);
+          data = { resultados: [], total: 0 };
         }
-        const res = await fetch("/api/buscar?" + q.toString(), { cache: "no-store" });
-        data = await res.json();
     }
-    const lista = data.resultados || data.results || [];
+    if (data && data.error && !data.resultados && !data.results) {
+      console.warn("buscar API:", data.error);
+    }
+    const lista = (data && (data.resultados || data.results)) || [];
     return {
-        resultados: lista,
-        total: data.total ?? data.count ?? lista.length,
-        page: data.page ?? page,
-        limit: data.limit ?? limit,
-        source: data.source || src
+        resultados: Array.isArray(lista) ? lista : [],
+        total: (data && (data.total ?? data.count)) ?? (Array.isArray(lista) ? lista.length : 0),
+        page: (data && data.page) ?? page,
+        limit: (data && data.limit) ?? limit,
+        source: (data && data.source) || src
     };
 }
 
@@ -4981,8 +4992,8 @@ async function cargarPaginaGrid() {
         } else if (gridModo === "search") {
             // Siempre online primero; local solo si el usuario lo pidiera explícitamente
             const data = await fetchBusqueda(gridTermino, busquedaEsLocal ? "local" : "online", gridPage, LIMIT);
-            lista = data.resultados;
-            gridTotalItems = data.total || lista.length;
+            lista = (data && data.resultados) ? data.resultados : [];
+            gridTotalItems = (data && data.total) || lista.length;
             gridTotalPages = Math.max(1, Math.ceil(gridTotalItems / LIMIT));
             // Botón online ya no hace falta (búsqueda es online por defecto)
             actualizarBotonOnline(false);
@@ -9391,14 +9402,31 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
 // ======================================================
 // BÚSQUEDA (solo con Enter)
 // ======================================================
-searchForm.addEventListener("submit", (e) => {
+if (searchForm) {
+  searchForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const texto = searchInput.value.trim();
-    if (texto) {
-        busquedaEsLocal = false; // online por defecto
-        mostrarGrid({ modo: "search", termino: texto });
+    const texto = (searchInput && searchInput.value || "").trim();
+    if (!texto) return;
+    busquedaEsLocal = false; // online por defecto
+    // Si estás en JK → búsqueda solo JK; si no → global
+    try {
+      const enJk = animeFuente === "jk" || gridSeccion === "jk";
+      if (enJk) {
+        gridSeccion = "jk";
+        gridTypeFilter = "anime";
+        animeFuente = "jk";
+        mostrarGrid({ modo: "search", seccion: "jk", termino: texto });
+      } else {
+        gridSeccion = "all";
+        gridTypeFilter = "all";
+        animeFuente = "av1";
+        mostrarGrid({ modo: "search", seccion: "all", termino: texto });
+      }
+    } catch (_) {
+      mostrarGrid({ modo: "search", seccion: "all", termino: texto });
     }
-});
+  });
+}
 
 // ======================================================
 
@@ -10121,26 +10149,17 @@ function claveProgreso(item) {
 
 function obtenerProgreso() {
   try {
-    const merge = {};
-    function absorb(raw) {
-      if (!raw) return;
-      try {
-        const o = JSON.parse(raw);
-        if (!o || typeof o !== "object") return;
-        Object.keys(o).forEach(function (key) {
-          const cur = merge[key];
-          const nxt = o[key];
-          if (!nxt) return;
-          if (!cur || (nxt.updated || 0) >= (cur.updated || 0)) merge[key] = nxt;
-        });
-      } catch (_) {}
+    // Preferir clave por perfil; migrar legacy
+    const k = pk("progreso");
+    let raw = localStorage.getItem(k);
+    if (!raw) {
+      const legacy = localStorage.getItem("moviezone_progress");
+      if (legacy) {
+        try { localStorage.setItem(k, legacy); } catch (_) {}
+        raw = legacy;
+      }
     }
-    // perfil activo + guest + legacy (evita perder progreso al cambiar pk)
-    try { absorb(localStorage.getItem(pk("progreso"))); } catch (_) {}
-    try { absorb(localStorage.getItem("mz_guest_progreso")); } catch (_) {}
-    try { absorb(localStorage.getItem("moviezone_progress")); } catch (_) {}
-    try { absorb(localStorage.getItem("mz_continuar_viendo")); } catch (_) {}
-    return merge;
+    return JSON.parse(raw || "{}");
   } catch {
     return {};
   }
@@ -10171,8 +10190,8 @@ function guardarProgreso(item, segundos, duracion) {
     }
     return;
   }
-  // Casi terminado (≥90%): eliminar de continuar viendo
-  if (pct >= 90) {
+  // Más de la mitad / casi terminado: eliminar
+  if (pct >= 50) {
     if (all[key]) {
       delete all[key];
       try { localStorage.setItem(pk("progreso"), JSON.stringify(all)); } catch (_) {}
@@ -10223,8 +10242,6 @@ function guardarProgreso(item, segundos, duracion) {
   const obj = Object.fromEntries(ordenados);
   try {
     localStorage.setItem(pk("progreso"), JSON.stringify(obj));
-    localStorage.setItem("mz_guest_progreso", JSON.stringify(obj));
-    localStorage.setItem("mz_continuar_viendo", JSON.stringify(obj));
     localStorage.setItem("moviezone_progress", JSON.stringify(obj)); // legacy mirror
   } catch (_) {}
 }
@@ -10286,7 +10303,7 @@ function iniciarSeguimientoProgreso(item) {
       progresoActual.duracion || progresoActual.segundos + 60
     );
     try { renderContinuarViendoEnGrid(); } catch (_) {}
-  }, 8000);
+  }, 15000);
 }
 
 function detenerSeguimientoProgreso(guardar) {
@@ -10323,17 +10340,16 @@ function listaProgresoPendiente(filtroSeccion) {
 
   lista = lista.filter(function (x) {
     const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-    if ((Number(x.segundos) || 0) < 10) return false;
-    if (pct >= 90) return false;
+    if ((x.segundos || 0) < 10) return false;
+    if (pct >= 50) return false;
     const t = String(x.tipo || "").toLowerCase();
     const sid = String(x.source_id || "").toLowerCase();
     const fuente = String(x.fuente || x.source || "").toLowerCase();
     const esJk = sid === "5" || fuente === "jkanime" || fuente === "jk";
     const esAv1 = sid === "4" || fuente === "animeav1";
     const tieneEp = x.episodio != null || x.episode != null || x.number != null;
-    const esPeli = /pel[ií]cula|movie|film/i.test(t);
-    // episodio de serie/anime O película con progreso
-    if (!tieneEp && !esPeli && !/serie|anime|dorama|tv|ova|ona/i.test(t)) return false;
+    // debe ser episodio (no solo ficha de película)
+    if (!tieneEp && !/serie|anime|dorama|tv|ova|ona/i.test(t)) return false;
 
     if (filtroSeccion === "series") {
       if (esJk || esAv1) return false;
@@ -10501,75 +10517,46 @@ function renderContinuarViendoEnGrid() {
 
 
 function cargarContinuarViendo() {
-  try {
-    const all = obtenerProgreso();
-    const lista = Object.values(all)
-      .filter(function (x) {
-        if (!x) return false;
-        const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
-        return (Number(x.segundos) || 0) >= 10 && pct < 90;
-      })
-      .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
-      .slice(0, 16);
+  const all = obtenerProgreso();
+  const lista = Object.values(all)
+    .filter(function (x) {
+      if (!x) return false;
+      const pct = x.pct != null ? Number(x.pct) : pctProgreso(x.segundos, x.duracion);
+      return (x.segundos || 0) > 25 && pct < 50;
+    })
+    .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); })
+    .slice(0, 12);
 
-    const row = document.getElementById("row-continuar");
-    const cont = document.getElementById("carousel-continuar");
-    if (!row || !cont) {
-      console.warn("[Continuar] falta #row-continuar o #carousel-continuar");
-      return;
-    }
+  const row = document.getElementById("row-continuar");
+  const cont = document.getElementById("carousel-continuar");
+  if (!row || !cont) return;
 
-    if (!lista.length) {
-      row.classList.add("hidden");
-      return;
-    }
-    row.classList.remove("hidden");
-    row.style.display = "";
-    cont.innerHTML = "";
-
-    lista.forEach(function (item) {
-      try {
-        item.tiene_player = true;
-        const pct =
-          item.pct != null
-            ? Number(item.pct)
-            : pctProgreso(item.segundos, item.duracion);
-        const img =
-          item.back_img ||
-          item.still ||
-          item.portada ||
-          item.backdrop ||
-          "https://via.placeholder.com/320x180/0a0611/ffffff?text=...";
-        const nombre = item.titulo_anime || item.nombre || item.titulo || "Sin título";
-        const epLab =
-          item.episodio != null || item.episode != null
-            ? "T" + (item.temporada || item.season || 1) + " · E" + (item.episodio || item.episode)
-            : (item.tipo || "Continuar");
-        const card = document.createElement("div");
-        card.className = "media-card mz-cw-home-card";
-        card.style.cssText = "cursor:pointer;min-width:120px;max-width:140px;flex:0 0 auto;";
-        card.innerHTML =
-          '<div class="poster-wrapper" style="position:relative;aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:#111">' +
-          '<img class="poster-img" src="' + String(img).replace(/"/g, "&quot;") + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"/>' +
-          '<div class="progress-bar-wrap" style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.2)">' +
-          '<div class="progress-bar-fill" style="height:100%;width:' + Math.min(100, Math.max(2, pct)) + '%;background:#7c3aed"></div></div></div>' +
-          '<div class="media-info" style="padding:6px 2px"><h3 style="font-size:.8rem;margin:0;line-height:1.2">' +
-          (typeof escapeHtml === "function" ? escapeHtml(nombre) : String(nombre)) +
-          '</h3><p style="font-size:.7rem;opacity:.7;margin:2px 0 0">' +
-          (typeof escapeHtml === "function" ? escapeHtml(String(epLab)) : String(epLab)) +
-          "</p></div>";
-        card.addEventListener("click", function () {
-          if (typeof abrirDesdeProgreso === "function") abrirDesdeProgreso(item);
-        });
-        cont.appendChild(card);
-      } catch (eCard) {
-        console.warn("[Continuar] card", eCard);
-      }
-    });
-    console.log("[Continuar] mostrados", lista.length);
-  } catch (e) {
-    console.warn("[Continuar] error", e);
+  if (!lista.length) {
+    row.classList.add("hidden");
+    return;
   }
+  row.classList.remove("hidden");
+  cont.innerHTML = "";
+
+  lista.forEach(function (item) {
+    item.tiene_player = true;
+    const card = crearMediaCard(item);
+    const pct =
+      item.pct != null
+        ? Number(item.pct)
+        : item.duracion > 0
+          ? Math.min(100, Math.round((item.segundos / item.duracion) * 100))
+          : Math.min(95, Math.round((item.segundos / 600) * 100));
+    const bar = document.createElement("div");
+    bar.className = "progress-bar-wrap";
+    bar.innerHTML = '<div class="progress-bar-fill" style="width:' + pct + '%"></div>';
+    card.querySelector(".poster-wrapper")?.appendChild(bar);
+    const clone = card.cloneNode(true);
+    clone.addEventListener("click", function () {
+      abrirDesdeProgreso(item);
+    });
+    cont.appendChild(clone);
+  });
 }
 
 // ---------- Recién añadidos ----------
