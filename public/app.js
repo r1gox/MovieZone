@@ -4197,38 +4197,47 @@ function initTvUi() {
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
-    // Búsqueda: no filtrar por Anime/Serie/Peli salvo chip explícito del usuario
-    if (gridModo === "search" && gridTypeFilter === "all") {
-      // solo orden abajo — mostrar series, pelis, animes, doramas juntos
+    // Búsqueda global: no filtrar por tipo
+    if (gridModo === "search" && (gridTypeFilter === "all" || gridSeccion === "all")) {
+      // solo orden abajo
+    } else if (gridSeccion === "jk") {
+      res = res.filter(function (i) {
+        return typeof esItemJk === "function" ? esItemJk(i) : false;
+      });
+    } else if (gridSeccion === "anime" || (gridTypeFilter === "anime" && gridSeccion !== "jk")) {
+      res = res.filter(function (i) {
+        if (typeof esItemJk === "function" && esItemJk(i)) return false;
+        const t = String(i.tipo || i.type || "").toLowerCase();
+        const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
+        const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
+        if (isAv1) return true;
+        return /anime|ova|ona|especial/.test(t);
+      });
+    } else if (gridTypeFilter === "movie" || gridSeccion === "movie") {
+      res = res.filter(function (i) {
+        if (typeof esItemJk === "function" && esItemJk(i)) return false;
+        const t = String(i.tipo || i.type || "").toLowerCase();
+        return /pel[ií]cula|movie|film/.test(t) || (!/serie|anime|dorama|ova|ona/.test(t) && !i.episodio);
+      });
+    } else if (gridTypeFilter === "series" || gridSeccion === "series") {
+      res = res.filter(function (i) {
+        if (typeof esItemJk === "function" && esItemJk(i)) return false;
+        const t = String(i.tipo || i.type || "").toLowerCase();
+        const sid = String(i.source_id || "").toLowerCase();
+        if (sid === "4" || sid === "5") return false;
+        return /serie|dorama|tv/.test(t);
+      });
     } else if (gridTypeFilter !== "all") {
-        const map = { movie: "Película", series: "Serie", anime: "Anime" };
-        const wanted = map[gridTypeFilter] || gridTypeFilter;
-        res = res.filter(i => {
-            const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
-            const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
-            const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
-            // Secciones propias: JK y AnimeAV1 no se mezclan
-            if (gridSeccion === "jk") return isJk;
-            if (gridSeccion === "anime" && isJk) return false;
-            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
-            if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
-
-            // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
-            if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
-              return true;
-            }
-
-            const t = (i.tipo || "").toString();
-            const tl = t.toLowerCase();
-            if (gridTypeFilter === "anime" && isJk) return false;
-            if (t === wanted) return true;
-            if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
-            // Otras fuentes en anime: solo tipo anime/ova/ona/especial (nunca películas sueltas)
-            if (gridTypeFilter === "anime" && /^(anime|ova|ona|especial)$/i.test(tl.trim())) return true;
-            if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
-            if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
-            return false;
-        });
+      const map = { movie: "pelicula", series: "serie", anime: "anime" };
+      const wanted = map[gridTypeFilter] || String(gridTypeFilter).toLowerCase();
+      res = res.filter(function (i) {
+        const t = String(i.tipo || i.type || "").toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (wanted === "pelicula") return /pelicula|movie|film/.test(t);
+        if (wanted === "serie") return /serie|dorama|tv/.test(t);
+        if (wanted === "anime") return /anime|ova|ona/.test(t);
+        return true;
+      });
     }
 
     if (gridSort === "rating") {
@@ -4270,18 +4279,23 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         animeFuente = "av1";
       } else if (seccion === "movie" || seccion === "series") {
         gridTypeFilter = seccion;
+        animeFuente = "av1"; // salir de JK
       } else {
         gridTypeFilter = "all";
+        animeFuente = "av1";
       }
     } else if (modo === "search") {
       if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
       else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
-      else if (seccion === "series") gridTypeFilter = "series";
-      else if (seccion === "movie") gridTypeFilter = "movie";
+      else if (seccion === "series") { gridTypeFilter = "series"; animeFuente = "av1"; }
+      else if (seccion === "movie") { gridTypeFilter = "movie"; animeFuente = "av1"; }
       else {
         gridTypeFilter = "all";
         gridSeccion = "all";
+        animeFuente = "av1";
       }
+    } else if (modo === "favoritos") {
+      animeFuente = "av1";
     }
 
     // Si NO es búsqueda → ocultar “Buscar online”
@@ -4889,10 +4903,8 @@ async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT
     const src = source === "local" ? "local" : "online";
     // Solo JK es búsqueda restringida. El resto (inicio, pelis, series, anime AV1) = global/universal.
     let animeOpts = {};
-    const soloJk =
-      animeFuente === "jk" ||
-      gridSeccion === "jk" ||
-      (gridTypeFilter === "anime" && animeFuente === "jk");
+    // Solo JK si la sección activa es jk (búsqueda o catálogo)
+    const soloJk = gridSeccion === "jk";
     if (soloJk) {
       animeOpts = { animeSource: "jk" };
     }
@@ -5007,7 +5019,7 @@ async function cargarPaginaGrid() {
             await renderAnimeAv1HomeGrid();
             return;
         } else if (
-          (gridSeccion === "jk" || animeFuente === "jk") &&
+          gridSeccion === "jk" &&
           gridPage === 1 &&
           gridModo === "categoria"
         ) {
@@ -9410,19 +9422,17 @@ if (searchForm) {
     busquedaEsLocal = false; // online por defecto
     // Si estás en JK → búsqueda solo JK; si no → global
     try {
-      const enJk = animeFuente === "jk" || gridSeccion === "jk";
+      // Solo buscar en JK si YA estás en la sección JK
+      const enJk = gridSeccion === "jk";
       if (enJk) {
-        gridSeccion = "jk";
-        gridTypeFilter = "anime";
         animeFuente = "jk";
         mostrarGrid({ modo: "search", seccion: "jk", termino: texto });
       } else {
-        gridSeccion = "all";
-        gridTypeFilter = "all";
         animeFuente = "av1";
         mostrarGrid({ modo: "search", seccion: "all", termino: texto });
       }
     } catch (_) {
+      animeFuente = "av1";
       mostrarGrid({ modo: "search", seccion: "all", termino: texto });
     }
   });
