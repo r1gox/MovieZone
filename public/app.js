@@ -8120,6 +8120,24 @@ function renderEpisodios(item, season = 1) {
               } catch (eK) {
                 console.error("mzKoiOpenEpisode", eK);
               }
+              // JK (fuente 5): auto-seleccionar JKPlayer (antes se hacía return y nunca corría)
+              if (typeof esAnimeJk === "function" && esAnimeJk(item)) {
+                try {
+                  const packJk =
+                    typeof asegurarEmbedsEpisodio === "function"
+                      ? await asegurarEmbedsEpisodio(item, episodio, seasonNum, epNum)
+                      : { embeds: [] };
+                  const jk =
+                    typeof pickJkPlayer === "function"
+                      ? pickJkPlayer(packJk.embeds || [])
+                      : null;
+                  if (jk && typeof reproducir === "function") {
+                    await reproducir(jk, item);
+                  }
+                } catch (eJkAuto) {
+                  console.warn("JK auto-select ep:", eJkAuto);
+                }
+              }
               return;
             }
             // Fallback móvil si Koi no está
