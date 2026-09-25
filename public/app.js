@@ -920,6 +920,10 @@ let gridCargando = false;
 let gridSinMasResultados = false;
 let gridSort = "recent";       // recent | rating | az
 let gridTypeFilter = "all";    // all | movie | series | anime
+let gridYearFilter = "all";    // all | 2026 | 2025 ...
+let gridEstadoFilter = "all";  // all | emision | finalizado
+let gridGeneroFilter = "all";  // all | accion | ...
+let _lastGridLista = [];       // para rellenar selects de año/género
 let heroItems = [];
 let heroIndex = 0;
 let heroTimer = null;
@@ -3737,49 +3741,78 @@ function initTvUi() {
 }
 
 function aplicarFiltrosYOrden(lista) {
-    let res = [...(lista || [])];
+    let res = Array.isArray(lista) ? lista.slice() : [];
 
-    // Búsqueda: no filtrar por Anime/Serie/Peli salvo chip explícito del usuario
+    // Tipo
     if (gridModo === "search" && gridTypeFilter === "all") {
-      // solo orden abajo — mostrar series, pelis, animes, doramas juntos
+        // búsqueda global: no filtrar por tipo
     } else if (gridTypeFilter !== "all") {
-        const map = { movie: "Película", series: "Serie", anime: "Anime" };
+        const map = { movie: "pelicula", series: "serie", anime: "anime" };
         const wanted = map[gridTypeFilter] || gridTypeFilter;
-        res = res.filter(i => {
-            const isJk = typeof esItemJk === "function" ? esItemJk(i) : false;
-            const sid = String(i.source_id || i.fuente || i.source || "").toLowerCase();
-            const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
-            // Secciones propias: JK y AnimeAV1 no se mezclan
+        res = res.filter((item) => {
+            try {
+            const isJk = typeof esItemJk === "function" && esItemJk(item);
+            const isAv1 =
+              String(item.source_id || "") === "4" ||
+              /animeav1/i.test(String(item.fuente || item.source || ""));
             if (gridSeccion === "jk") return isJk;
             if (gridSeccion === "anime" && isJk) return false;
-            // animeFuente solo cuenta si la sección es jk o anime
             if (gridSeccion === "jk" || (gridSeccion === "anime" && animeFuente === "jk")) return isJk;
             if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isJk) return false;
-
-            // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
             if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
               return true;
             }
-
-            const t = (i.tipo || "").toString();
-            const tl = t.toLowerCase();
+            const tl = String(item.tipo || item.type || item.formato || "").toLowerCase();
             if (gridTypeFilter === "anime" && isJk) return false;
-            if (t === wanted) return true;
             if (tl.includes(String(gridTypeFilter).toLowerCase())) return true;
-            // Otras fuentes en anime: solo tipo anime/ova/ona/especial (nunca películas sueltas)
+            if (tl.includes(wanted)) return true;
             if (gridTypeFilter === "anime" && /^(anime|ova|ona|especial)$/i.test(tl.trim())) return true;
             if (gridTypeFilter === "series" && /serie|dorama|tv/i.test(tl)) return true;
             if (gridTypeFilter === "movie" && /pel[ií]cula|movie|film/i.test(tl)) return true;
             return false;
+            } catch (_) { return true; }
         });
     }
 
+    // Año
+    if (gridYearFilter && gridYearFilter !== "all") {
+      const yWant = String(gridYearFilter);
+      res = res.filter((item) => {
+        const y = String(item.year || item.fecha_estreno || "").slice(0, 4);
+        return y === yWant;
+      });
+    }
+
+    // Estado (series/anime)
+    if (gridEstadoFilter && gridEstadoFilter !== "all") {
+      res = res.filter((item) => {
+        const e = String(item.estado || item.status || "").toLowerCase();
+        if (gridEstadoFilter === "emision") {
+          return /emisi[oó]n|airing|continuing|ongoing|en curso/i.test(e);
+        }
+        if (gridEstadoFilter === "finalizado") {
+          return /finaliz|conclu|ended|finished|complet/i.test(e);
+        }
+        return true;
+      });
+    }
+
+    // Género
+    if (gridGeneroFilter && gridGeneroFilter !== "all") {
+      const gWant = String(gridGeneroFilter).toLowerCase();
+      res = res.filter((item) => {
+        let gens = item.generos || item.genero || item.genres || [];
+        if (typeof gens === "string") gens = gens.split(/[,/|]/);
+        if (!Array.isArray(gens)) return false;
+        return gens.some((g) => String(g).toLowerCase().indexOf(gWant) !== -1);
+      });
+    }
+
     if (gridSort === "rating") {
-        res.sort((a, b) => (Number(b.calificacion) || 0) - (Number(a.calificacion) || 0));
+        res.sort((a, b) => (Number(b.rating || b.calificacion) || 0) - (Number(a.rating || a.calificacion) || 0));
     } else if (gridSort === "az") {
-        res.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
+        res.sort((a, b) => String(a.titulo || a.nombre || "").localeCompare(String(b.titulo || b.nombre || ""), "es", { sensitivity: "base" }));
     } else {
-        // más reciente
         res.sort((a, b) => {
             const da = a.created_at ? new Date(a.created_at).getTime() : (Number(a.year) || 0);
             const db = b.created_at ? new Date(b.created_at).getTime() : (Number(b.year) || 0);
@@ -3787,6 +3820,62 @@ function aplicarFiltrosYOrden(lista) {
         });
     }
     return res;
+}
+
+
+
+function mostrarErrorGrid(msg) {
+  try {
+    const err = document.getElementById("results-error");
+    const txt = document.getElementById("results-error-text");
+    const empty = document.getElementById("results-empty");
+    const sk = document.getElementById("results-skeleton");
+    const grid = document.getElementById("results-grid");
+    if (txt) txt.textContent = msg || "No se pudo cargar el catálogo.";
+    if (err) err.classList.remove("hidden");
+    if (empty) empty.classList.add("hidden");
+    if (sk) sk.classList.add("hidden");
+    if (grid) grid.innerHTML = "";
+  } catch (_) {}
+}
+function ocultarErrorGrid() {
+  try {
+    document.getElementById("results-error")?.classList.add("hidden");
+  } catch (_) {}
+}
+function actualizarSelectsCatalogo(lista) {
+  try {
+    _lastGridLista = Array.isArray(lista) ? lista : [];
+    const years = new Set();
+    const gens = new Set();
+    _lastGridLista.forEach((it) => {
+      const y = String(it.year || it.fecha_estreno || "").slice(0, 4);
+      if (/^\d{4}$/.test(y)) years.add(y);
+      let g = it.generos || it.genero || it.genres || [];
+      if (typeof g === "string") g = g.split(/[,/|]/);
+      if (Array.isArray(g)) g.forEach((x) => {
+        const t = String(x || "").trim();
+        if (t && t.length < 40) gens.add(t);
+      });
+    });
+    const yEl = document.getElementById("filter-year");
+    if (yEl) {
+      const cur = gridYearFilter || "all";
+      const sorted = Array.from(years).sort((a, b) => Number(b) - Number(a));
+      yEl.innerHTML = '<option value="all">Año</option>' +
+        sorted.map((y) => '<option value="' + y + '"' + (y === cur ? " selected" : "") + ">" + y + "</option>").join("");
+    }
+    const gEl = document.getElementById("filter-genero");
+    if (gEl) {
+      const cur = gridGeneroFilter || "all";
+      const sorted = Array.from(gens).sort((a, b) => a.localeCompare(b, "es"));
+      gEl.innerHTML = '<option value="all">Género</option>' +
+        sorted.slice(0, 40).map((g) => {
+          const v = g.toLowerCase();
+          return '<option value="' + v.replace(/"/g, "") + '"' + (v === cur ? " selected" : "") + ">" + g + "</option>";
+        }).join("");
+    }
+  } catch (_) {}
 }
 
 function mostrarGrid({ modo, seccion, termino = "" }) {
@@ -3804,6 +3893,14 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     gridTermino = termino;
     gridPage = 1;
     gridSinMasResultados = false;
+    gridYearFilter = "all";
+    gridEstadoFilter = "all";
+    gridGeneroFilter = "all";
+    try {
+      const y = document.getElementById("filter-year"); if (y) y.value = "all";
+      const es = document.getElementById("filter-estado"); if (es) es.value = "all";
+      const ge = document.getElementById("filter-genero"); if (ge) ge.value = "all";
+    } catch (_) {}
     if (modo === "categoria") {
       if (seccion === "jk") {
         gridTypeFilter = "anime";
@@ -4517,6 +4614,8 @@ function actualizarBotonOnline(mostrar) {
 async function cargarPaginaGrid() {
     if (gridCargando) return;
     gridCargando = true;
+    try { ocultarErrorGrid(); } catch (_) {}
+
 
     // Skeleton en vez de solo spinner
     const skeleton = document.getElementById("results-skeleton");
@@ -4573,7 +4672,9 @@ async function cargarPaginaGrid() {
           resultsGrid.classList.remove("mz-av1-home-wrap");
         } catch (_) {}
 
-        // Aplica filtros de tipo + orden (Más reciente / Calificación / A-Z)
+        // Aplica filtros de tipo + orden + año/estado/género
+        try { _lastGridLista = Array.isArray(lista) ? lista.slice() : []; } catch (_) { _lastGridLista = []; }
+        try { actualizarSelectsCatalogo(_lastGridLista); } catch (_) {}
         const listaFinal = aplicarFiltrosYOrden(lista);
 
         renderGridItems(listaFinal, true);
@@ -4589,8 +4690,16 @@ async function cargarPaginaGrid() {
 
     } catch (err) {
         console.error(err);
-        resultsEmpty.classList.remove("hidden");
-        resultsEmpty.querySelector("p").textContent = "No se pudo cargar la sección.";
+        try {
+          mostrarErrorGrid(
+            (err && err.message) ? ("Error: " + err.message) : "No se pudo cargar la sección. Revisa la conexión e intenta de nuevo."
+          );
+        } catch (_) {
+          resultsEmpty.classList.remove("hidden");
+          if (resultsEmpty.querySelector("p")) {
+            resultsEmpty.querySelector("p").textContent = "No se pudo cargar la sección.";
+          }
+        }
     } finally {
         // Ocultar skeleton cuando termina de cargar
         if (skeleton) skeleton.classList.add("hidden");
@@ -5171,6 +5280,23 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     } catch (_) {}
     try { openDetailsShell(); } catch (_) {}
     seleccionActual = item;
+    // Prefetch primer episodio (series/anime) en segundo plano
+    try {
+      if (
+        item &&
+        typeof isSerieOrAnime === "function" &&
+        isSerieOrAnime(item) &&
+        !(typeof isPeliculaItem === "function" && isPeliculaItem(item))
+      ) {
+        setTimeout(function () {
+          try {
+            if (typeof asegurarEmbedsEpisodio === "function") {
+              asegurarEmbedsEpisodio(item, null, 1, 1).catch(function () {});
+            }
+          } catch (_) {}
+        }, 600);
+      }
+    } catch (_) {}
     try {
       if (typeof mzPushDetalleUrl === "function") {
         // No pisar /detalle/slug/t/e si ya estamos en un episodio de este título
@@ -9344,6 +9470,49 @@ cargarHome();
 initTvUi();
 initAutoplayEpUi();
 try { bindKoiBackBtn(); } catch (_) {}
+try {
+  function refiltrarGridLocal() {
+    try {
+      if (!_lastGridLista || !_lastGridLista.length) {
+        if (typeof cargarPaginaGrid === "function") { gridPage = 1; cargarPaginaGrid(); }
+        return;
+      }
+      const listaFinal = aplicarFiltrosYOrden(_lastGridLista);
+      const sk = document.getElementById("results-skeleton");
+      if (sk) sk.classList.add("hidden");
+      try { ocultarErrorGrid(); } catch (_) {}
+      if (typeof renderGridItems === "function") renderGridItems(listaFinal, true);
+      const empty = document.getElementById("results-empty");
+      if (empty) empty.classList.toggle("hidden", listaFinal.length > 0);
+      const rc = document.getElementById("results-count");
+      if (rc) {
+        rc.textContent = listaFinal.length + " items" +
+          (gridTotalItems > listaFinal.length ? " (de " + gridTotalItems + ")" : "");
+      }
+    } catch (e) {
+      console.warn("refiltrar", e);
+      if (typeof cargarPaginaGrid === "function") cargarPaginaGrid();
+    }
+  }
+  document.getElementById("filter-year")?.addEventListener("change", function (e) {
+    gridYearFilter = e.target.value || "all";
+    refiltrarGridLocal();
+  });
+  document.getElementById("filter-estado")?.addEventListener("change", function (e) {
+    gridEstadoFilter = e.target.value || "all";
+    refiltrarGridLocal();
+  });
+  document.getElementById("filter-genero")?.addEventListener("change", function (e) {
+    gridGeneroFilter = e.target.value || "all";
+    refiltrarGridLocal();
+  });
+  document.getElementById("btn-retry-grid")?.addEventListener("click", function () {
+    try { ocultarErrorGrid(); } catch (_) {}
+    gridPage = 1;
+    gridCargando = false;
+    if (typeof cargarPaginaGrid === "function") cargarPaginaGrid();
+  });
+} catch (_) {}
 
 
 // ---------- Aviso de visita a Telegram (1 vez por sesión, se puede apagar en el server) ----------

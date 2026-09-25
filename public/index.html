@@ -313,6 +313,19 @@
         <button class="filter-chip" data-type="series">📺 Series</button>
         <button class="filter-chip" data-type="anime">⛩️ Anime</button>
       </div>
+      <div class="filter-group catalog-filters">
+        <select id="filter-year" class="filter-select" title="Año">
+          <option value="all">Año</option>
+        </select>
+        <select id="filter-estado" class="filter-select" title="Estado">
+          <option value="all">Estado</option>
+          <option value="emision">En emisión</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+        <select id="filter-genero" class="filter-select" title="Género">
+          <option value="all">Género</option>
+        </select>
+      </div>
       <div class="filter-group sort-group">
         <label for="sort-select" class="sort-label">Ordenar:</label>
         <select id="sort-select" class="sort-select">
@@ -335,7 +348,10 @@
       <p>Consultando fuentes de contenido...</p>
     </div>
 
-    <div class="catalog-grid skeleton-grid hidden" id="results-skeleton">
+    <div class="catalog-grid skeleton-grid hidden" id="results-skeleton" aria-hidden="true">
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
       <div class="skeleton-card"></div><div class="skeleton-card"></div>
       <div class="skeleton-card"></div><div class="skeleton-card"></div>
       <div class="skeleton-card"></div><div class="skeleton-card"></div>
@@ -347,6 +363,12 @@
     <div class="downloads-empty hidden" id="results-empty">
       <ion-icon name="film-outline"></ion-icon>
       <p>No se encontraron resultados.</p>
+    </div>
+
+    <div class="results-error hidden" id="results-error">
+      <ion-icon name="cloud-offline-outline"></ion-icon>
+      <p id="results-error-text">No se pudo cargar el catálogo.</p>
+      <button type="button" class="btn-retry" id="btn-retry-grid">Reintentar</button>
     </div>
 
     <div class="catalog-grid" id="results-grid"></div>
