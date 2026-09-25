@@ -3600,6 +3600,22 @@ function mostrarHome() {
     try { mzPushSectionUrl("/", { mz: "home" }); } catch (_) {}
     homeView.classList.remove("hidden");
     gridView.classList.add("hidden");
+    // Si el hero/carruseles están vacíos, cargar datos
+    try {
+      if (!window.__mzSkipHomeBoot) {
+        var car = document.getElementById("carousel-movies");
+        var vacio = !car || !car.querySelector(".media-card, .card, a, img");
+        if (vacio && typeof cargarHome === "function") {
+          setTimeout(function () {
+            try {
+              if (window.__mzSkipHomeBoot) return;
+              var c2 = document.getElementById("carousel-movies");
+              if (!c2 || !c2.querySelector(".media-card, .card, a, img")) cargarHome();
+            } catch (_) {}
+          }, 40);
+        }
+      }
+    } catch (_) {}
 
     // Cerrar vista TV al volver a Inicio
     const tv = document.getElementById("tv-view");
@@ -6823,17 +6839,32 @@ function cerrarDetalle(fromPop) {
     try { mzClearBootOverlay(true); } catch (_) {}
     window.__mzSkipHomeBoot = false;
 
-    // Si venimos de history.back (fromPop), popstate ya restaura la sección.
-    // Si no hubo back útil, restaurar __mzReturnView.
+    // Si venimos de history.back (fromPop), popstate restaura sección/inicio.
     if (fromPop) {
       window.__mzClosingDetalle = false;
+      // Si ya estamos en inicio y sin datos, cargar
+      try {
+        if ((location.pathname || "/") === "/" || location.pathname === "") {
+          var car = document.getElementById("carousel-movies");
+          if ((!car || !car.querySelector(".media-card, .card, a, img")) && typeof cargarHome === "function") {
+            cargarHome();
+          }
+        }
+      } catch (_) {}
       return;
     }
-    // history.back() ya disparado arriba; si el path sigue siendo /detalle, fallback
+    // history.back() ya disparado; si el path sigue en detalle, ir a sección recordada
     try {
-      if (!/^\/detalle\//i.test(location.pathname || "")) {
-        // popstate se encargará
-        return;
+      if (/^\/detalle\//i.test(location.pathname || "")) {
+        var ret = window.__mzReturnView;
+        if (ret && ret.type === "grid" && ret.seccion) {
+          mzPushSectionUrl(mzPathFromSeccion(ret.seccion, ret.modo), { mz: "section" }, true);
+          mzApplySectionRoute({ type: "grid", modo: ret.modo || "categoria", seccion: ret.seccion });
+        } else {
+          mzPushSectionUrl("/", { mz: "home" }, true);
+          if (typeof mostrarHome === "function") mostrarHome();
+          if (typeof cargarHome === "function") cargarHome();
+        }
       }
     } catch (_) {}
 }
@@ -10660,43 +10691,39 @@ async function handleDeepLink() {
     } catch (e) { console.warn("Deep link:", e); }
     finally {
       try {
-        // No quitar overlay aquí si aún estamos esperando datos (mz-waiting-detail).
-        // abrirDetalle llama mzFinishDeepBoot cuando ya pintó.
-        if (document.body.classList.contains("mz-waiting-detail")) {
-          // red de seguridad: si tras 12s sigue el overlay, liberar
-          setTimeout(function () {
-            try {
-              if (document.body.classList.contains("mz-waiting-detail")) {
-                mzFinishDeepBoot();
-              }
-            } catch (_) {}
-          }, 12000);
-        } else if (document.documentElement.classList.contains("mz-deep-boot")) {
+        var pathNow = location.pathname || "";
+        var sigueDetalle = /^\/detalle\//i.test(pathNow) || /^\/(serie|pelicula)\//i.test(pathNow) || /^\/anime\/[a-z0-9]/\/]/i.test(pathNow);
+        // En URL de detalle: NUNCA mandar a inicio
+        if (sigueDetalle) {
           var panel = document.getElementById("details-panel");
-          if (!panel || panel.classList.contains("hidden")) {
-            window.__mzSkipHomeBoot = false;
-            mzFinishDeepBoot();
-            if (typeof cargarHome === "function") cargarHome();
+          var abierto = panel && !panel.classList.contains("hidden");
+          if (abierto) {
+            try { mzFinishDeepBoot(); } catch (_) {}
+          } else if (document.body.classList.contains("mz-waiting-detail") ||
+                     document.documentElement.classList.contains("mz-deep-boot")) {
+            // seguir esperando; seguridad 15s
+            setTimeout(function () {
+              try {
+                var p2 = document.getElementById("details-panel");
+                if (p2 && !p2.classList.contains("hidden")) mzFinishDeepBoot();
+                // si falló el detalle, solo entonces ir a inicio
+                else if (/^\/detalle\//i.test(location.pathname || "")) {
+                  window.__mzSkipHomeBoot = false;
+                  mzClearBootOverlay(true);
+                  if (typeof cargarHome === "function") cargarHome();
+                }
+              } catch (_) {}
+            }, 15000);
           }
+        } else {
+          // No es detalle: limpiar boot si quedó
+          try { mzClearBootOverlay(true); } catch (_) {}
         }
       } catch (_) {}
-      // Precargar home en segundo plano (no se muestra) para al volver sea instantáneo
-      if (window.__mzPrefetchHomeAfterDeep) {
-        window.__mzPrefetchHomeAfterDeep = false;
-        setTimeout(function () {
-          try {
-            if (typeof cargarHome === "function") {
-              // no forzar vista; cargarHome pinta inicio — solo si usuario ya cerró detalle
-              // mejor no llamar cargarHome aquí; se carga al volver a /
-            }
-          } catch (_) {}
-        }, 2500);
-      }
     }
 }
 // Ejecutar siempre: en deep link abre detalle; en / no hace nada útil si no hay query
 handleDeepLink().catch(function (e) { console.warn("Deep link boot:", e); });
-
 
 window.addEventListener("popstate", function () {
   try {
@@ -10712,6 +10739,15 @@ window.addEventListener("popstate", function () {
       if (typeof cerrarDetalle === "function") cerrarDetalle(true);
       window.__mzRouteSilent = true;
       try { if (typeof mostrarHome === "function") mostrarHome(); } finally { window.__mzRouteSilent = false; }
+      // Asegurar datos del inicio (no dejar hero en "Cargando...")
+      try {
+        var car = document.getElementById("carousel-movies");
+        var vacio = !car || !car.querySelector(".media-card, .card, a, img");
+        if (vacio && typeof cargarHome === "function") cargarHome();
+        else if (typeof cargarContinuarViendo === "function") cargarContinuarViendo();
+      } catch (_) {
+        try { if (typeof cargarHome === "function") cargarHome(); } catch (__) {}
+      }
       return;
     }
 
@@ -11234,6 +11270,23 @@ window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
 (function mzRestoreAfterExternal() {
   function killBootOverlay() {
     try {
+      // Si estamos cargando un /detalle/ y aún no hay UI, NO quitar el overlay
+      var path = location.pathname || "";
+      var isDet = /^\/detalle\//i.test(path);
+      if (isDet) {
+        var panel = document.getElementById("details-panel");
+        var titleEl = document.querySelector("#koi-hero h1, #koi-hero .koi-title, #details-title, .koi-hero-title");
+        var hasUi =
+          panel &&
+          !panel.classList.contains("hidden") &&
+          titleEl &&
+          (titleEl.textContent || "").trim().length > 1;
+        if (!hasUi && (document.body.classList.contains("mz-waiting-detail") ||
+            document.documentElement.classList.contains("mz-deep-boot") ||
+            document.documentElement.dataset.mzWaitDetail === "1")) {
+          return;
+        }
+      }
       var boot = document.getElementById("mz-boot-loading");
       if (boot) {
         boot.classList.add("hidden");
