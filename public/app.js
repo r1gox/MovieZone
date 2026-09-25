@@ -665,10 +665,38 @@ function hideProfileGate() {
   document.body.style.overflow = "";
 }
 
+function mzIsDeepDetailPath() {
+  try {
+    var p = location.pathname || "";
+    return /^\/detalle\//i.test(p) || /^\/(serie|pelicula|anime)\//i.test(p);
+  } catch (_) {
+    return false;
+  }
+}
+
 function ensureProfileAccess() {
   const profiles = getProfiles();
   const active = getActiveProfile();
   const onboarded = localStorage.getItem(MZ_ONBOARDED) === "1";
+
+  // Deep link /detalle/...: no bloquear con gate de perfiles (auto-invitado si hace falta)
+  if (mzIsDeepDetailPath()) {
+    try {
+      if (!active) {
+        let list = getProfiles();
+        let guest = list.find((x) => x.tipo === "guest");
+        if (!guest) {
+          guest = { id: "guest", nombre: "Invitado", tipo: "guest", color: "#64748b" };
+          list = list.concat([guest]);
+          try { localStorage.setItem(MZ_PROFILES_KEY, JSON.stringify(list)); } catch (_) {}
+        }
+        try { localStorage.setItem(MZ_ACTIVE_PROFILE, guest.id); } catch (_) {}
+      }
+      hideProfileGate();
+      localStorage.setItem(MZ_ONBOARDED, "1");
+    } catch (_) {}
+    return true;
+  }
 
   // Primera visita o sin perfil activo → gate
   if (!profiles.length) {
