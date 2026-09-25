@@ -5,7 +5,18 @@
 (function () {
   try {
     var p = location.pathname || "";
-    if (!/^\/detalle\//i.test(p) && !/^\/(serie|pelicula|anime)\//i.test(p)) return;
+    // Solo ficha/episodio: /detalle/... o legacy /serie|/pelicula|/anime/SLUG
+    // NO /animes /peliculas /series /jkanimes (secciones de catálogo)
+    var isDetail =
+      /^\/detalle\//i.test(p) ||
+      /^\/(serie|pelicula)\//i.test(p) ||
+      /^\/anime\/[a-z0-9]/\/]/i.test(p);
+    if (!isDetail) {
+      // Secciones: asegurar que el boot no se quede bloqueado
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+      document.documentElement.classList.add("mz-section-boot");
+      return;
+    }
     document.documentElement.classList.add("mz-deep-boot");
     try { document.documentElement.dataset.mzWaitDetail = "1"; } catch (e2) {}
     if (/\/\d+\/\d+\/?$/i.test(p)) document.documentElement.classList.add("mz-deep-ep");
@@ -120,7 +131,11 @@ html.mz-deep-boot .mz-boot-loading-inner > p {
   50% { opacity: 1; }
 }
 /* details-panel puede estar .hidden en HTML; en deep-boot no lo forzamos visible hasta JS */
+html.mz-section-boot #mz-boot-loading {
+  /* se oculta en cuanto app.js aplica la sección; no bloquear */
+}
 html.mz-deep-ready #mz-boot-loading {
+
   display: none !important;
   visibility: hidden !important;
 }
@@ -225,7 +240,7 @@ body.details-open #grid-view {
   <div id="mz-boot-loading" class="mz-boot-loading" aria-live="polite">
     <div class="mz-boot-loading-inner">
       <div class="mz-boot-spinner"></div>
-      <p class="mz-boot-text">Cargando datos...</p>
+      <p class="mz-boot-text">Cargando…</p>
     </div>
   </div>
 

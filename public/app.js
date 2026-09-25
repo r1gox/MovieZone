@@ -3530,6 +3530,10 @@ function mzApplySectionRoute(route, opts) {
   if (!route) return false;
   window.__mzRouteSilent = true;
   try {
+    // Secciones no usan deep-boot: quitar "Cargando datos..." al entrar/recargar
+    try { if (typeof mzClearBootOverlay === "function") mzClearBootOverlay(true); } catch (_) {}
+    try { if (typeof setBootLoading === "function") setBootLoading(false); } catch (_) {}
+    window.__mzSkipHomeBoot = false;
     if (route.type === "home") {
       if (typeof mostrarHome === "function") mostrarHome();
       return true;
@@ -10352,10 +10356,13 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
       var secBoot = typeof mzParseSectionPath === "function" ? mzParseSectionPath(location.pathname || "/") : null;
       if (secBoot && secBoot.type !== "home" && secBoot.type !== "detalle") {
         window.__mzSkipHomeBoot = true;
+        try { if (typeof mzClearBootOverlay === "function") mzClearBootOverlay(true); } catch (_) {}
         setTimeout(function () {
-          try { mzApplySectionRoute(secBoot); } catch (_) {}
+          try { mzApplySectionRoute(secBoot); } catch (e) { console.warn("section boot", e); }
           window.__mzSkipHomeBoot = false;
-        }, 30);
+          try { if (typeof mzClearBootOverlay === "function") mzClearBootOverlay(true); } catch (_) {}
+          try { if (typeof setBootLoading === "function") setBootLoading(false); } catch (_) {}
+        }, 50);
       } else {
         cargarHome();
       }
