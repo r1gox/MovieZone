@@ -828,21 +828,57 @@ function rellenarMetaDetalle(item) {
     const extra = document.getElementById("details-meta-extra");
     if (extra) extra.remove();
 
-    // —— Extra solo JKanime (API fuente 5) ——
+    // —— Extra JKanime (fuente 5): próximo ep, último, studios… ——
     (function fillJkExtra() {
-      let box = document.getElementById("details-jk-extra");
-      const genEl = document.getElementById("details-genres");
-      if (!box && genEl && genEl.parentNode) {
-        box = document.createElement("div");
-        box.id = "details-jk-extra";
-        box.className = "details-jk-extra";
-        genEl.parentNode.insertBefore(box, genEl.nextSibling);
-      }
-      if (!box) return;
-      const isJk = (typeof esItemJk === "function" && esItemJk(item)) ||
+      const isJk =
+        (typeof esItemJk === "function" && esItemJk(item)) ||
         String(item.source_id || "") === "5" ||
         /jkanime/i.test(String(item.fuente || item.source || "")) ||
         /jkanime\.net/i.test(String(item.link || item.url || ""));
+
+      // Chip visible en la fila de meta (próxima fecha)
+      try {
+        let chip = document.getElementById("details-jk-next");
+        const statusWrap = document.getElementById("details-status-wrap");
+        const metaRow = document.querySelector(".details-meta-row") || document.querySelector(".meta-row.details-meta-row");
+        if (!isJk || !item.proximo_episodio) {
+          if (chip) chip.remove();
+        } else {
+          if (!chip) {
+            chip = document.createElement("span");
+            chip.id = "details-jk-next";
+            chip.className = "details-jk-next-chip";
+            const anchor = statusWrap || metaRow;
+            if (anchor && anchor.parentNode) {
+              if (statusWrap && statusWrap.parentNode) statusWrap.parentNode.insertBefore(chip, statusWrap.nextSibling);
+              else anchor.appendChild(chip);
+            }
+          }
+          if (chip) {
+            chip.innerHTML =
+              '<span class="details-jk-next-label">Próximo</span> ' +
+              escapeHtml(String(item.proximo_episodio));
+            chip.classList.remove("hidden");
+          }
+        }
+      } catch (_) {}
+
+      let box = document.getElementById("details-jk-extra");
+      const genEl = document.getElementById("details-genres");
+      const synEl = document.getElementById("details-synopsis");
+      const parent =
+        (genEl && genEl.parentNode) ||
+        (synEl && synEl.parentNode) ||
+        document.querySelector(".mz-stremio-info") ||
+        document.querySelector(".details-meta-info");
+      if (!box && parent) {
+        box = document.createElement("div");
+        box.id = "details-jk-extra";
+        box.className = "details-jk-extra";
+        if (genEl && genEl.parentNode === parent) parent.insertBefore(box, genEl.nextSibling);
+        else parent.appendChild(box);
+      }
+      if (!box) return;
       if (!isJk) {
         box.innerHTML = "";
         box.classList.add("hidden");
@@ -850,38 +886,39 @@ function rellenarMetaDetalle(item) {
       }
       box.classList.remove("hidden");
       const rows = [];
-      function addRow(label, val) {
+      function addRow(label, val, opts) {
         if (val == null || val === "") return;
         if (Array.isArray(val)) {
           val = val.filter(Boolean).join(", ");
           if (!val) return;
         }
+        const hi = opts && opts.highlight ? " details-jk-row-hi" : "";
         rows.push(
-          '<div class="details-jk-row"><span class="details-jk-label">' +
+          '<div class="details-jk-row' + hi + '"><span class="details-jk-label">' +
           escapeHtml(label) +
           '</span><span class="details-jk-val">' +
           escapeHtml(String(val)) +
           "</span></div>"
         );
       }
-      // Solo JKanime (ya filtrado arriba con isJk)
+      // Prioridad: fechas de episodios (lo que pide el usuario)
+      if (item.proximo_episodio) addRow("Próximo episodio", item.proximo_episodio, { highlight: true });
+      if (item.ultimo_episodio) addRow("Último episodio", item.ultimo_episodio, { highlight: true });
+      if (item.total_episodios) addRow("Episodios", item.total_episodios);
       const studios = item.studios || item.studio;
       addRow("Studios", Array.isArray(studios) ? studios.join(", ") : studios);
-      addRow("Temporada anime", item.temporada_anime || null);
+      addRow("Temporada", item.temporada_anime || item.temporada || null);
       addRow("Demografía", item.demografia);
       addRow("Idiomas", item.idiomas);
       addRow("Calidad", item.calidad);
-      addRow("Duración", item.duracion_texto);
-      addRow("Estado", item.estado);
+      // Estado / duración ya van en la meta principal — no duplicar si están vacíos de más
+      if (item.fecha_estreno_texto) addRow("Emitido", item.fecha_estreno_texto);
       const alts = item.titulos_alternativos;
       if (alts && typeof alts === "object") {
         if (alts.sinonimos) addRow("Sinónimos", alts.sinonimos);
         if (alts.ingles) addRow("Inglés", alts.ingles);
         if (alts.japones) addRow("Japonés", alts.japones);
       }
-      if (item.ultimo_episodio) addRow("Último episodio", item.ultimo_episodio);
-      if (item.proximo_episodio) addRow("Próximo episodio", item.proximo_episodio);
-      if (item.fecha_estreno_texto) addRow("Emitido", item.fecha_estreno_texto);
       box.innerHTML = rows.length
         ? '<div class="details-jk-extra-inner">' + rows.join("") + "</div>"
         : "";
@@ -5876,6 +5913,13 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
                     if (completo.ultimo_episodio) item.ultimo_episodio = completo.ultimo_episodio;
                     if (completo.ultimo_episodio_url) item.ultimo_episodio_url = completo.ultimo_episodio_url;
                     if (completo.proximo_episodio) item.proximo_episodio = completo.proximo_episodio;
+                    if (completo.temporada_anime) item.temporada_anime = completo.temporada_anime;
+                    if (completo.demografia) item.demografia = completo.demografia;
+                    if (completo.calidad) item.calidad = completo.calidad;
+                    if (completo.studios) item.studios = completo.studios;
+                    if (completo.total_episodios != null) item.total_episodios = completo.total_episodios;
+                    if (completo.titulos_alternativos) item.titulos_alternativos = completo.titulos_alternativos;
+                    if (completo.fecha_estreno_texto) item.fecha_estreno_texto = completo.fecha_estreno_texto;
                     if (completo.fecha_estreno_texto) item.fecha_estreno_texto = completo.fecha_estreno_texto;
                     if (completo.calidad) item.calidad = completo.calidad;
                     if (completo.imdb) item.imdb = completo.imdb;

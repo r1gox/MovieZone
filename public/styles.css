@@ -8996,3 +8996,73 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
   align-items: center;
   gap: 4px;
 }
+
+
+/* ========== JKanime: próximo episodio + meta extra ========== */
+.details-jk-next-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fef3c7;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.2));
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  vertical-align: middle;
+}
+.details-jk-next-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.65rem;
+  opacity: 0.9;
+  color: #fbbf24;
+}
+.details-jk-extra {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+}
+.details-jk-extra.hidden { display: none !important; }
+.details-jk-extra-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.details-jk-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.details-jk-row-hi .details-jk-val {
+  color: #fde68a;
+  font-weight: 600;
+}
+.details-jk-label {
+  min-width: 7.5rem;
+  color: #a78bfa;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.details-jk-val {
+  color: #e2e8f0;
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .details-jk-label { min-width: 100%; }
+  .details-jk-next-chip { font-size: 0.72rem; }
+}
+
+.koi-meta-next {
+  color: #fbbf24 !important;
+  font-weight: 600;
+}
