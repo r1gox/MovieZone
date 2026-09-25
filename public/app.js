@@ -5835,17 +5835,19 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     try {
-      // Solo detalle: sin inicio detrás
-      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
-      document.documentElement.classList.add("mz-deep-ready");
-      document.body.classList.remove("mz-deep-loading", "mz-booting");
+      // Mantener "Cargando datos..." hasta pintar el detalle (no quitar mz-deep-boot aún)
       document.body.classList.add("details-open");
-      var bootEl = document.getElementById("mz-boot-loading");
-      if (bootEl) bootEl.classList.add("hidden");
       if (typeof homeView !== "undefined" && homeView) homeView.classList.add("hidden");
       if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
-      var nav = document.getElementById("netflix-navbar");
-      // navbar del home se puede mostrar otra vez al cerrar detalle; durante detalle el panel cubre
+      // Asegurar overlay visible mientras carga
+      if (document.documentElement.classList.contains("mz-deep-boot")) {
+        var bootEl = document.getElementById("mz-boot-loading");
+        if (bootEl) {
+          bootEl.classList.remove("hidden");
+          var tp = bootEl.querySelector("p, .mz-boot-text");
+          if (tp) tp.textContent = "Cargando datos...";
+        }
+      }
     } catch (_) {}
 
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
@@ -6444,6 +6446,8 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       fillKoiHero(item);
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+    // Detalle ya pintado → quitar overlay de deep-boot
+    try { mzFinishDeepBoot(); } catch (_) {}
 
     const esPeli =
       (typeof isPeliculaItem === "function" && isPeliculaItem(item)) ||
@@ -9986,6 +9990,18 @@ function setBootLoading(on) {
   document.body.classList.toggle("mz-booting", !!on);
 }
 
+/** Quita overlay "Cargando datos..." solo cuando el detalle ya está listo */
+function mzFinishDeepBoot() {
+  try {
+    document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+    document.documentElement.classList.add("mz-deep-ready");
+    document.body.classList.remove("mz-deep-loading", "mz-booting");
+    var boot = document.getElementById("mz-boot-loading");
+    if (boot) boot.classList.add("hidden");
+    setBootLoading(false);
+  } catch (_) {}
+}
+
 function initBrowserWarn() {
   try {
     const el = document.getElementById("mz-browser-warn");
@@ -10318,12 +10334,26 @@ async function handleDeepLink() {
     } catch (e) { console.warn("Deep link:", e); }
     finally {
       try {
-        setBootLoading(false);
-        document.body.classList.remove("mz-deep-loading", "mz-booting");
-        document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
-        document.documentElement.classList.add("mz-deep-ready");
-        var boot = document.getElementById("mz-boot-loading");
-        if (boot) boot.classList.add("hidden");
+        // Si el detalle ya se abrió, abrirDetalle ya llamó mzFinishDeepBoot.
+        // Si falló el deep link, quitar overlay tras un momento para no quedar trabado.
+        var panel = document.getElementById("details-panel");
+        var abierto = panel && !panel.classList.contains("hidden");
+        if (abierto) {
+          mzFinishDeepBoot();
+        } else if (document.documentElement.classList.contains("mz-deep-boot")) {
+          setTimeout(function () {
+            try {
+              var p2 = document.getElementById("details-panel");
+              if (p2 && !p2.classList.contains("hidden")) mzFinishDeepBoot();
+              else {
+                // Falló: volver a inicio usable
+                window.__mzSkipHomeBoot = false;
+                mzFinishDeepBoot();
+                if (typeof cargarHome === "function") cargarHome();
+              }
+            } catch (_) {}
+          }, 400);
+        }
       } catch (_) {}
       // Precargar home en segundo plano (no se muestra) para al volver sea instantáneo
       if (window.__mzPrefetchHomeAfterDeep) {
