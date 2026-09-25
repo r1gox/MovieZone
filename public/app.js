@@ -2996,6 +2996,7 @@ function mostrarHome() {
       document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready", "mz-deep-ep");
       document.body.classList.remove("mz-deep-loading", "mz-booting", "details-open");
     } catch (_) {}
+    try { mzEnsureHomeLoaded(); } catch (_) {}
     try {
       if (homeView) {
         homeView.classList.remove("hidden");
@@ -5166,12 +5167,38 @@ heroInfoBtn.addEventListener("click", () => {
 // ======================================================
 // CARGA INICIAL (home)
 // ======================================================
-async function cargarHome() {
+
+function mzEnsureHomeLoaded() {
+  try {
+    const home = document.getElementById("home-view");
+    const hasCards = home && home.querySelector && home.querySelector(".media-card, .carousel-card, .poster-img");
+    if (window.__mzHomePending || !hasCards) {
+      window.__mzHomePending = false;
+      if (typeof cargarHome === "function") {
+        return Promise.resolve(cargarHome(true)).catch(function () {});
+      }
+    }
+  } catch (_) {}
+  return Promise.resolve();
+}
+try { window.mzEnsureHomeLoaded = mzEnsureHomeLoaded; } catch (_) {}
+
+async function cargarHome(force) {
+    // En /detalle/* no cargar ni pintar el inicio (evita flash morado / carruseles detrás)
     const _deepHome =
-      document.body.classList.contains("details-open") ||
-      document.documentElement.classList.contains("mz-deep-boot") ||
-      (typeof mzPathEsDetalle === "function" && mzPathEsDetalle(location.pathname));
-    if (!_deepHome && typeof setBootLoading === "function") setBootLoading(true);
+      !force && (
+        document.body.classList.contains("details-open") ||
+        document.body.classList.contains("mz-deep-loading") ||
+        document.documentElement.classList.contains("mz-deep-boot") ||
+        document.documentElement.classList.contains("mz-deep-ep") ||
+        (typeof mzPathEsDetalle === "function" && mzPathEsDetalle(location.pathname))
+      );
+    if (_deepHome) {
+      try { window.__mzHomePending = true; } catch (_) {}
+      return;
+    }
+    try { window.__mzHomePending = false; } catch (_) {}
+    if (typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
     const withTimeout = (p, ms) => Promise.race([
       p,
@@ -6206,18 +6233,14 @@ function cerrarDetalle(fromPop) {
         if (grid) grid.classList.add("hidden");
         vistaActual = "home";
       }
-      // Si el home se cargó en background vacío a la vista, forzar un refresh visual
-      try {
-        const hasCards = home && home.querySelector && home.querySelector(".media-card, .carousel-card");
-        if (!hasCards && typeof cargarHome === "function") {
-          cargarHome();
-        }
-      } catch (_) {}
+      try { mzEnsureHomeLoaded(); } catch (_) {}
     } catch (_) {}
 
     try { cargarContinuarViendo(); } catch (_) {}
 }
 try { window.cerrarDetalle = cerrarDetalle; } catch (_) {}
+try { window.abrirDetalle = abrirDetalle; } catch (_) {}
+
 
 //document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
 //document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
@@ -9699,18 +9722,19 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
         document.getElementById("grid-view")?.classList.add("hidden");
       } catch (_) {}
       try {
+        window.__mzHomePending = true;
         await handleDeepLink({ fromBoot: true });
       } catch (e) {
         console.warn("boot deep:", e);
       }
       try {
         if (typeof setBootLoading === "function") setBootLoading(false);
-        document.body.classList.remove("mz-booting");
+        document.body.classList.remove("mz-booting", "mz-deep-loading");
         document.getElementById("mz-boot-loading")?.classList.add("hidden");
       } catch (_) {}
-      // Home en segundo plano (para al cerrar detalle) — sin overlay
-      try { cargarHome(); } catch (_) {}
+      // NO cargarHome aquí: se carga al volver a inicio (cerrarDetalle / mostrarHome)
     } else {
+      try { window.__mzHomePending = false; } catch (_) {}
       cargarHome();
       try { handleDeepLink({ fromBoot: true }); } catch (_) {}
     }
