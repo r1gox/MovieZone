@@ -11230,32 +11230,98 @@ window.streamUrlParaNoAds = streamUrlParaNoAds;
 window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
 
 
-/** Al volver de una pestaña de descarga: descongelar UI */
+/** Al volver de popups/anuncios/pestaña externa: descongelar UI (evita pantalla negra) */
 (function mzRestoreAfterExternal() {
+  var _lastRestore = 0;
+  function forceRepaint(el) {
+    if (!el) return;
+    try {
+      el.style.transform = "translateZ(0)";
+      el.style.opacity = el.style.opacity || "";
+      void el.offsetHeight;
+      requestAnimationFrame(function () {
+        try {
+          el.style.transform = "";
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
   function restore() {
+    var now = Date.now();
+    if (now - _lastRestore < 300) return;
+    _lastRestore = now;
     try {
       const p = document.getElementById("mz-mep-dl-panel");
       if (p) p.classList.add("hidden");
       document.body.classList.remove("mz-mep-dl-open");
-      // Forzar repaint (iOS a veces deja capa negra)
-      const panel = document.getElementById("details-panel");
-      if (panel && !panel.classList.contains("hidden")) {
-        panel.style.transform = "translateZ(0)";
-        requestAnimationFrame(function () {
-          panel.style.transform = "";
-        });
-      }
+
+      // Quitar overlay negro de boot si quedó colgado al volver del anuncio
+      try {
+        var boot = document.getElementById("mz-boot-loading");
+        var panel = document.getElementById("details-panel");
+        var detailOpen = panel && !panel.classList.contains("hidden");
+        var titleEl = document.querySelector(
+          "#koi-hero h1, #koi-hero .koi-title, #details-title, .koi-hero-title"
+        );
+        var hasContent =
+          (titleEl && (titleEl.textContent || "").trim().length > 1) ||
+          (document.getElementById("home-view") &&
+            !document.getElementById("home-view").classList.contains("hidden")) ||
+          (document.getElementById("grid-view") &&
+            !document.getElementById("grid-view").classList.contains("hidden"));
+
+        // Si hay UI visible o el detalle ya tiene título → el boot no debe tapar
+        if (boot && (hasContent || detailOpen)) {
+          if (typeof mzClearBootOverlay === "function") mzClearBootOverlay(true);
+          else {
+            boot.classList.add("hidden");
+            boot.removeAttribute("data-mz-lock");
+            boot.style.cssText = "display:none!important;visibility:hidden!important;";
+          }
+          document.body.classList.remove("mz-waiting-detail", "mz-deep-loading", "mz-booting");
+          document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+        }
+      } catch (_) {}
+
+      // Reactivar interacción
       document.body.style.pointerEvents = "";
       document.documentElement.style.pointerEvents = "";
+      document.body.style.opacity = "";
+      document.documentElement.style.opacity = "";
+
+      // Repaint de capas principales (popups/anuncios dejan el compositor en negro)
+      var panel2 = document.getElementById("details-panel");
+      forceRepaint(panel2);
+      forceRepaint(document.getElementById("home-view"));
+      forceRepaint(document.getElementById("grid-view"));
+      forceRepaint(document.getElementById("koi-hero"));
+      forceRepaint(document.getElementById("mz-stremio-bg"));
+      forceRepaint(document.body);
+
+      // Iframes de ads a veces dejan capa encima: asegurar z-index del panel
+      if (panel2 && !panel2.classList.contains("hidden")) {
+        try {
+          panel2.style.visibility = "visible";
+          panel2.style.opacity = "1";
+          panel2.style.zIndex = panel2.style.zIndex || "";
+        } catch (_) {}
+      }
     } catch (_) {}
   }
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible") restore();
+    if (document.visibilityState === "visible") {
+      restore();
+      // Segundo intento: algunos navegadores tardan en recomponer
+      setTimeout(restore, 200);
+      setTimeout(restore, 600);
+    }
   });
-  window.addEventListener("pageshow", function (ev) {
+  window.addEventListener("pageshow", function () {
     restore();
+    setTimeout(restore, 150);
   });
   window.addEventListener("focus", function () {
-    setTimeout(restore, 50);
+    setTimeout(restore, 30);
+    setTimeout(restore, 250);
   });
 })();
