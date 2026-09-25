@@ -11230,98 +11230,106 @@ window.streamUrlParaNoAds = streamUrlParaNoAds;
 window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
 
 
-/** Al volver de popups/anuncios/pestaña externa: descongelar UI (evita pantalla negra) */
+/** Mantener UI visible al volver de popups/anuncios (sin pantalla negra) */
 (function mzRestoreAfterExternal() {
-  var _lastRestore = 0;
-  function forceRepaint(el) {
-    if (!el) return;
+  function killBootOverlay() {
     try {
-      el.style.transform = "translateZ(0)";
-      el.style.opacity = el.style.opacity || "";
-      void el.offsetHeight;
-      requestAnimationFrame(function () {
-        try {
-          el.style.transform = "";
-        } catch (_) {}
-      });
-    } catch (_) {}
-  }
-  function restore() {
-    var now = Date.now();
-    if (now - _lastRestore < 300) return;
-    _lastRestore = now;
-    try {
-      const p = document.getElementById("mz-mep-dl-panel");
-      if (p) p.classList.add("hidden");
-      document.body.classList.remove("mz-mep-dl-open");
-
-      // Quitar overlay negro de boot si quedó colgado al volver del anuncio
-      try {
-        var boot = document.getElementById("mz-boot-loading");
-        var panel = document.getElementById("details-panel");
-        var detailOpen = panel && !panel.classList.contains("hidden");
-        var titleEl = document.querySelector(
-          "#koi-hero h1, #koi-hero .koi-title, #details-title, .koi-hero-title"
-        );
-        var hasContent =
-          (titleEl && (titleEl.textContent || "").trim().length > 1) ||
-          (document.getElementById("home-view") &&
-            !document.getElementById("home-view").classList.contains("hidden")) ||
-          (document.getElementById("grid-view") &&
-            !document.getElementById("grid-view").classList.contains("hidden"));
-
-        // Si hay UI visible o el detalle ya tiene título → el boot no debe tapar
-        if (boot && (hasContent || detailOpen)) {
-          if (typeof mzClearBootOverlay === "function") mzClearBootOverlay(true);
-          else {
-            boot.classList.add("hidden");
-            boot.removeAttribute("data-mz-lock");
-            boot.style.cssText = "display:none!important;visibility:hidden!important;";
-          }
-          document.body.classList.remove("mz-waiting-detail", "mz-deep-loading", "mz-booting");
-          document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
-        }
-      } catch (_) {}
-
-      // Reactivar interacción
-      document.body.style.pointerEvents = "";
-      document.documentElement.style.pointerEvents = "";
-      document.body.style.opacity = "";
-      document.documentElement.style.opacity = "";
-
-      // Repaint de capas principales (popups/anuncios dejan el compositor en negro)
-      var panel2 = document.getElementById("details-panel");
-      forceRepaint(panel2);
-      forceRepaint(document.getElementById("home-view"));
-      forceRepaint(document.getElementById("grid-view"));
-      forceRepaint(document.getElementById("koi-hero"));
-      forceRepaint(document.getElementById("mz-stremio-bg"));
-      forceRepaint(document.body);
-
-      // Iframes de ads a veces dejan capa encima: asegurar z-index del panel
-      if (panel2 && !panel2.classList.contains("hidden")) {
-        try {
-          panel2.style.visibility = "visible";
-          panel2.style.opacity = "1";
-          panel2.style.zIndex = panel2.style.zIndex || "";
-        } catch (_) {}
+      var boot = document.getElementById("mz-boot-loading");
+      if (boot) {
+        boot.classList.add("hidden");
+        boot.removeAttribute("data-mz-lock");
+        boot.style.cssText = "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;";
+      }
+      document.body.classList.remove("mz-waiting-detail", "mz-deep-loading", "mz-booting");
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+      document.documentElement.classList.add("mz-deep-ready");
+      if (window.__mzBootWatch) {
+        try { clearInterval(window.__mzBootWatch); } catch (_) {}
+        window.__mzBootWatch = null;
       }
     } catch (_) {}
   }
+
+  function keepVisible(el) {
+    if (!el || el.classList.contains("hidden")) return;
+    try {
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+      el.style.setProperty("display", el.id === "details-panel" ? "flex" : "", "important");
+      // Evitar capa negra del compositor sin “parpadeo”
+      el.style.willChange = "auto";
+      el.style.transform = "none";
+      el.style.backfaceVisibility = "hidden";
+    } catch (_) {}
+  }
+
+  function restoreKeepUi() {
+    try {
+      var dl = document.getElementById("mz-mep-dl-panel");
+      if (dl) dl.classList.add("hidden");
+      document.body.classList.remove("mz-mep-dl-open");
+
+      // Nunca tapar con boot al volver de un anuncio
+      killBootOverlay();
+
+      document.body.style.pointerEvents = "";
+      document.documentElement.style.pointerEvents = "";
+      document.body.style.opacity = "1";
+      document.documentElement.style.opacity = "1";
+      document.body.style.visibility = "visible";
+
+      var panel = document.getElementById("details-panel");
+      var home = document.getElementById("home-view");
+      var grid = document.getElementById("grid-view");
+      var hero = document.getElementById("koi-hero");
+      var bg = document.getElementById("mz-stremio-bg");
+      var content = document.getElementById("details-content");
+
+      keepVisible(panel);
+      keepVisible(home);
+      keepVisible(grid);
+      keepVisible(hero);
+      keepVisible(bg);
+      keepVisible(content);
+
+      // Fondo del detalle (a veces se queda negro el layer)
+      if (bg && panel && !panel.classList.contains("hidden")) {
+        try {
+          bg.style.visibility = "visible";
+          bg.style.opacity = "1";
+          var img = document.getElementById("mz-stremio-bg-img");
+          if (img) {
+            img.style.visibility = "visible";
+            img.style.opacity = "1";
+          }
+        } catch (_) {}
+      }
+
+      // Si el player iframe se puso negro, no ocultar el resto de la ficha
+      try {
+        var vc = document.getElementById("video-player-container");
+        if (vc && !vc.classList.contains("hidden")) {
+          vc.style.visibility = "visible";
+          vc.style.opacity = "1";
+        }
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  // Al perder foco NO tocamos la UI (así no se borra nada)
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") {
-      restore();
-      // Segundo intento: algunos navegadores tardan en recomponer
-      setTimeout(restore, 200);
-      setTimeout(restore, 600);
+      restoreKeepUi();
+      requestAnimationFrame(restoreKeepUi);
+      setTimeout(restoreKeepUi, 100);
+      setTimeout(restoreKeepUi, 400);
     }
   });
   window.addEventListener("pageshow", function () {
-    restore();
-    setTimeout(restore, 150);
+    restoreKeepUi();
   });
   window.addEventListener("focus", function () {
-    setTimeout(restore, 30);
-    setTimeout(restore, 250);
+    restoreKeepUi();
+    setTimeout(restoreKeepUi, 80);
   });
 })();

@@ -177,6 +177,21 @@ body.details-open #grid-view {
   background: #0a0611 !important;
   backdrop-filter: none !important;
 }
+
+/* No pantalla negra al volver de popups: capas siempre opacas si están activas */
+#details-panel:not(.hidden),
+#home-view:not(.hidden),
+#grid-view:not(.hidden),
+#koi-hero:not(.hidden),
+#details-content:not(.hidden),
+#mz-stremio-bg {
+  visibility: visible;
+  opacity: 1;
+}
+body.details-open #details-panel:not(.hidden) {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
 </style>
 <head>
   <meta charset="UTF-8">
