@@ -4452,6 +4452,19 @@ function initTvUi() {
 function aplicarFiltrosYOrden(lista) {
     let res = [...(lista || [])];
 
+    // Favoritos: TODOS los items; solo JK se agrupa al final (no filtrar)
+    if (gridModo === "favoritos") {
+      const jk = [];
+      const otros = [];
+      for (let i = 0; i < res.length; i++) {
+        const it = res[i];
+        const isJk = typeof esItemJk === "function" ? esItemJk(it) : false;
+        if (isJk) jk.push(it);
+        else otros.push(it);
+      }
+      return otros.concat(jk);
+    }
+
     // Búsqueda: no filtrar por Anime/Serie/Peli salvo chip explícito del usuario
     if (gridModo === "search" && gridTypeFilter === "all") {
       // solo orden abajo — mostrar series, pelis, animes, doramas juntos
@@ -4588,6 +4601,12 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         document.getElementById("filter-toolbar").classList.remove("hidden");
         busquedaEsLocal = false; // online
     } else if (modo === "favoritos") {
+        // Favoritos globales (no heredar filtro JK de la sección anterior)
+        try {
+          gridSeccion = "all";
+          gridTypeFilter = "all";
+          animeFuente = "av1";
+        } catch (_) {}
         resultsTitle.innerHTML = `<ion-icon name="heart" style="vertical-align:-3px;"></ion-icon> Mis Favoritos`;
         document.getElementById("filter-toolbar").classList.add("hidden");
     } else {
