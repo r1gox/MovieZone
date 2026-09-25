@@ -5834,6 +5834,15 @@ function mostrarDetalleLoading(on) {
 
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
+    try {
+      // Fin del modo deep-boot: ya no mostrar shell de inicio vacío
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+      document.documentElement.classList.add("mz-deep-ready");
+      document.body.classList.remove("mz-deep-loading", "mz-booting");
+      var bootEl = document.getElementById("mz-boot-loading");
+      if (bootEl) bootEl.classList.add("hidden");
+    } catch (_) {}
+
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);
     // Bloquear fuente del listado (JK=5 / AV1=4) para no cruzar al cargar detalle
     try {
@@ -10306,6 +10315,8 @@ async function handleDeepLink() {
       try {
         setBootLoading(false);
         document.body.classList.remove("mz-deep-loading", "mz-booting");
+        document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+        document.documentElement.classList.add("mz-deep-ready");
         var boot = document.getElementById("mz-boot-loading");
         if (boot) boot.classList.add("hidden");
       } catch (_) {}

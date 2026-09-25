@@ -14,6 +14,47 @@
   } catch (e) {}
 })();
 </script>
+<style id="mz-deep-boot-css">
+/* Ocultar shell de inicio ANTES de que cargue app.js */
+html.mz-deep-boot #home-view,
+html.mz-deep-boot #grid-view,
+html.mz-deep-boot #tv-view,
+html.mz-deep-boot .bg-shape,
+html.mz-deep-boot #hero-slider,
+html.mz-deep-boot .home-catalogs,
+html.mz-deep-boot .carousel-row {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+}
+html.mz-deep-boot body {
+  background: #0a0611 !important;
+  overflow: hidden !important;
+}
+html.mz-deep-boot #mz-boot-loading {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 99999 !important;
+}
+html.mz-deep-boot #mz-boot-loading.hidden {
+  display: flex !important;
+}
+/* Navbar visible pero sin “Inicio” activo confuso — opcional suave */
+html.mz-deep-boot .netflix-navbar .nav-links li.active {
+  opacity: 0.55;
+}
+/* Cuando el detalle ya está abierto */
+html.mz-deep-ready #mz-boot-loading {
+  display: none !important;
+}
+html.mz-deep-ready body {
+  overflow: auto !important;
+}
+</style>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,7 +105,11 @@
     if (document.documentElement.classList.contains("mz-deep-boot")) {
       document.body.classList.add("mz-deep-loading");
       var b = document.getElementById("mz-boot-loading");
-      if (b) b.classList.add("hidden");
+      if (b) {
+        b.classList.remove("hidden");
+        var t = b.querySelector("p");
+        if (t) t.textContent = "Cargando detalle…";
+      }
     }
   } catch (e) {}
 })();
