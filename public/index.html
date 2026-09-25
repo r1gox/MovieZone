@@ -157,6 +157,11 @@ body.details-open #home-view,
 body.details-open #grid-view {
   /* por si el CSS de la app no lo hace: no mostrar inicio detrás del detalle */
 }
+/* Forzar un solo overlay sólido (evita el semitransparente de styles.css) */
+.mz-boot-loading:not(.hidden) {
+  background: #0a0611 !important;
+  backdrop-filter: none !important;
+}
 </style>
 <head>
   <meta charset="UTF-8">
