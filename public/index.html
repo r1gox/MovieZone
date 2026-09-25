@@ -7,6 +7,9 @@
     var p = location.pathname || "";
     if (/^\/detalle\//i.test(p) || /^\/(serie|pelicula|anime)\//i.test(p)) {
       document.documentElement.classList.add("mz-deep-boot");
+      if (/\/\d+\/\d+\/?$/i.test(p)) {
+        document.documentElement.classList.add("mz-deep-ep");
+      }
     }
   } catch (e) {}
 })();

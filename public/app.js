@@ -6134,7 +6134,7 @@ function cerrarDetalle(fromPop) {
       window.__mzPortadaLista = null;
     } catch (_) {}
     try {
-      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready");
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready", "mz-deep-ep");
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
     // fromPop === true → ya venimos de popstate con path "/"
@@ -9943,6 +9943,11 @@ async function handleDeepLink(opts) {
             try { slug = decodeURIComponent(slug); } catch (_) {}
             const season = pathM[2] ? parseInt(pathM[2], 10) : null;
             const episode = pathM[3] ? parseInt(pathM[3], 10) : null;
+            if (season && episode) {
+              try {
+                document.documentElement.classList.add("mz-deep-ep");
+              } catch (_) {}
+            }
             // Shell inmediato + caché (sin pantalla de inicio)
             let sidDeep = sidFromPath || "";
             try {
@@ -9993,6 +9998,26 @@ async function handleDeepLink(opts) {
                 try {
                   document.documentElement.classList.add("mz-deep-ready");
                 } catch (_) {}
+                // Episodio desde caché: abrir ya (no esperar red)
+                if (season && episode) {
+                  try {
+                    document.documentElement.classList.add("mz-deep-ep");
+                    const epQ = {
+                      season: season,
+                      temporada: season,
+                      episode: episode,
+                      episodio: episode,
+                      nombre: "Episodio " + episode
+                    };
+                    if (typeof window.mzKoiOpenEpisode === "function") {
+                      await window.mzKoiOpenEpisode(quick, epQ, season, episode);
+                    } else if (typeof abrirVistaMovilEpisodio === "function") {
+                      await abrirVistaMovilEpisodio(quick, epQ, season, episode);
+                    }
+                  } catch (eC) {
+                    console.warn("deep ep cache", eC);
+                  }
+                }
               }
             } catch (_) {}
 
@@ -10038,28 +10063,62 @@ async function handleDeepLink(opts) {
                   document.body.classList.remove("mz-booting");
                   document.documentElement.classList.add("mz-deep-ready");
                 } catch (_) {}
-                if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
-                    // Esperar episodios y abrir vista (móvil o click)
-                    setTimeout(async () => {
-                        try {
-                            const ep = (item.episodios || []).find(function (x) {
-                                return Number(x.season || x.temporada || 1) === season &&
-                                  Number(x.episode || x.episodio || 0) === episode;
-                            }) || { season: season, episode: episode, nombre: "Episodio " + episode };
-                            const mobile =
-                              (typeof isMobileEpRangesUI === "function" && isMobileEpRangesUI()) ||
-                              window.innerWidth <= 768;
-                            const pc =
-                              (typeof isKoiDesktop === "function" && isKoiDesktop()) ||
-                              window.innerWidth >= 1025;
-                            if (typeof window.mzKoiOpenEpisode === "function") {
-                              await window.mzKoiOpenEpisode(item, ep, season, episode);
-                            } else {
-                              const btn = document.querySelector('#episodes-container [data-ep="' + episode + '"]');
-                              if (btn) btn.click();
-                            }
-                        } catch (e) { console.warn("deep ep", e); }
-                    }, 900);
+                if (season && episode) {
+                    // Confirmar episodio con datos frescos de la API
+                    try {
+                      document.documentElement.classList.add("mz-deep-ep");
+                      document.body.classList.add("details-open");
+                    } catch (_) {}
+                    const openDeepEp = async function () {
+                      const list = item.episodios || item.episodes || [];
+                      let ep = null;
+                      if (Array.isArray(list)) {
+                        ep = list.find(function (x) {
+                          return (
+                            Number(x.season || x.temporada || 1) === season &&
+                            Number(x.episode || x.episodio || x.number || 0) === episode
+                          );
+                        });
+                      }
+                      // Buscar en temporadas[]
+                      if (!ep && Array.isArray(item.temporadas)) {
+                        for (let ti = 0; ti < item.temporadas.length; ti++) {
+                          const tm = item.temporadas[ti];
+                          const lista = (tm && (tm.lista || tm.episodios)) || [];
+                          if (!Array.isArray(lista)) continue;
+                          ep = lista.find(function (x) {
+                            return Number(x.episode || x.episodio || x.number || 0) === episode &&
+                              Number(x.season || x.temporada || tm.temporada || 1) === season;
+                          });
+                          if (ep) break;
+                        }
+                      }
+                      if (!ep) {
+                        ep = {
+                          season: season,
+                          temporada: season,
+                          episode: episode,
+                          episodio: episode,
+                          nombre: "Episodio " + episode
+                        };
+                      }
+                      if (typeof window.mzKoiOpenEpisode === "function") {
+                        await window.mzKoiOpenEpisode(item, ep, season, episode);
+                      } else if (typeof abrirVistaMovilEpisodio === "function") {
+                        await abrirVistaMovilEpisodio(item, ep, season, episode);
+                      } else if (typeof reproducirCapituloAuto === "function") {
+                        await reproducirCapituloAuto(item, ep, season, episode);
+                      }
+                    };
+                    try {
+                      await openDeepEp();
+                    } catch (e1) {
+                      console.warn("deep ep", e1);
+                      // Un reintento corto si el detalle aún hidrata episodios
+                      setTimeout(function () {
+                        openDeepEp().catch(function (e2) { console.warn("deep ep retry", e2); });
+                      }, 250);
+                    }
                 }
             }
             return;

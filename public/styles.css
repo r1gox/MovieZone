@@ -9084,3 +9084,24 @@ html.mz-deep-boot:not(.mz-deep-boot) #home-view {
 html.mz-deep-boot body.details-open #details-panel {
   visibility: visible;
 }
+
+
+/* Reload directo a episodio: ocultar home/carruseles por completo */
+html.mz-deep-boot #home-view,
+html.mz-deep-boot #grid-view,
+html.mz-deep-boot #carousel-section-container,
+html.mz-deep-boot .carousel-section,
+html.mz-deep-boot .netflix-navbar .filter-tab {
+  /* nav ok, solo no flash de contenido home */
+}
+html.mz-deep-boot #home-view,
+html.mz-deep-boot #grid-view {
+  display: none !important;
+}
+html.mz-deep-ep body:not(.details-open) #details-panel {
+  /* se abre en JS */
+}
+html.mz-deep-boot.mz-deep-ep #mz-boot-loading,
+html.mz-deep-boot #mz-boot-loading {
+  display: none !important;
+}
