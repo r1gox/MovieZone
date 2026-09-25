@@ -30,19 +30,15 @@
   --transition-smooth: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   --transition-fast: all 0.2s ease;
 }
-
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   scrollbar-width: none; /* Hide scrollbar for standard Firefox */
 }
-
-/* Hide scrollbars for Chrome/Safari */
 *::-webkit-scrollbar {
   display: none;
 }
-
 body {
   font-family: var(--font-main);
   background-color: var(--bg-primary);
@@ -51,8 +47,6 @@ body {
   min-height: 100vh;
   position: relative;
 }
-
-/* Background Glowing Orbs */
 .bg-shape {
   position: fixed;
   border-radius: 50%;
@@ -75,8 +69,6 @@ body {
   bottom: -150px;
   right: -100px;
 }
-
-/* --- Navigation Bar (Netflix Style) --- */
 .netflix-navbar {
   position: fixed;
   top: 0;
@@ -96,13 +88,11 @@ body {
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
 }
-
 .nav-left {
   display: flex;
   align-items: center;
   gap: 35px;
 }
-
 .brand {
   display: flex;
   align-items: center;
@@ -123,7 +113,6 @@ body {
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
 }
-
 .nav-links {
   display: flex;
   list-style: none;
@@ -143,14 +132,11 @@ body {
 .nav-links li.active a {
   font-weight: 700;
 }
-
 .nav-right {
   display: flex;
   align-items: center;
   gap: 20px;
 }
-
-/* Expanded Search Input */
 .search-container {
   position: relative;
   display: flex;
@@ -198,8 +184,6 @@ body {
 .btn-search-submit {
   display: none; /* Form triggers on enter */
 }
-
-/* Provider select in Navbar */
 .provider-select-wrapper {
   display: flex;
   align-items: center;
@@ -226,8 +210,6 @@ body {
   background: var(--bg-dark);
   color: white;
 }
-
-/* Download Badge button */
 .btn-downloads-toggle {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-color);
@@ -262,7 +244,6 @@ body {
   align-items: center;
   border: 2px solid var(--bg-primary);
 }
-
 .api-status-badge {
   display: flex;
   align-items: center;
@@ -287,8 +268,6 @@ body {
   background: currentColor;
   box-shadow: 0 0 8px currentColor;
 }
-
-/* --- Hero Banner Section --- */
 .hero-banner {
   position: relative;
   height: 75vh;
@@ -314,7 +293,6 @@ body {
               linear-gradient(to bottom, rgba(5, 2, 9, 0.4) 0%, rgba(5, 2, 9, 0) 20%);
   z-index: 1;
 }
-
 .hero-content {
   position: relative;
   z-index: 2;
@@ -322,18 +300,6 @@ body {
   margin-top: 50px;
   animation: fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-
-.hero-type-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: #c084fc;
-  margin-bottom: 12px;
-  text-shadow: 0 2px 10px rgba(192, 132, 252, 0.4);
-}
-
 .hero-title {
   font-size: 48px;
   font-weight: 900;
@@ -341,7 +307,6 @@ body {
   margin-bottom: 15px;
   text-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
 }
-
 .hero-meta-row {
   display: flex;
   align-items: center;
@@ -358,7 +323,6 @@ body {
 .hero-meta-item.rating {
   color: #fbbf24;
 }
-
 .hero-synopsis {
   font-size: 15px;
   line-height: 1.5;
@@ -370,7 +334,6 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .hero-actions {
   display: flex;
   gap: 12px;
@@ -407,15 +370,11 @@ body {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
 }
-
-/* --- Dynamic Views (SPA) --- */
 .view-container {
   padding: 0 4% 50px 4%;
   position: relative;
   z-index: 5;
 }
-
-/* --- Homepage Layout: Carousels --- */
 .carousel-section {
   margin-top: -20px; /* Overlap with hero banner bottom gradient */
   display: flex;
@@ -427,12 +386,6 @@ body {
   flex-direction: column;
   gap: 15px;
 }
-/*
-.carousel-row h2 {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}*/
 .carousel-row h2 {
   margin-top: 12px;
   margin-bottom: 14px;
@@ -449,13 +402,9 @@ body {
   padding: 10px 0;
   scroll-behavior: smooth;
 }
-
-/* Custom horizontal items styling */
 .carousel-card {
   flex: 0 0 160px; /* Constant width in horizontal carousels */
 }
-
-/* --- Grid View Layout (Full Width Catalog / Search Results) --- */
 .grid-section {
   margin-top: 100px;
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -480,14 +429,11 @@ body {
   border-radius: 20px;
   border: 1px solid var(--border-color);
 }
-
 .catalog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 20px;
 }
-
-/* --- Media Cards (Cinematic Netflix Hover Style) --- */
 .media-card {
   position: relative;
   background: var(--bg-card);
@@ -500,14 +446,11 @@ body {
   flex-direction: column;
   aspect-ratio: 2/3.3;
 }
-
 .media-card:hover {
   transform: translateY(-8px) scale(1.05);
   border-color: var(--border-glow);
   box-shadow: var(--shadow-lg), var(--accent-glow);
 }
-
-/* En móvil evitamos transform pesado para mejor rendimiento */
 @media (max-width: 768px) {
   .media-card:hover {
     transform: none;
@@ -517,7 +460,6 @@ body {
     transform: scale(0.97);
   }
 }
-
 .poster-wrapper {
   position: relative;
   aspect-ratio: 2/3;
@@ -534,7 +476,6 @@ body {
 .media-card:hover .poster-img {
   transform: scale(1.06);
 }
-
 .poster-overlay {
   position: absolute;
   top: 0;
@@ -557,7 +498,6 @@ body {
   color: white;
   filter: drop-shadow(0 0 10px rgba(130, 10, 209, 0.8));
 }
-
 .rating-badge {
   position: absolute;
   top: 10px;
@@ -589,8 +529,6 @@ body {
   text-transform: uppercase;
   z-index: 3;
 }
-
-/* Badge Disponible (verde / rojo) */
 .availability-badge {
   position: absolute;
   bottom: 10px;
@@ -621,15 +559,10 @@ body {
   background: #34d399;
   box-shadow: 0 0 6px #34d399;
 }
-.availability-badge.unavailable {
-  background: rgba(239, 68, 68, 0.85);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-}
 .availability-badge.unavailable .dot {
   background: #f87171;
   box-shadow: 0 0 6px #f87171;
 }
-
 .media-info {
   padding: 12px;
   display: flex;
@@ -651,8 +584,6 @@ body {
   font-size: 11px;
   color: var(--text-muted);
 }
-
-/* --- Immersive Details Modal (Overlay replacement of details-panel) --- */
 #details-panel {
   position: fixed;
   top: 0;
@@ -674,8 +605,6 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
-
-/* Modal Content Container */
 .details-content {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
@@ -689,7 +618,6 @@ body {
   animation: modalSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   z-index: 10; /* Put above backdrop-close overlay */
 }
-
 @keyframes modalSlideUp {
   from {
     opacity: 0;
@@ -700,8 +628,6 @@ body {
     transform: translateY(0) scale(1);
   }
 }
-
-/* Video Player integrated at the top of modal */
 .video-player-container {
   background: black;
   position: relative;
@@ -741,52 +667,6 @@ body {
   pointer-events: none;
   display: block;
 }
-.btn-fs-player {
-  position: absolute;
-  right: 52px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  backdrop-filter: blur(5px);
-  z-index: 3;
-  margin: 0;
-  padding: 0;
-}
-.btn-fs-player.hidden {
-  display: none !important;
-}
-.btn-fs-player:hover {
-  background: rgba(168, 85, 247, 0.85);
-}
-.btn-fs-player ion-icon {
-  font-size: 18px;
-}
-/* Contenedor en fullscreen real */
-.video-player-container.is-fullscreen {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  aspect-ratio: auto !important;
-  z-index: 99999 !important;
-  background: #000 !important;
-}
-.video-player-container.is-fullscreen .player-iframe-wrapper,
-.video-player-container.is-fullscreen .player-video,
-.video-player-container.is-fullscreen iframe {
-  width: 100% !important;
-  height: 100% !important;
-}
 .btn-close-player {
   position: absolute;
   right: 12px;
@@ -822,18 +702,14 @@ body {
   height: 100%;
   border: none;
 }
-
-/* Modal Inner Body */
 .details-body {
   padding: 30px;
 }
-
 .details-header-card {
   display: flex;
   gap: 25px;
   margin-bottom: 25px;
 }
-
 .details-poster {
   width: 130px;
   aspect-ratio: 2/3;
@@ -842,14 +718,12 @@ body {
   border: 1px solid var(--border-color);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
-
 .details-meta-info {
   display: flex;
   flex-direction: column;
   justify-content: center;
   flex: 1;
 }
-
 .media-type-badge {
   font-size: 11px;
   font-weight: 800;
@@ -885,7 +759,6 @@ body {
 .meta-item.rating {
   color: #fbbf24;
 }
-
 .details-genres {
   display: flex;
   flex-wrap: wrap;
@@ -900,8 +773,6 @@ body {
   font-size: 11px;
   font-weight: 600;
 }
-
-/* Synopsis & Credits */
 .details-section {
   border-top: 1px solid var(--border-color);
   padding: 20px 0;
@@ -933,8 +804,6 @@ body {
 .meta-credits strong {
   color: var(--text-main);
 }
-
-/* Season and Episode selector */
 .seasons-tabs {
   display: flex;
   gap: 8px;
@@ -962,7 +831,6 @@ body {
   border-color: var(--accent-purple);
   box-shadow: 0 0 10px rgba(130, 10, 209, 0.3);
 }
-
 .episodes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
@@ -1011,8 +879,6 @@ body {
   border-color: transparent;
   box-shadow: var(--accent-glow);
 }
-
-/* Servers Row Styles */
 .servers-list {
   display: flex;
   flex-direction: column;
@@ -1039,7 +905,6 @@ body {
 .server-row.latino-highlight:hover {
   background: rgba(130, 10, 209, 0.07);
 }
-
 .server-name-group {
   display: flex;
   align-items: center;
@@ -1077,7 +942,6 @@ body {
   font-size: 11px;
   color: var(--text-muted);
 }
-
 .server-actions {
   display: flex;
   gap: 8px;
@@ -1119,8 +983,6 @@ body {
   opacity: 0.9;
   box-shadow: var(--accent-glow);
 }
-
-/* Empty Details default inside modal */
 .details-empty {
   padding: 80px 40px;
   text-align: center;
@@ -1139,8 +1001,6 @@ body {
   color: white;
   font-size: 18px;
 }
-
-/* Close button for Modal */
 .btn-close-modal {
   position: absolute;
   top: 20px;
@@ -1163,8 +1023,6 @@ body {
   background: var(--danger-color);
   transform: scale(1.05);
 }
-
-/* --- Sliding Downloads Drawer --- */
 .downloads-panel {
   position: fixed;
   top: 0;
@@ -1184,7 +1042,6 @@ body {
 .downloads-panel.open {
   right: 0;
 }
-
 .downloads-header {
   display: flex;
   justify-content: space-between;
@@ -1218,7 +1075,6 @@ body {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
 }
-
 .downloads-list {
   display: flex;
   flex-direction: column;
@@ -1227,7 +1083,6 @@ body {
   flex: 1;
   padding-right: 2px;
 }
-
 .downloads-empty {
   display: flex;
   flex-direction: column;
@@ -1243,8 +1098,6 @@ body {
   color: var(--accent-purple);
   opacity: 0.5;
 }
-
-/* Download Task Progress Card */
 .download-card {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
@@ -1308,7 +1161,6 @@ body {
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger-color);
 }
-
 .progress-container {
   display: flex;
   align-items: center;
@@ -1335,7 +1187,6 @@ body {
   width: 28px;
   text-align: right;
 }
-
 .download-card-footer {
   display: flex;
   justify-content: space-between;
@@ -1345,7 +1196,6 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.03);
   padding-top: 10px;
 }
-
 .btn-download-file {
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.25);
@@ -1365,8 +1215,6 @@ body {
   background: rgba(16, 185, 129, 0.2);
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
-
-/* Clear card close action inside drawer */
 .downloads-panel-close {
   background: none;
   border: none;
@@ -1378,8 +1226,6 @@ body {
 .downloads-panel-close:hover {
   color: white;
 }
-
-/* --- Loader, spinner, and skeletons --- */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -1393,7 +1239,6 @@ body {
   box-sizing: border-box;
   text-align: center;
 }
-/* Series / anime: centrar "Cargando servidores..." en el panel */
 #servers-container,
 #servers-container.mz-expanded-content,
 #servers-container.mz-collapsed-content {
@@ -1427,7 +1272,6 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
-
 .skeleton-row {
   display: flex;
   gap: 16px;
@@ -1446,19 +1290,15 @@ body {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-
 .hidden {
   display: none !important;
 }
-
-/* Animations */
 .animate-fade-in {
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .delay-1 { animation-delay: 0.1s; }
 .delay-2 { animation-delay: 0.2s; }
 .delay-3 { animation-delay: 0.3s; }
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1469,8 +1309,6 @@ body {
     transform: translateY(0);
   }
 }
-
-/* Backdrop shadow for modal overlay click close */
 .modal-backdrop-close {
   position: absolute;
   top: 0;
@@ -1479,8 +1317,6 @@ body {
   bottom: 0;
   z-index: 1;
 }
-
-/* Drawer overlay backdrop */
 .drawer-backdrop {
   position: fixed;
   top: 0;
@@ -1498,8 +1334,6 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
-
-/* --- Responsive Media Queries --- */
 @media (max-width: 992px) {
   .netflix-navbar {
     height: 60px;
@@ -1540,7 +1374,6 @@ body {
     max-width: 140px;
   }
 }
-
 @media (max-width: 768px) {
   body {
     overflow-x: hidden;
@@ -1762,8 +1595,6 @@ body {
     aspect-ratio: 16/9;
   }
 }
-
-/* Móviles muy pequeños */
 @media (max-width: 400px) {
   .catalog-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1787,8 +1618,6 @@ body {
     width: 130px;
   }
 }
-
-/* --- Premium Toast Notifications Custom styles --- */
 #toast-container {
   position: fixed;
   top: 24px;
@@ -1801,7 +1630,6 @@ body {
   width: calc(100% - 48px);
   pointer-events: none;
 }
-
 .toast {
   pointer-events: auto;
   padding: 12px 18px;
@@ -1837,10 +1665,6 @@ body {
   border-left: 4px solid #c084fc;
   color: #e9d5ff;
 }
-
-/* --- PREMIUM WATCH-FIRST STREAMING INTERFACE --- */
-
-/* 1. Filter Toolbar */
 .filter-toolbar {
   display: flex;
   align-items: center;
@@ -1864,8 +1688,6 @@ body {
   align-items: center;
   gap: 8px;
 }
-
-/* 2. Filter Chips */
 .filter-chip {
   padding: 8px 18px;
   border-radius: 30px;
@@ -1890,8 +1712,6 @@ body {
   border-color: transparent;
   box-shadow: var(--accent-glow);
 }
-
-/* 3. Filter Select Dropdowns */
 .filter-select {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-color);
@@ -1913,8 +1733,6 @@ body {
   background: var(--bg-dark);
   color: white;
 }
-
-/* 4. Infinite Scroll Sentinel */
 .scroll-sentinel {
   display: flex;
   flex-direction: column;
@@ -1929,8 +1747,6 @@ body {
 .scroll-sentinel.hidden {
   display: none;
 }
-
-/* 5. Hero Rotation Dots */
 .hero-dots {
   position: absolute;
   bottom: 18px;   /* antes ~30px; más abajo = más separado del texto */
@@ -1952,8 +1768,6 @@ body {
   width: 24px;
   border-radius: 4px;
 }
-
-/* 6. Watch-First Server Button Overrides */
 .server-row .btn-action.play {
   flex: 1;
   justify-content: center;
@@ -1989,8 +1803,6 @@ body {
 .server-row .btn-action.download text {
   display: none !important; /* Hide text, only show icon */
 }
-
-/* Ajustes extra mobile para filter toolbar (complementa el media query principal) */
 @media (max-width: 768px) {
   .filter-toolbar {
     margin-top: 56px;
@@ -2010,11 +1822,6 @@ body {
     font-size: 11px;
   }
 }
-
-
-/* ======================================================
-   PAGINACIÓN
-   ====================================================== */
 .pagination-controls {
   display: flex;
   flex-direction: column;
@@ -2023,11 +1830,9 @@ body {
   margin: 40px 0 60px;
   width: 100%;
 }
-
 .pagination-controls.hidden {
   display: none;
 }
-
 .pagination-buttons {
   display: flex;
   justify-content: center;
@@ -2035,7 +1840,6 @@ body {
   gap: 20px; /* solo un poco de espacio entre Anterior y Siguiente */
   flex-wrap: wrap;
 }
-
 .btn-page {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--border-color);
@@ -2050,33 +1854,24 @@ body {
   min-width: 120px;
   text-align: center;
 }
-
 .btn-page:hover:not(:disabled) {
   background: var(--accent-purple);
   border-color: var(--accent-purple);
   transform: translateY(-2px);
 }
-
 .btn-page:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
-
 .page-info {
   font-size: 14px;
   color: var(--text-muted);
   text-align: center;
   width: 100%;
 }
-
 .page-info strong {
   color: var(--text-main);
 }
-
-/* ======================================================
-   MOVIEZONE - AJUSTE DE SECCIONES
-   ====================================================== */
-
 @media (max-width: 768px) {
 
     /*
@@ -2104,12 +1899,6 @@ body {
     }
 
 }
-
-
-/* =========================================================
-   MOVIEZONE - SERVIDORES Y DESCARGAS DESPLEGABLES
-   ========================================================= */
-
 .mz-collapse-toggle {
 
     width: 100%;
@@ -2149,15 +1938,11 @@ body {
         border-color .2s ease;
 
 }
-
-
 .mz-collapse-toggle:hover {
 
     background: rgba(255,255,255,.09);
 
 }
-
-
 .mz-collapse-toggle.open {
 
     background: rgba(229,9,20,.10);
@@ -2166,8 +1951,6 @@ body {
         rgba(229,9,20,.35);
 
 }
-
-
 .mz-collapse-left {
 
     display: flex;
@@ -2177,8 +1960,6 @@ body {
     gap: 10px;
 
 }
-
-
 .mz-collapse-left ion-icon {
 
     font-size: 21px;
@@ -2186,8 +1967,6 @@ body {
     color: #e50914;
 
 }
-
-
 .mz-collapse-arrow {
 
     font-size: 18px;
@@ -2196,8 +1975,6 @@ body {
         transform .2s ease;
 
 }
-
-
 .mz-collapse-toggle.open
 .mz-collapse-arrow {
 
@@ -2205,30 +1982,16 @@ body {
         rotate(180deg);
 
 }
-
-
-/* =========================================================
-   CONTENIDO OCULTO / VISIBLE
-   ========================================================= */
-
 .mz-collapsed-content {
 
     display: none !important;
 
 }
-
-
 .mz-expanded-content {
 
     display: block !important;
 
 }
-
-
-/* =========================================================
-   MÓVIL
-   ========================================================= */
-
 @media (max-width: 768px) {
 
     .mz-collapse-toggle {
@@ -2274,12 +2037,6 @@ body {
     }
 
 }
-
-
-/* =========================================================
-   MOVIEZONE - CORRECCIÓN DEL ESPACIO SUPERIOR EN SECCIONES
-   ========================================================= */
-
 @media (max-width: 768px) {
 
     #grid-view {
@@ -2321,13 +2078,6 @@ body {
     }
 
 }
-
-/* Ocultar filtros duplicados */
-#filter-toolbar {
-    display: none !important;
-}
-
-/* Online siempre visible */
 @media (max-width: 768px) {
 
     .api-status-badge {
@@ -2337,7 +2087,6 @@ body {
     }
 
 }
-
 @media (max-width: 430px) {
 
     .api-status-badge {
@@ -2360,14 +2109,11 @@ body {
 #filter-toolbar {
     display: none !important;
 }
-
 @media (max-width: 768px) {
     .grid-section {
         padding-top: 100px !important;
     }
 }
-
-/*Barra de Peliculas*/
 @media (max-width: 768px) {
 
     #grid-view {
@@ -2375,8 +2121,6 @@ body {
     }
 
 }
-
-/* Botón Buscar online */
 .btn-buscar-online {
     display: inline-flex;
     align-items: center;
@@ -2416,16 +2160,12 @@ body {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
-
-/* Ajuste del header para que el botón quepa bien */
 .grid-header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 }
-
-/* Cabecera de servidores + botón Actualizar */
 .servers-header {
   display: flex;
   align-items: center;
@@ -2464,8 +2204,6 @@ body {
 .btn-refresh-servers ion-icon {
   font-size: 1rem;
 }
-
-
 .progress-bar-wrap {
   position: absolute;
   left: 0;
@@ -2480,8 +2218,6 @@ body {
   background: linear-gradient(90deg, #a855f7, #c084fc);
   border-radius: 0 2px 2px 0;
 }
-
-/* Cerrar detalle: se queda arriba derecha, z-index alto */
 .btn-close-modal {
   position: absolute;
   top: 16px;
@@ -2489,13 +2225,10 @@ body {
   z-index: 120;
   /* tamaño que ya te gusta: no lo cambies */
 }
-
-/* Cuando hay video, el header del player no compite con el rojo */
 .video-player-container .player-header {
   z-index: 15;
   height: 48px;
 }
-
 .btn-fs-player {
   position: absolute;
   right: 52px;
@@ -2525,7 +2258,6 @@ body {
 .btn-fs-player ion-icon {
   font-size: 18px;
 }
-/* Contenedor en fullscreen real */
 .video-player-container.is-fullscreen {
   position: fixed !important;
   inset: 0 !important;
@@ -2548,8 +2280,6 @@ body {
   background: rgba(0, 0, 0, 0.75);
   border: 1px solid rgba(255,255,255,0.2);
 }
-
-/* Móvil: título centrado un poco más abajo, cerrar a la derecha */
 @media (max-width: 768px) {
   .video-player-container .player-header {
     height: 52px;
@@ -2615,13 +2345,11 @@ body {
     max-width: calc(100% - 88px);
   }
 }
-/* Evita que al deslizar sobre el video se recargue la página */
 body.player-open {
   overscroll-behavior-y: none;
   touch-action: pan-x;
   overflow: hidden;
 }
-/* Con reproductor abierto: ocultar botón cerrar detalle (mismo sitio que cerrar player) */
 body.player-open .btn-close-modal {
   display: none !important;
   pointer-events: none !important;
@@ -2632,9 +2360,6 @@ body.player-open .btn-close-modal {
   overscroll-behavior: none;
   touch-action: manipulation;
 }
-
-
-/* NO ADS — mismo espacio que el iframe (16:9 del modal), sin pantalla completa */
 .player-iframe-wrapper {
   position: absolute !important;
   top: 0 !important;
@@ -2664,13 +2389,9 @@ body.player-open .btn-close-modal {
 .player-video.hidden {
   display: none !important;
 }
-/* Evitar que el video nativo salga del contenedor */
 .video-player-container {
   overflow: hidden;
 }
-
-
-/* Centrar filtros de idioma y botones de temporada */
 .idioma-filter-bar {
   display: flex !important;
   justify-content: center !important;
@@ -2691,9 +2412,6 @@ body.player-open .btn-close-modal {
   gap: 8px;
   width: 100%;
 }
-
-
-/* ===== Rating con fuente (IMDb / TMDB) ===== */
 .rating-badge {
   display: inline-flex;
   align-items: center;
@@ -2748,9 +2466,6 @@ body.player-open .btn-close-modal {
   margin: 0.35rem 0 0.75rem;
   letter-spacing: 0.02em;
 }
-
-
-/* ===== Detalle: meta visual (rating, duración, cert, votos) ===== */
 .details-meta-info h3#details-title {
   margin-bottom: 0.15rem;
   line-height: 1.25;
@@ -2836,9 +2551,6 @@ body.player-open .btn-close-modal {
   border-color: rgba(255, 255, 255, 0.1);
   color: #a1a1aa;
 }
-
-
-/* Tipo + rating compacto en cabecera de detalle */
 .details-type-row {
   display: flex;
   align-items: center;
@@ -2895,14 +2607,10 @@ body.player-open .btn-close-modal {
   border-color: rgba(1, 180, 228, 0.4);
   color: #01b4e4;
 }
-/* Badge de tipo un poco más compacto para equilibrar */
 .details-meta-info .media-type-badge {
   font-size: 0.7rem;
   padding: 0.22rem 0.65rem;
 }
-
-
-/* Rating más compacto en tarjetas y detalle */
 .rating-badge {
   font-size: 0.68rem !important;
   padding: 0.18rem 0.45rem !important;
@@ -2921,16 +2629,6 @@ body.player-open .btn-close-modal {
   font-size: 0.65rem !important;
   padding: 0.14rem 0.45rem !important;
 }
-.details-type-rating ion-icon {
-  font-size: 0.7rem !important;
-}
-.details-meta-info .media-type-badge {
-  font-size: 0.68rem !important;
-  padding: 0.18rem 0.55rem !important;
-}
-
-
-/* ===== TV en vivo ===== */
 .tv-home-entry {
   display: flex;
   gap: 12px;
@@ -2954,7 +2652,6 @@ body.player-open .btn-close-modal {
 .tv-entry-card span { font-weight: 700; font-size: 15px; }
 .tv-entry-card small { opacity: .65; font-size: 12px; }
 .tv-entry-card:hover { background: rgba(167,139,250,.15); }
-
 #tv-view {
   padding: 88px 16px 90px;
   max-width: 1200px;
@@ -3045,9 +2742,6 @@ body.player-open .btn-close-modal {
   padding: 24px;
   text-align: center;
 }
-
-
-
 .btn-autoplay-ep.off {
   background: rgba(255,255,255,.08);
   opacity: .75;
@@ -3056,10 +2750,6 @@ body.player-open .btn-close-modal {
 .btn-autoplay-ep.hidden {
   display: none !important;
 }
-
-
-
-/* ===== Controles episodio (Auto + Siguiente) ===== */
 .mz-ep-controls {
   position: absolute;
   right: 14px;
@@ -3071,7 +2761,6 @@ body.player-open .btn-close-modal {
   gap: 10px;
   pointer-events: none; /* solo los botones reciben clic */
 }
-
 .mz-ep-btn {
   pointer-events: auto;
   display: inline-flex;
@@ -3091,22 +2780,17 @@ body.player-open .btn-close-modal {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
-
 .mz-ep-btn:hover {
   transform: translateY(-1px) scale(1.03);
   background: rgba(124, 58, 237, 0.85);
   border-color: rgba(167, 139, 250, 0.55);
 }
-
 .mz-ep-btn:active {
   transform: scale(0.98);
 }
-
 .mz-ep-btn ion-icon {
   font-size: 16px;
 }
-
-/* Auto: pastilla discreta arriba del "Siguiente" */
 .mz-ep-auto {
   padding: 7px 12px;
   font-size: 11px;
@@ -3114,7 +2798,6 @@ body.player-open .btn-close-modal {
   opacity: 0.95;
   background: rgba(20, 16, 32, 0.75);
 }
-
 .mz-ep-auto .mz-ep-dot {
   width: 8px;
   height: 8px;
@@ -3122,47 +2805,36 @@ body.player-open .btn-close-modal {
   background: #22c55e;
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
 }
-
 .mz-ep-auto.off {
   opacity: 0.7;
   background: rgba(30, 30, 36, 0.7);
 }
-
 .mz-ep-auto.off .mz-ep-dot {
   background: #64748b;
   box-shadow: none;
 }
-
-/* Siguiente: más grande, lugar estratégico (esquina inferior derecha) */
 .mz-ep-next {
   padding: 12px 18px;
   font-size: 14px;
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(91, 33, 182, 0.95));
   border-color: rgba(196, 181, 253, 0.35);
 }
-
 .mz-ep-next.hidden {
   display: none !important;
 }
-
-/* En fullscreen: mismos controles, un poco más separados del borde */
 .video-player-container.is-fullscreen .mz-ep-controls {
   right: max(18px, env(safe-area-inset-right));
   bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 100060;
 }
-
 .video-player-container.is-fullscreen .player-header {
   z-index: 100055;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent);
   pointer-events: none;
 }
-
 .video-player-container.is-fullscreen .player-header button {
   pointer-events: auto;
 }
-
-/* Header siempre por encima del video */
 .video-player-container .player-header {
   position: absolute;
   top: 0;
@@ -3171,12 +2843,9 @@ body.player-open .btn-close-modal {
   z-index: 100040;
   pointer-events: none;
 }
-
 .video-player-container .player-header button {
   pointer-events: auto;
 }
-
-/* Móvil */
 @media (max-width: 768px) {
   .mz-ep-controls {
     right: 10px;
@@ -3192,8 +2861,6 @@ body.player-open .btn-close-modal {
     font-size: 10px;
   }
 }
-
-/* Centrar "Cargando episodios..." dentro de la grid de capítulos */
 #episodes-container.episodes-grid .loading-state,
 .episodes-grid > .loading-state {
   grid-column: 1 / -1;   /* ocupa todo el ancho de la grid */
@@ -3208,22 +2875,18 @@ body.player-open .btn-close-modal {
   text-align: center;
   box-sizing: border-box;
 }
-
 #episodes-container.episodes-grid .loading-state p,
 .episodes-grid > .loading-state p {
   margin: 0;
   text-align: center;
   width: 100%;
 }
-
-/* Mensajes vacíos / error también centrados */
 #episodes-container.episodes-grid > p {
   grid-column: 1 / -1;
   text-align: center;
   width: 100%;
   padding: 16px;
 }
-/* Perfil */
 .mz-profile-chip {
   display: flex;
   align-items: center;
@@ -3238,8 +2901,6 @@ body.player-open .btn-close-modal {
   cursor: pointer;
   margin-right: 8px;
 }
-
-/* Badges poster */
 .mz-badges {
   position: absolute;
   top: 8px;
@@ -3263,8 +2924,6 @@ body.player-open .btn-close-modal {
 .mz-badge-air { background: #059669; }
 .mz-badge-top { background: #dc2626; }
 .mz-badge-4k { background: #0ea5e9; }
-
-/* Orden episodios */
 .mz-ep-order {
   display: flex;
   gap: 8px;
@@ -3284,12 +2943,9 @@ body.player-open .btn-close-modal {
   background: rgba(124, 58, 237, 0.85);
   border-color: rgba(167, 139, 250, 0.5);
 }
-
 #btn-notify-ep.active {
   color: #fbbf24;
 }
-
-/* Motion suave */
 .media-card {
   transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
 }
@@ -3309,10 +2965,6 @@ body.player-open .btn-close-modal {
     transition: none !important;
   }
 }
-
-
-
-/* ===== Perfiles + nav (responsive) ===== */
 .nav-right {
   display: flex;
   align-items: center;
@@ -3320,14 +2972,12 @@ body.player-open .btn-close-modal {
   flex-shrink: 0;
   min-width: 0;
 }
-
 .api-status-badge {
   flex-shrink: 0;
   display: flex !important;
   align-items: center;
   gap: 6px;
 }
-
 .mz-profile-chip {
   display: flex;
   align-items: center;
@@ -3344,7 +2994,6 @@ body.player-open .btn-close-modal {
   flex-shrink: 1;
   min-width: 0;
 }
-
 .mz-profile-avatar {
   width: 26px;
   height: 26px;
@@ -3356,19 +3005,16 @@ body.player-open .btn-close-modal {
   font-weight: 800;
   flex-shrink: 0;
 }
-
 #mz-profile-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 @media (max-width: 480px) {
   #mz-profile-name { display: none; }
   .mz-profile-chip { max-width: 40px; padding: 4px; }
   .api-status-badge .status-text { display: none; }
 }
-/* Gate / elegir perfil — premium MovieZone */
 .mz-profile-gate {
   position: fixed;
   inset: 0;
@@ -3385,7 +3031,6 @@ body.player-open .btn-close-modal {
   -webkit-overflow-scrolling: touch;
 }
 .mz-profile-gate.hidden { display: none !important; }
-
 .mz-profile-gate-card {
   width: min(920px, 100%);
   text-align: center;
@@ -3410,7 +3055,6 @@ body.player-open .btn-close-modal {
   font-size: clamp(0.95rem, 2.2vw, 1.1rem);
   font-weight: 500;
 }
-
 .mz-profile-list {
   display: flex;
   flex-wrap: wrap;
@@ -3425,7 +3069,6 @@ body.player-open .btn-close-modal {
   pointer-events: none;
   filter: blur(2px);
 }
-
 .mz-profile-card {
   width: 128px;
   cursor: pointer;
@@ -3496,7 +3139,6 @@ body.player-open .btn-close-modal {
   padding: 3px 8px;
   border-radius: 999px;
 }
-
 .mz-profile-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3536,7 +3178,6 @@ body.player-open .btn-close-modal {
   color: #fff;
   background: rgba(124, 58, 237, 0.15);
 }
-
 .mz-create-form {
   max-width: 520px;
   margin: 0 auto;
@@ -3619,7 +3260,6 @@ body.player-open .btn-close-modal {
   gap: 12px;
   flex-wrap: wrap;
 }
-
 @media (max-width: 560px) {
   .mz-profile-card { width: 96px; }
   .mz-profile-card .av {
@@ -3634,8 +3274,6 @@ body.player-open .btn-close-modal {
   .mz-kids-check { justify-content: center; }
   .mz-create-form { padding: 22px 16px; }
 }
-
-/* Maratón / carousels mood — no aplastar */
 #row-mood-maraton .carousel-container,
 #row-mood-terror .carousel-container,
 .carousel-container {
@@ -3668,8 +3306,6 @@ body.player-open .btn-close-modal {
     width: 38vw;
   }
 }
-
-
 .hero-type-badge {
   display: inline-block;
   font-size: 11px;
@@ -3680,7 +3316,6 @@ body.player-open .btn-close-modal {
   margin-bottom: 12px;
   text-shadow: 0 2px 10px rgba(192, 132, 252, 0.4);
 }
-
 .hero-meta-row {
   display: flex;
   align-items: center;
@@ -3689,7 +3324,6 @@ body.player-open .btn-close-modal {
   margin-bottom: 20px;
   font-size: 11px; /* mismo tamaño que el tipo */
 }
-
 .hero-meta-item {
   display: flex;
   align-items: center;
@@ -3697,17 +3331,14 @@ body.player-open .btn-close-modal {
   font-weight: 700;
   letter-spacing: 0.5px;
 }
-
 .hero-meta-item.rating {
   color: #fbbf24;
   font-size: 11px;
   font-weight: 800;
 }
-
 .hero-meta-item ion-icon {
   font-size: 12px;
 }
-
 .hero-status-pill {
   display: inline-flex;
   align-items: center;
@@ -3719,24 +3350,20 @@ body.player-open .btn-close-modal {
   text-transform: uppercase;
   border: 1px solid transparent;
 }
-
 .hero-status-pill.hidden {
   display: none !important;
 }
-
 .hero-status-pill.is-air {
   color: #6ee7b7;
   background: rgba(16, 185, 129, 0.18);
   border-color: rgba(52, 211, 153, 0.45);
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
-
 .hero-status-pill.is-end {
   color: #cbd5e1;
   background: rgba(148, 163, 184, 0.15);
   border-color: rgba(148, 163, 184, 0.35);
 }
-
 .details-meta-info .media-type-badge {
   font-size: 0.68rem !important;
   padding: 0.18rem 0.55rem !important;
@@ -3748,8 +3375,6 @@ body.player-open .btn-close-modal {
 .details-type-rating ion-icon {
   font-size: 0.7rem !important;
 }
-
-/* Fila inferior: Disponible (izq) + En emisión (der) */
 .poster-bottom-row {
   position: absolute;
   left: 6px;
@@ -3762,7 +3387,6 @@ body.player-open .btn-close-modal {
   gap: 4px;
   pointer-events: none;
 }
-
 .availability-badge {
   position: static;
   display: inline-flex;
@@ -3801,7 +3425,6 @@ body.player-open .btn-close-modal {
 .availability-badge.unavailable .dot {
   background: #f87171;
 }
-
 .airing-badge {
   display: inline-flex;
   align-items: center;
@@ -3817,8 +3440,6 @@ body.player-open .btn-close-modal {
   white-space: nowrap;
   margin-left: 0;
 }
-
-/* Tipo e IMDb mismo tamaño arriba */
 .type-badge {
   font-size: 9px !important;
   padding: 3px 7px !important;
@@ -3833,9 +3454,6 @@ body.player-open .btn-close-modal {
 .rating-badge .rating-main {
   font-size: 9px !important;
 }
-
-
-/* Selector de proveedor (Doramasflix / PelisPlus) */
 .mz-provider-switch {
   display: flex;
   flex-wrap: wrap;
@@ -3874,8 +3492,6 @@ body.player-open .btn-close-modal {
   color: #fff;
   box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
 }
-
-/* —— Fútbol agenda —— */
 .futbol-fecha {
   padding: 0 1rem 0.5rem;
   color: #a78bfa;
@@ -4034,8 +3650,6 @@ body.player-open .btn-close-modal {
   padding: 0 0.9rem;
   cursor: pointer;
 }
-
-
 .futbol-player-wrap {
   margin: 0 1rem 1rem;
   aspect-ratio: 16 / 9;
@@ -4082,7 +3696,6 @@ body.player-open .btn-close-modal {
   font-size: 0.68rem;
   color: #fff;
 }
-
 .futbol-logos {
   display: flex;
   align-items: center;
@@ -4125,48 +3738,36 @@ body.player-open .btn-close-modal {
   gap: 0.75rem;
 }
 .futbol-tz { opacity: 0.65; font-size: 0.8rem; }
-
-
-
-
-/* Evitar que quede bajo el navbar */
 #futbol-view,
 #futbol-partido-view {
   padding-top: 5.5rem; /* sube a 6rem si aún tapa */
   padding-bottom: 2rem;
 }
-
 #futbol-view .tv-view-header,
 #futbol-partido-view .tv-view-header {
   margin-top: 0.5rem;
   margin-bottom: 0.75rem;
   padding: 0 1rem;
 }
-
 .futbol-fecha {
   padding: 0 1rem 0.85rem;
   margin: 0;
 }
-
 .futbol-lista {
   padding: 0 0.75rem 2.5rem;
   gap: 0.85rem;
 }
-
-/* Card: más aire */
 .futbol-card {
   gap: 1rem;
   padding: 0.9rem 1rem;
   align-items: center;
 }
-
 .futbol-card-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.35rem; /* separa liga / título / badges */
 }
-
 .futbol-liga-row {
   display: flex;
   align-items: center;
@@ -4174,12 +3775,10 @@ body.player-open .btn-close-modal {
   gap: 0.4rem; /* liga y ⚽ separados */
   margin-bottom: 0;
 }
-
 .futbol-card-titulo {
   margin: 0;
   line-height: 1.35;
 }
-
 .futbol-card-sub {
   display: flex;
   flex-wrap: wrap;
@@ -4187,57 +3786,45 @@ body.player-open .btn-close-modal {
   gap: 0.5rem 0.65rem; /* "En vivo" y "5 servidores" separados */
   margin-top: 0.15rem;
 }
-
-/* Logos vs más separados */
 .futbol-logos {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   min-width: 80px;
 }
-
 .futbol-logos img {
   width: 34px;
   height: 34px;
   object-fit: contain;
 }
-
 .futbol-vs {
   font-size: 0.7rem;
   opacity: 0.7;
   margin: 0 0.15rem;
   letter-spacing: 0.02em;
 }
-
 .futbol-hora {
   padding-left: 0.35rem;
 }
-
-/* Detalle partido */
 .futbol-partido-meta {
   padding: 0.25rem 1rem 1rem;
 }
-
 .futbol-detalle-top {
   gap: 1rem;
   align-items: flex-start;
 }
-
 .futbol-player-wrap {
   margin-top: 0.25rem;
   margin-bottom: 1.25rem;
 }
-
 .futbol-sub {
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
-
 .futbol-deporte-ico {
   margin-left: 0.15rem;
   opacity: 0.9;
 }
-
 .futbol-card {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr) auto;
@@ -4249,8 +3836,6 @@ body.player-open .btn-close-modal {
   position: relative;
   overflow: hidden;
 }
-
-/* Columna logos: no se monta el texto encima */
 .futbol-logos {
   display: flex;
   align-items: center;
@@ -4262,7 +3847,6 @@ body.player-open .btn-close-modal {
   flex-shrink: 0;
   z-index: 1;
 }
-
 .futbol-logos img {
   width: 32px;
   height: 32px;
@@ -4271,15 +3855,12 @@ body.player-open .btn-close-modal {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 6px;
 }
-
 .futbol-vs {
   flex-shrink: 0;
   font-size: 0.65rem;
   opacity: 0.7;
   line-height: 1;
 }
-
-/* Texto: su columna, sin invadir logos */
 .futbol-card-body {
   min-width: 0;
   max-width: 100%;
@@ -4289,14 +3870,12 @@ body.player-open .btn-close-modal {
   gap: 0.35rem;
   z-index: 1;
 }
-
 .futbol-liga-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
-
 .futbol-card-titulo {
   margin: 0;
   line-height: 1.3;
@@ -4306,28 +3885,23 @@ body.player-open .btn-close-modal {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-
 .futbol-card-sub {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 0.65rem;
   align-items: center;
 }
-
 .futbol-hora {
   flex-shrink: 0;
   padding-left: 0.25rem;
   z-index: 1;
 }
-
-/* Si quedó un .futbol-liga-ico sin logos */
 .futbol-liga-ico {
   width: 48px;
   height: 48px;
   min-width: 48px;
   flex-shrink: 0;
 }
-
 .pelis-pagination {
   display: flex;
   align-items: center;
@@ -4351,7 +3925,6 @@ body.player-open .btn-close-modal {
   font-size: 0.85rem;
   opacity: 0.85;
 }
-
 .ended-badge {
   display: inline-flex;
   align-items: center;
@@ -4367,12 +3940,6 @@ body.player-open .btn-close-modal {
   white-space: nowrap;
   margin-left: 0;
 }
-
-
-
-
-/* ========== Detalle estilo Stremio (móvil) — sin IMDb dedicado ========== */
-
 #details-panel {
   position: fixed;
   inset: 0;
@@ -4382,11 +3949,6 @@ body.player-open .btn-close-modal {
   background: transparent;
   overflow: hidden;
 }
-
-#details-panel.hidden {
-  display: none !important;
-}
-
 #details-panel .mz-stremio-bg {
   position: absolute;
   inset: 0;
@@ -4399,7 +3961,6 @@ body.player-open .btn-close-modal {
   opacity: 0.55;
   pointer-events: none;
 }
-
 #details-panel .mz-stremio-bg::after {
   content: "";
   position: absolute;
@@ -4412,7 +3973,6 @@ body.player-open .btn-close-modal {
     rgba(8, 8, 14, 0.98) 100%
   );
 }
-
 #details-panel .modal-backdrop-close {
   position: absolute;
   inset: 0;
@@ -4421,7 +3981,6 @@ body.player-open .btn-close-modal {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
-
 .btn-close-modal {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
@@ -4438,7 +3997,6 @@ body.player-open .btn-close-modal {
   justify-content: center;
   font-size: 22px;
 }
-
 .details-content {
   position: relative;
   z-index: 2;
@@ -4449,7 +4007,6 @@ body.player-open .btn-close-modal {
   overflow: hidden;
   background: transparent !important;
 }
-
 .details-body {
   flex: 1;
   overflow-y: auto;
@@ -4457,7 +4014,6 @@ body.player-open .btn-close-modal {
   padding: 0 0 calc(24px + env(safe-area-inset-bottom));
   background: transparent !important;
 }
-
 .details-header-card {
   display: flex;
   flex-direction: column;
@@ -4468,7 +4024,6 @@ body.player-open .btn-close-modal {
   border: none !important;
   box-shadow: none !important;
 }
-
 .details-poster {
   width: min(42vw, 160px);
   border-radius: 12px;
@@ -4476,13 +4031,11 @@ body.player-open .btn-close-modal {
   object-fit: cover;
   aspect-ratio: 2 / 3;
 }
-
 .details-meta-info {
   width: 100%;
   text-align: center;
   background: transparent !important;
 }
-
 .details-meta-info h3#details-title {
   font-size: 1.35rem;
   font-weight: 700;
@@ -4491,14 +4044,11 @@ body.player-open .btn-close-modal {
   color: #fff;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
-
 #details-original-title {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.65);
   margin: 0 0 10px;
 }
-
-/* Usa tu meta-row actual: year, rating, duración… (lo que ya llena la API) */
 .details-meta-row,
 .meta-row.details-meta-row {
   display: flex;
@@ -4507,7 +4057,6 @@ body.player-open .btn-close-modal {
   gap: 8px;
   margin: 8px 0 12px;
 }
-
 .details-meta-row .meta-item {
   display: inline-flex;
   align-items: center;
@@ -4519,7 +4068,6 @@ body.player-open .btn-close-modal {
   font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.9);
 }
-
 .details-genres {
   display: flex;
   flex-wrap: wrap;
@@ -4527,7 +4075,6 @@ body.player-open .btn-close-modal {
   gap: 6px;
   margin: 0 0 12px;
 }
-
 .details-section {
   margin: 0 16px 16px;
   padding: 14px;
@@ -4537,13 +4084,11 @@ body.player-open .btn-close-modal {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-
 .details-section h4 {
   margin: 0 0 8px;
   font-size: 0.95rem;
   color: #fff;
 }
-
 .details-section p,
 #details-synopsis {
   font-size: 0.88rem;
@@ -4551,7 +4096,6 @@ body.player-open .btn-close-modal {
   color: rgba(255, 255, 255, 0.78);
   margin: 0;
 }
-
 @media (min-width: 768px) {
   .details-header-card {
     flex-direction: row;
@@ -4571,16 +4115,12 @@ body.player-open .btn-close-modal {
     margin-right: auto;
   }
 }
-
-
-/* —— Detalle estilo Stremio (datos MovieZone) —— */
 #details-panel {
   position: fixed;
   inset: 0;
   z-index: 9000;
   background: #0a0a12;
 }
-
 #details-panel .mz-stremio-bg {
   position: absolute;
   inset: 0;
@@ -4593,7 +4133,6 @@ body.player-open .btn-close-modal {
   opacity: 0.75;
   pointer-events: none;
 }
-
 #details-panel .mz-stremio-bg::after {
   content: "";
   position: absolute;
@@ -4611,7 +4150,6 @@ body.player-open .btn-close-modal {
     rgba(8, 8, 14, 1) 100%
   );
 }
-
 .mz-stremio-header {
   display: flex;
   flex-direction: row;
@@ -4626,11 +4164,9 @@ body.player-open .btn-close-modal {
   border: none !important;
   box-shadow: none !important;
 }
-
 .mz-stremio-poster-col {
   flex-shrink: 0;
 }
-
 .details-poster {
   width: 180px;
   border-radius: 8px;
@@ -4639,14 +4175,12 @@ body.player-open .btn-close-modal {
   aspect-ratio: 2 / 3;
   display: block;
 }
-
 .mz-stremio-info {
   flex: 1;
   min-width: 0;
   text-align: left !important;
   background: transparent !important;
 }
-
 .details-logo {
   max-height: 72px;
   max-width: min(420px, 90%);
@@ -4655,11 +4189,9 @@ body.player-open .btn-close-modal {
   margin: 0 0 12px;
   filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
 }
-
 .details-logo.hidden {
   display: none !important;
 }
-
 .mz-stremio-info h3#details-title {
   font-size: clamp(1.5rem, 3vw, 2.25rem);
   font-weight: 800;
@@ -4668,19 +4200,16 @@ body.player-open .btn-close-modal {
   color: #fff;
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.6);
 }
-
 #details-original-title {
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.9rem;
   margin: 0 0 12px;
 }
-
 .details-meta-row,
 .meta-row.details-meta-row {
   justify-content: flex-start !important;
   gap: 10px;
 }
-
 .details-meta-row .meta-item {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4689,38 +4218,32 @@ body.player-open .btn-close-modal {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.9);
 }
-
 .details-meta-row .meta-item.rating {
   background: rgba(245, 197, 24, 0.15);
   border-color: rgba(245, 197, 24, 0.35);
   color: #f5c518;
 }
-
 .details-genres {
   justify-content: flex-start !important;
   margin-top: 10px;
 }
-
 .details-section {
   max-width: 1100px;
   margin: 0 auto;
   padding: 8px 4% 16px;
   box-sizing: border-box;
 }
-
 .details-section h4 {
   font-size: 1rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 8px;
 }
-
 .synopsis-text {
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.55;
   font-size: 0.95rem;
 }
-
 @media (max-width: 720px) {
   .mz-stremio-header {
     flex-direction: column;
@@ -4744,9 +4267,6 @@ body.player-open .btn-close-modal {
     margin-right: auto;
   }
 }
-
-
-/* Backdrop estilo Stremio */
 #details-panel .mz-stremio-bg {
   position: absolute;
   inset: 0;
@@ -4773,8 +4293,6 @@ body.player-open .btn-close-modal {
   position: relative;
   z-index: 1;
 }
-
-/* ========== FORCE Stremio detail look (gana a reglas viejas) ========== */
 #details-panel {
   position: fixed !important;
   inset: 0 !important;
@@ -4790,12 +4308,6 @@ body.player-open .btn-close-modal {
   padding: 0 !important;
   overflow: hidden !important;
 }
-
-#details-panel.hidden {
-  display: none !important;
-}
-
-/* Capa de portada/backdrop: BIEN VISIBLE */
 #details-panel .mz-stremio-bg {
   position: absolute !important;
   inset: 0 !important;
@@ -4809,8 +4321,6 @@ body.player-open .btn-close-modal {
   opacity: 1 !important;
   pointer-events: none !important;
 }
-
-/* Velo suave (no tapa del todo) */
 #details-panel .mz-stremio-bg::after {
   content: "" !important;
   position: absolute !important;
@@ -4823,8 +4333,6 @@ body.player-open .btn-close-modal {
     rgba(8, 8, 14, 0.97) 100%
   ) !important;
 }
-
-/* Clic fuera: SIN oscurecer el fondo */
 #details-panel .modal-backdrop-close {
   position: absolute !important;
   inset: 0 !important;
@@ -4833,7 +4341,6 @@ body.player-open .btn-close-modal {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
 #details-panel .details-content {
   position: relative !important;
   z-index: 2 !important;
@@ -4847,14 +4354,12 @@ body.player-open .btn-close-modal {
   border-radius: 0 !important;
   overflow: hidden !important;
 }
-
 #details-panel .details-body {
   background: transparent !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   height: 100%;
 }
-
 #details-panel .details-header-card,
 #details-panel .mz-stremio-header,
 #details-panel .mz-stremio-info,
@@ -4863,11 +4368,9 @@ body.player-open .btn-close-modal {
   border: none !important;
   box-shadow: none !important;
 }
-
 #details-panel .btn-close-modal {
   z-index: 6 !important;
 }
-/* ===== Detalle más transparente (Stremio) ===== */
 #details-panel {
   background: rgba(8, 8, 14, 0.55) !important;
 }
@@ -4892,8 +4395,6 @@ body.player-open .btn-close-modal {
 #details-panel .mz-stremio-header {
   background: transparent !important;
 }
-
-/* Logo grande; póster oculto si hay logo */
 #details-logo.details-logo {
   display: block;
   max-height: 96px;
@@ -4903,21 +4404,10 @@ body.player-open .btn-close-modal {
   margin: 0 0 14px;
   filter: drop-shadow(0 6px 24px rgba(0,0,0,.55));
 }
-#details-logo.hidden {
-  display: none !important;
-}
-.mz-stremio-poster-col.mz-hide-poster,
-.details-poster.mz-poster-hidden {
-  display: none !important;
-}
-
-/* Si no hay logo, póster moderado (no domina) */
 .mz-stremio-poster-col:not(.mz-hide-poster) .details-poster {
   width: 140px;
   border-radius: 8px;
 }
-
-/* Chip IMDb estilo Stremio */
 .mz-imdb-btn {
   display: inline-flex;
   align-items: center;
@@ -4938,8 +4428,6 @@ body.player-open .btn-close-modal {
   letter-spacing: 0.02em;
   opacity: 0.9;
 }
-
-/* ===== Home: posters tamaño Stremio (hero NO se toca) ===== */
 .carousel-container {
   gap: 12px !important;
   padding-bottom: 8px;
@@ -4962,8 +4450,6 @@ body.player-open .btn-close-modal {
   line-height: 1.25;
   margin-top: 6px;
 }
-
-/* TV más abajo: fila compacta */
 #row-tv-vivo .tv-home-entry {
   display: flex;
   gap: 10px;
@@ -4973,7 +4459,6 @@ body.player-open .btn-close-modal {
   min-width: 140px;
   flex: 1 1 140px;
 }
-
 @media (max-width: 720px) {
   .carousel-container .media-card,
   .carousel-card {
@@ -4985,9 +4470,6 @@ body.player-open .btn-close-modal {
     max-height: 72px;
   }
 }
-
-
-/* ===== FIX detalle: IMDb, logo, barra inferior (no tocar resto) ===== */
 #details-panel .details-meta-row,
 #details-panel .meta-row.details-meta-row {
   display: flex !important;
@@ -4996,7 +4478,6 @@ body.player-open .btn-close-modal {
   gap: 8px !important;
   max-width: 100%;
 }
-
 .mz-imdb-wrap {
   display: inline-flex !important;
   align-items: center;
@@ -5004,10 +4485,6 @@ body.player-open .btn-close-modal {
   background: transparent !important;
   border: none !important;
 }
-.mz-imdb-wrap.hidden {
-  display: none !important;
-}
-
 .mz-imdb-btn {
   display: inline-flex !important;
   align-items: center;
@@ -5023,7 +4500,6 @@ body.player-open .btn-close-modal {
   border: none !important;
   white-space: nowrap;
 }
-
 #details-logo:not(.hidden) {
   display: block !important;
   max-height: 100px;
@@ -5040,30 +4516,19 @@ body.player-open .btn-close-modal {
   height: 0 !important;
   overflow: hidden !important;
 }
-
 #details-panel {
   z-index: 10050 !important;
 }
-body.details-open .bottom-nav,
-body.details-open nav.bottom-nav,
-body.details-open #bottom-nav,
-body.details-open .mobile-bottom-nav,
-body.details-open .nav-bottom {
-  display: none !important;
-}
-
 #details-panel .details-body {
   padding-bottom: calc(32px + env(safe-area-inset-bottom)) !important;
   max-height: 100%;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
 }
-
 #details-panel #servers-section {
   margin-bottom: 24px;
   padding-bottom: 16px;
 }
-
 @media (max-width: 720px) {
   #details-panel .mz-stremio-header {
     padding: 48px 16px 12px !important;
@@ -5077,11 +4542,6 @@ body.details-open .nav-bottom {
     padding-right: 16px !important;
   }
 }
-
-
-/* =========================================================
-   DETALLE ESTILO STREMIO (datos MovieZone, mismos IDs)
-   ========================================================= */
 #details-panel {
   position: fixed !important;
   inset: 0 !important;
@@ -5097,8 +4557,6 @@ body.details-open .nav-bottom {
 #details-panel.hidden {
   display: none !important;
 }
-
-/* Backdrop como Stremio: imagen a la derecha, opacidad baja */
 #details-panel .mz-stremio-bg {
   position: absolute !important;
   inset: 0 !important;
@@ -5120,7 +4578,6 @@ body.details-open .nav-bottom {
     linear-gradient(90deg, #0e0e14 0%, rgba(14,14,20,0.92) 38%, rgba(14,14,20,0.55) 70%, rgba(14,14,20,0.35) 100%),
     linear-gradient(180deg, rgba(14,14,20,0.15) 0%, rgba(14,14,20,0.25) 50%, #0e0e14 100%) !important;
 }
-
 #details-panel .modal-backdrop-close {
   position: absolute !important;
   inset: 0 !important;
@@ -5128,7 +4585,6 @@ body.details-open .nav-bottom {
   background: transparent !important;
   backdrop-filter: none !important;
 }
-
 #details-panel .btn-close-modal {
   position: absolute !important;
   top: max(12px, env(safe-area-inset-top)) !important;
@@ -5141,7 +4597,6 @@ body.details-open .nav-bottom {
   border: 1px solid rgba(255,255,255,0.12) !important;
   color: #fff !important;
 }
-
 #details-panel .details-content {
   position: relative !important;
   z-index: 2 !important;
@@ -5159,7 +4614,6 @@ body.details-open .nav-bottom {
   overflow: hidden !important;
   animation: none !important;
 }
-
 #details-panel .details-body {
   flex: 1 !important;
   overflow-y: auto !important;
@@ -5168,8 +4622,6 @@ body.details-open .nav-bottom {
   padding: 0 !important;
   padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
 }
-
-/* Layout 2 columnas (Stremio: meta izq / videos+streams der) */
 .mz-detail-layout {
   display: flex;
   flex-direction: row;
@@ -5182,14 +4634,12 @@ body.details-open .nav-bottom {
   box-sizing: border-box;
   padding: 0 2%;
 }
-
 .mz-meta-col {
   flex: 1 1 48%;
   min-width: 0;
   padding: 56px 24px 32px 8px;
   box-sizing: border-box;
 }
-
 .mz-streams-col {
   flex: 1 1 42%;
   min-width: 280px;
@@ -5198,8 +4648,6 @@ body.details-open .nav-bottom {
   box-sizing: border-box;
   border-left: 1px solid rgba(255,255,255,0.06);
 }
-
-/* Header meta: logo primero (Stremio), póster secundario */
 #details-panel .mz-stremio-header {
   display: flex !important;
   flex-direction: column !important;
@@ -5212,7 +4660,6 @@ body.details-open .nav-bottom {
   box-shadow: none !important;
   max-width: none !important;
 }
-
 #details-panel .mz-stremio-poster-col {
   order: 2;
   margin-top: 8px;
@@ -5223,8 +4670,6 @@ body.details-open .nav-bottom {
   text-align: left !important;
   background: transparent !important;
 }
-
-/* Logo grande centrado a la izquierda */
 #details-logo:not(.hidden) {
   display: block !important;
   height: 7.5rem !important;
@@ -5239,8 +4684,6 @@ body.details-open .nav-bottom {
 #details-logo.hidden {
   display: none !important;
 }
-
-/* Si no hay logo, título grande como placeholder */
 #details-panel #details-title {
   font-size: clamp(1.6rem, 2.8vw, 2.4rem) !important;
   font-weight: 700 !important;
@@ -5256,8 +4699,6 @@ body.details-open .nav-bottom {
   font-weight: 600 !important;
   opacity: 0.92;
 }
-
-/* Póster: solo fallback; más chico tipo Stremio no-poster */
 .mz-stremio-poster-col.mz-hide-poster,
 .details-poster.mz-poster-hidden {
   display: none !important;
@@ -5267,11 +4708,9 @@ body.details-open .nav-bottom {
   border-radius: 6px !important;
   box-shadow: 0 12px 36px rgba(0,0,0,0.55) !important;
 }
-
 #details-panel .details-type-row {
   margin-bottom: 8px;
 }
-
 #details-panel .details-meta-row,
 #details-panel .meta-row.details-meta-row {
   display: flex !important;
@@ -5281,7 +4720,6 @@ body.details-open .nav-bottom {
   margin: 10px 0 !important;
   justify-content: flex-start !important;
 }
-
 #details-panel .details-meta-row .meta-item {
   background: transparent !important;
   border: none !important;
@@ -5289,8 +4727,6 @@ body.details-open .nav-bottom {
   font-size: 0.95rem !important;
   color: rgba(255,255,255,0.85) !important;
 }
-
-/* IMDb chip Stremio */
 .mz-imdb-wrap {
   display: inline-flex !important;
   padding: 0 !important;
@@ -5311,12 +4747,10 @@ body.details-open .nav-bottom {
   text-decoration: none !important;
   line-height: 1.2 !important;
 }
-
 #details-panel .details-genres {
   justify-content: flex-start !important;
   margin-top: 8px;
 }
-
 #details-panel .mz-synopsis-section,
 #details-panel .details-section {
   background: transparent !important;
@@ -5325,14 +4759,12 @@ body.details-open .nav-bottom {
   margin: 0 0 16px !important;
   padding: 0 !important;
 }
-
 #details-panel .details-section h4 {
   font-size: 1.05rem !important;
   font-weight: 700 !important;
   color: rgba(255,255,255,0.95) !important;
   margin: 0 0 10px !important;
 }
-
 #details-panel .synopsis-text {
   color: rgba(255,255,255,0.78) !important;
   line-height: 1.55 !important;
@@ -5340,14 +4772,11 @@ body.details-open .nav-bottom {
   max-height: 9.5em;
   overflow-y: auto;
 }
-
-/* Columna streams: lista clara */
 .mz-streams-col .servers-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .mz-streams-col .server-btn,
 .mz-streams-col .servers-list button,
 .mz-streams-col .servers-list .server-item {
@@ -5356,19 +4785,15 @@ body.details-open .nav-bottom {
   border: 1px solid rgba(255,255,255,0.08) !important;
   text-align: left !important;
 }
-
 #details-panel .episodes-grid {
   justify-content: flex-start !important;
 }
-
-/* Player encima a pantalla ancha */
 #details-panel .video-player-container:not(.hidden) {
   width: 100%;
   max-width: 1100px;
   margin: 0 auto;
   z-index: 5;
 }
-
 body.details-open .bottom-nav,
 body.details-open nav.bottom-nav,
 body.details-open #bottom-nav,
@@ -5376,8 +4801,6 @@ body.details-open .mobile-bottom-nav,
 body.details-open .nav-bottom {
   display: none !important;
 }
-
-/* Móvil: una columna, meta arriba, streams abajo */
 @media (max-width: 900px) {
   .mz-detail-layout {
     flex-direction: column;
@@ -5412,9 +4835,6 @@ body.details-open .nav-bottom {
     object-position: center !important;
   }
 }
-
-
-/* ===== IMDb badge listado + un solo rating en detalle ===== */
 .rating-badge.rating-imdb-logo {
   display: inline-flex !important;
   align-items: center;
@@ -5449,17 +4869,10 @@ body.details-open .nav-bottom {
 .rating-badge.rating-src-fuente.rating-imdb-logo .rating-main {
   order: 1 !important;
 }
-
 .rating-badge.rating-imdb-logo .rating-main {
   font-size: 11px;
   font-weight: 800;
 }
-.rating-badge.rating-imdb-logo ion-icon {
-  display: none !important;
-}
-
-
-/* MAL (fuente animeav1): mismo cuadrito que IMDb, acento azul */
 .rating-badge.rating-src-mal.rating-imdb-logo,
 .rating-badge.rating-src-fuente.rating-imdb-logo {
   display: inline-flex !important;
@@ -5474,7 +4887,6 @@ body.details-open .nav-bottom {
   font-weight: 700 !important;
   backdrop-filter: blur(6px);
 }
-/* order MAL: score (1) + chip MAL (2) — igual que IMDb */
 .rating-badge.rating-src-mal:not(.rating-imdb-logo),
 .rating-badge.rating-src-fuente:not(.rating-imdb-logo) {
   background: rgba(0, 0, 0, 0.55) !important;
@@ -5496,15 +4908,10 @@ body.details-open .nav-bottom {
   margin-left: 2px;
   font-size: 0.85em;
 }
-
-
 #details-panel #details-rating-wrap,
 #details-panel #details-type-rating {
   display: none !important;
 }
-
-
-/* ===== Solo: backdrop / poster arriba / IMDb Stremio (sin tocar resto) ===== */
 #details-panel .mz-stremio-header.mz-has-poster-only {
   flex-direction: column !important;
   align-items: flex-start !important;
@@ -5529,8 +4936,6 @@ body.details-open .nav-bottom {
     align-items: center !important;
   }
 }
-
-
 .rating-badge.rating-imdb-logo,
 .rating-badge.rating-src-imdb.rating-imdb-logo,
 .rating-badge.rating-src-omdb.rating-imdb-logo,
@@ -5567,7 +4972,6 @@ body.details-open .nav-bottom {
 .rating-badge.rating-imdb-logo ion-icon {
   display: none !important;
 }
-
 .mz-imdb-btn {
   display: inline-flex !important;
   align-items: center !important;
@@ -5591,9 +4995,6 @@ body.details-open .nav-bottom {
   padding: 3px 6px !important;
   border-radius: 4px !important;
 }
-
-
-/* ===== Fondo detalle = Stremio exacto + loading ===== */
 #details-panel {
   background-color: #0e0e14 !important;
   background-image: none !important;
@@ -5611,12 +5012,6 @@ body.details-open .nav-bottom {
   opacity: 0.3 !important;
   pointer-events: none !important;
 }
-#details-panel .mz-stremio-bg::after {
-  display: none !important;
-  content: none !important;
-}
-
-/* Columna streams como Stremio */
 #details-panel .mz-streams-col {
   background-color: rgba(0, 0, 0, 0.4) !important;
   backdrop-filter: blur(15px) !important;
@@ -5624,19 +5019,15 @@ body.details-open .nav-bottom {
   border-left: none !important;
   border-radius: 12px 0 0 12px;
 }
-
 #details-panel .details-content,
 #details-panel .details-body,
 #details-panel .mz-meta-col {
   background: transparent !important;
 }
-
 .mz-syn-loading {
   opacity: 0.55;
   font-style: italic;
 }
-
-/* Skeleton loading al entrar sin detalle cacheado */
 .mz-details-loading {
   position: absolute;
   inset: 0;
@@ -5647,9 +5038,6 @@ body.details-open .nav-bottom {
   padding: 72px 4% 24px;
   background: transparent;
   pointer-events: none;
-}
-.mz-details-loading.hidden {
-  display: none !important;
 }
 .mz-details-loading-inner {
   max-width: 420px;
@@ -5684,11 +5072,9 @@ body.details-open .nav-bottom {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
-
 #details-panel .details-body {
   position: relative !important;
 }
-
 @media (max-width: 900px) {
   #details-panel .mz-streams-col {
     border-radius: 12px;
@@ -5698,9 +5084,6 @@ body.details-open .nav-bottom {
     background-position: center center !important;
   }
 }
-
-
-/* ===== Streams transparente + loading visible ===== */
 #details-panel .mz-streams-col {
   background: transparent !important;
   background-color: transparent !important;
@@ -5710,13 +5093,11 @@ body.details-open .nav-bottom {
   border-radius: 0 !important;
   box-shadow: none !important;
 }
-
 #details-content.mz-detail-dimmed {
   opacity: 0.25;
   pointer-events: none;
   filter: grayscale(0.2);
 }
-
 .mz-details-loading {
   position: absolute !important;
   inset: 0 !important;
@@ -5749,9 +5130,6 @@ body.details-open .nav-bottom {
   font-size: 0.95rem !important;
   margin: 12px 0 0 !important;
 }
-
-
-/* ===== Fondo detalle = Stremio (img + object-fit) ===== */
 #details-panel {
   background-color: #0e0e14 !important;
 }
@@ -5771,8 +5149,6 @@ body.details-open .nav-bottom {
   display: none !important;
   content: none !important;
 }
-
-/* Igual que .background-image de Stremio */
 #details-panel .mz-stremio-bg-img {
   pointer-events: none;
   display: block;
@@ -5787,23 +5163,15 @@ body.details-open .nav-bottom {
 #details-panel .mz-stremio-bg-img.is-ready {
   opacity: 0.3;
 }
-
 @media (max-width: 900px) {
   #details-panel .mz-stremio-bg-img {
     object-position: center center;
   }
 }
-
-
-/* ===== Ajustes UX: search center, stremio rows, next gone, loading full, browser warn ===== */
-
-/* Ocultar Siguiente si quedara en DOM */
 #btn-next-ep,
 .mz-ep-next {
   display: none !important;
 }
-
-/* Buscador centrado */
 .netflix-navbar {
   display: flex !important;
   align-items: center !important;
@@ -5844,8 +5212,6 @@ body.details-open .nav-bottom {
     flex-basis: auto;
   }
 }
-
-/* Loading: tapa todo el detalle hasta datos */
 #details-content.hidden {
   display: none !important;
 }
@@ -5854,8 +5220,6 @@ body.details-open .nav-bottom {
   z-index: 40 !important;
   background: rgba(14, 14, 20, 0.72) !important;
 }
-
-/* Listado IMDb siempre amarillo marca (no solo estrella azul) */
 .rating-badge.rating-imdb-logo,
 .rating-badge.rating-src-imdb {
   background: rgba(0, 0, 0, 0.55) !important;
@@ -5865,8 +5229,6 @@ body.details-open .nav-bottom {
   /* si algún card viejo solo tiene src-imdb */
   background: rgba(0, 0, 0, 0.55) !important;
 }
-
-/* Filas tipo Stremio: ~3 pósteres visibles (móvil); más en PC */
 .carousel-container {
   display: flex !important;
   gap: 12px !important;
@@ -5898,8 +5260,6 @@ body.details-open .nav-bottom {
     max-width: calc((100% - 84px) / 8) !important;
   }
 }
-
-/* Aviso navegador móvil 3s */
 .mz-browser-warn {
   position: fixed;
   top: 0;
@@ -5930,9 +5290,6 @@ body.details-open .nav-bottom {
     display: none !important; /* solo móvil */
   }
 }
-
-
-/* ===== FIX: buscador centro, perfil, 3 cards, grid arriba ===== */
 .netflix-navbar {
   display: grid !important;
   grid-template-columns: 1fr minmax(180px, 480px) 1fr !important;
@@ -5966,8 +5323,6 @@ body.details-open .nav-bottom {
   gap: 10px !important;
   margin: 0 !important;
 }
-
-/* Perfil: solo avatar redondo, sin texto roto */
 .mz-profile-chip {
   display: inline-flex !important;
   align-items: center !important;
@@ -6002,8 +5357,6 @@ body.details-open .nav-bottom {
   overflow: hidden !important;
   clip: rect(0,0,0,0) !important;
 }
-
-/* Home: exactamente 3 pósteres visibles en móvil */
 #home-view .carousel-container {
   display: flex !important;
   gap: 10px !important;
@@ -6033,8 +5386,6 @@ body.details-open .nav-bottom {
     max-width: 150px !important;
   }
 }
-
-/* Grid Películas: menos espacio arriba */
 #grid-view.grid-section,
 .grid-section {
   padding-top: 12px !important;
@@ -6053,7 +5404,6 @@ body.details-open .nav-bottom {
   font-size: 13px !important;
   opacity: 0.85;
 }
-/* navbar height offset */
 #grid-view {
   padding-top: 8px !important;
 }
@@ -6061,11 +5411,9 @@ main#home-view,
 #grid-view {
   margin-top: 0;
 }
-/* si el grid queda bajo el navbar fixed */
 .grid-section {
   scroll-margin-top: 70px;
 }
-
 @media (max-width: 720px) {
   .netflix-navbar {
     grid-template-columns: auto 1fr auto !important;
@@ -6077,9 +5425,6 @@ main#home-view,
     max-width: none !important;
   }
 }
-
-
-/* ===== Móvil: grid Películas/Series/Anime = 3 columnas (no 2) ===== */
 @media (max-width: 900px) {
   #grid-view .catalog-grid,
   .grid-section .catalog-grid,
@@ -6121,9 +5466,6 @@ main#home-view,
     margin: 2px 8px 6px !important;
   }
 }
-
-
-/* ===== Badges más compactos + boot loading + sin wakeup ===== */
 .type-badge {
   top: 6px !important;
   left: 6px !important;
@@ -6137,7 +5479,6 @@ main#home-view,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .rating-badge,
 .rating-badge.rating-imdb-logo {
   top: 6px !important;
@@ -6154,14 +5495,12 @@ main#home-view,
   font-size: 8px !important;
   padding: 1px 3px !important;
 }
-
 .airing-badge {
   font-size: 9px !important;
   padding: 2px 6px !important;
   border-radius: 4px !important;
   font-weight: 700 !important;
 }
-
 .availability-badge {
   bottom: 6px !important;
   left: 6px !important;
@@ -6173,21 +5512,16 @@ main#home-view,
   width: 5px !important;
   height: 5px !important;
 }
-
 .poster-bottom-row .airing-badge,
 .poster-bottom-row .availability-badge {
   position: relative !important;
   left: auto !important;
   bottom: auto !important;
 }
-
-/* Ocultar cualquier resto de wakeup */
 .wakeup,
 .wakeup.is-visible {
   display: none !important;
 }
-
-/* Loading al entrar a la página (como detalle) */
 .mz-boot-loading {
   position: fixed;
   inset: 0;
@@ -6221,9 +5555,6 @@ main#home-view,
 body.mz-booting {
   overflow: hidden;
 }
-
-
-/* ===== Móvil: tipo + IMDb aún más chicos (no apretados) ===== */
 @media (max-width: 900px) {
   .type-badge {
     top: 4px !important;
@@ -6283,11 +5614,6 @@ body.mz-booting {
     opacity: 0.75;
   }
 }
-/* =========================================================
-   MovieZone — Detalle/Player estilo Koiflix (SOLO PC ≥1025px)
-   Series y animes. No afecta móvil ni películas.
-   ========================================================= */
-
 @media (min-width: 1025px) {
 
   /* ========== PANEL A PANTALLA COMPLETA ========== */
@@ -6844,16 +6170,12 @@ body.mz-booting {
     display: none !important;
   }
 }
-
 @media (max-width: 1024px) {
   .koi-hero,
   .koi-player-ep-title {
     display: none !important;
   }
 }
-
-
-/* ===== FIXES KOI: meta IMDb + episodios legibles + tabs ===== */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) .koi-hero-meta {
     color: #94a3b8 !important;
@@ -7008,8 +6330,6 @@ body.mz-booting {
     overflow-y: auto !important;
   }
 }
-
-/* FORCE override episodes-grid constraints in koi mode */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) #episodes-container.episodes-grid,
   body.details-open.koi-desktop:not(.player-open) #episodes-container {
@@ -7030,9 +6350,6 @@ body.mz-booting {
     gap: 8px !important;
   }
 }
-
-
-/* Player Koiflix: reproductores debajo de la descripción */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) #servers-section,
   body.details-open.koi-desktop:not(.player-open) #downloads-section {
@@ -7100,9 +6417,6 @@ body.mz-booting {
     margin: 0 auto !important;
   }
 }
-
-
-/* Sinopsis larga: clamp + MÁS DETALLES */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) .koi-hero-synopsis.koi-syn-clamp {
     display: -webkit-box !important;
@@ -7131,9 +6445,6 @@ body.mz-booting {
     display: none !important;
   }
 }
-
-
-/* Badge IMDb en hero Koiflix (mismo estilo que MovieZone) */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop .koi-hero-meta {
     display: flex !important;
@@ -7156,9 +6467,6 @@ body.mz-booting {
     font-size: 0.7rem !important;
   }
 }
-
-
-/* IMDb en la misma fila del meta (inline) */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop .koi-hero-meta {
     display: flex !important;
@@ -7200,9 +6508,6 @@ body.mz-booting {
     margin: 0 !important;
   }
 }
-
-
-/* Botón VOLVER arriba izquierda (detalle + player Koiflix) */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop .koi-btn-back {
     position: fixed !important;
@@ -7287,14 +6592,9 @@ body.mz-booting {
     display: block !important;
   }
 }
-
 @media (max-width: 1024px) {
   .koi-btn-back { display: none !important; }
 }
-
-
-/* Pegar al final de styles.css o koi CSS */
-
 .koi-hero-original {
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.95rem;
@@ -7322,9 +6622,6 @@ body.mz-booting {
 .koi-meta-end {
   color: #cbd5e1;
 }
-
-
-/* Película en modo Koi PC: mostrar servidores (el CSS de series los oculta) */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop.koi-movie:not(.player-open) #servers-section,
   body.details-open.koi-desktop.koi-movie:not(.player-open) #downloads-section {
@@ -7348,14 +6645,6 @@ body.mz-booting {
     gap: 10px !important;
   }
 }
-
-
-/* ============================================================
-   Película en modo Koi PC
-   Los servidores viven DENTRO de .mz-meta-col, y ese bloque
-   estaba oculto (pensado solo para series). Hay que mostrarlo.
-   Pegar al FINAL de styles.css
-   ============================================================ */
 @media (min-width: 1025px) {
   /* Mostrar la columna donde está #servers-section */
   body.details-open.koi-desktop.koi-movie:not(.player-open) .mz-meta-col {
@@ -7409,9 +6698,6 @@ body.mz-booting {
     visibility: visible !important;
   }
 }
-
-
-/* ===== FIX FINAL: sin meta duplicada + películas solo servidores ===== */
 @media (min-width: 1025px) {
   /* Series/animes/películas en koi detalle: NUNCA mostrar el bloque viejo de meta */
   body.details-open.koi-desktop:not(.player-open) #details-panel .mz-stremio-header,
@@ -7466,9 +6752,6 @@ body.mz-booting {
     display: none !important;
   }
 }
-
-
-/* Chips reproductores FINAL */
 #mz-servers-toggle { display: none !important; }
 .koi-servers-block { width: 100%; margin: 0 0 16px; }
 .koi-servers-title { font-size: 1rem; font-weight: 800; color: #fff; margin: 8px 0 10px; }
@@ -7484,7 +6767,6 @@ body.mz-booting {
 .koi-server-chip .koi-chip-name { color: #fff; font-weight: 700; }
 .koi-server-chip .koi-chip-sep { color: #64748b; }
 .koi-server-chip .koi-chip-lang { color: #94a3b8; }
-
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section,
   body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #downloads-section,
@@ -7499,9 +6781,6 @@ body.mz-booting {
     margin: 0 auto !important;
   }
 }
-
-
-/* Series: forzar ocultar Reproductores fuera de player */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section,
   body.details-open.koi-desktop:not(.koi-movie):not(.player-open) #servers-section *,
@@ -7550,9 +6829,6 @@ body.mz-booting {
     visibility: visible !important;
   }
 }
-
-
-/* ===== Espacio hero ↔ episodios más compacto ===== */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) .koi-hero {
     min-height: 0 !important;
@@ -7633,12 +6909,6 @@ body.mz-booting {
     gap: 8px !important;
   }
 }
-
-
-/* ============================================================
-   SERIES: hero compacto → Episodios pegados
-   PELÍCULAS: reproductor en cuadro ABAJO (no tapa todo)
-   ============================================================ */
 @media (min-width: 1025px) {
   /* --- Series/anime detalle: menos hueco --- */
   body.details-open.koi-desktop:not(.player-open) .koi-hero {
@@ -7764,9 +7034,6 @@ body.mz-booting {
     margin: 12px 0 8px !important;
   }
 }
-
-
-/* ========== SERIES: Episodios justo bajo MÁS DETALLES ========== */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open) .koi-hero {
     display: block !important;
@@ -7864,9 +7131,6 @@ body.mz-booting {
     display: none !important;
   }
 }
-
-
-/* Series player: video a ancho completo arriba (aunque esté dentro de meta-col) */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.koi-movie).player-open .mz-meta-col {
     display: contents !important;
@@ -7894,13 +7158,6 @@ body.mz-booting {
     display: block !important;
   }
 }
-
-
-/* ============================================================
-   FIX DEFINITIVO 2026-09-14
-   1) Series: cero hueco hero → Episodios
-   2) Películas: player scrolleable (como series), no estático
-   ============================================================ */
 @media (min-width: 1025px) {
   /* Panel siempre scrolleable en el body del detalle */
   body.details-open.koi-desktop #details-panel {
@@ -8027,11 +7284,6 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
-
-
-/* ============================================================
-   PELÍCULA al reproducir: SIN info duplicada + scroll como series
-   ============================================================ */
 @media (min-width: 1025px) {
   /* Solo UNA ficha de info: ocultar hero Koiflix al reproducir película */
   body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
@@ -8145,9 +7397,6 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
-
-
-/* Película: player ABAJO + sin info duplicada + scroll */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop.koi-movie.player-open .details-body {
     overflow-y: auto !important;
@@ -8187,9 +7436,6 @@ body.mz-booting {
     display: block !important;
   }
 }
-
-
-/* Películas: sin duplicados de info ni de servidores; scroll sobre player */
 @media (min-width: 1025px) {
   /* UNA sola ficha: solo hero; nada de stremio/meta vieja */
   body.details-open.koi-desktop.koi-movie.player-open .mz-stremio-header,
@@ -8240,9 +7486,6 @@ body.mz-booting {
     min-height: 0 !important;
   }
 }
-
-
-/* Espacio MÁS DETALLES → Reproductores (película) + overlay scroll */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop.koi-movie .koi-hero,
   body.details-open.koi-desktop.koi-movie.player-open .koi-hero {
@@ -8299,9 +7542,6 @@ body.mz-booting {
     position: relative !important;
   }
 }
-
-
-/* Loading detalle: solo "Cargando…", sin fondo ni contenido */
 #details-loading.mz-details-loading,
 #details-loading {
   position: absolute !important;
@@ -8315,7 +7555,6 @@ body.mz-booting {
 #details-loading.hidden {
   display: none !important;
 }
-/* Mientras carga: ocultar hero, layout, fondo */
 .details-body.mz-loading-detail .koi-hero,
 .details-body.mz-loading-detail .details-content-inner,
 .details-body.mz-loading-detail .mz-detail-layout,
@@ -8332,7 +7571,6 @@ body.details-open.mz-loading-detail #mz-stremio-bg,
   opacity: 0 !important;
   visibility: hidden !important;
 }
-/* NO ocultar el loading en koi-desktop */
 body.details-open.koi-desktop:not(.player-open) #details-loading:not(.hidden),
 body.details-open.koi-desktop #details-loading:not(.hidden) {
   display: flex !important;
@@ -8341,8 +7579,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
   height: auto !important;
   max-height: none !important;
 }
-
-/* Series: mismo espacio MÁS DETALLES → Episodios que películas → Reproductores */
 @media (min-width: 1025px) {
   body.details-open.koi-desktop:not(.player-open):not(.koi-movie) .koi-hero {
     padding: 20px 4% 0 !important;
@@ -8365,11 +7601,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     margin: 4px 0 8px !important;
   }
 }
-
-
-/* =========================================================
-   MovieZone — fixes SOLO móvil (≤768px)
-   ========================================================= */
 @media (max-width: 768px) {
   /* Panel detalle por encima de la barra inferior */
   #details-panel {
@@ -8508,11 +7739,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     gap: 8px !important;
   }
 }
-
-
-
-
-/* Rangos 1 - 50 (One Piece, etc.) — SOLO móvil */
 @media (max-width: 768px) {
   .seasons-tabs.mz-ep-range-tabs {
     display: flex !important;
@@ -8554,9 +7780,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     gap: 8px !important;
   }
 }
-
-
-/* Episodios móvil: imagen + T1 • E1 — SOLO ≤768px (PC intacto) */
 @media (max-width: 768px) {
   #episodes-container.episodes-grid {
     display: grid !important;
@@ -8608,9 +7831,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     letter-spacing: 0.02em;
   }
 }
-
-
-/* ===== Vista episodio MÓVIL (serie/anime) — no afecta PC ===== */
 @media (max-width: 768px) {
   body.mz-mobile-ep-playing .mz-detail-layout {
     display: flex !important;
@@ -8721,9 +7941,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     color: #fff;
   }
 }
-
-
-/* Reproductores móvil por filas SUB/DUB + botón descarga en nav */
 @media (max-width: 768px) {
   body.mz-mobile-ep-playing .mz-mobile-ep-nav {
     display: grid;
@@ -8825,7 +8042,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     opacity: 0.9;
   }
 }
-
 @media (max-width: 768px) {
   .mz-mep-dl-item {
     justify-content: space-between;
@@ -8874,9 +8090,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
   }
   .mz-mep-dl-arrow ion-icon { font-size: 20px; }
 }
-
-
-/* Descargas panel: título + filas alineadas */
 @media (max-width: 768px) {
   .mz-mep-dl-title {
     font-size: 15px;
@@ -8923,8 +8136,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     background: #060913 !important;
   }
 }
-
-
 @media (max-width: 768px) {
   /* Fila única: Mega | SUB | 720p | 1.2GB | ↓ */
   .mz-mep-dl-item {
@@ -8972,8 +8183,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     display: none !important;
   }
 }
-
-
 @media (max-width: 768px) {
   /* Episodios: solo cuadrados con número (sin imagen / sin T1•E) */
   #episodes-container.mz-ep-num-grid {
@@ -9013,8 +8222,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     color: #fff !important;
   }
 }
-
-
 @media (max-width: 768px) {
   /* Detalle: cards con imagen (2 columnas) */
   body.details-open:not(.mz-mobile-ep-playing) #episodes-container.episodes-grid {
@@ -9063,8 +8270,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     gap: 8px !important;
   }
 }
-
-
 @media (max-width: 768px) {
   /* Panel descargas fijo (no dentro del nav → menos freezes) */
   #mz-mep-dl-panel.mz-mep-dl-panel {
@@ -9106,9 +8311,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     touch-action: manipulation;
   }
 }
-
-
-/* Scroll sobre Directos en películas (PC) — el iframe no debe bloquear la rueda */
 @media (min-width: 901px) {
   body.details-open.koi-movie #details-panel .details-content {
     overflow-y: auto !important;
@@ -9132,9 +8334,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     overflow: hidden !important;
   }
 }
-
-
-/* Películas PC: poder scrollear con el player abierto (rueda sobre player/chips) */
 @media (min-width: 901px) {
   body.details-open.koi-movie #details-panel {
     overflow: hidden !important;
@@ -9171,9 +8370,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     max-height: 100% !important;
   }
 }
-
-
-/* Scroll detalle película con Directos / player HLS */
 @media (min-width: 901px) {
   body.details-open.koi-movie #details-panel {
     overflow: hidden !important;
@@ -9199,9 +8395,6 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
     /* permitir wheel listener (no bloquea por CSS) */
   }
 }
-
-
-/* Vista película Koi (tras REPRODUCIR): sin columna episodios */
 #mz-koi-ep-view.mz-kp-movie-mode .mz-kp-sidebar,
 #mz-koi-ep-view .mz-kp-sidebar.hidden {
   display: none !important;
@@ -9219,23 +8412,16 @@ body.details-open.koi-desktop #details-loading:not(.hidden) {
   margin: 0 !important;
   text-align: left !important;
 }
-/* Detalle película: ocultar bloques de servers en la ficha */
 body.details-open.koi-movie:not(.player-open) #servers-section,
 body.details-open.koi-movie:not(.player-open) #downloads-section,
 body.details-open.koi-movie:not(.player-open) #video-player-container {
   display: none !important;
 }
-
-
-/* Ocultar "Opciones de descarga" en la ficha (van con reproductores en Koi) */
 body.details-open.koi-movie #downloads-section,
 body.details-open.koi-desktop:not(.mz-mobile-ep-playing) #downloads-section,
 body.mz-koi-ep-open #downloads-section {
   display: none !important;
 }
-
-
-/* force hide dl movie detail */
 body.details-open.koi-movie #downloads-section,
 body.details-open.koi-movie #downloads-list-container,
 body.details-open.koi-movie #mz-downloads-toggle {
@@ -9246,9 +8432,6 @@ body.details-open.koi-movie #mz-downloads-toggle {
   margin: 0 !important;
   padding: 0 !important;
 }
-
-
-/* pelicula detalle: más padding arriba, alineado izquierda (no centro/derecha) */
 @media (min-width: 1025px) {
   body.details-open.koi-movie:not(.player-open) .koi-hero {
     min-height: auto !important;
@@ -9278,9 +8461,6 @@ body.details-open.koi-movie #mz-downloads-toggle {
     text-align: left !important;
   }
 }
-
-
-/* Chip reproductor seleccionado (móvil + PC) */
 .koi-server-chip.is-active,
 .mz-mep-srv-chip.is-active {
   background: rgba(0, 229, 255, 0.22) !important;
@@ -9293,8 +8473,6 @@ body.details-open.koi-movie #mz-downloads-toggle {
   color: #fff !important;
   font-weight: 700;
 }
-
-/* Película móvil: mostrar servidores al REPRODUCIR */
 body.details-open.koi-movie.mz-mobile-movie-playing #servers-section,
 body.details-open.koi-movie.player-open #servers-section {
   display: block !important;
@@ -9303,9 +8481,6 @@ body.details-open.koi-movie.player-open #servers-section {
 body.details-open.koi-movie.mz-mobile-movie-playing #video-player-container {
   display: block !important;
 }
-
-
-/* Episodio móvil: misma interfaz de reproducción que película */
 body.mz-ep-movie-shell .mz-ep-movie-head {
   padding: 4px 0 8px;
 }
@@ -9348,9 +8523,6 @@ body.mz-ep-movie-shell #koi-hero {
 body.mz-ep-movie-shell #video-player-container {
   border-radius: 12px !important;
 }
-
-
-/* Koi abierto: ocultar detalle de abajo (evita "sale otro") */
 body.mz-koi-ep-open #details-panel.mz-koi-hidden-under,
 body.mz-koi-ep-open #details-panel {
   /* no forzar hidden total si koi no marcó — solo con clase */
@@ -9359,8 +8531,6 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
   visibility: hidden !important;
   pointer-events: none !important;
 }
-
-/* Episodios en detalle MÓVIL: anchos y a la izquierda (no a la derecha) */
 @media (max-width: 900px) {
   #details-panel .mz-streams-col,
   #details-panel #seasons-section,
@@ -9403,9 +8573,6 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
     justify-content: flex-start !important;
   }
 }
-
-
-/* ===== Episodio móvil estilo PELÍCULA (The Fix) ===== */
 @media (max-width: 1024px) {
   body.mz-mobile-ep-playing.mz-ep-movie-shell {
     background: #0b1020 !important;
@@ -9471,9 +8638,6 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
     object-fit: cover;
   }
 }
-
-
-/* Móvil: cards episodio con imagen SIEMPRE (también con body.koi-desktop erróneo) */
 @media (max-width: 1024px) {
   body.details-open #episodes-container.episodes-grid {
     display: grid !important;
@@ -9514,8 +8678,6 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
     margin-top: 6px !important;
   }
 }
-
-/* Vista episodio móvil tipo película */
 @media (max-width: 1024px) {
   body.mz-mobile-ep-playing.mz-ep-movie-shell #details-panel .details-content {
     background: #0b1020 !important;
@@ -9547,16 +8709,12 @@ body.mz-koi-ep-open #details-panel.mz-koi-hidden-under {
     background: #000 !important;
   }
 }
-
 body.mz-mobile-ep-playing .mz-ep-movie-ep {
   font-size: 0.95rem;
   color: #94a3b8;
   margin: 4px 0 0;
   font-weight: 600;
 }
-
-
-/* ========== FIX FINAL MÓVIL (prioridad alta, al final) ========== */
 @media (max-width: 1024px) {
   /* Cards con imagen en detalle */
   body.details-open #episodes-container.episodes-grid {
@@ -9645,9 +8803,6 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
     background: #000 !important;
   }
 }
-
-
-/* Continuar viendo (grid + home) */
 .mz-continuar-grid {
   width: 100%;
   margin: 0 0 1.25rem;
@@ -9712,9 +8867,6 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
   height: 100%;
   background: #7c3aed;
 }
-
-
-/* Continuar viendo — home row */
 #row-continuar:not(.hidden) {
   display: block !important;
   visibility: visible !important;
@@ -9732,9 +8884,6 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
 #carousel-continuar .media-card {
   flex: 0 0 auto;
 }
-
-
-/* ========== Corto plazo: skeleton + error catálogo ========== */
 .skeleton-grid .skeleton-card {
   aspect-ratio: 2/3;
   border-radius: 12px;
@@ -9797,9 +8946,6 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
     padding: 6px 10px;
   }
 }
-
-
-/* Home carousel skeleton */
 .mz-carousel-skel[data-skel="1"] {
   display: flex;
   gap: 12px;
@@ -9821,7 +8967,6 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
   flex-basis: 120px;
   box-shadow: 132px 0 0 #1a1228, 264px 0 0 #1a1228, 396px 0 0 #1a1228;
 }
-
 .results-empty-hint {
   font-size: 0.85rem;
   opacity: 0.75;
