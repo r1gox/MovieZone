@@ -455,6 +455,20 @@ function fillKoiHero(item) {
       );
     }
 
+    // JK: próxima fecha de episodio
+    try {
+      const isJk =
+        String(item.source_id || "") === "5" ||
+        /jkanime/i.test(String(item.fuente || item.source || ""));
+      if (isJk && item.proximo_episodio) {
+        push(
+          '<span class="koi-meta-next">Próximo: ' +
+            String(item.proximo_episodio).replace(/</g, "&lt;") +
+            "</span>"
+        );
+      }
+    } catch (_) {}
+
     // Votos
     const votos = item.votos || (item.imdb && item.imdb.votos) || null;
     if (votos) push("<span>" + String(votos) + " votos</span>");
