@@ -1714,8 +1714,29 @@ function mapDetail(data, fallback = {}) {
   };
 }
 
+// Cache corta en servidor (Vercel instance) para listados repetidos
+const __API_GET_CACHE = new Map();
+const API_GET_TTL_MS = 10 * 60 * 1000; // 10 min
+
 async function apiGet(path) {
+  const key = String(path || "");
+  const now = Date.now();
+  const hit = __API_GET_CACHE.get(key);
+  if (hit && now - hit.ts < API_GET_TTL_MS && hit.data) {
+    return hit.data;
+  }
   const { data } = await api.get(path);
+  try {
+    // Solo cachear listados (no detalle/episodio pesado si falla vacío)
+    if (data && (data.resultados || data.results || data.items)) {
+      __API_GET_CACHE.set(key, { ts: now, data });
+      // limitar tamaño
+      if (__API_GET_CACHE.size > 200) {
+        const first = __API_GET_CACHE.keys().next().value;
+        __API_GET_CACHE.delete(first);
+      }
+    }
+  } catch (_) {}
   return data;
 }
 
@@ -1796,8 +1817,14 @@ async function obtenerPeliculasSeccion(page = 1, limit = 24) {
   try {
     let data;
     if (page === 1) {
-   //   data = await apiGet(`/${DEFAULT_SOURCE}/peliculas/estrenos`); este es para pelisplushd 3
-      data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
+      // Estrenos primero (bz/to según DEFAULT_SOURCE); fallback a page=1 del listado
+      try {
+        data = await apiGet(`/${DEFAULT_SOURCE}/peliculas/estrenos`);
+        const n = (data && (data.resultados || data.results) || []).length;
+        if (!n) data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=1`);
+      } catch (_) {
+        data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=1`);
+      }
     } else {
       data = await apiGet(`/${DEFAULT_SOURCE}/peliculas?page=${page}`);
     }
