@@ -10692,7 +10692,7 @@ async function handleDeepLink() {
     finally {
       try {
         var pathNow = location.pathname || "";
-        var sigueDetalle = /^\/detalle\//i.test(pathNow) || /^\/(serie|pelicula)\//i.test(pathNow) || /^\/anime\/[a-z0-9]/\/]/i.test(pathNow);
+        var sigueDetalle = /^\/detalle\//i.test(pathNow) || /^\/(serie|pelicula)\//i.test(pathNow) || /^\/anime\/[a-z0-9][^\/]*/i.test(pathNow);
         // En URL de detalle: NUNCA mandar a inicio
         if (sigueDetalle) {
           var panel = document.getElementById("details-panel");

@@ -10,7 +10,7 @@
     var isDetail =
       /^\/detalle\//i.test(p) ||
       /^\/(serie|pelicula)\//i.test(p) ||
-      /^\/anime\/[a-z0-9]/\/]/i.test(p);
+      /^\/anime\/[a-z0-9][^\/]*/i.test(p);
     if (!isDetail) {
       // Secciones: asegurar que el boot no se quede bloqueado
       document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
