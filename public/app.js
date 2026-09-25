@@ -5872,6 +5872,8 @@ function cerrarDetalle(fromPop) {
 
     cargarContinuarViendo();
 }
+try { window.cerrarDetalle = cerrarDetalle; } catch (_) {}
+
 //document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
 //document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
 document.getElementById("btn-close-modal")?.addEventListener("click", function () {
