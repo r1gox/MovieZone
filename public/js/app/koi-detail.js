@@ -210,11 +210,22 @@ function bindKoiBackBtn() {
       return;
     }
     // Ficha /detalle/… → cerrar detalle (más fiable que history.back en SPA)
+    // cerrarDetalle vive en app.js → window
     if (/^\/detalle\//i.test(path)) {
-      try { cerrarDetalle(false); } catch (_) {}
+      try {
+        if (typeof window.cerrarDetalle === "function") window.cerrarDetalle(false);
+        else history.back();
+      } catch (_) {
+        try { history.back(); } catch (__) {}
+      }
       return;
     }
-    try { cerrarDetalle(false); } catch (_) {}
+    try {
+      if (typeof window.cerrarDetalle === "function") window.cerrarDetalle(false);
+      else history.back();
+    } catch (_) {
+      try { history.back(); } catch (__) {}
+    }
   });
 }
 
