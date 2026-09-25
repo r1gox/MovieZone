@@ -3596,7 +3596,7 @@ function mzBootFromPath() {
 function mostrarHome() {
     vistaActual = "home";
     try { animeFuente = "av1"; gridSeccion = "movie"; } catch (_) {}
-    try { window.__mzReturnView = { type: "home" }; } catch (_) {}
+    try { mzSaveReturnView({ type: "home" }) } catch (_) {}
     try { mzPushSectionUrl("/", { mz: "home" }); } catch (_) {}
     homeView.classList.remove("hidden");
     gridView.classList.add("hidden");
@@ -4520,7 +4520,7 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     gridTermino = termino;
     // Recordar sección para al cerrar detalle volver aquí (no siempre a Inicio)
     try {
-      window.__mzReturnView = { type: "grid", modo: modo, seccion: seccion, termino: termino || "" };
+      mzSaveReturnView({ type: "grid", modo: modo, seccion: seccion, termino: termino || "" })
     } catch (_) {}
     // URL de sección en la barra de direcciones
     try {
@@ -6072,6 +6072,22 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     try {
+      // Recordar sección actual para "volver" (películas/series/anime/jk)
+      try {
+        var pathNow = location.pathname || "/";
+        if (typeof mzParseSectionPath === "function") {
+          var secNow = mzParseSectionPath(pathNow);
+          if (secNow && secNow.type === "grid" && secNow.seccion) {
+            mzSaveReturnView({
+              type: "grid",
+              modo: secNow.modo || "categoria",
+              seccion: secNow.seccion
+            })
+          } else if ((pathNow === "/" || pathNow === "") && !window.__mzReturnView) {
+            mzSaveReturnView({ type: "home" })
+          }
+        }
+      } catch (_) {}
       // Solo deep-link (recarga URL) usa overlay de boot; dentro de la app no
       document.body.classList.add("details-open");
       var isDeepWait = document.documentElement.classList.contains("mz-deep-boot") ||
@@ -6770,42 +6786,70 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
     }
 }
 
+
+function mzSaveReturnView(view) {
+  try {
+    if (!view || typeof view !== "object") return;
+    window.__mzReturnView = view;
+    sessionStorage.setItem("mz_return_view", JSON.stringify(view));
+  } catch (_) {}
+}
+function mzLoadReturnView() {
+  try {
+    if (window.__mzReturnView && window.__mzReturnView.type) return window.__mzReturnView;
+    var raw = sessionStorage.getItem("mz_return_view");
+    if (!raw) return null;
+    var v = JSON.parse(raw);
+    if (v && v.type) {
+      window.__mzReturnView = v;
+      return v;
+    }
+  } catch (_) {}
+  return window.__mzReturnView || null;
+}
+
 function cerrarDetalle(fromPop) {
     try {
       window.__mzPortadaLista = null;
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
-    // fromPop === true → ya venimos de popstate con path "/"
-    // fromPop === false/undefined → cerrar con X → URL a inicio
+    // fromPop === true → popstate ya puso la URL; no tocar ruta
+    // fromPop === false → volver a la sección recordada (películas/series/...), no forzar Inicio
     if (!fromPop) {
-      // Retroceder en el historial (sección anterior) como una web normal
       try {
-        if (window.history.length > 1) {
+        window.__mzClosingDetalle = false;
+        var ret = typeof mzLoadReturnView === "function" ? mzLoadReturnView() : window.__mzReturnView;
+        if (ret && ret.type === "grid" && ret.seccion) {
+          var secPath = typeof mzPathFromSeccion === "function"
+            ? mzPathFromSeccion(ret.seccion, ret.modo)
+            : "/";
+          mzPushSectionUrl(secPath, { mz: "section", seccion: ret.seccion }, true);
+          if (typeof mzApplySectionRoute === "function") {
+            mzApplySectionRoute({
+              type: "grid",
+              modo: ret.modo || "categoria",
+              seccion: ret.seccion
+            });
+          }
+        } else if (ret && ret.type === "home") {
+          mzPushSectionUrl("/", { mz: "home" }, true);
+          if (typeof mostrarHome === "function") mostrarHome();
+        } else if (window.history.length > 1) {
+          // Sin sección recordada: atrás de historial
           window.__mzClosingDetalle = true;
           history.back();
-          // popstate aplicará la sección; fallback si no hay entrada útil
           setTimeout(function () {
             try {
               if (window.__mzClosingDetalle) {
                 window.__mzClosingDetalle = false;
-                var ret = window.__mzReturnView;
-                if (ret && ret.type === "grid") {
-                  mzPushSectionUrl(mzPathFromSeccion(ret.seccion, ret.modo), { mz: "section" }, true);
-                  mzApplySectionRoute({ type: "grid", modo: ret.modo || "categoria", seccion: ret.seccion });
-                } else {
-                  mzPushSectionUrl("/", { mz: "home" }, true);
-                  if (typeof mostrarHome === "function") mostrarHome();
-                }
+                mzPushSectionUrl("/", { mz: "home" }, true);
+                if (typeof mostrarHome === "function") mostrarHome();
               }
             } catch (_) {}
           }, 200);
         } else {
-          var ret2 = window.__mzReturnView;
-          if (ret2 && ret2.type === "grid") {
-            mzPushSectionUrl(mzPathFromSeccion(ret2.seccion, ret2.modo), { mz: "section" }, true);
-          } else {
-            mzPushSectionUrl("/", { mz: "home" }, true);
-          }
+          mzPushSectionUrl("/", { mz: "home" }, true);
+          if (typeof mostrarHome === "function") mostrarHome();
         }
       } catch (_) {}
     }
@@ -6856,7 +6900,7 @@ function cerrarDetalle(fromPop) {
     // history.back() ya disparado; si el path sigue en detalle, ir a sección recordada
     try {
       if (/^\/detalle\//i.test(location.pathname || "")) {
-        var ret = window.__mzReturnView;
+        var ret = typeof mzLoadReturnView === "function" ? mzLoadReturnView() : window.__mzReturnView;
         if (ret && ret.type === "grid" && ret.seccion) {
           mzPushSectionUrl(mzPathFromSeccion(ret.seccion, ret.modo), { mz: "section" }, true);
           mzApplySectionRoute({ type: "grid", modo: ret.modo || "categoria", seccion: ret.seccion });
@@ -10723,6 +10767,8 @@ async function handleDeepLink() {
     }
 }
 // Ejecutar siempre: en deep link abre detalle; en / no hace nada útil si no hay query
+
+try { if (typeof mzLoadReturnView === "function") mzLoadReturnView(); } catch (_) {}
 handleDeepLink().catch(function (e) { console.warn("Deep link boot:", e); });
 
 window.addEventListener("popstate", function () {
