@@ -5126,6 +5126,9 @@ async function fetchSeccionCatalogRapido(seccion, page, limit) {
   const lim = limit || LIMIT || 48;
   const idx = await fetchCatalogKeys(sid, tipo);
   const keys = idx.keys || [];
+  if (!keys.length) {
+    throw new Error("catalog keys vacío source=" + sid);
+  }
   const start = (Math.max(1, page) - 1) * lim;
   const slice = keys.slice(start, start + lim);
   const items = await fetchCatalogBatch(sid, slice, tipo);
@@ -5208,22 +5211,24 @@ async function cargarPaginaGrid() {
         } else {
             actualizarBotonOnline(false);
             // Anime / JK: catálogo rápido keys+batch (estilo Koiflix)
+            // Películas / series: flujo original (estrenos + muchas páginas). NO catalog-rapido.
+            // Anime / JK: keys+batch; si sale vacío → fallback.
             if (
               gridSeccion === "anime" ||
               gridSeccion === "jk" ||
-              gridSeccion === "movie" ||
-              gridSeccion === "series" ||
               animeFuente === "jk" ||
               animeFuente === "av1"
             ) {
               try {
                 lista = await fetchSeccionCatalogRapido(gridSeccion, gridPage, LIMIT);
+                if (!lista || !lista.length) {
+                  lista = await fetchSeccion(gridSeccion, gridPage, LIMIT);
+                }
               } catch (eCat) {
                 console.warn("catalog rapido falló, fallback:", eCat);
                 lista = await fetchSeccion(gridSeccion, gridPage, LIMIT);
               }
             } else {
-              // Sección normal → aquí se actualiza gridTotalItems y gridTotalPages
               lista = await fetchSeccion(gridSeccion, gridPage, LIMIT);
             }
         }
