@@ -51,6 +51,41 @@ html.mz-deep-boot #mz-boot-loading.hidden {
   background: #0a0611 !important;
   align-items: center !important;
   justify-content: center !important;
+  flex-direction: column !important;
+}
+html.mz-deep-boot .mz-boot-loading-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1.25rem !important;
+}
+html.mz-deep-boot .mz-boot-spinner {
+  width: 48px !important;
+  height: 48px !important;
+  border: 3px solid rgba(255,255,255,0.12) !important;
+  border-top-color: #7c5cff !important;
+  border-right-color: #5b8cff !important;
+  border-radius: 50% !important;
+  animation: mzBootSpin 0.75s linear infinite !important;
+  box-sizing: border-box !important;
+}
+html.mz-deep-boot .mz-boot-text,
+html.mz-deep-boot .mz-boot-loading-inner > p {
+  margin: 0 !important;
+  color: rgba(255,255,255,0.9) !important;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  animation: mzBootPulse 1.4s ease-in-out infinite !important;
+}
+@keyframes mzBootSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mzBootPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 /* details-panel puede estar .hidden en HTML; en deep-boot no lo forzamos visible hasta JS */
 html.mz-deep-ready #mz-boot-loading {
@@ -124,7 +159,7 @@ body.details-open #grid-view {
       if (b) {
         b.classList.remove("hidden");
         var t = b.querySelector("p");
-        if (t) t.textContent = "Cargando detalle…";
+        if (t) t.textContent = "Cargando datos...";
       }
     }
   } catch (e) {}
@@ -133,7 +168,7 @@ body.details-open #grid-view {
   <div id="mz-boot-loading" class="mz-boot-loading" aria-live="polite">
     <div class="mz-boot-loading-inner">
       <div class="mz-boot-spinner"></div>
-      <p>Cargando…</p>
+      <p class="mz-boot-text">Cargando datos...</p>
     </div>
   </div>
 
