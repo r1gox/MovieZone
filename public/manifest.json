@@ -4,8 +4,8 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0611",
-  "theme_color": "#0a0611",
-  "description": "MovieZone — Películas, series y anime.",
+  "theme_color": "#7c3aed",
+  "description": "Películas, series, anime y TV en un solo lugar.",
   "icons": [
     {
       "src": "/icons/moviezone-512.png",

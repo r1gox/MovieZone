@@ -1,9 +1,16 @@
-const CACHE = "moviezone-v3";
-const ASSETS = ["/", "/index.html", "/styles.css"];
+const CACHE = "moviezone-v4";
+const ASSETS = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/manifest.json",
+  "/icons/moviezone-512.png",
+  "/icons/apple-touch-icon.png"
+];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting())
   );
 });
 
@@ -17,23 +24,33 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-
   const url = new URL(e.request.url);
 
-  // Nunca cachear JS ni API → siempre red (evita Brave vs Chrome distinto)
+  // JS y API siempre red
   if (
-    url.pathname.endsWith("app.js") ||
-    url.pathname.endsWith("sw.js") ||
-    url.pathname.endsWith("styles.css") ||
-    url.pathname.startsWith("/api/")
+    url.pathname.endsWith(".js") ||
+    url.pathname.startsWith("/api/") ||
+    url.hostname.indexOf("workers.dev") !== -1
   ) {
     e.respondWith(
-      fetch(e.request, { cache: "no-store" }).catch(() => caches.match(e.request))
+      fetch(e.request, { cache: "no-store" }).catch(() => caches.match("/"))
     );
     return;
   }
 
+  // HTML/CSS/static: cache-first con actualización en segundo plano
   e.respondWith(
-    caches.match(e.request).then((r) => r || fetch(e.request).catch(() => caches.match("/")))
+    caches.match(e.request).then((cached) => {
+      const net = fetch(e.request)
+        .then((res) => {
+          try {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+          } catch (_) {}
+          return res;
+        })
+        .catch(() => cached || caches.match("/"));
+      return cached || net;
+    })
   );
 });

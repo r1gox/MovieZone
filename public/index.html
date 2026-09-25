@@ -78,6 +78,9 @@
         <li id="nav-item-favoritos"><a id="nav-link-favoritos">
           <ion-icon name="heart-outline" style="font-size:14px; vertical-align:-2px;"></ion-icon> Favoritos
         </a></li>
+        <li id="nav-item-historial"><a id="nav-link-historial" title="Historial">
+          <ion-icon name="time-outline"></ion-icon> Historial
+        </a></li>
       </ul>
     </div>
 
@@ -140,7 +143,7 @@
     <section class="view-container carousel-section" id="carousel-section-container">
 <div class="carousel-row">
         <h2>Películas Destacadas</h2>
-        <div class="carousel-container" id="carousel-movies">
+        <div class="carousel-container mz-carousel-skel" id="carousel-movies" data-skel="1">
           <div class="skeleton-row">
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
@@ -151,7 +154,7 @@
       <!-- ... Series, Anime, etc. (igual que antes) ... -->
       <div class="carousel-row">
         <h2>Series del Momento</h2>
-        <div class="carousel-container" id="carousel-series">
+        <div class="carousel-container mz-carousel-skel" id="carousel-series" data-skel="1">
           <div class="skeleton-row">
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
@@ -161,7 +164,7 @@
 
       <div class="carousel-row">
         <h2>Anime Recomendado</h2>
-        <div class="carousel-container" id="carousel-anime">
+        <div class="carousel-container mz-carousel-skel" id="carousel-anime" data-skel="1">
           <div class="skeleton-row">
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
             <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
@@ -325,6 +328,14 @@
         <select id="filter-genero" class="filter-select" title="Género">
           <option value="all">Género</option>
         </select>
+        <select id="filter-fuente" class="filter-select" title="Fuente">
+          <option value="all">Fuente</option>
+          <option value="3">PelisPlus</option>
+          <option value="9">PelisPlus BZ</option>
+          <option value="4">AnimeAV1</option>
+          <option value="5">JKanime</option>
+          <option value="6">Doramas</option>
+        </select>
       </div>
       <div class="filter-group sort-group">
         <label for="sort-select" class="sort-label">Ordenar:</label>
@@ -363,6 +374,8 @@
     <div class="downloads-empty hidden" id="results-empty">
       <ion-icon name="film-outline"></ion-icon>
       <p>No se encontraron resultados.</p>
+      <p class="results-empty-hint" id="results-empty-hint">Prueba otro término o quita filtros.</p>
+      <div class="results-empty-suggest" id="results-empty-suggest"></div>
     </div>
 
     <div class="results-error hidden" id="results-error">
@@ -580,6 +593,13 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 <script src="/js/koi-episode-player.js"></script>
 <script type="module" src="/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
+    });
+  }
+</script>
 <script src="/mobile-menu.js"></script>
 <!-- Pantalla perfiles -->
 <div id="mz-profile-gate" class="mz-profile-gate hidden" aria-hidden="true">

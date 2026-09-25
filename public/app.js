@@ -30,6 +30,15 @@ import {
   openDetailsShell,
 } from './js/perf/snappy.js';
 
+async function mzFetch(url, opts = {}, ms = 20000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+  } finally { clearTimeout(t); }
+}
+try { window.mzFetch = mzFetch; } catch (_) {}
+
 
 const LIMIT = 48;
 
@@ -922,7 +931,8 @@ let gridSort = "recent";       // recent | rating | az
 let gridTypeFilter = "all";    // all | movie | series | anime
 let gridYearFilter = "all";    // all | 2026 | 2025 ...
 let gridEstadoFilter = "all";  // all | emision | finalizado
-let gridGeneroFilter = "all";  // all | accion | ...
+let gridGeneroFilter = "all";
+let gridFuenteFilter = "all";
 let _lastGridLista = [];       // para rellenar selects de año/género
 let heroItems = [];
 let heroIndex = 0;
@@ -996,6 +1006,40 @@ function toggleFavoritoItem(item) {
 // ======================================================
 // UTILIDADES
 // ======================================================
+
+function obtenerHistorial() {
+  try { return JSON.parse(localStorage.getItem(pk("historial")) || "[]"); }
+  catch (_) { return []; }
+}
+function guardarHistorial(lista) {
+  try { localStorage.setItem(pk("historial"), JSON.stringify((lista || []).slice(0, 80))); } catch (_) {}
+}
+function pushHistorial(item) {
+  if (!item) return;
+  try {
+    let list = obtenerHistorial();
+    const key = typeof mzFavKey === "function" ? mzFavKey(item) : String(item.slug || item.link || "");
+    list = list.filter((x) => {
+      const kx = typeof mzFavKey === "function" ? mzFavKey(x) : String(x.slug || x.link || "");
+      return kx !== key;
+    });
+    list.unshift({
+      titulo: item.titulo || item.nombre,
+      nombre: item.nombre || item.titulo,
+      slug: item.slug,
+      portada: item.portada || item.poster,
+      tipo: item.tipo || item.type,
+      source_id: item.source_id,
+      fuente: item.fuente || item.source,
+      link: item.link || item.url,
+      year: item.year,
+      rating: item.rating,
+      visto_at: Date.now()
+    });
+    guardarHistorial(list);
+  } catch (_) {}
+}
+
 function escapeHtml(texto) {
     return String(texto ?? "")
         .replaceAll("&", "&amp;")
@@ -3808,6 +3852,23 @@ function aplicarFiltrosYOrden(lista) {
       });
     }
 
+    if (gridFuenteFilter && gridFuenteFilter !== "all") {
+      const sidWant = String(gridFuenteFilter);
+      res = res.filter((item) => String(item.source_id || "") === sidWant);
+    }
+
+    try {
+      const perf = typeof getActiveProfile === "function" ? getActiveProfile() : null;
+      if (perf && perf.tipo === "kids") {
+        res = res.filter((item) => {
+          let gens = item.generos || item.genero || item.genres || [];
+          if (typeof gens === "string") gens = gens.split(/[,/|]/);
+          const blob = (Array.isArray(gens) ? gens.join(" ") : "") + " " + String(item.titulo || item.nombre || "");
+          return !/terror|horror|er[oó]tic|xxx|adult|gore/i.test(blob);
+        });
+      }
+    } catch (_) {}
+
     if (gridSort === "rating") {
         res.sort((a, b) => (Number(b.rating || b.calificacion) || 0) - (Number(a.rating || a.calificacion) || 0));
     } else if (gridSort === "az") {
@@ -3824,6 +3885,32 @@ function aplicarFiltrosYOrden(lista) {
 
 
 
+
+function mostrarSugerenciasVacias() {
+  try {
+    const box = document.getElementById("results-empty-suggest");
+    if (!box) return;
+    box.innerHTML = "";
+    ["Quitar filtros", "Películas", "Series", "Anime"].forEach((t) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = t;
+      b.addEventListener("click", () => {
+        if (t === "Quitar filtros") {
+          gridYearFilter = gridEstadoFilter = gridGeneroFilter = gridFuenteFilter = "all";
+          ["filter-year","filter-estado","filter-genero","filter-fuente"].forEach((id) => {
+            const el = document.getElementById(id); if (el) el.value = "all";
+          });
+          if (typeof refiltrarGridLocal === "function") refiltrarGridLocal();
+          else if (typeof cargarPaginaGrid === "function") cargarPaginaGrid();
+        } else if (t === "Películas") mostrarGrid({ modo: "categoria", seccion: "movie" });
+        else if (t === "Series") mostrarGrid({ modo: "categoria", seccion: "series" });
+        else if (t === "Anime") mostrarGrid({ modo: "categoria", seccion: "anime" });
+      });
+      box.appendChild(b);
+    });
+  } catch (_) {}
+}
 function mostrarErrorGrid(msg) {
   try {
     const err = document.getElementById("results-error");
@@ -3896,10 +3983,12 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     gridYearFilter = "all";
     gridEstadoFilter = "all";
     gridGeneroFilter = "all";
+    gridFuenteFilter = "all";
     try {
       const y = document.getElementById("filter-year"); if (y) y.value = "all";
       const es = document.getElementById("filter-estado"); if (es) es.value = "all";
       const ge = document.getElementById("filter-genero"); if (ge) ge.value = "all";
+      const fu = document.getElementById("filter-fuente"); if (fu) fu.value = "all";
     } catch (_) {}
     if (modo === "categoria") {
       if (seccion === "jk") {
@@ -3952,6 +4041,9 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         busquedaEsLocal = false; // online
     } else if (modo === "favoritos") {
         resultsTitle.innerHTML = `<ion-icon name="heart" style="vertical-align:-3px;"></ion-icon> Mis Favoritos`;
+        document.getElementById("filter-toolbar").classList.add("hidden");
+    } else if (modo === "historial") {
+        resultsTitle.innerHTML = `<ion-icon name="time-outline" style="vertical-align:-3px;"></ion-icon> Historial`;
         document.getElementById("filter-toolbar").classList.add("hidden");
     } else {
         resultsTitle.textContent = seccion === "movie" ? "Películas" : seccion === "series" ? "Series" : seccion === "jk" ? "JK Anime" : "Anime";
@@ -4634,6 +4726,12 @@ async function cargarPaginaGrid() {
             gridTotalPages = 1;
             gridPage = 1;
             actualizarBotonOnline(false);
+        } else if (gridModo === "historial") {
+            lista = typeof obtenerHistorial === "function" ? obtenerHistorial() : [];
+            gridTotalItems = lista.length;
+            gridTotalPages = 1;
+            gridPage = 1;
+            actualizarBotonOnline(false);
         } else if (gridModo === "search") {
             // Siempre online primero; local solo si el usuario lo pidiera explícitamente
             const data = await fetchBusqueda(gridTermino, busquedaEsLocal ? "local" : "online", gridPage, LIMIT);
@@ -4684,6 +4782,7 @@ async function cargarPaginaGrid() {
 
         if (listaFinal.length === 0) {
             resultsEmpty.classList.remove("hidden");
+            try { mostrarSugerenciasVacias(); } catch (_) {}
         }
 
         actualizarPaginacion();
@@ -4892,6 +4991,14 @@ async function cargarPaginaPeliculas(delta) {
   }
 }
 function renderCarousel(contenedorId, lista) {
+  try {
+    const _el = typeof contenedorId === "string" ? document.getElementById(contenedorId) : contenedorId;
+    if (_el && _el.getAttribute && _el.getAttribute("data-skel")) {
+      _el.removeAttribute("data-skel");
+      _el.classList.remove("mz-carousel-skel");
+    }
+  } catch (_) {}
+
     const el = document.getElementById(contenedorId);
     el.innerHTML = "";
     if (!lista.length) {
@@ -5279,6 +5386,7 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       }
     } catch (_) {}
     try { openDetailsShell(); } catch (_) {}
+    try { pushHistorial(item); } catch (_) {}
     seleccionActual = item;
     // Prefetch primer episodio (series/anime) en segundo plano
     try {
@@ -9467,7 +9575,7 @@ initProfilesUi();
 initNotifyBtn();
 try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
 cargarHome();
-initTvUi();
+// initTvUi lazy
 initAutoplayEpUi();
 try { bindKoiBackBtn(); } catch (_) {}
 try {
@@ -10368,3 +10476,25 @@ window.resolverPlayUrlNoAds = resolverPlayUrlNoAds;
     setTimeout(restore, 50);
   });
 })();
+
+
+try {
+  document.getElementById("nav-link-historial")?.addEventListener("click", function (e) {
+    e.preventDefault();
+    document.getElementById("nav-item-historial")?.classList.add("active");
+    mostrarGrid({ modo: "historial" });
+  });
+  document.getElementById("filter-fuente")?.addEventListener("change", function (e) {
+    gridFuenteFilter = e.target.value || "all";
+    if (typeof refiltrarGridLocal === "function") refiltrarGridLocal();
+  });
+  window.__mzTvInited = false;
+  function ensureTvInit() {
+    if (window.__mzTvInited) return;
+    window.__mzTvInited = true;
+    try { initTvUi(); } catch (e) { console.warn(e); }
+  }
+  ["btn-tv-cable", "btn-tv-pais", "btn-tv-futbol"].forEach(function (id) {
+    document.getElementById(id)?.addEventListener("click", ensureTvInit, true);
+  });
+} catch (_) {}
