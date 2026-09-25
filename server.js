@@ -3932,8 +3932,8 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
 
     const soloJk = animeSource === "jk" || animeSource === "5" || animeSource === "jkanime";
     // Inicio / Películas / Series / Anime AV1 → worker /?q=
-    // JK → worker /5/?q=
-    const workerPath = soloJk ? "/5/" : "/";
+    // JK → /5/buscar (array plano) o /5/?q=
+    const workerPath = soloJk ? "/5/buscar" : "/";
     const limQ = Math.min(80, Math.max(limit, 40));
     const qs = new URLSearchParams({ q: termino, limit: String(limQ) });
     const url = API_BASE + workerPath + "?" + qs.toString();
@@ -3961,7 +3961,10 @@ app.get("/api/buscar", limiterBusqueda, async (req, res) => {
       } catch (_) {
         dataW = null;
       }
-      const hits = (dataW && (dataW.results || dataW.resultados || dataW.items)) || [];
+      // JK /5 devuelve array plano; universal a veces { results|resultados }
+      const hits = Array.isArray(dataW)
+        ? dataW
+        : (dataW && (dataW.results || dataW.resultados || dataW.items)) || [];
       rawHits = Array.isArray(hits) ? hits.length : 0;
 
       for (const row of hits) {
