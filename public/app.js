@@ -3752,8 +3752,9 @@ function aplicarFiltrosYOrden(lista) {
             // Secciones propias: JK y AnimeAV1 no se mezclan
             if (gridSeccion === "jk") return isJk;
             if (gridSeccion === "anime" && isJk) return false;
-            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
-            if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
+            // animeFuente solo cuenta si la sección es jk o anime
+            if (gridSeccion === "jk" || (gridSeccion === "anime" && animeFuente === "jk")) return isJk;
+            if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isJk) return false;
 
             // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
             if ((gridSeccion === "anime" || gridTypeFilter === "anime") && isAv1 && !isJk) {
@@ -3812,18 +3813,23 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         animeFuente = "av1";
       } else if (seccion === "movie" || seccion === "series") {
         gridTypeFilter = seccion;
+        animeFuente = "av1"; // salir de JK
       } else {
         gridTypeFilter = "all";
+        animeFuente = "av1";
       }
     } else if (modo === "search") {
       if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
       else if (seccion === "jk") { gridTypeFilter = "anime"; animeFuente = "jk"; }
-      else if (seccion === "series") gridTypeFilter = "series";
-      else if (seccion === "movie") gridTypeFilter = "movie";
+      else if (seccion === "series") { gridTypeFilter = "series"; animeFuente = "av1"; }
+      else if (seccion === "movie") { gridTypeFilter = "movie"; animeFuente = "av1"; }
       else {
         gridTypeFilter = "all";
         gridSeccion = "all";
+        animeFuente = "av1";
       }
+    } else if (modo === "favoritos") {
+      animeFuente = "av1";
     }
 
     // Si NO es búsqueda → ocultar “Buscar online”
@@ -4431,10 +4437,8 @@ async function fetchBusqueda(termino, source = "online", page = 1, limit = LIMIT
     const src = source === "local" ? "local" : "online";
     // Solo JK es búsqueda restringida. El resto (inicio, pelis, series, anime AV1) = global/universal.
     let animeOpts = {};
-    const soloJk =
-      animeFuente === "jk" ||
-      gridSeccion === "jk" ||
-      (gridTypeFilter === "anime" && animeFuente === "jk");
+    // Solo restringir a JK si la sección activa es jk
+    const soloJk = gridSeccion === "jk";
     if (soloJk) {
       animeOpts = { animeSource: "jk" };
     }
@@ -4549,12 +4553,12 @@ async function cargarPaginaGrid() {
             await renderAnimeAv1HomeGrid();
             return;
         } else if (
-          (gridSeccion === "jk" || animeFuente === "jk") &&
+          gridSeccion === "jk" &&
           gridPage === 1 &&
           gridModo === "categoria"
         ) {
             actualizarBotonOnline(false);
-            // JK: /5/home → Nuevos (Programación Animes) + Recién agregados
+            // JK home solo si la sección activa ES jk
             await renderJkHomeGrid();
             return;
         } else {
@@ -8989,15 +8993,12 @@ if (searchForm) {
     busquedaEsLocal = false; // online por defecto
     // Si estás en JK → búsqueda solo JK; si no → global
     try {
-      const enJk = animeFuente === "jk" || gridSeccion === "jk";
+      // Solo buscar en JK si YA estás en la sección JK
+      const enJk = gridSeccion === "jk";
       if (enJk) {
-        gridSeccion = "jk";
-        gridTypeFilter = "anime";
         animeFuente = "jk";
         mostrarGrid({ modo: "search", seccion: "jk", termino: texto });
       } else {
-        gridSeccion = "all";
-        gridTypeFilter = "all";
         animeFuente = "av1";
         mostrarGrid({ modo: "search", seccion: "all", termino: texto });
       }
