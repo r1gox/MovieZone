@@ -3434,6 +3434,7 @@ async function reproducirHlsNoAds(playUrl, item) {
 // ======================================================
 function mostrarHome() {
     vistaActual = "home";
+    try { animeFuente = "av1"; gridSeccion = "movie"; } catch (_) {}
     homeView.classList.remove("hidden");
     gridView.classList.add("hidden");
 
@@ -4278,8 +4279,12 @@ function aplicarFiltrosYOrden(lista) {
             const isAv1 = sid === "4" || sid === "animeav1" || /animeav1/i.test(sid);
             // Secciones propias: JK y AnimeAV1 no se mezclan
             if (gridSeccion === "jk") return isJk;
+            // Películas / series / anime AV1: nunca items JK
+            if (gridSeccion === "movie" || gridSeccion === "series" || gridSeccion === "anime") {
+              if (isJk) return false;
+            }
             if (gridSeccion === "anime" && isJk) return false;
-            if (animeFuente === "jk" && (gridTypeFilter === "anime" || gridSeccion === "jk")) return isJk;
+            if (animeFuente === "jk" && gridSeccion === "jk") return isJk;
             if (animeFuente === "av1" && gridTypeFilter === "anime" && isJk) return false;
 
             // Sección Anime: SOLO AnimeAV1 (4) con cualquier tipo — NO películas de otras fuentes
@@ -4339,8 +4344,10 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
         animeFuente = "av1";
       } else if (seccion === "movie" || seccion === "series") {
         gridTypeFilter = seccion;
+        animeFuente = "av1"; // salir de JK: no arrastrar fuente
       } else {
         gridTypeFilter = "all";
+        if (seccion !== "jk") animeFuente = "av1";
       }
     } else if (modo === "search") {
       if (seccion === "anime") { gridTypeFilter = "anime"; animeFuente = "av1"; }
@@ -4387,6 +4394,10 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     resultsGrid.innerHTML = "";
     resultsEmpty.classList.add("hidden");
     scrollSentinel.classList.add("hidden");
+    try {
+      resultsGrid.classList.add("catalog-grid");
+      resultsGrid.classList.remove("mz-av1-home-wrap", "mz-jk-home-wrap");
+    } catch (_) {}
     try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     cargarPaginaGrid();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -5200,12 +5211,12 @@ async function cargarPaginaGrid() {
             await renderAnimeAv1HomeGrid();
             return;
         } else if (
-          (gridSeccion === "jk" || animeFuente === "jk") &&
+          gridSeccion === "jk" &&
           gridPage === 1 &&
           gridModo === "categoria"
         ) {
             actualizarBotonOnline(false);
-            // JK: /5/home → Nuevos (Programación Animes) + Recién agregados
+            // JK: /5/home → solo cuando la sección activa ES jk
             await renderJkHomeGrid();
             return;
         } else {
@@ -5215,9 +5226,7 @@ async function cargarPaginaGrid() {
             // Anime / JK: keys+batch; si sale vacío → fallback.
             if (
               gridSeccion === "anime" ||
-              gridSeccion === "jk" ||
-              animeFuente === "jk" ||
-              animeFuente === "av1"
+              gridSeccion === "jk"
             ) {
               try {
                 lista = await fetchSeccionCatalogRapido(gridSeccion, gridPage, LIMIT);
@@ -5568,6 +5577,11 @@ heroInfoBtn.addEventListener("click", () => {
 // CARGA INICIAL (home)
 // ======================================================
 async function cargarHome() {
+    // Deep link /detalle: no interrumpir con la vista inicio
+    if (window.__mzSkipHomeBoot) {
+      console.log("cargarHome omitido (deep link activo)");
+      return;
+    }
     if (typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
     const withTimeout = (p, ms) => Promise.race([
@@ -9987,9 +10001,11 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
     if (isDeep) {
       try { setBootLoading(true); } catch (_) {}
       try { document.body.classList.add("mz-deep-loading"); } catch (_) {}
-      // handleDeepLink se ejecuta abajo (async); home en segundo plano después
+      try {
+        if (typeof homeView !== "undefined" && homeView) homeView.classList.add("hidden");
+        if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
+      } catch (_) {}
       window.__mzSkipHomeBoot = true;
-      // Cuando el detalle esté listo, opcionalmente precargar home sin mostrarlo
       window.__mzPrefetchHomeAfterDeep = true;
     } else {
       window.__mzSkipHomeBoot = false;
