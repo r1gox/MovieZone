@@ -7,6 +7,7 @@
     var p = location.pathname || "";
     if (/^\/detalle\//i.test(p) || /^\/(serie|pelicula|anime)\//i.test(p)) {
       document.documentElement.classList.add("mz-deep-boot");
+      try { document.documentElement.dataset.mzWaitDetail = "1"; } catch (e2) {}
       if (/\/\d+\/\d+\/?$/i.test(p)) {
         document.documentElement.classList.add("mz-deep-ep");
       }
@@ -95,6 +96,25 @@ html.mz-deep-ready #mz-boot-loading {
 html.mz-deep-ready body {
   overflow: auto !important;
 }
+/* Mientras esperamos datos del detalle: overlay SIEMPRE visible */
+body.mz-waiting-detail #mz-boot-loading,
+body.mz-waiting-detail #mz-boot-loading.hidden {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: #0a0611 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: all !important;
+}
+body.mz-waiting-detail #home-view,
+body.mz-waiting-detail #grid-view {
+  display: none !important;
+}
+
 html.mz-deep-ready .netflix-navbar,
 html.mz-deep-ready #netflix-navbar {
   /* el detalle usa su propia UI; la nav del home puede seguir oculta mientras details-open */
@@ -154,11 +174,11 @@ body.details-open #grid-view {
 (function () {
   try {
     if (document.documentElement.classList.contains("mz-deep-boot")) {
-      document.body.classList.add("mz-deep-loading");
+      document.body.classList.add("mz-deep-loading", "mz-waiting-detail");
       var b = document.getElementById("mz-boot-loading");
       if (b) {
         b.classList.remove("hidden");
-        var t = b.querySelector("p");
+        var t = b.querySelector("p, .mz-boot-text");
         if (t) t.textContent = "Cargando datos...";
       }
     }

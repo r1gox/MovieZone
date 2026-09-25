@@ -5835,18 +5835,15 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     try {
-      // Mantener "Cargando datos..." hasta pintar el detalle (no quitar mz-deep-boot aún)
-      document.body.classList.add("details-open");
+      // Mantener overlay hasta tener datos reales
+      document.body.classList.add("details-open", "mz-waiting-detail");
       if (typeof homeView !== "undefined" && homeView) homeView.classList.add("hidden");
       if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
-      // Asegurar overlay visible mientras carga
-      if (document.documentElement.classList.contains("mz-deep-boot")) {
-        var bootEl = document.getElementById("mz-boot-loading");
-        if (bootEl) {
-          bootEl.classList.remove("hidden");
-          var tp = bootEl.querySelector("p, .mz-boot-text");
-          if (tp) tp.textContent = "Cargando datos...";
-        }
+      var bootEl = document.getElementById("mz-boot-loading");
+      if (bootEl) {
+        bootEl.classList.remove("hidden");
+        var tp = bootEl.querySelector("p, .mz-boot-text");
+        if (tp) tp.textContent = "Cargando datos...";
       }
     } catch (_) {}
 
@@ -6446,8 +6443,19 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       fillKoiHero(item);
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
-    // Detalle ya pintado → quitar overlay de deep-boot
-    try { mzFinishDeepBoot(); } catch (_) {}
+    // Solo quitar overlay si ya hay título / contenido visible
+    try {
+      var titleOk = false;
+      var t1 = document.getElementById("details-title");
+      var t2 = document.querySelector("#koi-hero h1, #koi-hero .koi-title, .detail-title, #details-nombre");
+      if (t1 && (t1.textContent || "").trim().length > 1) titleOk = true;
+      if (t2 && (t2.textContent || "").trim().length > 1) titleOk = true;
+      if (item && (item.nombre || item.titulo)) titleOk = true;
+      if (titleOk) mzFinishDeepBoot();
+      else setTimeout(function () { try { mzFinishDeepBoot(); } catch (_) {} }, 600);
+    } catch (_) {
+      try { mzFinishDeepBoot(); } catch (__) {}
+    }
 
     const esPeli =
       (typeof isPeliculaItem === "function" && isPeliculaItem(item)) ||
@@ -9995,7 +10003,8 @@ function mzFinishDeepBoot() {
   try {
     document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
     document.documentElement.classList.add("mz-deep-ready");
-    document.body.classList.remove("mz-deep-loading", "mz-booting");
+    document.body.classList.remove("mz-deep-loading", "mz-booting", "mz-waiting-detail");
+    try { delete document.documentElement.dataset.mzWaitDetail; } catch (_) {}
     var boot = document.getElementById("mz-boot-loading");
     if (boot) boot.classList.add("hidden");
     setBootLoading(false);
@@ -10334,25 +10343,24 @@ async function handleDeepLink() {
     } catch (e) { console.warn("Deep link:", e); }
     finally {
       try {
-        // Si el detalle ya se abrió, abrirDetalle ya llamó mzFinishDeepBoot.
-        // Si falló el deep link, quitar overlay tras un momento para no quedar trabado.
-        var panel = document.getElementById("details-panel");
-        var abierto = panel && !panel.classList.contains("hidden");
-        if (abierto) {
-          mzFinishDeepBoot();
-        } else if (document.documentElement.classList.contains("mz-deep-boot")) {
+        // No quitar overlay aquí si aún estamos esperando datos (mz-waiting-detail).
+        // abrirDetalle llama mzFinishDeepBoot cuando ya pintó.
+        if (document.body.classList.contains("mz-waiting-detail")) {
+          // red de seguridad: si tras 12s sigue el overlay, liberar
           setTimeout(function () {
             try {
-              var p2 = document.getElementById("details-panel");
-              if (p2 && !p2.classList.contains("hidden")) mzFinishDeepBoot();
-              else {
-                // Falló: volver a inicio usable
-                window.__mzSkipHomeBoot = false;
+              if (document.body.classList.contains("mz-waiting-detail")) {
                 mzFinishDeepBoot();
-                if (typeof cargarHome === "function") cargarHome();
               }
             } catch (_) {}
-          }, 400);
+          }, 12000);
+        } else if (document.documentElement.classList.contains("mz-deep-boot")) {
+          var panel = document.getElementById("details-panel");
+          if (!panel || panel.classList.contains("hidden")) {
+            window.__mzSkipHomeBoot = false;
+            mzFinishDeepBoot();
+            if (typeof cargarHome === "function") cargarHome();
+          }
         }
       } catch (_) {}
       // Precargar home en segundo plano (no se muestra) para al volver sea instantáneo
