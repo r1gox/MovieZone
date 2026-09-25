@@ -5,13 +5,43 @@
 (function () {
   try {
     var p = location.pathname || "";
-    if (/^\/detalle\//i.test(p) || /^\/(serie|pelicula|anime)\//i.test(p)) {
-      document.documentElement.classList.add("mz-deep-boot");
-      try { document.documentElement.dataset.mzWaitDetail = "1"; } catch (e2) {}
-      if (/\/\d+\/\d+\/?$/i.test(p)) {
-        document.documentElement.classList.add("mz-deep-ep");
+    if (!/^\/detalle\//i.test(p) && !/^\/(serie|pelicula|anime)\//i.test(p)) return;
+    document.documentElement.classList.add("mz-deep-boot");
+    try { document.documentElement.dataset.mzWaitDetail = "1"; } catch (e2) {}
+    if (/\/\d+\/\d+\/?$/i.test(p)) document.documentElement.classList.add("mz-deep-ep");
+
+    // Overlay a prueba de CSS: estilos INLINE (no depende de clases)
+    function ensureOverlay() {
+      var el = document.getElementById("mz-boot-loading");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "mz-boot-loading";
+        el.className = "mz-boot-loading";
+        el.innerHTML = '<div class="mz-boot-loading-inner" style="display:flex;flex-direction:column;align-items:center;gap:18px;">' +
+          '<div class="mz-boot-spinner" style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.12);border-top-color:#7c5cff;border-radius:50%;animation:mzBootSpin .75s linear infinite;"></div>' +
+          '<p class="mz-boot-text" style="margin:0;color:#fff;font:500 1.05rem system-ui,sans-serif;">Cargando datos...</p></div>';
+        (document.body || document.documentElement).appendChild(el);
       }
+      el.classList.remove("hidden");
+      el.setAttribute("data-mz-lock", "1");
+      el.style.cssText = "display:flex!important;visibility:visible!important;opacity:1!important;position:fixed!important;inset:0!important;z-index:2147483647!important;background:#0a0611!important;align-items:center!important;justify-content:center!important;flex-direction:column!important;pointer-events:all!important;";
+      var t = el.querySelector("p, .mz-boot-text");
+      if (t) t.textContent = "Cargando datos...";
     }
+    if (document.body) ensureOverlay();
+    else document.addEventListener("DOMContentLoaded", ensureOverlay);
+    // Reaplicar por si algo lo oculta antes de tiempo
+    window.__mzForceBootOverlay = ensureOverlay;
+    var n = 0;
+    window.__mzBootWatch = setInterval(function () {
+      n++;
+      if (!document.documentElement.classList.contains("mz-deep-boot") && !document.body.classList.contains("mz-waiting-detail")) {
+        clearInterval(window.__mzBootWatch);
+        return;
+      }
+      ensureOverlay();
+      if (n > 80) clearInterval(window.__mzBootWatch); // ~20s max
+    }, 250);
   } catch (e) {}
 })();
 </script>

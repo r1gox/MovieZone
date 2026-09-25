@@ -6471,16 +6471,11 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
       fillKoiHero(item);
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
-    // Solo quitar overlay si ya hay título / contenido visible
+    // Quitar overlay solo cuando el DOM del detalle ya muestra contenido
     try {
-      var titleOk = false;
-      var t1 = document.getElementById("details-title");
-      var t2 = document.querySelector("#koi-hero h1, #koi-hero .koi-title, .detail-title, #details-nombre");
-      if (t1 && (t1.textContent || "").trim().length > 1) titleOk = true;
-      if (t2 && (t2.textContent || "").trim().length > 1) titleOk = true;
-      if (item && (item.nombre || item.titulo)) titleOk = true;
-      if (titleOk) mzFinishDeepBoot();
-      else setTimeout(function () { try { mzFinishDeepBoot(); } catch (_) {} }, 600);
+      requestAnimationFrame(function () {
+        setTimeout(function () { try { mzFinishDeepBoot(); } catch (_) {} }, 50);
+      });
     } catch (_) {
       try { mzFinishDeepBoot(); } catch (__) {}
     }
@@ -10022,19 +10017,58 @@ function actualizarPaginacion() {
 function setBootLoading(on) {
   const el = document.getElementById("mz-boot-loading");
   if (!el) return;
+  // No ocultar si el overlay está bloqueado esperando el detalle
+  if (!on && (el.getAttribute("data-mz-lock") === "1" || document.body.classList.contains("mz-waiting-detail"))) {
+    return;
+  }
   el.classList.toggle("hidden", !on);
+  if (on) {
+    el.style.cssText = "display:flex!important;visibility:visible!important;opacity:1!important;position:fixed!important;inset:0!important;z-index:2147483647!important;background:#0a0611!important;align-items:center!important;justify-content:center!important;";
+  } else {
+    el.style.cssText = "display:none!important;";
+  }
   document.body.classList.toggle("mz-booting", !!on);
 }
 
 /** Quita overlay "Cargando datos..." solo cuando el detalle ya está listo */
 function mzFinishDeepBoot() {
   try {
+    // Solo si el panel de detalle tiene contenido real en DOM
+    var panel = document.getElementById("details-panel");
+    var hero = document.getElementById("koi-hero");
+    var title =
+      document.querySelector("#koi-hero h1, #koi-hero .koi-title, #details-title, .koi-hero-title");
+    var hasUi =
+      panel &&
+      !panel.classList.contains("hidden") &&
+      (
+        (title && (title.textContent || "").trim().length > 1) ||
+        (hero && hero.offsetHeight > 40)
+      );
+    if (!hasUi && document.body.classList.contains("mz-waiting-detail")) {
+      // aún no: reintentar un poco más tarde
+      if (!window.__mzFinishTries) window.__mzFinishTries = 0;
+      window.__mzFinishTries++;
+      if (window.__mzFinishTries < 40) {
+        setTimeout(function () { try { mzFinishDeepBoot(); } catch (_) {} }, 150);
+        return;
+      }
+    }
+    window.__mzFinishTries = 0;
+    if (window.__mzBootWatch) {
+      try { clearInterval(window.__mzBootWatch); } catch (_) {}
+      window.__mzBootWatch = null;
+    }
     document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
     document.documentElement.classList.add("mz-deep-ready");
     document.body.classList.remove("mz-deep-loading", "mz-booting", "mz-waiting-detail");
     try { delete document.documentElement.dataset.mzWaitDetail; } catch (_) {}
     var boot = document.getElementById("mz-boot-loading");
-    if (boot) boot.classList.add("hidden");
+    if (boot) {
+      boot.removeAttribute("data-mz-lock");
+      boot.classList.add("hidden");
+      boot.style.cssText = "display:none!important;";
+    }
     setBootLoading(false);
   } catch (_) {}
 }
