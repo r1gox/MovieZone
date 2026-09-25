@@ -9066,3 +9066,21 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
   color: #fbbf24 !important;
   font-weight: 600;
 }
+
+
+/* Reload en /detalle: sin pantalla de inicio */
+html.mz-deep-boot .mz-boot-loading {
+  display: none !important;
+}
+html.mz-deep-boot #home-view,
+html.mz-deep-boot #grid-view {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.mz-deep-boot.mz-deep-ready #home-view,
+html.mz-deep-boot:not(.mz-deep-boot) #home-view {
+  visibility: visible;
+}
+html.mz-deep-boot body.details-open #details-panel {
+  visibility: visible;
+}

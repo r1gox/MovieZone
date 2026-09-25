@@ -5155,7 +5155,11 @@ heroInfoBtn.addEventListener("click", () => {
 // CARGA INICIAL (home)
 // ======================================================
 async function cargarHome() {
-    if (typeof setBootLoading === "function") setBootLoading(true);
+    const _deepHome =
+      document.body.classList.contains("details-open") ||
+      document.documentElement.classList.contains("mz-deep-boot") ||
+      (typeof mzPathEsDetalle === "function" && mzPathEsDetalle(location.pathname));
+    if (!_deepHome && typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
     const withTimeout = (p, ms) => Promise.race([
       p,
@@ -6128,6 +6132,9 @@ async function abrirDetalle(item, autoPlay = false, force = false) {
 function cerrarDetalle(fromPop) {
     try {
       window.__mzPortadaLista = null;
+    } catch (_) {}
+    try {
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready");
     } catch (_) {}
     if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
     // fromPop === true → ya venimos de popstate con path "/"
@@ -9640,10 +9647,13 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
       : /^\/detalle\//i.test(location.pathname || "");
     if (deep) {
       try {
-        if (typeof setBootLoading === "function") setBootLoading(true);
-        document.body.classList.add("mz-booting");
+        // Nunca el "Cargando…" de inicio en rutas de detalle
+        if (typeof setBootLoading === "function") setBootLoading(false);
+        document.body.classList.remove("mz-booting");
+        document.getElementById("mz-boot-loading")?.classList.add("hidden");
         document.getElementById("home-view")?.classList.add("hidden");
         document.getElementById("grid-view")?.classList.add("hidden");
+        document.documentElement.classList.add("mz-deep-boot");
       } catch (_) {}
       try {
         await handleDeepLink({ fromBoot: true });
@@ -9653,8 +9663,9 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
       try {
         if (typeof setBootLoading === "function") setBootLoading(false);
         document.body.classList.remove("mz-booting");
+        document.getElementById("mz-boot-loading")?.classList.add("hidden");
       } catch (_) {}
-      // Home en segundo plano (para al cerrar detalle)
+      // Home en segundo plano (para al cerrar detalle) — sin overlay
       try { cargarHome(); } catch (_) {}
     } else {
       cargarHome();
@@ -9932,34 +9943,67 @@ async function handleDeepLink(opts) {
             try { slug = decodeURIComponent(slug); } catch (_) {}
             const season = pathM[2] ? parseInt(pathM[2], 10) : null;
             const episode = pathM[3] ? parseInt(pathM[3], 10) : null;
-            // Shell inmediato: no mostrar home mientras carga el detalle
+            // Shell inmediato + caché (sin pantalla de inicio)
+            let sidDeep = sidFromPath || "";
+            try {
+              if (!sidDeep) sidDeep = new URLSearchParams(location.search || "").get("source_id") || "";
+              if (!sidDeep && history.state && history.state.source_id) sidDeep = String(history.state.source_id);
+            } catch (_) {}
             try {
               const home = document.getElementById("home-view");
               const grid = document.getElementById("grid-view");
               if (home) home.classList.add("hidden");
               if (grid) grid.classList.add("hidden");
               document.body.classList.add("details-open");
+              document.getElementById("mz-boot-loading")?.classList.add("hidden");
+              if (typeof setBootLoading === "function") setBootLoading(false);
               if (typeof openDetailsShell === "function") openDetailsShell();
-              else {
-                const panel = document.getElementById("details-panel");
-                if (panel) panel.classList.remove("hidden");
-              }
-              if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(true);
+              else document.getElementById("details-panel")?.classList.remove("hidden");
               const tEl = document.getElementById("details-title");
               if (tEl && (!tEl.textContent || tEl.textContent === "Sin título" || tEl.textContent === "-")) {
                 tEl.textContent = String(slug).replace(/-/g, " ");
               }
             } catch (_) {}
+
+            // 1) Pintar desde sessionStorage si hay visita previa (rápido)
+            let paintedFromCache = false;
+            try {
+              const seed = { slug: slug, source_id: sidDeep || undefined };
+              const cached =
+                typeof getCachedDetail === "function" ? getCachedDetail(seed) : null;
+              if (cached && (cached.titulo || cached.nombre || cached.slug)) {
+                const quick = Object.assign({}, cached, {
+                  slug: cached.slug || slug,
+                  source_id: sidDeep || cached.source_id
+                });
+                if (sidDeep) {
+                  quick.source_id = String(sidDeep);
+                  if (String(sidDeep) === "5") {
+                    quick.fuente = "jkanime";
+                    quick.tipo = quick.tipo || "Anime";
+                  }
+                  if (String(sidDeep) === "4") {
+                    quick.fuente = quick.fuente || "animeav1";
+                    quick.tipo = quick.tipo || "Anime";
+                  }
+                }
+                if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+                await abrirDetalle(quick, false, false);
+                paintedFromCache = true;
+                try {
+                  document.documentElement.classList.add("mz-deep-ready");
+                } catch (_) {}
+              }
+            } catch (_) {}
+
+            if (!paintedFromCache && typeof mostrarDetalleLoading === "function") {
+              mostrarDetalleLoading(true);
+            }
+
             const q = new URLSearchParams();
             q.set("slug", slug);
-            let sidDeep = sidFromPath || "";
-            try {
-              if (!sidDeep) sidDeep = new URLSearchParams(location.search || "").get("source_id") || "";
-              if (!sidDeep && history.state && history.state.source_id) sidDeep = String(history.state.source_id);
-            } catch (_) {}
             if (sidDeep) {
               q.set("source_id", String(sidDeep));
-              // 4/5 = anime: no dejar que el server asuma serie/AV1
               if (String(sidDeep) === "5" || String(sidDeep) === "4") {
                 q.set("tipo", "anime");
               }
@@ -9981,11 +10025,18 @@ async function handleDeepLink(opts) {
               try { window.__mzLockSourceId = String(sidDeep); } catch (_) {}
             }
             if (item && (item.nombre || item.titulo || item.link || item.slug)) {
-                await abrirDetalle(item);
+                // Si ya pintamos caché, refrescar sin “flash” de loading fuerte
+                if (paintedFromCache) {
+                  try {
+                    if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
+                  } catch (_) {}
+                }
+                await abrirDetalle(item, false, paintedFromCache ? false : false);
                 try {
                   if (typeof mostrarDetalleLoading === "function") mostrarDetalleLoading(false);
                   if (typeof setBootLoading === "function") setBootLoading(false);
                   document.body.classList.remove("mz-booting");
+                  document.documentElement.classList.add("mz-deep-ready");
                 } catch (_) {}
                 if (season && episode && typeof isSerieOrAnime === "function" && isSerieOrAnime(item)) {
                     // Esperar episodios y abrir vista (móvil o click)

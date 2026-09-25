@@ -1,5 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
+<script>
+/* Evita flash de inicio al recargar /detalle/... */
+(function () {
+  try {
+    var p = location.pathname || "";
+    if (/^\/detalle\//i.test(p) || /^\/(serie|pelicula|anime)\//i.test(p)) {
+      document.documentElement.classList.add("mz-deep-boot");
+    }
+  } catch (e) {}
+})();
+</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
