@@ -5835,12 +5835,17 @@ function mostrarDetalleLoading(on) {
 
 async function abrirDetalle(item, autoPlay = false, force = false) {
     try {
-      // Fin del modo deep-boot: ya no mostrar shell de inicio vacío
+      // Solo detalle: sin inicio detrás
       document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
       document.documentElement.classList.add("mz-deep-ready");
       document.body.classList.remove("mz-deep-loading", "mz-booting");
+      document.body.classList.add("details-open");
       var bootEl = document.getElementById("mz-boot-loading");
       if (bootEl) bootEl.classList.add("hidden");
+      if (typeof homeView !== "undefined" && homeView) homeView.classList.add("hidden");
+      if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
+      var nav = document.getElementById("netflix-navbar");
+      // navbar del home se puede mostrar otra vez al cerrar detalle; durante detalle el panel cubre
     } catch (_) {}
 
     if (item) fijarTitulosItem(item, item.nombre || item.titulo);

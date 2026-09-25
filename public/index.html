@@ -15,44 +15,60 @@
 })();
 </script>
 <style id="mz-deep-boot-css">
-/* Ocultar shell de inicio ANTES de que cargue app.js */
+/* Recarga /detalle: NADA de inicio — solo loading → detalle */
 html.mz-deep-boot #home-view,
 html.mz-deep-boot #grid-view,
 html.mz-deep-boot #tv-view,
 html.mz-deep-boot .bg-shape,
 html.mz-deep-boot #hero-slider,
 html.mz-deep-boot .home-catalogs,
-html.mz-deep-boot .carousel-row {
+html.mz-deep-boot .carousel-row,
+html.mz-deep-boot .netflix-navbar,
+html.mz-deep-boot #netflix-navbar,
+html.mz-deep-boot #drawer-backdrop,
+html.mz-deep-boot #mz-browser-warn,
+html.mz-deep-boot #sidebar-drawer,
+html.mz-deep-boot .mobile-bottom-nav,
+html.mz-deep-boot #mobile-bottom-nav {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
-  height: 0 !important;
-  overflow: hidden !important;
   opacity: 0 !important;
 }
 html.mz-deep-boot body {
   background: #0a0611 !important;
   overflow: hidden !important;
+  margin: 0 !important;
 }
-html.mz-deep-boot #mz-boot-loading {
+html.mz-deep-boot #mz-boot-loading,
+html.mz-deep-boot #mz-boot-loading.hidden {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
-  z-index: 99999 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  background: #0a0611 !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
-html.mz-deep-boot #mz-boot-loading.hidden {
-  display: flex !important;
-}
-/* Navbar visible pero sin “Inicio” activo confuso — opcional suave */
-html.mz-deep-boot .netflix-navbar .nav-links li.active {
-  opacity: 0.55;
-}
-/* Cuando el detalle ya está abierto */
+/* details-panel puede estar .hidden en HTML; en deep-boot no lo forzamos visible hasta JS */
 html.mz-deep-ready #mz-boot-loading {
   display: none !important;
+  visibility: hidden !important;
 }
 html.mz-deep-ready body {
   overflow: auto !important;
+}
+html.mz-deep-ready .netflix-navbar,
+html.mz-deep-ready #netflix-navbar {
+  /* el detalle usa su propia UI; la nav del home puede seguir oculta mientras details-open */
+}
+body.details-open .netflix-navbar,
+body.details-open #netflix-navbar,
+body.details-open #home-view,
+body.details-open #grid-view {
+  /* por si el CSS de la app no lo hace: no mostrar inicio detrás del detalle */
 }
 </style>
 <head>
