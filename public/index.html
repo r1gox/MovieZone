@@ -58,6 +58,17 @@
   <link rel="stylesheet" href="/css/mz-status-badge.css">
 </head>
 <body>
+<script>
+(function () {
+  try {
+    if (document.documentElement.classList.contains("mz-deep-boot")) {
+      document.body.classList.add("mz-deep-loading");
+      var b = document.getElementById("mz-boot-loading");
+      if (b) b.classList.add("hidden");
+    }
+  } catch (e) {}
+})();
+</script>
   <div id="mz-boot-loading" class="mz-boot-loading" aria-live="polite">
     <div class="mz-boot-loading-inner">
       <div class="mz-boot-spinner"></div>

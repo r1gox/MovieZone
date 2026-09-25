@@ -2992,8 +2992,20 @@ async function reproducirHlsNoAds(playUrl, item) {
 // ======================================================
 function mostrarHome() {
     vistaActual = "home";
-    homeView.classList.remove("hidden");
-    gridView.classList.add("hidden");
+    try {
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready", "mz-deep-ep");
+      document.body.classList.remove("mz-deep-loading", "mz-booting", "details-open");
+    } catch (_) {}
+    try {
+      if (homeView) {
+        homeView.classList.remove("hidden");
+        homeView.style.display = "";
+        homeView.style.visibility = "";
+      }
+      if (gridView) gridView.classList.add("hidden");
+    } catch (_) {}
+    if (homeView) homeView.classList.remove("hidden");
+    if (gridView) gridView.classList.add("hidden");
 
     // Cerrar vista TV al volver a Inicio
     const tv = document.getElementById("tv-view");
@@ -6159,7 +6171,10 @@ function cerrarDetalle(fromPop) {
     document.body.classList.remove("player-open");
     try { salirVistaMovilEpisodio(); } catch (_) {}
     document.body.classList.remove("koi-movie", "mz-mobile-movie-playing");
-    document.body.classList.remove("details-open");
+    document.body.classList.remove("details-open", "mz-deep-loading");
+    try {
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ready", "mz-deep-ep");
+    } catch (_) {}
     try { clearKoiMode(); setKoiPlayerEpisodeTitle(""); } catch (_) {}
     destruirHls();
     playerIframe.src = "about:blank";
@@ -6173,7 +6188,34 @@ function cerrarDetalle(fromPop) {
     const body = document.querySelector("#details-panel .details-body");
     if (body) body.scrollTop = 0;
 
-    cargarContinuarViendo();
+    // Restaurar la vista de detrás (home/grid) — el deep link las dejaba ocultas
+    try {
+      const home = (typeof homeView !== "undefined" && homeView) ? homeView : document.getElementById("home-view");
+      const grid = (typeof gridView !== "undefined" && gridView) ? gridView : document.getElementById("grid-view");
+      if (vistaActual === "grid" && grid) {
+        grid.classList.remove("hidden");
+        grid.style.display = "";
+        grid.style.visibility = "";
+        if (home) home.classList.add("hidden");
+      } else {
+        if (home) {
+          home.classList.remove("hidden");
+          home.style.display = "";
+          home.style.visibility = "";
+        }
+        if (grid) grid.classList.add("hidden");
+        vistaActual = "home";
+      }
+      // Si el home se cargó en background vacío a la vista, forzar un refresh visual
+      try {
+        const hasCards = home && home.querySelector && home.querySelector(".media-card, .carousel-card");
+        if (!hasCards && typeof cargarHome === "function") {
+          cargarHome();
+        }
+      } catch (_) {}
+    } catch (_) {}
+
+    try { cargarContinuarViendo(); } catch (_) {}
 }
 try { window.cerrarDetalle = cerrarDetalle; } catch (_) {}
 
@@ -9647,13 +9689,14 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
       : /^\/detalle\//i.test(location.pathname || "");
     if (deep) {
       try {
-        // Nunca el "Cargando…" de inicio en rutas de detalle
         if (typeof setBootLoading === "function") setBootLoading(false);
         document.body.classList.remove("mz-booting");
+        document.body.classList.add("mz-deep-loading");
         document.getElementById("mz-boot-loading")?.classList.add("hidden");
+        document.documentElement.classList.add("mz-deep-boot");
+        // Ocultar home solo mientras carga detalle (no display:none permanente)
         document.getElementById("home-view")?.classList.add("hidden");
         document.getElementById("grid-view")?.classList.add("hidden");
-        document.documentElement.classList.add("mz-deep-boot");
       } catch (_) {}
       try {
         await handleDeepLink({ fromBoot: true });
@@ -9997,6 +10040,7 @@ async function handleDeepLink(opts) {
                 paintedFromCache = true;
                 try {
                   document.documentElement.classList.add("mz-deep-ready");
+                  document.body.classList.remove("mz-deep-loading");
                 } catch (_) {}
                 // Episodio desde caché: abrir ya (no esperar red)
                 if (season && episode) {
@@ -10062,6 +10106,7 @@ async function handleDeepLink(opts) {
                   if (typeof setBootLoading === "function") setBootLoading(false);
                   document.body.classList.remove("mz-booting");
                   document.documentElement.classList.add("mz-deep-ready");
+                  document.body.classList.remove("mz-deep-loading");
                 } catch (_) {}
                 if (season && episode) {
                     // Confirmar episodio con datos frescos de la API

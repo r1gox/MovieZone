@@ -9068,40 +9068,25 @@ body.mz-mobile-ep-playing .mz-ep-movie-ep {
 }
 
 
-/* Reload en /detalle: sin pantalla de inicio */
+
+
+
+
+/* Deep link /detalle: solo ocultar boot de inicio, NO romper el home al volver */
+html.mz-deep-boot #mz-boot-loading,
 html.mz-deep-boot .mz-boot-loading {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
-html.mz-deep-boot #home-view,
-html.mz-deep-boot #grid-view {
+/* Mientras carga el detalle, no mostrar carruseles (clase temporal en body) */
+body.mz-deep-loading #home-view,
+body.mz-deep-loading #grid-view,
+body.mz-deep-loading #carousel-section-container {
   visibility: hidden !important;
   pointer-events: none !important;
 }
-html.mz-deep-boot.mz-deep-ready #home-view,
-html.mz-deep-boot:not(.mz-deep-boot) #home-view {
-  visibility: visible;
-}
-html.mz-deep-boot body.details-open #details-panel {
-  visibility: visible;
-}
-
-
-/* Reload directo a episodio: ocultar home/carruseles por completo */
-html.mz-deep-boot #home-view,
-html.mz-deep-boot #grid-view,
-html.mz-deep-boot #carousel-section-container,
-html.mz-deep-boot .carousel-section,
-html.mz-deep-boot .netflix-navbar .filter-tab {
-  /* nav ok, solo no flash de contenido home */
-}
-html.mz-deep-boot #home-view,
-html.mz-deep-boot #grid-view {
-  display: none !important;
-}
-html.mz-deep-ep body:not(.details-open) #details-panel {
-  /* se abre en JS */
-}
-html.mz-deep-boot.mz-deep-ep #mz-boot-loading,
-html.mz-deep-boot #mz-boot-loading {
-  display: none !important;
+body.mz-deep-loading #details-panel {
+  visibility: visible !important;
 }
