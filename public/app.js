@@ -3460,10 +3460,140 @@ async function reproducirHlsNoAds(playUrl, item) {
 // ======================================================
 // NAVEGACIÓN DE VISTAS
 // ======================================================
+
+// ---------- Rutas de sección (historial real del navegador) ----------
+// /  /peliculas  /series  /animes  /jkanimes  /favoritos  /futbol  /tv
+window.__mzRouteSilent = false; // true = aplicar vista sin pushState
+
+function mzNormalizePath(p) {
+  p = String(p || "/").split("?")[0].split("#")[0];
+  if (!p || p === "") return "/";
+  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  return p.toLowerCase();
+}
+
+function mzPathFromSeccion(seccion, modo) {
+  if (modo === "favoritos") return "/favoritos";
+  if (modo === "historial") return "/historial";
+  var s = String(seccion || "");
+  if (s === "movie" || s === "peliculas" || s === "pelicula") return "/peliculas";
+  if (s === "series" || s === "serie") return "/series";
+  if (s === "anime" || s === "animes") return "/animes";
+  if (s === "jk" || s === "jkanime" || s === "jkanimes") return "/jkanimes";
+  return "/";
+}
+
+function mzParseSectionPath(pathname) {
+  var p = mzNormalizePath(pathname);
+  if (p === "/" || p === "") return { type: "home" };
+  if (p === "/peliculas" || p === "/pelicula" || p === "/movies") return { type: "grid", modo: "categoria", seccion: "movie" };
+  if (p === "/series" || p === "/serie") return { type: "grid", modo: "categoria", seccion: "series" };
+  if (p === "/animes" || p === "/anime") return { type: "grid", modo: "categoria", seccion: "anime" };
+  if (p === "/jkanimes" || p === "/jkanime" || p === "/jk") return { type: "grid", modo: "categoria", seccion: "jk" };
+  if (p === "/favoritos" || p === "/favorites") return { type: "grid", modo: "favoritos", seccion: "all" };
+  if (p === "/historial" || p === "/history") return { type: "historial" };
+  if (p === "/futbol" || p === "/football") return { type: "futbol" };
+  if (p === "/tv" || p === "/television") return { type: "tv" };
+  if (p === "/buscar" || p === "/search") {
+    try {
+      var u = new URL(location.href);
+      return {
+        type: "grid",
+        modo: "search",
+        seccion: u.searchParams.get("tipo") || "all",
+        termino: u.searchParams.get("q") || ""
+      };
+    } catch (_) {
+      return { type: "grid", modo: "search", seccion: "all", termino: "" };
+    }
+  }
+  if (/^\/detalle\//i.test(p)) return { type: "detalle" };
+  return null;
+}
+
+function mzPushSectionUrl(path, state, replace) {
+  try {
+    if (window.__mzRouteSilent) return;
+    path = mzNormalizePath(path) || "/";
+    var cur = mzNormalizePath(location.pathname);
+    if (cur === path) {
+      try { history.replaceState(state || { mz: "section", path: path }, "", path === "/" ? "/" : path); } catch (_) {}
+      return;
+    }
+    if (replace) history.replaceState(state || { mz: "section", path: path }, "", path === "/" ? "/" : path);
+    else history.pushState(state || { mz: "section", path: path }, "", path === "/" ? "/" : path);
+  } catch (_) {}
+}
+
+function mzApplySectionRoute(route, opts) {
+  opts = opts || {};
+  if (!route) return false;
+  window.__mzRouteSilent = true;
+  try {
+    if (route.type === "home") {
+      if (typeof mostrarHome === "function") mostrarHome();
+      return true;
+    }
+    if (route.type === "grid") {
+      if (typeof mostrarGrid === "function") {
+        mostrarGrid({
+          modo: route.modo || "categoria",
+          seccion: route.seccion || "movie",
+          termino: route.termino || ""
+        });
+      }
+      return true;
+    }
+    if (route.type === "futbol") {
+      try {
+        if (typeof showFutbolView === "function") showFutbolView();
+        else document.getElementById("btn-tv-futbol")?.click();
+      } catch (_) {}
+      return true;
+    }
+    if (route.type === "tv") {
+      try {
+        if (typeof mostrarTvView === "function") mostrarTvView();
+        else document.getElementById("nav-link-tv")?.click();
+      } catch (_) {}
+      return true;
+    }
+    if (route.type === "historial") {
+      try {
+        document.getElementById("nav-link-historial")?.click();
+      } catch (_) {}
+      return true;
+    }
+  } finally {
+    window.__mzRouteSilent = false;
+  }
+  return false;
+}
+
+function mzBootFromPath() {
+  try {
+    var path = location.pathname || "/";
+    if (/^\/detalle\//i.test(path) || /^\/(serie|pelicula|anime)\//i.test(path)) {
+      // handleDeepLink se encarga
+      return;
+    }
+    var route = mzParseSectionPath(path);
+    if (route && route.type !== "home") {
+      // No cargar home primero
+      window.__mzSkipHomeBoot = true;
+      setTimeout(function () {
+        try { mzApplySectionRoute(route); } catch (_) {}
+        window.__mzSkipHomeBoot = false;
+      }, 0);
+    }
+  } catch (_) {}
+}
+
 function mostrarHome() {
     vistaActual = "home";
     try { animeFuente = "av1"; gridSeccion = "movie"; } catch (_) {}
     try { window.__mzReturnView = { type: "home" }; } catch (_) {}
+    try { mzPushSectionUrl("/", { mz: "home" }); } catch (_) {}
     homeView.classList.remove("hidden");
     gridView.classList.add("hidden");
 
@@ -3902,6 +4032,7 @@ function showFutbolView() {
   document.getElementById("grid-view")?.classList.add("hidden");
   const fv = document.getElementById("futbol-view");
   if (fv) fv.classList.remove("hidden");
+  try { mzPushSectionUrl("/futbol", { mz: "futbol" }); } catch (_) {}
   cargarFutbolAgenda();
 }
 
@@ -3924,6 +4055,11 @@ function hideFutbolViews() {
   detenerFutbolPlayer();
   document.getElementById("futbol-view")?.classList.add("hidden");
   document.getElementById("futbol-partido-view")?.classList.add("hidden");
+  try {
+    if (!window.__mzRouteSilent && /^\/futbol/i.test(location.pathname || "")) {
+      mzPushSectionUrl("/", { mz: "home" });
+    }
+  } catch (_) {}
 }
 
 function futbolLigaMeta(code, ligaNombre) {
@@ -4365,6 +4501,23 @@ function mostrarGrid({ modo, seccion, termino = "" }) {
     // Recordar sección para al cerrar detalle volver aquí (no siempre a Inicio)
     try {
       window.__mzReturnView = { type: "grid", modo: modo, seccion: seccion, termino: termino || "" };
+    } catch (_) {}
+    // URL de sección en la barra de direcciones
+    try {
+      if (modo === "search" && termino) {
+        if (!window.__mzRouteSilent) {
+          var qs = "?q=" + encodeURIComponent(termino);
+          if (seccion && seccion !== "all") qs += "&tipo=" + encodeURIComponent(seccion);
+          var bp = "/buscar" + qs;
+          if ((location.pathname + location.search) !== bp) {
+            history.pushState({ mz: "search", q: termino, seccion: seccion }, "", bp);
+          }
+        }
+      } else if (modo === "favoritos") {
+        mzPushSectionUrl("/favoritos", { mz: "favoritos" });
+      } else if (modo === "categoria" || !modo) {
+        mzPushSectionUrl(mzPathFromSeccion(seccion, modo), { mz: "section", seccion: seccion });
+      }
     } catch (_) {}
     gridPage = 1;
     gridSinMasResultados = false;
@@ -6605,12 +6758,36 @@ function cerrarDetalle(fromPop) {
     // fromPop === true → ya venimos de popstate con path "/"
     // fromPop === false/undefined → cerrar con X → URL a inicio
     if (!fromPop) {
+      // Retroceder en el historial (sección anterior) como una web normal
       try {
-        if (typeof mzReplaceHomeUrl === "function") mzReplaceHomeUrl();
-        else history.replaceState({ mz: "home" }, "", "/");
-      } catch (_) {
-        try { history.replaceState({ mz: "home" }, "", "/"); } catch (__) {}
-      }
+        if (window.history.length > 1) {
+          window.__mzClosingDetalle = true;
+          history.back();
+          // popstate aplicará la sección; fallback si no hay entrada útil
+          setTimeout(function () {
+            try {
+              if (window.__mzClosingDetalle) {
+                window.__mzClosingDetalle = false;
+                var ret = window.__mzReturnView;
+                if (ret && ret.type === "grid") {
+                  mzPushSectionUrl(mzPathFromSeccion(ret.seccion, ret.modo), { mz: "section" }, true);
+                  mzApplySectionRoute({ type: "grid", modo: ret.modo || "categoria", seccion: ret.seccion });
+                } else {
+                  mzPushSectionUrl("/", { mz: "home" }, true);
+                  if (typeof mostrarHome === "function") mostrarHome();
+                }
+              }
+            } catch (_) {}
+          }, 200);
+        } else {
+          var ret2 = window.__mzReturnView;
+          if (ret2 && ret2.type === "grid") {
+            mzPushSectionUrl(mzPathFromSeccion(ret2.seccion, ret2.modo), { mz: "section" }, true);
+          } else {
+            mzPushSectionUrl("/", { mz: "home" }, true);
+          }
+        }
+      } catch (_) {}
     }
 
 
@@ -6642,38 +6819,19 @@ function cerrarDetalle(fromPop) {
     try { mzClearBootOverlay(true); } catch (_) {}
     window.__mzSkipHomeBoot = false;
 
-    // Volver a la sección donde estaba (películas / series / anime / jk) o inicio
-    var ret = null;
-    try { ret = window.__mzReturnView || null; } catch (_) { ret = null; }
-
-    if (ret && ret.type === "grid" && ret.seccion) {
-      try {
-        if (typeof mostrarGrid === "function") {
-          mostrarGrid({
-            modo: ret.modo || "categoria",
-            seccion: ret.seccion,
-            termino: ret.termino || ""
-          });
-        }
-      } catch (eRet) {
-        console.warn("restore section", eRet);
-        try { if (typeof mostrarHome === "function") mostrarHome(); } catch (_) {}
-      }
-    } else {
-      try {
-        if (typeof homeView !== "undefined" && homeView) homeView.classList.remove("hidden");
-        if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
-        if (typeof mostrarHome === "function") mostrarHome();
-      } catch (_) {}
-      try {
-        var car = document.getElementById("carousel-movies");
-        var vacio = !car || !car.children || car.children.length === 0;
-        if (vacio && typeof cargarHome === "function") cargarHome();
-        else if (typeof cargarContinuarViendo === "function") cargarContinuarViendo();
-      } catch (_) {
-        try { if (typeof cargarHome === "function") cargarHome(); } catch (__) {}
-      }
+    // Si venimos de history.back (fromPop), popstate ya restaura la sección.
+    // Si no hubo back útil, restaurar __mzReturnView.
+    if (fromPop) {
+      window.__mzClosingDetalle = false;
+      return;
     }
+    // history.back() ya disparado arriba; si el path sigue siendo /detalle, fallback
+    try {
+      if (!/^\/detalle\//i.test(location.pathname || "")) {
+        // popstate se encargará
+        return;
+      }
+    } catch (_) {}
 }
 //document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
 //document.getElementById("modal-backdrop-close").addEventListener("click", cerrarDetalle);
@@ -10191,7 +10349,16 @@ try { bindAnimeSourceChips(); syncAnimeSourceChips(); } catch (_) {}
       window.__mzPrefetchHomeAfterDeep = true;
     } else {
       window.__mzSkipHomeBoot = false;
-      cargarHome();
+      var secBoot = typeof mzParseSectionPath === "function" ? mzParseSectionPath(location.pathname || "/") : null;
+      if (secBoot && secBoot.type !== "home" && secBoot.type !== "detalle") {
+        window.__mzSkipHomeBoot = true;
+        setTimeout(function () {
+          try { mzApplySectionRoute(secBoot); } catch (_) {}
+          window.__mzSkipHomeBoot = false;
+        }, 30);
+      } else {
+        cargarHome();
+      }
     }
   } catch (e) {
     window.__mzSkipHomeBoot = false;
@@ -10527,14 +10694,26 @@ handleDeepLink().catch(function (e) { console.warn("Deep link boot:", e); });
 window.addEventListener("popstate", function () {
   try {
     const path = location.pathname || "/";
+    window.__mzClosingDetalle = false;
 
-    // Inicio
+    // Inicio o sección de catálogo
     if (path === "/" || path === "") {
       if (document.body.classList.contains("mz-mobile-ep-playing") &&
           typeof salirVistaMovilEpisodio === "function") {
         salirVistaMovilEpisodio();
       }
       if (typeof cerrarDetalle === "function") cerrarDetalle(true);
+      window.__mzRouteSilent = true;
+      try { if (typeof mostrarHome === "function") mostrarHome(); } finally { window.__mzRouteSilent = false; }
+      return;
+    }
+
+    var secRoute = typeof mzParseSectionPath === "function" ? mzParseSectionPath(path) : null;
+    if (secRoute && secRoute.type !== "detalle" && secRoute.type !== "home") {
+      if (typeof cerrarDetalle === "function") {
+        try { cerrarDetalle(true); } catch (_) {}
+      }
+      mzApplySectionRoute(secRoute);
       return;
     }
 
