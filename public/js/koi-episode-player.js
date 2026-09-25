@@ -275,8 +275,15 @@
         img.src = item.portada || PLACEHOLDER;
       };
     }
-    if (hintEl)
-      hintEl.textContent = hint || "Elige un reproductor para comenzar";
+    if (hintEl) {
+      if (hint) {
+        hintEl.textContent = hint;
+      } else if (typeof isJkItem === "function" && isJkItem(item)) {
+        hintEl.textContent = "Cargando reproductor…";
+      } else {
+        hintEl.textContent = "Elige un reproductor para comenzar";
+      }
+    }
     setPlaceholder(false);
   }
 
@@ -700,7 +707,7 @@
       var labD = $("mz-kp-direct-label");
       var wrap = document.querySelector("#mz-koi-ep-view .mz-kp-servers");
       if (boxN) {
-        boxN.innerHTML = '<span style="color:#94a3b8;font-size:0.85rem">JKPlayer</span>';
+        boxN.innerHTML = '<span style="color:#94a3b8;font-size:0.85rem">Cargando reproductor…</span>';
       }
       if (boxD) {
         boxD.innerHTML = "";
@@ -1748,7 +1755,13 @@
       } catch (_) {}
 
       destroyHls();
-      showPoster(item, "Elige un reproductor para comenzar");
+      // JK auto-selecciona: no pedir "elige reproductor"; mostrar carga
+      showPoster(
+        item,
+        (typeof isJkItem === "function" && isJkItem(item))
+          ? "Cargando reproductor…"
+          : "Elige un reproductor para comenzar"
+      );
       renderServers([]);
       renderDownloads([]);
 
@@ -1927,7 +1940,12 @@
       if (layout) layout.classList.add("mz-kp-layout-movie");
     } catch (_) {}
     destroyHls();
-    showPoster(item, "Elige un reproductor para comenzar");
+    showPoster(
+      item,
+      (typeof isJkItem === "function" && isJkItem(item))
+        ? "Cargando reproductor…"
+        : "Elige un reproductor para comenzar"
+    );
     renderServers([]);
     renderDownloads([]);
     try { ensureMovieDlBar(); } catch (_) {}
