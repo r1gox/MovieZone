@@ -5605,10 +5605,17 @@ heroInfoBtn.addEventListener("click", () => {
 // CARGA INICIAL (home)
 // ======================================================
 async function cargarHome() {
-    // Deep link /detalle: no interrumpir con la vista inicio
+    // Deep link /detalle: no interrumpir con la vista inicio (salvo que ya cerramos detalle)
     if (window.__mzSkipHomeBoot) {
-      console.log("cargarHome omitido (deep link activo)");
-      return;
+      var panel = document.getElementById("details-panel");
+      var detAbierto = panel && !panel.classList.contains("hidden");
+      if (detAbierto) {
+        console.log("cargarHome omitido (deep link activo)");
+        return;
+      }
+      // Detalle cerrado: permitir cargar home
+      window.__mzSkipHomeBoot = false;
+      try { mzClearBootOverlay(true); } catch (_) {}
     }
     if (typeof setBootLoading === "function") setBootLoading(true);
     console.log('🟢 Iniciando cargarHome()');
@@ -6595,10 +6602,27 @@ function cerrarDetalle(fromPop) {
     if (body) body.scrollTop = 0;
 
     cargarContinuarViendo();
-    // Si entró por deep link sin cargar home, cargarlo al volver
-    if (window.__mzSkipHomeBoot) {
-      window.__mzSkipHomeBoot = false;
-      try { cargarHome(); } catch (_) {}
+
+    // Quitar SIEMPRE overlay "Cargando datos..." al volver
+    try { mzClearBootOverlay(true); } catch (_) {}
+    window.__mzSkipHomeBoot = false;
+
+    // Mostrar inicio y cargar datos si hace falta
+    try {
+      if (typeof homeView !== "undefined" && homeView) homeView.classList.remove("hidden");
+      if (typeof gridView !== "undefined" && gridView) gridView.classList.add("hidden");
+      if (typeof mostrarHome === "function") mostrarHome();
+    } catch (_) {}
+
+    // Si el home está vacío (entró por deep link), cargar catálogo
+    try {
+      var car = document.getElementById("carousel-movies");
+      var vacio = !car || !car.children || car.children.length === 0;
+      if (vacio && typeof cargarHome === "function") {
+        cargarHome();
+      }
+    } catch (_) {
+      try { if (typeof cargarHome === "function") cargarHome(); } catch (__) {}
     }
 }
 //document.getElementById("btn-close-modal").addEventListener("click", cerrarDetalle);
@@ -10031,9 +10055,30 @@ function setBootLoading(on) {
 }
 
 /** Quita overlay "Cargando datos..." solo cuando el detalle ya está listo */
+function mzClearBootOverlay(force) {
+  try {
+    if (window.__mzBootWatch) {
+      try { clearInterval(window.__mzBootWatch); } catch (_) {}
+      window.__mzBootWatch = null;
+    }
+    window.__mzForceBootOverlay = null;
+    window.__mzFinishTries = 0;
+    document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+    document.documentElement.classList.add("mz-deep-ready");
+    document.body.classList.remove("mz-deep-loading", "mz-booting", "mz-waiting-detail");
+    try { delete document.documentElement.dataset.mzWaitDetail; } catch (_) {}
+    var boot = document.getElementById("mz-boot-loading");
+    if (boot) {
+      boot.removeAttribute("data-mz-lock");
+      boot.classList.add("hidden");
+      boot.style.cssText = "display:none!important;visibility:hidden!important;opacity:0!important;";
+    }
+  } catch (_) {}
+}
+
 function mzFinishDeepBoot() {
   try {
-    // Solo si el panel de detalle tiene contenido real en DOM
+    // Solo si el panel de detalle tiene contenido real en DOM (salvo force vía mzClearBootOverlay)
     var panel = document.getElementById("details-panel");
     var hero = document.getElementById("koi-hero");
     var title =
@@ -10046,7 +10091,6 @@ function mzFinishDeepBoot() {
         (hero && hero.offsetHeight > 40)
       );
     if (!hasUi && document.body.classList.contains("mz-waiting-detail")) {
-      // aún no: reintentar un poco más tarde
       if (!window.__mzFinishTries) window.__mzFinishTries = 0;
       window.__mzFinishTries++;
       if (window.__mzFinishTries < 40) {
@@ -10054,23 +10098,10 @@ function mzFinishDeepBoot() {
         return;
       }
     }
-    window.__mzFinishTries = 0;
-    if (window.__mzBootWatch) {
-      try { clearInterval(window.__mzBootWatch); } catch (_) {}
-      window.__mzBootWatch = null;
-    }
-    document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
-    document.documentElement.classList.add("mz-deep-ready");
-    document.body.classList.remove("mz-deep-loading", "mz-booting", "mz-waiting-detail");
-    try { delete document.documentElement.dataset.mzWaitDetail; } catch (_) {}
-    var boot = document.getElementById("mz-boot-loading");
-    if (boot) {
-      boot.removeAttribute("data-mz-lock");
-      boot.classList.add("hidden");
-      boot.style.cssText = "display:none!important;";
-    }
-    setBootLoading(false);
-  } catch (_) {}
+    mzClearBootOverlay(true);
+  } catch (_) {
+    try { mzClearBootOverlay(true); } catch (__) {}
+  }
 }
 
 function initBrowserWarn() {
