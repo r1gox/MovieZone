@@ -24,7 +24,23 @@
     return document.getElementById(id);
   }
 
-  function ensureDom() {
+  
+  /** PC: sinopsis debajo de Reproductores/Directos (DOM #mz-koi-ep-view) */
+  function mzKoiMoveSynopsisAfterServers() {
+    try {
+      if (typeof isPc === "function" && !isPc()) return;
+      var info = document.querySelector("#mz-koi-ep-view .mz-kp-info");
+      var syn = document.querySelector("#mz-koi-ep-view .mz-kp-synopsis");
+      var srv = document.querySelector("#mz-koi-ep-view .mz-kp-servers");
+      if (!info || !syn || !srv) return;
+      // al final de .mz-kp-info (después de servers)
+      if (syn.previousElementSibling !== srv) {
+        info.appendChild(syn);
+      }
+    } catch (_) {}
+  }
+
+function ensureDom() {
     if ($("mz-koi-ep-view")) return;
 
     var root = document.createElement("div");
@@ -61,13 +77,13 @@
       '    <div class="mz-kp-meta-chips" id="mz-kp-meta-chips"></div>' +
       '    <div class="mz-kp-meta" id="mz-kp-meta"></div>' +
       '    <div class="mz-kp-genres" id="mz-kp-genres"></div>' +
-      '    <div class="mz-kp-synopsis"><p id="mz-kp-synopsis"></p></div>' +
       '    <div class="mz-kp-servers">' +
       '      <div class="mz-kp-servers-label">Reproductores</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers"></div>' +
       '      <div class="mz-kp-servers-label mz-kp-direct-label hidden" id="mz-kp-direct-label">Directos</div>' +
       '      <div class="mz-kp-servers-list" id="mz-kp-servers-direct"></div>' +
       "    </div>" +
+      '    <div class="mz-kp-synopsis"><p id="mz-kp-synopsis"></p></div>' +
       '    <!-- descargas solo por panel ↓, sin bloque vacío -->' +
       "  </div>" +
       '  <div class="mz-kp-sidebar" id="mz-kp-sidebar">' +
@@ -656,7 +672,9 @@
         if (idioma) badge = '<span class="koi-lang-badge koi-lang-other">' + String(idioma).slice(0, 6).toUpperCase() + '</span>';
       }
     }
-    btn.innerHTML = badge + '<span class="koi-chip-name">' + name + '</span>';
+    btn.innerHTML = badge
+      ? badge + '<span class="koi-chip-sep"> · </span><span class="koi-chip-name">' + name + '</span>'
+      : '<span class="koi-chip-name">' + name + '</span>';
     btn.dataset.mzName = String(name || "").toLowerCase();
     btn.dataset.mzLang = lk;
     btn.dataset.mzMode = mode;
@@ -1628,6 +1646,7 @@
     _openLock = true;
     try {
       ensureDom();
+      try { mzKoiMoveSynopsisAfterServers(); } catch (_) {}
       try { resetKoiChrome("episode"); } catch (_) {}
       seasonNum = Number(seasonNum) || seasonOf(episodio, 1) || 1;
       epNum = Number(epNum) || epNumOf(episodio, 1) || 1;
