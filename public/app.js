@@ -500,8 +500,35 @@ function setKoiPlayerEpisodeTitle(label) {
 }
 
 /** Marca player abierto / cerrado para CSS */
+/** PC series/anime episodio: sinopsis después de reproductores/directos */
+function mzPcMoveSynopsisAfterServers() {
+  try {
+    if (typeof isKoiDesktop === "function" && !isKoiDesktop()) return;
+    if (document.body.classList.contains("koi-movie")) return;
+    if (!document.body.classList.contains("player-open")) return;
+    var syn = document.querySelector(".mz-synopsis-section");
+    var servers = document.getElementById("servers-section");
+    if (!syn || !servers || !servers.parentNode) return;
+    var parent = servers.parentNode;
+    var dl = document.getElementById("downloads-section");
+    var after = (dl && dl.parentNode === parent) ? dl : servers;
+    // Al final del bloque de servers/descargas
+    if (syn.parentNode !== parent || after.nextSibling !== syn) {
+      if (after.nextSibling) parent.insertBefore(syn, after.nextSibling);
+      else parent.appendChild(syn);
+    }
+  } catch (_) {}
+}
+
 function setKoiPlayerOpen(on) {
   document.body.classList.toggle("player-open", !!on);
+  if (on) {
+    try {
+      requestAnimationFrame(function () { mzPcMoveSynopsisAfterServers(); });
+      setTimeout(mzPcMoveSynopsisAfterServers, 80);
+      setTimeout(mzPcMoveSynopsisAfterServers, 400);
+    } catch (_) {}
+  }
 }
 
 /** Enlaza botones del hero (una sola vez) */
@@ -3030,6 +3057,7 @@ async function reproducirCapituloAuto(item, episodio, seasonNum, epNum) {
   try {
     setKoiPlayerEpisodeTitle("Estás viendo T" + (seasonNum || 1) + " · Episodio " + epNum);
     document.body.classList.add("player-open");
+    if (typeof mzPcMoveSynopsisAfterServers === "function") mzPcMoveSynopsisAfterServers();
   } catch (_) {}
 
   for (const emb of embeds) {
@@ -9683,6 +9711,8 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             }
             serversContainer.appendChild(wrap);
         });
+        try { if (typeof mzPcMoveSynopsisAfterServers === "function") mzPcMoveSynopsisAfterServers(); } catch (_) {}
+
     } else {
         serversContainer.innerHTML = `
             <div style="color:var(--text-muted);padding:20px 0;text-align:center;">
