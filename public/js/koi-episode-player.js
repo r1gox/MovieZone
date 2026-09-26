@@ -441,11 +441,18 @@ function ensureDom() {
   }
 
   function cleanServerName(emb) {
-    var name = emb.servidor || emb.server || emb.name || emb.provider || "Servidor";
+    // Preferir provider (voe, streamwish…) sobre "Online"
+    var name = emb.provider || emb.servidor || emb.server || emb.name || "Servidor";
     name = String(name)
       .replace(/\s*[·•\-–]?\s*NO\s*ADS\s*/gi, "")
       .replace(/\s*NO\s*ADS\s*/gi, "")
       .trim();
+    if (!name || /^(online|server|servidor|unknown|desconocido)$/i.test(name)) {
+      var alt = String(emb.provider || emb.host || "").trim();
+      if (alt && !/^(online|server|servidor)$/i.test(alt)) {
+        name = alt.replace(/^www\./i, "").split(".")[0] || alt;
+      }
+    }
     if (!name) name = "Servidor";
     return name;
   }
@@ -1275,9 +1282,10 @@ function ensureDom() {
       if (metaLine) metaLine.textContent = parts.filter(Boolean).join(" · ");
       if (synEl) {
         var txt =
-          (episodio && episodio.descripcion) ||
+          (episodio && (episodio.descripcion || episodio.overview || episodio.synopsis || episodio.sinopsis)) ||
           item.descripcion ||
           item.synopsis ||
+          item.overview ||
           "";
         synEl.textContent = txt;
         synEl.style.removeProperty("display");
@@ -1423,6 +1431,29 @@ function ensureDom() {
         if (apiE.length) embeds = apiE;
         var apiD = normalizeList(data.downloads || data.descargas || []);
         if (apiD.length) downloads = apiD;
+        // Sinopsis del episodio si la API la trae
+        var epDesc = data.descripcion || data.overview || data.sinopsis || null;
+        if (epDesc && String(epDesc).trim()) {
+          try {
+            if (_ctx && _ctx.episodio) {
+              _ctx.episodio.descripcion = String(epDesc).trim();
+              _ctx.episodio.overview = String(epDesc).trim();
+            }
+            var synEl2 = $("mz-kp-synopsis");
+            if (synEl2) {
+              synEl2.textContent = String(epDesc).trim();
+              synEl2.style.removeProperty("display");
+              var parent2 = synEl2.parentElement;
+              if (parent2) {
+                parent2.classList.remove("hidden");
+                parent2.style.removeProperty("display");
+              }
+            }
+          } catch (_) {}
+        }
+        if (data.titulo_episodio && _ctx && _ctx.episodio) {
+          try { _ctx.episodio.nombre = data.titulo_episodio; _ctx.episodio.titulo = data.titulo_episodio; } catch (_) {}
+        }
       }
     } catch (_) {}
     return { embeds: embeds, downloads: downloads };
