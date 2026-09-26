@@ -597,49 +597,49 @@
   }
 }
 
-/* ===== PC: sinopsis al final (series/anime player) =====
-   Solo desktop. No afecta móvil ni mobile-fixes.css.
-   Reproductores primero; descripción al final.
+/* ===== PC episodio /detalle/.../T/E: sinopsis DESPUÉS de reproductores =====
+   DOM real:
+   .mz-meta-col
+     > .mz-stremio-header   (título + E1 + meta)
+     > .mz-synopsis-section (descripción)  ← hay que bajarla
+     > #servers-section
+     > #downloads-section
+     > #video-player-container
+   El order debe ir en .mz-meta-col, no en .details-body.
 */
 @media (min-width: 1025px) {
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-content,
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-content-inner,
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-body {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col {
     display: flex !important;
     flex-direction: column !important;
   }
 
-  body.details-open.koi-desktop.player-open:not(.koi-movie) #video-player-container,
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container {
+  /* 1) Cabecera: Off Campus / E1 / meta */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col > .mz-stremio-header {
     order: 1 !important;
   }
 
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-header,
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-stremio-header {
+  /* 2) Reproductor de video */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col > #video-player-container {
     order: 2 !important;
   }
 
-  body.details-open.koi-desktop.player-open:not(.koi-movie) #servers-section {
+  /* 3) Reproductores + Directos */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col > #servers-section {
     order: 10 !important;
+    display: block !important;
     margin-top: 18px !important;
   }
 
-  body.details-open.koi-desktop.player-open:not(.koi-movie) #downloads-section {
+  /* 4) Descargas */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col > #downloads-section {
     order: 11 !important;
   }
 
-  body.details-open.koi-desktop.player-open:not(.koi-movie) #seasons-section {
-    order: 12 !important;
-  }
-
-  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-synopsis-section {
+  /* 5) Sinopsis al FINAL */
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-meta-col > .mz-synopsis-section {
     order: 99 !important;
     display: block !important;
     margin-top: 20px !important;
     margin-bottom: 28px !important;
-  }
-
-  body.details-open.koi-desktop.player-open:not(.koi-movie) #details-synopsis {
-    order: 99 !important;
   }
 }
