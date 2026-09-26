@@ -596,3 +596,50 @@
     justify-content: flex-start !important;
   }
 }
+
+/* ===== PC: sinopsis al final (series/anime player) =====
+   Solo desktop. No afecta móvil ni mobile-fixes.css.
+   Reproductores primero; descripción al final.
+*/
+@media (min-width: 1025px) {
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-content,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-content-inner,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .details-body {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #video-player-container,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .video-player-container {
+    order: 1 !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .player-header,
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-stremio-header {
+    order: 2 !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #servers-section {
+    order: 10 !important;
+    margin-top: 18px !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #downloads-section {
+    order: 11 !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #seasons-section {
+    order: 12 !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) .mz-synopsis-section {
+    order: 99 !important;
+    display: block !important;
+    margin-top: 20px !important;
+    margin-bottom: 28px !important;
+  }
+
+  body.details-open.koi-desktop.player-open:not(.koi-movie) #details-synopsis {
+    order: 99 !important;
+  }
+}
