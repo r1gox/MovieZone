@@ -4342,6 +4342,11 @@ app.get("/api/capitulo", async (req, res) => {
             embeds: cachedEmb,
             downloads: cachedEp.downloads || cachedEp.descargas || [],
             reproductor: cachedEp.video || cachedEp.reproductor || (cachedEmb[0] && cachedEmb[0].url) || null,
+            descripcion: cachedEp.descripcion || cachedEp.overview || null,
+            overview: cachedEp.overview || cachedEp.descripcion || null,
+            titulo_episodio: cachedEp.titulo || cachedEp.nombre || cachedEp.titulo_episodio || null,
+            duracion: cachedEp.duracion || cachedEp.runtime || null,
+            back_img: cachedEp.back_img || null,
             from: "supabase",
           });
         }
@@ -4445,7 +4450,14 @@ app.get("/api/capitulo", async (req, res) => {
       embeds,
       downloads: (det && (det.downloads || det.descargas)) || [],
       reproductor: (det && det.reproductor) || (embeds[0] && embeds[0].url) || null,
-      nombre: det && det.nombre,
+      nombre: (det && (det.titulo_episodio || det.nombre || det.titulo)) || null,
+      titulo_episodio: (det && (det.titulo_episodio || det.nombre)) || null,
+      titulo_serie: (det && det.titulo_serie) || (serie && (serie.nombre || serie.titulo)) || null,
+      descripcion: (det && (det.descripcion || det.overview || det.sinopsis || det.synopsis)) || (epStub && (epStub.descripcion || epStub.overview)) || null,
+      overview: (det && (det.overview || det.descripcion || det.sinopsis)) || (epStub && (epStub.overview || epStub.descripcion)) || null,
+      duracion: (det && (det.duracion || det.runtime)) || (epStub && (epStub.duracion || epStub.runtime)) || null,
+      back_img: (det && (det.back_img || det.still)) || (epStub && epStub.back_img) || null,
+      portada: (det && det.portada) || (serie && serie.portada) || null,
       from: "api",
     });
   } catch (err) {
