@@ -1448,3 +1448,66 @@
     background: rgba(124, 58, 237, 0.25);
   }
 }
+
+
+/* ===== MovieZone fix: Directos vertical PC + título episodio móvil ===== */
+.koi-servers-chips-vertical {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+.koi-servers-chips-vertical .koi-server-chip {
+  width: 100% !important;
+  max-width: 320px !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+}
+.koi-server-chip .koi-lang-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-right: 2px !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  color: #94a3b8 !important;
+}
+.koi-server-chip .koi-chip-sep {
+  color: #64748b !important;
+  margin: 0 2px !important;
+}
+.koi-server-chip.is-dub .koi-lang-badge,
+.koi-server-chip .koi-lang-dub {
+  color: #a78bfa !important;
+}
+.koi-server-chip.is-sub .koi-lang-badge,
+.koi-server-chip .koi-lang-sub {
+  color: #38bdf8 !important;
+}
+
+/* Móvil detalle: título del episodio bajo T·E */
+@media (max-width: 768px) {
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card {
+    align-items: stretch !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-ep-title {
+    display: block !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    color: #cbd5e1 !important;
+    padding: 0 2px 4px !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+  body.details-open:not(.mz-mobile-ep-playing) .episode-btn.mz-mobile-ep-card .mz-mep-label {
+    margin-bottom: 2px !important;
+  }
+}
