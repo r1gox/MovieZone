@@ -501,6 +501,7 @@ function setKoiPlayerEpisodeTitle(label) {
 
 /** Marca player abierto / cerrado para CSS */
 /** PC series/anime episodio: sinopsis después de reproductores/directos */
+/** PC episodio: mover sinopsis después de #servers-section dentro de .mz-meta-col */
 function mzPcMoveSynopsisAfterServers() {
   try {
     if (typeof isKoiDesktop === "function" && !isKoiDesktop()) return;
@@ -508,12 +509,12 @@ function mzPcMoveSynopsisAfterServers() {
     if (!document.body.classList.contains("player-open")) return;
     var syn = document.querySelector(".mz-synopsis-section");
     var servers = document.getElementById("servers-section");
-    if (!syn || !servers || !servers.parentNode) return;
-    var parent = servers.parentNode;
+    if (!syn || !servers) return;
+    var parent = servers.parentNode; // .mz-meta-col
+    if (!parent) return;
     var dl = document.getElementById("downloads-section");
     var after = (dl && dl.parentNode === parent) ? dl : servers;
-    // Al final del bloque de servers/descargas
-    if (syn.parentNode !== parent || after.nextSibling !== syn) {
+    if (after.nextSibling !== syn) {
       if (after.nextSibling) parent.insertBefore(syn, after.nextSibling);
       else parent.appendChild(syn);
     }
@@ -525,8 +526,8 @@ function setKoiPlayerOpen(on) {
   if (on) {
     try {
       requestAnimationFrame(function () { mzPcMoveSynopsisAfterServers(); });
-      setTimeout(mzPcMoveSynopsisAfterServers, 80);
-      setTimeout(mzPcMoveSynopsisAfterServers, 400);
+      setTimeout(mzPcMoveSynopsisAfterServers, 100);
+      setTimeout(mzPcMoveSynopsisAfterServers, 500);
     } catch (_) {}
   }
 }
