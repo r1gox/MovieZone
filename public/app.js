@@ -8556,7 +8556,7 @@ function renderEpisodios(item, season = 1) {
         const tieneVideo = Boolean(episodio.video) || (Array.isArray(episodio.embeds) && episodio.embeds.length > 0);
         const btn = document.createElement("button");
         const num = episodioNumero(episodio, index);
-        const epNombre = episodio.nombre || `Episodio ${num}`;
+        const epNombre = episodio.nombre || episodio.titulo || episodio.name || (`Episodio ${num}`);
         const epPlaying = document.body.classList.contains("mz-mobile-ep-playing");
         const serieCards = typeof isSerieOrAnime === "function" && isSerieOrAnime(item);
         const isPc = typeof isKoiDesktop === "function" && isKoiDesktop();
@@ -8586,11 +8586,19 @@ function renderEpisodios(item, season = 1) {
             if (!thumb) thumb = PLACEHOLDER;
             const sLab = Number(episodio.season || episodio.temporada || season || 1) || 1;
             const fbThumb = mzEpBackdropFallback(item);
+            let labelNameM = String(epNombre || "").replace(/</g, "");
+            if (!labelNameM || /^T\d+E\d+$/i.test(labelNameM) || labelNameM === String(num)) {
+              labelNameM = "Episodio " + num;
+            }
+            const escM = typeof escapeHtml === "function" ? escapeHtml : function (t) {
+              return String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            };
             btn.innerHTML =
               '<span class="mz-mep-thumb"><img src="' + String(thumb).replace(/"/g, "") +
               '" alt="" loading="lazy" decoding="async" data-fallback="' + String(fbThumb).replace(/"/g, "") +
               '" onerror="window.mzEpImgErr&&window.mzEpImgErr(this)"/></span>' +
-              '<span class="mz-mep-label">T' + sLab + " • E" + num + "</span>";
+              '<span class="mz-mep-label">T' + sLab + " · E" + num + "</span>" +
+              '<span class="mz-mep-ep-title">' + escM(labelNameM) + "</span>";
         } else if (koiCards) {
             let thumb =
               episodio.back_img ||
@@ -9553,7 +9561,7 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
                   (langTxt ? `<span class="mz-mep-srv-lang">${langTxt}</span>` : "") +
                   `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             } else {
-                chip.innerHTML = langBadge + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
+                chip.innerHTML = (langBadge ? langBadge + `<span class="koi-chip-sep">·</span>` : "") + `<span class="koi-chip-name">${escapeHtml(nombre)}</span>`;
             }
 
           
@@ -9663,6 +9671,10 @@ function renderServidoresYDescargas(embedsRaw, downloadsRaw, fallbackUrl, item, 
             } else {
                 const chipWrap = document.createElement("div");
                 chipWrap.className = "koi-servers-chips";
+                // Directos en PC: apilar en vertical (no DUBOnline pegado)
+                if (String(g.label || "").toLowerCase() === "directos") {
+                  chipWrap.classList.add("koi-servers-chips-vertical");
+                }
                 g.list.forEach((embed) => {
                     const c = makeChip(embed);
                     if (c) chipWrap.appendChild(c);
