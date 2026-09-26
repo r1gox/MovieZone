@@ -1942,3 +1942,33 @@ body.mz-koi-ep-open #mz-koi-ep-view.mz-kp-movie-mode:not(.mz-kp-ep-mobile) .mz-k
   padding: 0 !important;
   border: none !important;
 }
+
+/* ===== PC episodio: sinopsis al final + chips con espacio ===== */
+@media (min-width: 1025px) {
+  #mz-koi-ep-view:not(.mz-kp-ep-mobile) .mz-kp-info {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  #mz-koi-ep-view:not(.mz-kp-ep-mobile) .mz-kp-servers {
+    order: 10 !important;
+  }
+  #mz-koi-ep-view:not(.mz-kp-ep-mobile) .mz-kp-synopsis {
+    order: 99 !important;
+    display: block !important;
+    margin-top: 20px !important;
+    margin-bottom: 24px !important;
+  }
+  #mz-koi-ep-view .mz-kp-srv-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  #mz-koi-ep-view .mz-kp-srv-btn .koi-lang-badge {
+    display: inline-flex !important;
+  }
+  #mz-koi-ep-view .mz-kp-servers-list {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+}
