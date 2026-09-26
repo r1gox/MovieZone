@@ -1165,7 +1165,30 @@ function ensureDom() {
    * mode: "episode" → solo serie + E1 + idioma · duración (como Koiflix)
    * mode: "movie"   → chips completos (año, IMDb, géneros, estado…)
    */
-  function fillTitles(item, epTitleText, mode, episodio) {
+  
+  function applyEpSynopsis(episodio, item) {
+    try {
+      var synEl = $("mz-kp-synopsis");
+      if (!synEl) return;
+      var txt =
+        (episodio && (episodio.descripcion || episodio.overview || episodio.synopsis || episodio.sinopsis)) ||
+        (item && (item.descripcion || item.synopsis || item.overview)) ||
+        "";
+      txt = String(txt || "").trim();
+      synEl.textContent = txt || "";
+      synEl.style.removeProperty("display");
+      synEl.style.removeProperty("visibility");
+      var parent = synEl.parentElement;
+      if (parent) {
+        parent.style.removeProperty("display");
+        parent.style.removeProperty("visibility");
+        if (txt) parent.classList.remove("hidden");
+        else parent.classList.add("hidden");
+      }
+    } catch (_) {}
+  }
+
+function fillTitles(item, epTitleText, mode, episodio) {
     mode = mode || "movie";
     var main = item.nombre || item.titulo || "Título";
     $("mz-kp-anime-title").textContent = main;
@@ -1439,14 +1462,21 @@ function ensureDom() {
               _ctx.episodio.descripcion = String(epDesc).trim();
               _ctx.episodio.overview = String(epDesc).trim();
             }
-            var synEl2 = $("mz-kp-synopsis");
-            if (synEl2) {
-              synEl2.textContent = String(epDesc).trim();
-              synEl2.style.removeProperty("display");
-              var parent2 = synEl2.parentElement;
-              if (parent2) {
-                parent2.classList.remove("hidden");
-                parent2.style.removeProperty("display");
+            if (typeof applyEpSynopsis === "function") {
+              applyEpSynopsis(
+                Object.assign({}, (_ctx && _ctx.episodio) || {}, { descripcion: String(epDesc).trim(), overview: String(epDesc).trim() }),
+                (_ctx && _ctx.item) || item
+              );
+            } else {
+              var synEl2 = $("mz-kp-synopsis");
+              if (synEl2) {
+                synEl2.textContent = String(epDesc).trim();
+                synEl2.style.removeProperty("display");
+                var parent2 = synEl2.parentElement;
+                if (parent2) {
+                  parent2.classList.remove("hidden");
+                  parent2.style.removeProperty("display");
+                }
               }
             }
           } catch (_) {}
@@ -1578,7 +1608,8 @@ function ensureDom() {
           synWrap.style.removeProperty("min-height");
           synWrap.style.removeProperty("margin");
           synWrap.style.removeProperty("padding");
-          if (mode !== "movie") {
+          // PC episodio: mostrar sinopsis; móvil episodio: ocultar
+          if (mode === "episode-mobile") {
             synWrap.classList.add("hidden");
             var synP = synWrap.querySelector("p") || document.getElementById("mz-kp-synopsis");
             if (synP) {
@@ -1779,6 +1810,7 @@ function ensureDom() {
 
       try {
         fillTitles(item, epLabel(episodio, epNum), mobile ? "episode-mobile" : "episode", episodio);
+        if (!mobile) applyEpSynopsis(episodio, item);
       } catch (e1) {
         console.warn("fillTitles", e1);
       }
