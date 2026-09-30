@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["public/**"]
+      }
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/server.js" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).(js|css|png|jpg|jpeg|webp|svg|woff2|ico)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

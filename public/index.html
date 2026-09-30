@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="es">
+<script>
+/* Evita flash de inicio al recargar /detalle/... */
+(function () {
+  try {
+    var p = location.pathname || "";
+    // Solo ficha/episodio: /detalle/... o legacy /serie|/pelicula|/anime/SLUG
+    // NO /animes /peliculas /series /jkanimes (secciones de catálogo)
+    var isDetail =
+      /^\/detalle\//i.test(p) ||
+      /^\/(serie|pelicula)\//i.test(p) ||
+      /^\/anime\/[a-z0-9][^\/]*/i.test(p);
+    if (!isDetail) {
+      // Secciones: asegurar que el boot no se quede bloqueado
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+      document.documentElement.classList.add("mz-section-boot");
+      return;
+    }
+    document.documentElement.classList.add("mz-deep-boot");
+    try { document.documentElement.dataset.mzWaitDetail = "1"; } catch (e2) {}
+    if (/\/\d+\/\d+\/?$/i.test(p)) document.documentElement.classList.add("mz-deep-ep");
+
+    // Overlay a prueba de CSS: estilos INLINE (no depende de clases)
+    function ensureOverlay() {
+      var el = document.getElementById("mz-boot-loading");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "mz-boot-loading";
+        el.className = "mz-boot-loading";
+        el.innerHTML = '<div class="mz-boot-loading-inner" style="display:flex;flex-direction:column;align-items:center;gap:18px;">' +
+          '<div class="mz-boot-spinner" style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.12);border-top-color:#7c5cff;border-radius:50%;animation:mzBootSpin .75s linear infinite;"></div>' +
+          '<p class="mz-boot-text" style="margin:0;color:#fff;font:500 1.05rem system-ui,sans-serif;">Cargando datos...</p></div>';
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.classList.remove("hidden");
+      el.setAttribute("data-mz-lock", "1");
+      el.style.cssText = "display:flex!important;visibility:visible!important;opacity:1!important;position:fixed!important;inset:0!important;z-index:2147483647!important;background:#0a0611!important;align-items:center!important;justify-content:center!important;flex-direction:column!important;pointer-events:all!important;";
+      var t = el.querySelector("p, .mz-boot-text");
+      if (t) t.textContent = "Cargando datos...";
+    }
+    if (document.body) ensureOverlay();
+    else document.addEventListener("DOMContentLoaded", ensureOverlay);
+    // Reaplicar por si algo lo oculta antes de tiempo
+    window.__mzForceBootOverlay = ensureOverlay;
+    var n = 0;
+    window.__mzBootWatch = setInterval(function () {
+      n++;
+      if (!document.documentElement.classList.contains("mz-deep-boot") && !document.body.classList.contains("mz-waiting-detail")) {
+        clearInterval(window.__mzBootWatch);
+        return;
+      }
+      ensureOverlay();
+      if (n > 80) clearInterval(window.__mzBootWatch); // ~20s max
+    }, 250);
+  } catch (e) {}
+})();
+</script>
+<style id="mz-deep-boot-css">
+/* Recarga /detalle: NADA de inicio — solo loading → detalle */
+html.mz-deep-boot #home-view,
+html.mz-deep-boot #grid-view,
+html.mz-deep-boot #tv-view,
+html.mz-deep-boot .bg-shape,
+html.mz-deep-boot #hero-slider,
+html.mz-deep-boot .home-catalogs,
+html.mz-deep-boot .carousel-row,
+html.mz-deep-boot .netflix-navbar,
+html.mz-deep-boot #netflix-navbar,
+html.mz-deep-boot #drawer-backdrop,
+html.mz-deep-boot #mz-browser-warn,
+html.mz-deep-boot #sidebar-drawer,
+html.mz-deep-boot .mobile-bottom-nav,
+html.mz-deep-boot #mz-profile-gate,
+html.mz-deep-boot #mobile-bottom-nav {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+html.mz-deep-boot body {
+  background: #0a0611 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+html.mz-deep-boot #mz-boot-loading,
+html.mz-deep-boot #mz-boot-loading.hidden {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  background: #0a0611 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column !important;
+}
+html.mz-deep-boot .mz-boot-loading-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1.25rem !important;
+}
+html.mz-deep-boot .mz-boot-spinner {
+  width: 48px !important;
+  height: 48px !important;
+  border: 3px solid rgba(255,255,255,0.12) !important;
+  border-top-color: #7c5cff !important;
+  border-right-color: #5b8cff !important;
+  border-radius: 50% !important;
+  animation: mzBootSpin 0.75s linear infinite !important;
+  box-sizing: border-box !important;
+}
+html.mz-deep-boot .mz-boot-text,
+html.mz-deep-boot .mz-boot-loading-inner > p {
+  margin: 0 !important;
+  color: rgba(255,255,255,0.9) !important;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  animation: mzBootPulse 1.4s ease-in-out infinite !important;
+}
+@keyframes mzBootSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mzBootPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+/* details-panel puede estar .hidden en HTML; en deep-boot no lo forzamos visible hasta JS */
+html.mz-section-boot #mz-boot-loading {
+  /* se oculta en cuanto app.js aplica la sección; no bloquear */
+}
+html.mz-deep-ready #mz-boot-loading {
+
+  display: none !important;
+  visibility: hidden !important;
+}
+html.mz-deep-ready body {
+  overflow: auto !important;
+}
+/* Mientras esperamos datos del detalle: overlay SIEMPRE visible */
+body.mz-waiting-detail #mz-boot-loading,
+body.mz-waiting-detail #mz-boot-loading.hidden {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: #0a0611 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: all !important;
+}
+body.mz-waiting-detail #mz-profile-gate { display: none !important; visibility: hidden !important; }
+body.mz-waiting-detail #home-view,
+body.mz-waiting-detail #grid-view {
+  display: none !important;
+}
+
+html.mz-deep-ready .netflix-navbar,
+html.mz-deep-ready #netflix-navbar {
+  /* el detalle usa su propia UI; la nav del home puede seguir oculta mientras details-open */
+}
+body.details-open .netflix-navbar,
+body.details-open #netflix-navbar,
+body.details-open #home-view,
+body.details-open #grid-view {
+  /* por si el CSS de la app no lo hace: no mostrar inicio detrás del detalle */
+}
+/* Forzar un solo overlay sólido (evita el semitransparente de styles.css) */
+.mz-boot-loading:not(.hidden) {
+  background: #0a0611 !important;
+  backdrop-filter: none !important;
+}
+
+/* No pantalla negra al volver de popups: capas siempre opacas si están activas */
+#details-panel:not(.hidden),
+#home-view:not(.hidden),
+#grid-view:not(.hidden),
+#koi-hero:not(.hidden),
+#details-content:not(.hidden),
+
+body.details-open #details-panel:not(.hidden) {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieZone — Streaming Premium</title>
+  <!-- Pega este bloque dentro de <head> en public/index.html -->
+
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json?v=20260927f">
+
+  <meta name="theme-color" content="#0a0611">
+  <meta name="description" content="MovieZone — Películas, series y anime.">
+
+<!-- WhatsApp, Facebook, Telegram y otras vistas previas -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://moviezone-teal.vercel.app/">
+  <meta property="og:title" content="MovieZone">
+  <meta property="og:description" content="Películas, series y anime en un solo lugar">
+  <meta property="og:image" content="https://moviezone-teal.vercel.app/og-image.jpg">
+  <meta property="og:image:secure_url" content="https://moviezone-teal.vercel.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="MovieZone">
+
+<!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MovieZone">
+  <meta name="twitter:description" content="Películas, series y anime en un solo lugar">
+  <meta name="twitter:image" content="https://moviezone-teal.vercel.app/og-image.jpg">
+
+  <!-- Ionicons -->
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+  <meta name="theme-color" content="#0a0611">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/css/mz-anime-src.css?v=20260927f">
+  <link rel="stylesheet" href="/css/mz-status-badge.css?v=20260927f">
+</head>
+<body>
+<script>
+(function () {
+  try {
+    if (document.documentElement.classList.contains("mz-deep-boot")) {
+      document.body.classList.add("mz-deep-loading", "mz-waiting-detail");
+      var b = document.getElementById("mz-boot-loading");
+      if (b) {
+        b.classList.remove("hidden");
+        var t = b.querySelector("p, .mz-boot-text");
+        if (t) t.textContent = "Cargando datos...";
+      }
+    }
+  } catch (e) {}
+})();
+</script>
+  <div id="mz-boot-loading" class="mz-boot-loading" aria-live="polite">
+    <div class="mz-boot-loading-inner">
+      <div class="mz-boot-spinner"></div>
+      <p class="mz-boot-text">Cargando…</p>
+    </div>
+  </div>
+
+  <div id="mz-browser-warn" class="mz-browser-warn hidden" role="status">
+    <strong>Aviso de compatibilidad</strong>
+    <span>Es posible que la página no funcione correctamente en tu navegador. Te recomendamos <b>Google Chrome</b> o <b>Mozilla Firefox</b>. En PC, de preferencia <b>Brave</b>.</span>
+  </div>
+
+  <div class="bg-shape shape-1"></div>
+  <div class="bg-shape shape-2"></div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <nav class="netflix-navbar" id="netflix-navbar">
+    <div class="nav-left">
+      <div class="brand" id="brand-logo">
+        <ion-icon name="videocam" class="brand-icon"></ion-icon>
+        <h1>ki<span>nox</span></h1>
+      </div>
+      <ul class="nav-links">
+        <li class="active" id="nav-item-home"><a id="nav-link-home">Inicio</a></li>
+        <li id="nav-item-movies"><a class="filter-tab" data-type="movie">Películas</a></li>
+        <li id="nav-item-series"><a class="filter-tab" data-type="series">Series</a></li>
+        <li id="nav-item-anime"><a class="filter-tab" data-type="anime">Anime</a></li>
+        <li id="nav-item-jk"><a class="filter-tab" data-type="jk">JK</a></li>
+      </ul>
+    </div>
+
+    <div class="search-container" id="nav-search">
+      <form id="search-form" class="search-form">
+        <div class="search-box-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" id="search-input" placeholder="Buscar y presiona Enter..." autocomplete="off">
+          <button type="submit" class="btn-search-submit"></button>
+        </div>
+      </form>
+    </div>
+
+    <div class="nav-right">
+      <ul class="nav-utils">
+        <li id="nav-item-favoritos"><a id="nav-link-favoritos">
+          <ion-icon name="heart-outline" style="font-size:14px; vertical-align:-2px;"></ion-icon> Favoritos
+        </a></li>
+        <li id="nav-item-historial"><a id="nav-link-historial" title="Historial">
+          <ion-icon name="time-outline"></ion-icon> Historial
+        </a></li>
+      </ul>
+
+      <div class="api-status-badge online" id="status-badge" title="Estado API">
+        <span class="status-dot"></span>
+        <span class="status-text">Online</span>
+      </div>
+      <button type="button" class="mz-profile-chip" id="mz-profile-chip" title="Cambiar perfil" aria-label="Perfil">
+        <span class="mz-profile-avatar" id="mz-profile-avatar">?</span>
+        <span id="mz-profile-name" class="sr-only">Perfil</span>
+      </button>
+    </div>
+  </nav>
+
+  <main id="home-view" class="animate-fade-in">
+    <section class="hero-banner" id="hero-banner">
+      <div class="hero-content">
+        <span class="hero-type-badge" id="hero-type">PELÍCULA RECOMENDADA</span>
+        <h2 class="hero-title" id="hero-title">Cargando...</h2>
+
+        <div class="hero-meta-row">
+          <div class="hero-meta-item rating">
+            <ion-icon name="star"></ion-icon>
+            <span id="hero-rating">-</span>
+          </div>
+          <div class="hero-meta-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span id="hero-year">-</span>
+          </div>
+          <span id="hero-status" class="hero-status-pill hidden"></span>
+        </div>
+
+        <p class="hero-synopsis" id="hero-synopsis"></p>
+
+        <div class="hero-actions">
+          <button class="btn-hero play" id="hero-play-btn">
+            <ion-icon name="play-sharp"></ion-icon>
+            <span>Ver Ahora</span>
+          </button>
+          <button class="btn-hero info" id="hero-info-btn">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>Más Información</span>
+          </button>
+        </div>
+      </div>
+      <div class="hero-dots" id="hero-dots"></div>
+    </section>
+
+    <section class="view-container carousel-section" id="carousel-section-container">
+<div class="carousel-row">
+        <h2>Películas Destacadas</h2>
+        <div class="carousel-container mz-carousel-skel" id="carousel-movies" data-skel="1">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ... Series, Anime, etc. (igual que antes) ... -->
+      <div class="carousel-row">
+        <h2>Series del Momento</h2>
+        <div class="carousel-container mz-carousel-skel" id="carousel-series" data-skel="1">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-row">
+        <h2>Anime Recomendado</h2>
+        <div class="carousel-container mz-carousel-skel" id="carousel-anime" data-skel="1">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- TV / Fútbol: visible, debajo del catálogo principal (hero intacto) -->
+      <div class="carousel-row" id="row-tv-vivo">
+        <h2>TV en vivo y deportes</h2>
+        <div class="tv-home-entry">
+          <button type="button" class="tv-entry-card" id="btn-tv-cable">
+            <ion-icon name="tv-outline"></ion-icon>
+            <span>Cable</span>
+            <small>ChannelsTV</small>
+          </button>
+          <button type="button" class="tv-entry-card" id="btn-tv-paises">
+            <ion-icon name="globe-outline"></ion-icon>
+            <span>Por país</span>
+            <small>México, España…</small>
+          </button>
+          <button type="button" class="tv-entry-card" id="btn-tv-futbol">
+            <ion-icon name="football-outline"></ion-icon>
+            <span>Fútbol</span>
+            <small>Agenda del día</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-continuar">
+        <h2>Continuar viendo</h2>
+        <div class="carousel-container" id="carousel-continuar"></div>
+      </div>
+      <div class="carousel-row hidden" id="row-mi-lista">
+        <h2>Mi lista</h2>
+        <div class="carousel-container" id="carousel-mi-lista"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-porque">
+        <h2 id="titulo-porque">Porque viste</h2>
+        <div class="carousel-container" id="carousel-porque"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-mood-maraton">
+        <h2>Para maratón</h2>
+        <div class="carousel-container" id="carousel-mood-maraton"></div>
+      </div>
+
+      <div class="carousel-row hidden" id="row-mood-terror">
+        <h2>Noche de terror</h2>
+        <div class="carousel-container" id="carousel-mood-terror"></div>
+      </div>
+
+      <div class="carousel-row">
+        <h2>Recién añadidos</h2>
+        <div class="carousel-container" id="carousel-recien">
+          <div class="skeleton-row">
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+            <div class="skeleton-card"></div><div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Vista TV (Cable / País) -->
+  <section class="view-container hidden" id="tv-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="tv-btn-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Volver
+      </button>
+      <h2 id="tv-view-title">TV en vivo</h2>
+    </div>
+
+    <div class="tv-tabs">
+      <button type="button" class="tv-tab active" data-tv-tab="cable" id="tv-tab-cable">Cable</button>
+      <button type="button" class="tv-tab" data-tv-tab="paises" id="tv-tab-paises">Por país</button>
+    </div>
+
+    <div id="tv-panel-cable" class="tv-panel">
+      <div class="tv-grupos" id="tv-grupos-cable"></div>
+      <div class="tv-canales-grid" id="tv-canales-cable">
+        <div class="tv-loading">Cargando canales…</div>
+      </div>
+    </div>
+
+    <div id="tv-panel-paises" class="tv-panel hidden">
+      <div class="tv-paises-chips" id="tv-paises-chips"></div>
+      <div class="tv-canales-grid" id="tv-canales-pais">
+        <div class="tv-hint">Elige un país</div>
+      </div>
+    </div>
+  </section>
+    <!-- Vista Fútbol — agenda del día -->
+  <section class="view-container hidden" id="futbol-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="futbol-btn-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Volver
+      </button>
+      <h2 id="futbol-view-title">Fútbol en vivo</h2>
+    </div>
+    <p class="futbol-fecha" id="futbol-fecha-texto"></p>
+    <div id="futbol-lista" class="futbol-lista">
+      <div class="tv-loading">Cargando partidos…</div>
+    </div>
+  </section>
+
+  <!-- Detalle partido: reproductores + chat temporal -->
+  <section class="view-container hidden" id="futbol-partido-view">
+    <div class="tv-view-header">
+      <button type="button" class="tv-back-btn" id="futbol-partido-back">
+        <ion-icon name="arrow-back-outline"></ion-icon> Agenda
+      </button>
+      <h2 id="futbol-partido-titulo">Partido</h2>
+    </div>
+    <div class="futbol-partido-meta" id="futbol-partido-meta"></div>
+
+    <!-- Player premium -->
+    <div class="futbol-player-wrap" id="futbol-player-wrap">
+      <div class="futbol-player-placeholder" id="futbol-player-placeholder">
+        <ion-icon name="play-circle-outline"></ion-icon>
+        <span>Elige un servidor para ver</span>
+      </div>
+      <iframe id="futbol-player-iframe" class="futbol-player-iframe hidden" allowfullscreen allow="encrypted-media; autoplay" referrerpolicy="no-referrer"></iframe>
+    </div>
+
+    <h3 class="futbol-sub">Reproductores</h3>
+    <div id="futbol-reproductores" class="futbol-reproductores"></div>
+
+    <!-- Chat solo al reproducir -->
+    <div id="futbol-chat-block" class="hidden">
+      <h3 class="futbol-sub">Chat del partido <small>(solo hoy)</small></h3>
+      <div id="futbol-chat" class="futbol-chat">
+        <div id="futbol-chat-msgs" class="futbol-chat-msgs"></div>
+        <form id="futbol-chat-form" class="futbol-chat-form">
+          <input type="text" id="futbol-chat-input" maxlength="200" placeholder="Escribe un mensaje…" autocomplete="off" />
+          <button type="submit">Enviar</button>
+        </form>
+      </div>
+    </div>
+  </section>
+  
+  <section class="view-container grid-section hidden" id="grid-view">
+    <div class="filter-toolbar" id="filter-toolbar">
+      <div class="filter-group">
+        <button class="filter-chip active" data-type="all">Todos</button>
+        <button class="filter-chip" data-type="movie">🎬 Películas</button>
+        <button class="filter-chip" data-type="series">📺 Series</button>
+        <button class="filter-chip" data-type="anime">⛩️ Anime</button>
+      </div>
+      <div class="filter-group catalog-filters">
+        <select id="filter-year" class="filter-select" title="Año">
+          <option value="all">Año</option>
+        </select>
+        <select id="filter-estado" class="filter-select" title="Estado">
+          <option value="all">Estado</option>
+          <option value="emision">En emisión</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+        <select id="filter-genero" class="filter-select" title="Género">
+          <option value="all">Género</option>
+        </select>
+        <select id="filter-fuente" class="filter-select" title="Fuente">
+          <option value="all">Fuente</option>
+          <option value="3">PelisPlus</option>
+          <option value="9">PelisPlus BZ</option>
+          <option value="4">AnimeAV1</option>
+          <option value="5">JKanime</option>
+          <option value="6">Doramas</option>
+        </select>
+      </div>
+      <div class="filter-group sort-group">
+        <label for="sort-select" class="sort-label">Ordenar:</label>
+        <select id="sort-select" class="sort-select">
+          <option value="recent">Más reciente</option>
+          <option value="rating">Mejor calificación</option>
+          <option value="az">A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-header">
+      <div class="mz-grid-title-row" id="mz-grid-title-row">
+        <h2 id="results-title">Resultados</h2>
+        <span class="results-count" id="results-count">0 items</span>
+      </div>
+    </div>
+
+    <div class="loading-state hidden" id="results-loading">
+      <div class="spinner"></div>
+      <p>Consultando fuentes de contenido...</p>
+    </div>
+
+    <div class="catalog-grid skeleton-grid hidden" id="results-skeleton" aria-hidden="true">
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      <div class="skeleton-card"></div><div class="skeleton-card"></div>
+    </div>
+    
+    <div class="downloads-empty hidden" id="results-empty">
+      <ion-icon name="film-outline"></ion-icon>
+      <p>No se encontraron resultados.</p>
+      <p class="results-empty-hint" id="results-empty-hint">Prueba otro término o quita filtros.</p>
+      <div class="results-empty-suggest" id="results-empty-suggest"></div>
+    </div>
+
+    <div class="results-error hidden" id="results-error">
+      <ion-icon name="cloud-offline-outline"></ion-icon>
+      <p id="results-error-text">No se pudo cargar el catálogo.</p>
+      <button type="button" class="btn-retry" id="btn-retry-grid">Reintentar</button>
+    </div>
+
+    <div class="catalog-grid" id="results-grid"></div>
+
+    <div id="scroll-sentinel" class="scroll-sentinel hidden">
+      <div class="spinner"></div>
+      <p>Cargando más contenidos...</p>
+    </div>
+  </section>
+
+<div id="details-panel" class="hidden">
+    <div class="modal-backdrop-close" id="modal-backdrop-close"></div>
+    <button type="button" class="koi-btn-back" id="koi-btn-back" title="Volver" aria-label="Volver">
+      <ion-icon name="arrow-back-outline"></ion-icon>
+      <span>Volver</span>
+    </button>
+    <div class="details-content">      <div class="details-body">
+        <!-- Hero estilo Koiflix (solo PC, series/anime) -->
+        <section class="koi-hero" id="koi-hero" aria-hidden="true">
+          <div class="koi-hero-overlay"></div>
+          <div class="koi-hero-content">
+            <img id="koi-hero-logo" class="koi-hero-logo hidden" src="" alt="" />
+            <h1 id="koi-hero-title" class="koi-hero-title">Título</h1>
+            <div class="koi-hero-meta" id="koi-hero-meta"></div>
+            <div class="koi-hero-actions">
+              <button type="button" class="koi-btn-play" id="koi-btn-play">
+                <ion-icon name="play"></ion-icon>
+                <span id="koi-btn-play-text">COMENZAR A VER E1</span>
+              </button>
+              <button type="button" class="koi-btn-bookmark" id="koi-btn-bookmark" title="Favoritos">
+                <ion-icon name="bookmark-outline" id="koi-btn-bookmark-icon"></ion-icon>
+              </button>
+            </div>
+            <p class="koi-hero-synopsis koi-syn-clamp" id="koi-hero-synopsis"></p>
+            <button type="button" class="koi-toggle-details hidden" id="koi-toggle-details">MÁS DETALLES</button>
+          </div>
+        </section>
+
+        <div class="mz-details-loading hidden" id="details-loading" aria-live="polite">
+          <div class="mz-details-loading-inner">
+            <div class="mz-details-skel-logo"></div>
+            <div class="mz-details-skel-line w60"></div>
+            <div class="mz-details-skel-line w40"></div>
+            <div class="mz-details-skel-line w80"></div>
+            <p class="mz-details-loading-text">Cargando detalle…</p>
+          </div>
+        </div>
+        <div class="details-empty" id="details-empty">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <h3>Detalles del Contenido</h3>
+          <p>Selecciona un elemento para ver su sinopsis, temporadas, servidores y opciones de descarga.</p>
+        </div>
+        <div class="details-content-inner hidden" id="details-content">
+          <div class="mz-detail-layout">
+          <div class="mz-meta-col">
+          <div class="details-header-card mz-stremio-header">
+            <div class="mz-stremio-poster-col">
+              <img id="details-poster" src="" alt="Poster" class="details-poster">
+            </div>
+            <div class="details-meta-info mz-stremio-info">
+              <img id="details-logo" class="details-logo hidden" src="" alt="" />
+
+              <div class="details-type-row">
+                <div class="details-type-left">
+                  <span class="media-type-badge" id="details-type">PELICULA</span>
+                  <span class="details-type-rating hidden" id="details-type-rating" title="">
+                    <ion-icon name="star"></ion-icon>
+                    <span id="details-type-rating-text">—</span>
+                  </span>
+                </div>
+                <div class="details-type-actions">
+                  <button class="btn-icon" id="btn-share" title="Copiar enlace">
+                    <ion-icon name="share-outline" id="btn-share-icon"></ion-icon>
+                  </button>
+                  <button class="btn-icon" id="btn-favorito" title="Agregar a favoritos">
+                    <ion-icon name="bookmark-outline" id="btn-favorito-icon"></ion-icon>
+                  </button>
+                  <button class="btn-icon" id="btn-notify-ep" title="Notificar nuevos capítulos">
+                    <ion-icon name="notifications-outline" id="btn-notify-ep-icon"></ion-icon>
+                  </button>
+                </div>
+              </div>
+
+              <h3 id="details-title">Título del Contenido</h3>
+              <div class="koi-player-ep-title" id="koi-player-ep-title"></div>
+              <p id="details-original-title" class="subtext"></p>
+
+              <div class="meta-row details-meta-row">
+                <div class="meta-item year">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span id="details-year">-</span>
+                </div>
+                <div class="meta-item release hidden" id="details-release-wrap" title="Fecha de estreno">
+                  <ion-icon name="calendar-number-outline"></ion-icon>
+                  <span id="details-release">-</span>
+                </div>
+                <div class="meta-item rating" id="details-rating-wrap">
+                  <ion-icon name="star"></ion-icon>
+                  <span id="details-rating">-</span>
+                </div>
+
+                <div class="meta-item mz-imdb-wrap hidden" id="details-imdb-wrap">
+                  <a class="mz-imdb-btn" id="details-imdb-btn" href="#" target="_blank" rel="noopener noreferrer" title="Abrir en IMDb">
+                    <span id="details-imdb-score">—</span>
+                    <span class="mz-imdb-logo">IMDb</span>
+                  </a>
+                </div>
+                <div class="meta-item duration" id="details-duration-wrap">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span id="details-duration">-</span>
+                </div>
+                <div class="meta-item cert" id="details-cert-wrap">
+                  <ion-icon name="shield-checkmark-outline"></ion-icon>
+                  <span id="details-cert">-</span>
+                </div>
+                <div class="meta-item votes" id="details-votes-wrap">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span id="details-votes">-</span>
+                </div>
+                <div class="meta-item status hidden" id="details-status-wrap" title="Estado">
+                  <ion-icon name="radio-outline"></ion-icon>
+                  <span id="details-status">-</span>
+                </div>
+              </div>
+
+              <div class="details-genres" id="details-genres"></div>
+            </div>
+          </div>
+    
+          <div class="details-section mz-synopsis-section">
+            <h4>Sinopsis</h4>
+            <p id="details-synopsis" class="synopsis-text">Sinopsis completa del contenido...</p>
+          </div>
+
+          <div class="details-section hidden" id="servers-section">
+            <div class="servers-header">
+              <h4 id="servers-section-title">Reproductores</h4>
+              <button type="button" class="btn-refresh-servers" id="btn-refresh-servers" title="Forzar actualización de servidores">
+                <ion-icon name="refresh-outline"></ion-icon>
+                <span>Actualizar</span>
+              </button>
+            </div>
+            <div class="loading-state hidden" id="servers-loading">
+              <div class="spinner"></div>
+              <p>Buscando servidores disponibles...</p>
+            </div>
+            <div class="servers-list" id="servers-container"></div>
+          </div>
+
+          <div class="details-section hidden" id="downloads-section">
+            <h4>Opciones de Descarga</h4>
+            <div class="servers-list" id="downloads-list-container"></div>
+          </div>
+
+          <!-- Cuadro reproductor (películas: abajo de descargas) -->
+          <div class="video-player-container hidden" id="video-player-container">
+            <div class="player-header">
+              <span id="player-title">Reproduciendo...</span>
+              <button class="btn-fs-player hidden" id="btn-fs-player" title="Pantalla completa" type="button">
+                <ion-icon name="expand-outline" id="btn-fs-player-icon"></ion-icon>
+              </button>
+              <button class="btn-close-player" id="close-player-btn" title="Cerrar reproductor">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
+            </div>
+            <div class="mz-ep-controls" id="mz-ep-controls">
+              <button type="button" class="mz-ep-btn mz-ep-auto" id="btn-autoplay-ep" title="Reproducción automática">
+                <span class="mz-ep-dot"></span>
+                <span id="btn-autoplay-ep-text">Auto</span>
+              </button>
+            </div>
+            <div class="player-iframe-wrapper">
+              <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+            </div>
+          </div>
+
+          </div><!-- /.mz-meta-col -->
+
+          <div class="mz-streams-col">
+          <div class="details-section hidden" id="seasons-section">
+            <h4>Temporadas y Capítulos</h4>
+            <div id="mz-provider-switch" class="mz-provider-switch hidden" aria-label="Cambiar proveedor"></div>
+            <div class="seasons-tabs" id="seasons-tabs-container"></div>
+            <div class="episodes-grid" id="episodes-container"></div>
+          </div>
+          </div><!-- /.mz-streams-col -->
+          </div><!-- /.mz-detail-layout -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+<link rel="stylesheet" href="/styles.css?v=1.6">
+<link rel="stylesheet" href="/css/koi-episode-player.css?v=1.3">
+<link rel="stylesheet" href="/css/koi-pc-detail.css?v=1.5">
+<link rel="stylesheet" href="/css/koi-pc-player-layout.css?v=1.4">
+<link rel="stylesheet" href="/css/koi-pc-player-fix.css?v=1.1">
+<link rel="stylesheet" href="/css/wakeup.css?v=1">
+<!-- Último: anula display:none del hero en móvil -->
+<link rel="stylesheet" href="/css/mobile-fixes.css?v=1.6">
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+<script src="/js/koi-episode-player.js?v=1.6"></script>
+<script type="module" src="/app.js?v=2.1"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/sw.js?v=20260927f").then(function (reg) {
+        try { reg.update(); } catch (e) {}
+        // Nueva versión del SW → recargar una vez para aplicar JS/CSS
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        reg.addEventListener("updatefound", function () {
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", function () {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              // Hay update: pedir al SW que tome control
+              try { nw.postMessage({ type: "SKIP_WAITING" }); } catch (e) {}
+            }
+          });
+        });
+      }).catch(function () {});
+      // Cuando el SW nuevo toma control, recargar 1 vez
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (refreshing) return;
+        refreshing = true;
+        try {
+          if (!sessionStorage.getItem("mz_sw_reloaded_" + "20260927f")) {
+            sessionStorage.setItem("mz_sw_reloaded_" + "20260927f", "1");
+            location.reload();
+          }
+        } catch (e) { location.reload(); }
+      });
+    });
+  });
+  }
+</script>
+<script src="/mobile-menu.js?v=20260927f"></script>
+<!-- Pantalla perfiles -->
+<div id="mz-profile-gate" class="mz-profile-gate hidden" aria-hidden="true">
+  <div class="mz-profile-gate-card">
+    <h1 id="mz-gate-title">¿Quién eres?</h1>
+    <p id="mz-gate-sub">Elige un perfil o crea uno nuevo</p>
+    <div id="mz-profile-list" class="mz-profile-list"></div>
+    <div class="mz-profile-actions">
+      <button type="button" id="mz-btn-guest" class="mz-btn-ghost">Entrar como invitado</button>
+      <button type="button" id="mz-btn-create" class="mz-btn-primary">Crear perfil</button>
+    </div>
+    <form id="mz-create-form" class="mz-create-form hidden">
+      <h2 class="mz-create-title">Agregar perfil</h2>
+      <p class="mz-create-hint">Agrega un perfil para otra persona que ve MovieZone.</p>
+      <div class="mz-create-body">
+        <div class="mz-create-avatar-preview" id="mz-create-preview">?</div>
+        <div class="mz-create-fields">
+          <input type="text" id="mz-create-name" maxlength="18" placeholder="Nombre" required autocomplete="off" />
+          <label class="mz-kids-check">
+            <input type="checkbox" id="mz-create-kids" />
+            <span>Perfil para niños</span>
+          </label>
+        </div>
+      </div>
+      <div class="mz-create-row">
+        <button type="submit" class="mz-btn-primary">Continuar</button>
+        <button type="button" id="mz-create-cancel" class="mz-btn-ghost">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+  
+
+<script>
+/* Failsafe boot + reintento de datos en inicio */
+(function () {
+  function showHome() {
+    try {
+      document.documentElement.classList.remove("mz-deep-boot", "mz-deep-ep");
+      document.documentElement.classList.add("mz-deep-ready");
+      if (document.body) {
+        document.body.classList.remove("mz-deep-loading", "mz-booting", "mz-waiting-detail");
+      }
+      try { delete document.documentElement.dataset.mzWaitDetail; } catch (e) {}
+      var el = document.getElementById("mz-boot-loading");
+      if (el) {
+        el.classList.add("hidden");
+        el.removeAttribute("data-mz-lock");
+        el.style.cssText = "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;";
+      }
+      ["home-view", "grid-view", "carousel-section-container"].forEach(function (id) {
+        var n = document.getElementById(id);
+        if (n) {
+          n.style.visibility = "visible";
+          n.style.pointerEvents = "auto";
+          n.style.opacity = "1";
+        }
+      });
+    } catch (e) {}
+  }
+  function retryHomeIfEmpty() {
+    try {
+      var path = location.pathname || "/";
+      if (path !== "/" && path !== "") return;
+      var c = document.getElementById("carousel-movies");
+      var empty = !c || !c.querySelector(".carousel-card, .media-card, a, img");
+      if (empty && typeof window.cargarHome === "function") {
+        window.cargarHome();
+      }
+    } catch (e) {}
+  }
+  window.__mzBootFailsafe = function () {
+    showHome();
+    setTimeout(retryHomeIfEmpty, 300);
+  };
+  // Solo liberar overlay; datos se reintentan si hace falta
+  setTimeout(function () { showHome(); }, 10000);
+  setTimeout(function () { retryHomeIfEmpty(); }, 3500);
+  window.addEventListener("load", function () {
+    setTimeout(function () { showHome(); retryHomeIfEmpty(); }, 2500);
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,67 @@
+/* public/css/wakeup.css */
+.wakeup {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+  opacity: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.wakeup.is-visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.wakeup .fa-spin {
+  animation: spin 1s linear infinite;
+  font-size: 1.4rem;
+  color: #fbbf24;
+}
+
+.wakeup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wakeup__title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.wakeup__note {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .wakeup {
+    top: 10px;
+    padding: 0.75rem 1rem;
+    width: calc(100% - 20px);
+    border-radius: 12px;
+  }
+  .wakeup__title {
+    font-size: 0.9rem;
+  }
+  .wakeup__note {
+    font-size: 0.75rem;
+  }
+}
